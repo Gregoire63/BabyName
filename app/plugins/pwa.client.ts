@@ -37,30 +37,50 @@ export default defineNuxtPlugin(() => {
 
   const idLocal = useRuntimeConfig().app.buildId
 
-  /** Filet 3 : le serveur publie l'identifiant du build en cours. */
+  /**
+   * Filet 3 : le serveur publie l'identifiant du build en cours.
+   *
+   * Garde-fou indispensable : si pour une raison quelconque la coquille
+   * servie reste ancienne alors que le manifeste est neuf, recharger en
+   * boucle rendrait le telephone inutilisable. On ne tente donc le coup
+   * qu'une seule fois par identifiant et par onglet.
+   */
   async function verifierBuild() {
     if (document.visibilityState !== 'visible') return
     try {
       const r = await fetch('/_nuxt/builds/latest.json', { cache: 'no-store' })
       if (!r.ok) return
       const { id } = await r.json()
-      if (id && idLocal && id !== idLocal) {
-        // Le service worker garde peut-etre encore l'ancienne coquille.
-        if ('caches' in window) {
-          for (const k of await caches.keys()) {
-            if (k.startsWith('coquille-')) await caches.delete(k)
-          }
+      if (!id || !idLocal || id === idLocal) return
+
+      const cle = `bn_recharge_${id}`
+      try { if (sessionStorage.getItem(cle)) return } catch { return }
+      try { sessionStorage.setItem(cle, '1') } catch { return }
+
+      // Le service worker garde peut-etre encore l'ancienne coquille.
+      if ('caches' in window) {
+        for (const k of await caches.keys()) {
+          if (k.startsWith('coquille-')) await caches.delete(k)
         }
-        recharger()
       }
+      recharger()
     } catch { /* hors ligne : on garde la version en place */ }
   }
 
-  if (!('serviceWorker' in navigator)) {
-    document.addEventListener('visibilitychange', verifierBuild)
+  // Le filet 3 est branche INCONDITIONNELLEMENT : navigation privee, reglage
+  // d'entreprise, http simple — l'enregistrement du worker peut echouer, et
+  // c'est precisement la qu'on a le plus besoin d'un filet.
+  let demanderMajWorker: () => void = () => {}
+  const verifier = () => {
+    if (document.visibilityState !== 'visible') return
+    demanderMajWorker()
     verifierBuild()
-    return
   }
+  document.addEventListener('visibilitychange', verifier)
+  setInterval(verifier, 10 * 60 * 1000)
+  verifierBuild()
+
+  if (!('serviceWorker' in navigator)) return
 
   // Vrai seulement si une version tournait deja : on ne recharge pas a la
   // toute premiere installation du worker, ca ferait clignoter l'app.
@@ -69,11 +89,12 @@ export default defineNuxtPlugin(() => {
     if (dejaControle) recharger()
   })
 
-  window.addEventListener('load', async () => {
+  const brancher = async () => {
     try {
       // updateViaCache: 'none' — sans ca le navigateur peut servir sw.js
       // depuis son propre cache HTTP et ne jamais voir la nouvelle version.
       const reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+      demanderMajWorker = () => { reg.update().catch(() => {}) }
 
       reg.addEventListener('updatefound', () => {
         const neuf = reg.installing
@@ -83,15 +104,12 @@ export default defineNuxtPlugin(() => {
           }
         })
       })
-
-      const verifier = () => {
-        if (document.visibilityState !== 'visible') return
-        reg.update().catch(() => {})
-        verifierBuild()
-      }
-      document.addEventListener('visibilitychange', verifier)
-      setInterval(verifier, 10 * 60 * 1000)
-      verifier()
-    } catch { /* pas de service worker : le filet 3 reste actif */ }
-  })
+    } catch (e) {
+      // Pas de worker : pas d'installation possible, pas de cache hors ligne,
+      // mais le filet 3 ci-dessus continue de detecter les nouvelles versions.
+      console.warn('[babyNames] service worker indisponible', e)
+    }
+  }
+  if (document.readyState === 'complete') brancher()
+  else window.addEventListener('load', brancher)
 })
