@@ -5,7 +5,7 @@ export default defineEventHandler(async () => {
     base: !!(c.databaseUrl || process.env.DATABASE_URL),
     secret_session: !!(c.sessionSecret || process.env.SESSION_SECRET),
     envoi_email: !!c.resendApiKey,
-    mode_debug_lien: c.magicLinkDebug === '1'
+    mode_debug_lien: String(c.magicLinkDebug ?? '') === '1'
   }
   let base: any = { joignable: false }
   if (presence.base) {

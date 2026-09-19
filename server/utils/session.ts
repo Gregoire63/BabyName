@@ -7,7 +7,8 @@ const DUREE = 60 * 60 * 24 * 120          // 120 jours
 const b64 = (b: Buffer) => b.toString('base64url')
 
 function secret(): string {
-  const s = useRuntimeConfig().sessionSecret || process.env.SESSION_SECRET || ''
+  // String() : destr transformerait un secret 100 % numerique en nombre
+  const s = String(useRuntimeConfig().sessionSecret || process.env.SESSION_SECRET || '')
   if (!s) throw createError({ statusCode: 500, statusMessage: 'SESSION_SECRET absente' })
   return s
 }
