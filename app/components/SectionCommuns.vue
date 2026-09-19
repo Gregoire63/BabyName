@@ -74,6 +74,7 @@ const enRetard = computed(() => {
       <p v-if="erreur" class="rappel mini">{{ erreur }}</p>
 
       <div v-if="!communs.length" class="vide">
+        <Etincelles :taille="34" couleur="var(--menthe)" />
         <h2>Rien en commun pour l’instant</h2>
         <p>Un prénom arrive ici quand <strong>tout le monde</strong> a voté dessus,
            que personne n’a dit non, et qu’au moins un a dit oui.</p>

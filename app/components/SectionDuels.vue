@@ -45,6 +45,7 @@ async function choisir(gagnant: string | null) {
         <button class="btn" @click="g.allerA('swipe')">Continuer à trier</button>
       </template>
       <template v-else>
+        <Etincelles :taille="34" couleur="var(--peche)" />
         <h2>Tout est départagé</h2>
         <p>Vous avez joué tous les duels utiles. Le classement est à jour.</p>
         <button class="btn" @click="g.allerA('classement')">Voir le classement</button>

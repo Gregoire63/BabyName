@@ -13,6 +13,13 @@ export default defineNuxtConfig({
       ],
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },
+        // Apple a deja SF Pro Rounded (ui-rounded) : Nunito n'est la que pour
+        // les autres. Chargee sans bloquer le rendu, la fonte systeme sert
+        // en attendant.
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        { rel: 'stylesheet', media: 'print', onload: "this.media='all'",
+          href: 'https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;800&display=swap' },
         { rel: 'icon', href: '/logo.png', type: 'image/png' },
         { rel: 'apple-touch-icon', href: '/logo.png' }
       ]

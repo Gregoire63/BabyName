@@ -67,7 +67,10 @@ onMounted(async () => { if (await rafraichirMoi()) await suite() })
       </div>
 
       <div class="carte pile">
-        <h2>Votre clé d’accès</h2>
+        <div class="ligne">
+          <Etincelles :taille="22" couleur="var(--peche)" />
+          <h2>Votre clé d’accès</h2>
+        </div>
         <p class="mini doux" style="margin:0">
           Elle remplace le mot de passe. Notez-la maintenant : elle ne s’affiche
           qu’une fois, et elle seule permet de retrouver votre compte sur un
@@ -144,7 +147,7 @@ onMounted(async () => { if (await rafraichirMoi()) await suite() })
 .haut p { margin: 0; }
 .champ.grand { text-align: center; font-size: 1.25rem; letter-spacing: .1em;
   font-variant-numeric: tabular-nums; padding: 16px 12px; }
-.cle { display: block; width: 100%; border: 1px dashed var(--trait); border-radius: 14px;
+.cle { display: block; width: 100%; border: 1px dashed var(--trait); border-radius: var(--r-s);
   background: var(--fond); padding: 18px 10px; cursor: pointer;
   font: inherit; font-size: 1.35rem; font-weight: 700; letter-spacing: .08em;
   text-align: center; color: var(--texte); }

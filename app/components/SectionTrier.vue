@@ -125,6 +125,7 @@ async function enregistrerFiltres() {
                       :nb="pioche.length" @fermer="enregistrerFiltres" />
 
       <div v-if="quotaAtteint" class="vide">
+        <Etincelles :taille="34" couleur="var(--peche)" />
         <h2>C’est assez pour aujourd’hui</h2>
         <p>{{ plafond }} prénoms jugés. Trier à la chaîne abîme le jugement :
            les vingt derniers ne valent pas les vingt premiers.</p>
@@ -147,6 +148,7 @@ async function enregistrerFiltres() {
                  @pointerdown="debut" @pointermove="bouge"
                  @pointerup="fin" @pointercancel="fin">
           <div v-if="intention" class="verdict" :class="intention">
+            <Etincelles v-if="intention === 'oui'" :taille="16" />
             {{ intention === 'oui' ? 'Oui' : intention === 'non' ? 'Non' : 'Neutre' }}
           </div>
 
@@ -157,7 +159,7 @@ async function enregistrerFiltres() {
             <button class="etoile" :class="{ on: g.favoris.value.has(carte.l) }"
                     :aria-label="g.favoris.value.has(carte.l) ? 'Retirer des gardés' : 'Garder'"
                     @click.stop="basculerFavori">
-              {{ g.favoris.value.has(carte.l) ? '★' : '☆' }}
+              <Etincelles :taille="22" />
             </button>
           </div>
 
@@ -243,14 +245,16 @@ async function enregistrerFiltres() {
 .bas { display: flex; justify-content: space-between; align-items: center; padding-top: 2px; }
 .bas .btn { padding: 6px 0; }
 
-.etoile { border: 0; background: none; font-size: 1.35rem; line-height: 1; cursor: pointer;
-  color: var(--trait); padding: 2px 4px; transition: color .15s, transform .1s; }
-.etoile.on { color: var(--peche); }
-.etoile:not(.on) { color: var(--doux); opacity: .8; }
+.etoile { border: 0; background: none; cursor: pointer; padding: 3px 4px; line-height: 0;
+  transition: transform .12s; }
+.etoile :deep(svg) { transition: fill .15s, opacity .15s; }
+.etoile.on { color: var(--peche); transform: scale(1.12); }
+.etoile:not(.on) { color: var(--doux); opacity: .32; }
 .etoile:active { transform: scale(.88); }
 
-.verdict { position: absolute; top: 14px; left: 50%; translate: -50% 0; padding: 6px 18px;
-  border-radius: 999px; font-weight: 700; letter-spacing: .03em; z-index: 2; color: #fff; }
+.verdict { position: absolute; top: 14px; left: 50%; translate: -50% 0; padding: 7px 20px;
+  border-radius: var(--pastille); font-weight: 800; letter-spacing: .02em; z-index: 2;
+  color: #fff; display: flex; align-items: center; gap: 7px; }
 .verdict.oui { background: var(--oui); }
 .verdict.non { background: var(--non); }
 .verdict.neutre { background: var(--neutre); }

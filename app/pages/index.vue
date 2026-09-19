@@ -117,9 +117,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
       <header class="tete">
         <img src="/logo.png" alt="" width="34" height="34">
         <h1 style="flex:1">babyNames</h1>
-        <button class="btn btn-0 mini doux" @click="sortir">
-          {{ moi?.pseudo ?? 'Quitter' }} · quitter
-        </button>
+        <span class="mini doux qui">{{ moi?.pseudo ?? '' }}</span>
       </header>
 
       <p v-if="chargement" class="doux">Chargement…</p>
@@ -138,6 +136,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <!-- liste en cours -->
         <NuxtLink v-if="principale" :to="`/g/${principale.id}/swipe`"
                   class="carte degrade grande">
+          <Etincelles class="deco" :taille="30" />
           <p class="etiquette">Liste en cours</p>
           <h2 class="titre">{{ principale.nom }}</h2>
           <div class="ligne chiffres">
@@ -151,6 +150,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         </NuxtLink>
 
         <div v-else class="carte degrade grande accueil">
+          <Etincelles class="deco" :taille="30" />
           <h2 class="titre">Commencez ici</h2>
           <p class="mini" style="margin:0;opacity:.75">
             Quelques questions, et vous triez des prénoms à deux sans jamais voir
@@ -181,7 +181,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <template v-if="stats">
           <p class="section">La France en {{ annee }}</p>
 
-          <div class="carte tuile colonne">
+          <div class="carte tuile colonne large">
             <p class="etiquette">Les plus donnés · filles</p>
             <button v-for="(p, i) in stats.topF" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="n">{{ i + 1 }}</span><span class="q">{{ p.l }}</span>
@@ -189,7 +189,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
             </button>
           </div>
 
-          <div class="carte tuile colonne">
+          <div class="carte tuile colonne large">
             <p class="etiquette">Les plus donnés · garçons</p>
             <button v-for="(p, i) in stats.topM" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="n">{{ i + 1 }}</span><span class="q">{{ p.l }}</span>
@@ -211,14 +211,14 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
             </div>
           </div>
 
-          <div class="carte tuile colonne">
+          <div class="carte tuile colonne large">
             <p class="etiquette">Ça monte</p>
             <button v-for="p in stats.monte" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="q">{{ p.l }}</span><em style="color:var(--non)">+{{ p.t.toFixed(0) }} %</em>
             </button>
           </div>
 
-          <div class="carte tuile colonne">
+          <div class="carte tuile colonne large">
             <p class="etiquette">Ça retombe</p>
             <button v-for="p in stats.tombe" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="q">{{ p.l }}</span><em style="color:var(--oui)">{{ p.t.toFixed(0) }} %</em>
@@ -255,7 +255,8 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           millésime 2025<br>
           <button class="version" @click="vider">
             version {{ version }}{{ purge ? ' — rechargement…' : ' · toucher pour recharger à neuf' }}
-          </button>
+          </button><br>
+          <button class="version" @click="sortir">Se déconnecter</button>
         </p>
       </div>
     </div>
@@ -271,12 +272,17 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
   padding: max(16px, env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom)); }
 .tete { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 .tete img { border-radius: 9px; }
-.tete h1 { font-size: 1.25rem; }
+.tete h1 { font-size: 1.25rem; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
+.qui { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.bento { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.bento { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bento > * { min-width: 0; }
 .grande, .large, .section, .credit { grid-column: 1 / -1; }
 
-.grande { display: flex; flex-direction: column; gap: 7px; color: var(--encre); padding: 20px; }
+.grande { display: flex; flex-direction: column; gap: 7px; color: var(--encre); padding: 20px;
+  position: relative; overflow: hidden; }
+.deco { position: absolute; top: 14px; right: 16px; opacity: .3; }
 .titre { font-size: 1.5rem; letter-spacing: -.03em; }
 .etiquette { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em;
   font-weight: 700; color: var(--doux); margin: 0; }
@@ -294,7 +300,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .rang { display: flex; align-items: baseline; gap: 7px; background: none; border: 0;
   padding: 3px 0; cursor: pointer; text-align: left; font-weight: 560; width: 100%; }
 .rang .q { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap; }
+  white-space: nowrap; font-size: 1.02rem; }
 .rang em { font-style: normal; font-size: .72rem; color: var(--doux); white-space: nowrap;
   font-variant-numeric: tabular-nums; flex: none; }
 .rang .n { color: var(--doux); font-size: .74rem; width: 11px; flex: none; }

@@ -28,7 +28,7 @@ async function installer() {
     </svg>
     <div>
       <strong>Installer l’application</strong>
-      <p class="mini" style="margin:2px 0 0;opacity:.7">
+      <p class="mini" style="margin:2px 0 0;opacity:.72">
         {{ ios ? 'Sur l’écran d’accueil, comme une vraie app' : 'Plein écran, hors ligne, sans navigateur' }}
       </p>
       <p v-if="aide" class="mini aide">
@@ -41,7 +41,7 @@ async function installer() {
 
 <style scoped>
 .tuile { display: flex; align-items: center; gap: 13px; cursor: pointer; color: var(--encre);
-  padding: 15px 17px; }
+  padding: 16px 18px; position: relative; overflow: hidden; }
 .tuile:active { transform: scale(.99); }
 svg { width: 26px; height: 26px; flex: none; stroke: currentColor; fill: none;
   stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
