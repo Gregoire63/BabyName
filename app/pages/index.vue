@@ -73,6 +73,21 @@ const stats = computed(() => {
   return { topF: top('f'), topM: top('m'), monte, tombe, guetter, revivals, total: l.length }
 })
 
+// Repere de version : « suis-je bien sur la derniere ? » doit se repondre
+// d'un coup d'oeil, et un appui long donne la sortie de secours.
+const version = computed(() => String(useRuntimeConfig().app.buildId ?? '').slice(0, 7))
+const purge = ref(false)
+async function vider() {
+  purge.value = true
+  try {
+    if ('caches' in window) for (const k of await caches.keys()) await caches.delete(k)
+    if ('serviceWorker' in navigator) {
+      for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister()
+    }
+  } catch { /* rien a vider */ }
+  location.reload()
+}
+
 const fiche = ref<Prenom | null>(null)
 const parNom = computed(() => new Map(catalogue.value.map(p => [p.l, p])))
 const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
@@ -207,7 +222,10 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
         <p class="mini doux credit">
           {{ stats?.total.toLocaleString('fr-FR') ?? '—' }} prénoms · fichier INSEE des prénoms,
-          millésime 2025
+          millésime 2025<br>
+          <button class="version" @click="vider">
+            version {{ version }}{{ purge ? ' — rechargement…' : ' · toucher pour recharger à neuf' }}
+          </button>
         </p>
       </div>
     </div>
@@ -257,4 +275,6 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .large.colonne { display: flex; flex-direction: column; gap: 7px; padding: 15px 16px; }
 .passee { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 .credit { text-align: center; margin: 14px 0 0; }
+.version { background: none; border: 0; color: inherit; font: inherit; opacity: .65;
+  padding: 7px 4px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 </style>
