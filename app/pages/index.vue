@@ -11,10 +11,27 @@ const assistant = ref(false)
 const catalogue = ref<Prenom[]>([])
 const annee = ref(2025)
 
+/**
+ * Une erreur serveur n'est PAS une deconnexion.
+ *
+ * L'ancienne version renvoyait vers /connexion des que cet appel echouait,
+ * quelle qu'en soit la raison. Comme /connexion renvoie vers l'accueil quand
+ * la session est valide, une simple 500 suffisait a faire clignoter l'app
+ * entre les deux ecrans, indefiniment. Seul un 401 doit ramener a la
+ * connexion ; le reste s'affiche.
+ */
+const panne = ref('')
 async function charger() {
-  try { groupes.value = await $fetch('/api/groupes') }
-  catch { await navigateTo('/connexion'); return }
-  finally { chargement.value = false }
+  panne.value = ''
+  try {
+    groupes.value = await $fetch('/api/groupes')
+  } catch (e: any) {
+    const code = e?.statusCode ?? e?.response?.status
+    if (code === 401) return navigateTo('/connexion')
+    panne.value = code === 403
+      ? 'Accès refusé.'
+      : `Le serveur n’a pas répondu correctement${code ? ` (erreur ${code})` : ''}.`
+  } finally { chargement.value = false }
 }
 
 async function creer(filtres: Filtres) {
@@ -106,6 +123,16 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
       </header>
 
       <p v-if="chargement" class="doux">Chargement…</p>
+
+      <div v-else-if="panne" class="carte pile panne">
+        <h2>Ça coince côté serveur</h2>
+        <p class="mini" style="margin:0">{{ panne }}</p>
+        <p class="mini doux" style="margin:0">
+          Votre session est intacte — c’est la liste qui n’a pas pu être lue.
+        </p>
+        <button class="btn btn-1" @click="chargement = true; charger()">Réessayer</button>
+        <button class="btn btn-0 doux" @click="sortir">Se déconnecter</button>
+      </div>
 
       <div v-else class="bento">
         <!-- liste en cours -->
@@ -278,6 +305,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .large.colonne { display: flex; flex-direction: column; gap: 7px; padding: 15px 16px; }
 .passee { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 .credit { text-align: center; margin: 14px 0 0; }
+.panne { border-color: var(--non); }
 .version { background: none; border: 0; color: inherit; font: inherit; opacity: .65;
   padding: 7px 4px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 </style>
