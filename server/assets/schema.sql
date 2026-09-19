@@ -190,26 +190,34 @@ having count(*) = (select count(*) from membres mm where mm.groupe_id = v.groupe
    and min(v.valeur) > 0
    and count(*) filter (where v.valeur = 2) >= 1;
 
--- Rang personnel : le top-20 manuel prime, l'Elo classe le reste.
+-- Rang personnel : le top manuel prime, l'Elo classe le reste.
+-- L'Elo reprend juste APRES le dernier rang manuel (et non a 21 en dur) :
+-- sinon, sans classement manuel, les rangs commencent a 21 et la
+-- normalisation du classement general ecrase toute l'echelle.
 create or replace view v_rang_personnel as
 with base as (
   select e.groupe_id, e.user_id, e.prenom, cm.position as pos_manuelle,
-         row_number() over (partition by e.groupe_id, e.user_id order by e.score desc) as rang_elo
+         row_number() over (partition by e.groupe_id, e.user_id order by e.score desc) as rang_elo,
+         coalesce(max(cm.position) over (partition by e.groupe_id, e.user_id), 0) as n_manuel
   from elo e
   left join classement_manuel cm
     on cm.groupe_id = e.groupe_id and cm.user_id = e.user_id and cm.prenom = e.prenom
 )
 select groupe_id, user_id, prenom,
        coalesce(pos_manuelle,
-                20 + row_number() over (partition by groupe_id, user_id, (pos_manuelle is null)
-                                        order by rang_elo)) as rang
+                n_manuel + row_number() over (partition by groupe_id, user_id, (pos_manuelle is null)
+                                              order by rang_elo)) as rang
 from base;
 
 -- Classement général : moyenne pondérée des rangs normalisés + indice de consensus.
 create or replace view v_classement_general as
 with n as (
+  -- normalisation sur l'etendue reelle (min..max) et non sur 1..max :
+  -- le mieux classe vaut 1, le moins bien 0, quel que soit le rang de depart
   select r.groupe_id, r.prenom, r.user_id, m.poids,
-         1.0 - (r.rang::real - 1) / nullif(max(r.rang) over (partition by r.groupe_id, r.user_id) - 1, 0) as note
+         1.0 - (r.rang::real - min(r.rang) over (partition by r.groupe_id, r.user_id))
+               / nullif(max(r.rang) over (partition by r.groupe_id, r.user_id)
+                        - min(r.rang) over (partition by r.groupe_id, r.user_id), 0) as note
   from v_rang_personnel r
   join membres m on m.groupe_id = r.groupe_id and m.user_id = r.user_id
 )
