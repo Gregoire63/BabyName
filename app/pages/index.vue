@@ -2,6 +2,7 @@
 import { chargerCatalogue, frequenceLisible, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
 
+const moi = useMoi()
 const groupes = ref<any[]>([])
 const chargement = ref(true)
 const code = ref('')
@@ -99,7 +100,9 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
       <header class="tete">
         <img src="/logo.png" alt="" width="34" height="34">
         <h1 style="flex:1">babyNames</h1>
-        <button class="btn btn-0 mini doux" @click="sortir">Quitter</button>
+        <button class="btn btn-0 mini doux" @click="sortir">
+          {{ moi?.pseudo ?? 'Quitter' }} · quitter
+        </button>
       </header>
 
       <p v-if="chargement" class="doux">Chargement…</p>

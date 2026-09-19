@@ -28,6 +28,26 @@ async function partager() {
   copie.value = true; setTimeout(() => copie.value = false, 1800)
 }
 
+// --- compte -------------------------------------------------------------
+const moi = useMoi()
+const cleNeuve = ref('')
+const demandeCle = ref(false)
+const copieCle = ref(false)
+
+async function regenererCle() {
+  const r = await $fetch<any>('/api/auth/cle', { method: 'POST' }).catch(() => null)
+  if (r?.cle) { cleNeuve.value = r.cle; demandeCle.value = false }
+}
+async function copierCle() {
+  try { await navigator.clipboard.writeText(cleNeuve.value) } catch { /* selection manuelle */ }
+  copieCle.value = true
+  setTimeout(() => copieCle.value = false, 1800)
+}
+async function sortir() {
+  await $fetch('/api/auth/sortir', { method: 'POST' })
+  await navigateTo('/connexion')
+}
+
 const erreur = ref('')
 async function retirerVeto(prenom: string) {
   erreur.value = ''
@@ -122,7 +142,41 @@ const filtresActifs = computed(() => {
         </div>
       </section>
 
-      <NuxtLink class="btn btn-0 doux" to="/" style="align-self:center">Toutes mes listes</NuxtLink>
+      <section class="carte pile">
+        <h2>Mon compte</h2>
+        <p class="mini doux" style="margin:0">
+          Connecté en tant que <strong>{{ moi?.pseudo ?? '…' }}</strong>.
+          Votre clé d’accès ne sert qu’à retrouver ce compte sur un autre téléphone.
+        </p>
+
+        <button v-if="cleNeuve" class="cle" @click="copierCle">{{ cleNeuve }}</button>
+        <p v-if="cleNeuve" class="mini" :class="copieCle ? '' : 'doux'"
+           style="margin:0;text-align:center">
+          {{ copieCle ? 'Copiée' : 'Touchez pour copier' }} — notez-la, elle ne
+          réapparaîtra pas.
+        </p>
+
+        <template v-else-if="demandeCle">
+          <p class="mini" style="margin:0">
+            Générer une nouvelle clé <strong>annule immédiatement l’ancienne</strong>.
+            Un appareil qui s’en servait devra utiliser la nouvelle.
+          </p>
+          <div class="ligne">
+            <button class="btn btn-1 mini" @click="regenererCle">Générer quand même</button>
+            <button class="btn btn-0 mini doux" @click="demandeCle = false">Annuler</button>
+          </div>
+        </template>
+
+        <button v-else class="btn btn-0 mini doux" style="align-self:flex-start"
+                @click="demandeCle = true">
+          J’ai perdu ma clé — en générer une nouvelle
+        </button>
+      </section>
+
+      <div class="ligne" style="justify-content:center;gap:16px">
+        <NuxtLink class="btn btn-0 doux" to="/">Toutes mes listes</NuxtLink>
+        <button class="btn btn-0 doux" @click="sortir">Se déconnecter</button>
+      </div>
     </template>
   </div>
 </template>
@@ -132,4 +186,8 @@ const filtresActifs = computed(() => {
   color: var(--encre); }
 .code { font-size: 1.7rem; letter-spacing: .16em; font-weight: 700; }
 .invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
+.cle { display: block; width: 100%; border: 1px dashed var(--trait); border-radius: 13px;
+  background: var(--fond); padding: 15px 8px; cursor: pointer; font: inherit;
+  font-size: 1.2rem; font-weight: 700; letter-spacing: .07em; text-align: center;
+  color: var(--texte); }
 </style>

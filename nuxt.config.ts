@@ -20,10 +20,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     databaseUrl: '',              // NUXT_DATABASE_URL (injecte par Neon sur Vercel)
-    resendApiKey: '',             // NUXT_RESEND_API_KEY
-    mailFrom: 'Prénoms <onboarding@resend.dev>',
     sessionSecret: '',            // NUXT_SESSION_SECRET
-    magicLinkDebug: '',           // NUXT_MAGIC_LINK_DEBUG=1 : renvoie le lien au lieu de l'envoyer
     migrationSecret: '',          // NUXT_MIGRATION_SECRET : à retirer une fois la migration faite
     public: { siteUrl: '' }       // NUXT_PUBLIC_SITE_URL
   },

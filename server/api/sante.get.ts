@@ -6,8 +6,7 @@ export default defineEventHandler(async () => {
     base: !!url,
     base_variable: source,
     secret_session: !!(c.sessionSecret || process.env.SESSION_SECRET),
-    envoi_email: !!c.resendApiKey,
-    mode_debug_lien: String(c.magicLinkDebug ?? '') === '1'
+    secret_migration: !!process.env.NUXT_MIGRATION_SECRET
   }
   let base: any = { joignable: false }
   if (url) {

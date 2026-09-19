@@ -1,4 +1,4 @@
-export interface Moi { id: string; email: string; pseudo: string }
+export interface Moi { id: string; pseudo: string; a_une_cle: boolean }
 
 export function useMoi() {
   return useState<Moi | null>('moi', () => null)

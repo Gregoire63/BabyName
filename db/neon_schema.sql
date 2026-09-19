@@ -17,7 +17,7 @@ create extension if not exists pgcrypto;
 -- ---------------------------------------------------------------- comptes
 create table if not exists utilisateurs (
   id         uuid primary key default gen_random_uuid(),
-  email      text not null unique,
+  email      text unique,                  -- vestige : plus utilise
   pseudo     text not null,
   cree_le    timestamptz not null default now(),
   vu_le      timestamptz not null default now()
@@ -227,3 +227,20 @@ select groupe_id, prenom,
        count(*) as nb_classeurs
 from n
 group by groupe_id, prenom;
+
+-- ============================================================================
+--  Fin de l'authentification par e-mail.
+--
+--  Le lien magique supposait un fournisseur d'envoi, un domaine verifie et
+--  des enregistrements DNS, pour un service qui se resume a retrouver son
+--  compte sur un autre appareil — le code d'invitation fait deja entrer dans
+--  le bon groupe. On le remplace par une cle d'acces personnelle, dont seule
+--  l'empreinte SHA-256 est conservee ici.
+--
+--  Ce bloc est rejouable : les comptes existants gardent leur e-mail dans la
+--  colonne, qui n'est simplement plus lue nulle part.
+-- ============================================================================
+alter table utilisateurs alter column email drop not null;
+alter table utilisateurs add column if not exists cle_acces_hash text;
+create unique index if not exists idx_utilisateurs_cle
+  on utilisateurs (cle_acces_hash) where cle_acces_hash is not null;

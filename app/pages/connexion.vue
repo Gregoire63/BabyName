@@ -1,94 +1,152 @@
 <script setup lang="ts">
-const email = ref('')
-const pseudo = ref('')
-const etat = ref<'saisie' | 'envoi' | 'envoye'>('saisie')
-const erreur = ref('')
-const lienDebug = ref('')
 const route = useRoute()
+const pseudo = ref('')
+const cle = ref('')
+const mode = ref<'choix' | 'cle'>('choix')
+const envoi = ref(false)
+const erreur = ref('')
 
-if (route.query.erreur === 'lien_expire')
-  erreur.value = 'Ce lien a expiré ou a déjà servi. Demandez-en un nouveau.'
+// Clé fraîchement créée : on la montre une fois, puis on entre.
+const cleNeuve = ref('')
+const copie = ref(false)
 
-async function envoyer() {
-  erreur.value = ''; etat.value = 'envoi'
-  try {
-    const r = await $fetch<{ ok: boolean; lien_debug?: string }>('/api/auth/demander', {
-      method: 'POST', body: { email: email.value, pseudo: pseudo.value }
-    })
-    lienDebug.value = r.lien_debug ?? ''
-    etat.value = 'envoye'
-  } catch (e: any) {
-    etat.value = 'saisie'
-    if (e?.data?.statusMessage === 'trop_de_demandes') {
-      const min = e?.data?.data?.attente_minutes ?? 15
-      erreur.value = `Trop de liens demandés pour cette adresse. Réessayez dans ${min} minute${min > 1 ? 's' : ''}, ou utilisez une autre adresse.`
-    } else {
-      erreur.value = 'Adresse invalide.'
-    }
-  }
+const invitation = computed(() => {
+  const c = route.query.code
+  return typeof c === 'string' && c.trim().length === 8 ? c.trim() : ''
+})
+
+function suite() {
+  return navigateTo(invitation.value ? `/?code=${invitation.value}` : '/')
 }
+
+async function creer() {
+  erreur.value = ''
+  if (pseudo.value.trim().length < 2) { erreur.value = 'Il faut au moins deux lettres.'; return }
+  envoi.value = true
+  try {
+    const r = await $fetch<any>('/api/auth/entrer', {
+      method: 'POST', body: { pseudo: pseudo.value }
+    })
+    await rafraichirMoi()
+    cleNeuve.value = r.cle
+  } catch {
+    erreur.value = 'Création impossible. Réessayez dans un instant.'
+  } finally { envoi.value = false }
+}
+
+async function reprendre() {
+  erreur.value = ''
+  envoi.value = true
+  try {
+    await $fetch('/api/auth/reprendre', { method: 'POST', body: { cle: cle.value } })
+    await rafraichirMoi()
+    await suite()
+  } catch (e: any) {
+    erreur.value = e?.data?.statusMessage === 'cle_inconnue'
+      ? 'Cette clé ne correspond à aucun compte.'
+      : 'Clé incomplète.'
+  } finally { envoi.value = false }
+}
+
+async function copier() {
+  try { await navigator.clipboard.writeText(cleNeuve.value) } catch { /* selection manuelle */ }
+  copie.value = true
+  setTimeout(() => copie.value = false, 1800)
+}
+
+onMounted(async () => { if (await rafraichirMoi()) await suite() })
 </script>
 
 <template>
   <main class="accueil">
-    <div class="haut">
-      <img src="/logo.png" alt="" width="66" height="66">
-      <h1>babyNames</h1>
-      <p class="doux">Choisir un prénom à deux, sans s’influencer.</p>
-    </div>
+    <!-- 1. la clé vient d'être créée : elle ne sera plus jamais affichée -->
+    <template v-if="cleNeuve">
+      <div class="haut">
+        <img src="/logo.png" alt="" width="58" height="58">
+        <h1>Bonjour {{ pseudo.trim() }}</h1>
+      </div>
 
-    <div class="carte pile">
-      <template v-if="etat !== 'envoye'">
-        <label class="pile" style="gap:6px">
-          <span class="mini doux">Votre adresse e-mail</span>
-          <input v-model="email" class="champ" type="email" inputmode="email"
-                 autocomplete="email" placeholder="vous@exemple.fr" @keyup.enter="envoyer">
-        </label>
+      <div class="carte pile">
+        <h2>Votre clé d’accès</h2>
+        <p class="mini doux" style="margin:0">
+          Elle remplace le mot de passe. Notez-la maintenant : elle ne s’affiche
+          qu’une fois, et elle seule permet de retrouver votre compte sur un
+          autre téléphone.
+        </p>
+        <button class="cle" @click="copier">{{ cleNeuve }}</button>
+        <p class="mini" :class="copie ? '' : 'doux'" style="margin:0;text-align:center">
+          {{ copie ? 'Copiée' : 'Touchez pour copier' }}
+        </p>
+        <button class="btn btn-1" @click="suite">C’est noté, on y va</button>
+        <p class="mini doux" style="margin:0">
+          Vous restez connecté sur cet appareil pendant plusieurs mois. La clé
+          ne sert qu’en cas de changement de téléphone.
+        </p>
+      </div>
+    </template>
+
+    <!-- 2. reprise d'un compte existant -->
+    <template v-else-if="mode === 'cle'">
+      <div class="haut">
+        <img src="/logo.png" alt="" width="58" height="58">
+        <h1>Votre clé</h1>
+      </div>
+      <div class="carte pile">
+        <input v-model="cle" class="champ grand" placeholder="XXXX-XXXX-XXXX"
+               autocapitalize="characters" autocomplete="off" spellcheck="false"
+               @keyup.enter="reprendre">
+        <button class="btn btn-1" :disabled="envoi" @click="reprendre">
+          {{ envoi ? 'Vérification…' : 'Entrer' }}
+        </button>
+        <p v-if="erreur" class="mini" style="color:var(--non);margin:0">{{ erreur }}</p>
+        <button class="btn btn-0 doux" @click="mode = 'choix'; erreur = ''">Retour</button>
+      </div>
+    </template>
+
+    <!-- 3. première venue -->
+    <template v-else>
+      <div class="haut">
+        <img src="/logo.png" alt="" width="66" height="66">
+        <h1>babyNames</h1>
+        <p class="doux">Choisir un prénom à deux, sans s’influencer.</p>
+      </div>
+
+      <div class="carte pile">
         <label class="pile" style="gap:6px">
           <span class="mini doux">Votre prénom, pour que l’autre vous reconnaisse</span>
-          <input v-model="pseudo" class="champ" placeholder="Greg" @keyup.enter="envoyer">
+          <input v-model="pseudo" class="champ" placeholder="Greg" autocomplete="nickname"
+                 @keyup.enter="creer">
         </label>
-        <button class="btn btn-1" :disabled="etat === 'envoi'" @click="envoyer">
-          {{ etat === 'envoi' ? 'Envoi…' : 'Recevoir mon lien' }}
+        <button class="btn btn-1" :disabled="envoi" @click="creer">
+          {{ envoi ? 'Création…' : 'Commencer' }}
         </button>
         <p v-if="erreur" class="mini" style="color:var(--non);margin:0">{{ erreur }}</p>
         <p class="mini doux" style="margin:0">
-          Pas de mot de passe : vous recevez un lien valable 20 minutes.
+          Pas d’adresse e-mail, pas de mot de passe. On vous donne une clé à noter,
+          utile seulement si vous changez de téléphone.
         </p>
-      </template>
+      </div>
 
-      <template v-else>
-        <h2>{{ lienDebug ? 'Votre lien est prêt' : 'Regardez vos e-mails' }}</h2>
-        <p v-if="!lienDebug" class="doux" style="margin:0">
-          Un lien de connexion part vers <strong>{{ email }}</strong>. Il expire dans 20 minutes.
-        </p>
-        <div v-if="lienDebug" class="sans-mail">
-          <p style="margin:0 0 8px">
-            <strong>L’envoi d’e-mail n’est pas configuré</strong> sur ce déploiement :
-            aucun message ne partira. Votre lien est ci-dessous.
-          </p>
-          <a class="btn btn-1" :href="lienDebug" style="display:block;text-align:center">
-            Se connecter maintenant
-          </a>
-          <p class="mini" style="margin:9px 0 0">
-            Tant que ce mode est actif, quiconque connaît une adresse peut se connecter
-            à sa place. À désactiver avant un usage réel.
-          </p>
-        </div>
-        <button class="btn btn-0 doux" @click="etat = 'saisie'">Changer d’adresse</button>
-      </template>
-    </div>
+      <button class="btn btn-0 doux" @click="mode = 'cle'; erreur = ''">
+        J’ai déjà une clé
+      </button>
+    </template>
   </main>
 </template>
 
 <style scoped>
 .accueil { height: 100%; overflow-y: auto; display: flex; flex-direction: column;
-  justify-content: center; gap: 22px; max-width: 460px; margin: 0 auto;
+  justify-content: center; gap: 20px; max-width: 460px; margin: 0 auto;
   padding: max(24px, env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom)); }
 .haut { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .haut img { border-radius: 17px; }
 .haut h1 { font-size: 1.7rem; }
 .haut p { margin: 0; }
-.sans-mail { border-radius: 13px; padding: 14px 15px;
-  background: color-mix(in srgb, var(--peche) 40%, transparent); }
+.champ.grand { text-align: center; font-size: 1.25rem; letter-spacing: .1em;
+  font-variant-numeric: tabular-nums; padding: 16px 12px; }
+.cle { display: block; width: 100%; border: 1px dashed var(--trait); border-radius: 14px;
+  background: var(--fond); padding: 18px 10px; cursor: pointer;
+  font: inherit; font-size: 1.35rem; font-weight: 700; letter-spacing: .08em;
+  text-align: center; color: var(--texte); }
+.cle:active { transform: scale(.99); }
 </style>
