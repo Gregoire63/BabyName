@@ -1,13 +1,20 @@
 {
-  "name": "Prénoms",
-  "short_name": "Prénoms",
+  "name": "babyNames",
+  "short_name": "babyNames",
   "description": "Choisir un prénom à plusieurs, sans s'influencer.",
   "start_url": "/",
+  "scope": "/",
+  "id": "/",
   "display": "standalone",
-  "background_color": "#fbf9f7",
-  "theme_color": "#b4543a",
+  "orientation": "portrait",
+  "background_color": "#fbfaf9",
+  "theme_color": "#1a234e",
   "lang": "fr",
+  "dir": "ltr",
+  "categories": ["lifestyle", "utilities"],
   "icons": [
-    { "src": "/icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

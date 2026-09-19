@@ -1,5 +1,5 @@
 /**
- * Catalogue embarqué : 7 667 prénoms, 96 Ko gzip, chargé une fois puis gardé
+ * Catalogue embarqué : 7 667 prénoms, 180 Ko gzip, chargé une fois puis gardé
  * en mémoire. Tout le filtrage et tout le tri se font ici, côté client :
  * un changement de filtre ne doit jamais coûter un aller-retour réseau.
  */
@@ -10,6 +10,7 @@ export interface Prenom {
   c: number; y: number; k: boolean; i: string; e: string
   g: string[]; m: string | null; me: string | null
   ob: boolean; obn: string | null; dm: string[]
+  sr: number[] | null
 }
 
 export interface Filtres {
@@ -55,7 +56,7 @@ async function chargerJson(): Promise<any> {
   return $fetch('/data/catalogue.json')
 }
 
-let cache: { liste: Prenom[]; origines: string[] } | null = null
+let cache: { liste: Prenom[]; origines: string[]; annees: [number, number] } | null = null
 let enCours: Promise<typeof cache> | null = null
 
 const sansAccent = (s: string) =>
@@ -75,10 +76,11 @@ export async function chargerCatalogue() {
         o: c.o[k], r: c.r[k], rv: !!c.rv[k],
         c: c.c[k], y: c.y[k], k: !!c.k[k], i: c.i[k], e: c.e[k],
         g: c.g[k].map((x: number) => d.origines[x]),
-        m: c.m[k], me: c.me[k], ob: !!c.ob[k], obn: c.obn[k], dm: c.dm[k]
+        m: c.m[k], me: c.me[k], ob: !!c.ob[k], obn: c.obn[k], dm: c.dm[k],
+        sr: c.sr ? c.sr[k] : null
       }
     }
-    cache = { liste, origines: d.origines }
+    cache = { liste, origines: d.origines, annees: d.serie_annees ?? [1986, 2025] }
     return cache
   })()
   return enCours
@@ -148,4 +150,14 @@ export function ordonner(liste: Prenom[], aimes: Prenom[]): Prenom[] {
 export function famille(liste: Prenom[], p: Prenom): string[] {
   const racine = p.slug.slice(0, Math.max(4, Math.floor(p.slug.length * 0.7)))
   return liste.filter(x => x.slug.startsWith(racine)).map(x => x.l)
+}
+
+/**
+ * « 51,6 pour 10 000 » ne parle a personne. « 1 sur 194 » se comprend d'un coup
+ * d'oeil et se compare sans calcul. Une seule ecriture partout dans l'app.
+ */
+export function frequenceLisible(f: number): string {
+  if (!f || f <= 0) return 'quasi jamais'
+  const n = Math.round(10000 / f)
+  return `1 sur ${n.toLocaleString('fr-FR')}`
 }

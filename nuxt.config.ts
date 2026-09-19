@@ -5,13 +5,17 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'fr' },
-      title: 'Prénoms',
+      title: 'babyNames',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-        { name: 'theme-color', content: '#1b1b1f' },
+        { name: 'theme-color', content: '#1a234e' },
         { name: 'description', content: 'Choisir un prénom à plusieurs, sans s’influencer.' }
       ],
-      link: [{ rel: 'manifest', href: '/manifest.webmanifest' }]
+      link: [
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'icon', href: '/logo.png', type: 'image/png' },
+        { rel: 'apple-touch-icon', href: '/logo.png' }
+      ]
     }
   },
   runtimeConfig: {
