@@ -1,0 +1,8 @@
+node_modules
+.node_modules_corrompu_*
+.nuxt
+.output
+.vercel
+.env
+.env.*
+dist

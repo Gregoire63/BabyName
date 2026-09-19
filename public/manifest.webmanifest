@@ -1,0 +1,13 @@
+{
+  "name": "Prénoms",
+  "short_name": "Prénoms",
+  "description": "Choisir un prénom à plusieurs, sans s'influencer.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbf9f7",
+  "theme_color": "#b4543a",
+  "lang": "fr",
+  "icons": [
+    { "src": "/icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
