@@ -92,7 +92,7 @@ const enRetard = computed(() => {
           <button class="btn mini" @click="commenter">Dire</button>
         </div>
         <div class="ligne" style="justify-content:space-between">
-          <button class="btn btn-0 mini" @click="g.ouvrirFiche(c.prenom)">Tout voir</button>
+          <button class="btn btn-0 mini" @click="g.ouvrirFiche(c.prenom)">Plus d’informations</button>
           <button class="btn btn-0 mini" style="color:var(--non)" @click="veto(c.prenom)">
             Poser mon veto
           </button>

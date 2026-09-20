@@ -63,6 +63,8 @@ onMounted(() => { rafraichirMoi() })
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body, #__nuxt { height: 100%; }
+/* les deux pages se superposent pendant le glissement */
+#__nuxt { position: relative; overflow: hidden; }
 body {
   margin: 0; color: var(--texte);
   background: var(--lavis), var(--fond);
@@ -132,6 +134,27 @@ button { font: inherit; color: inherit; }
    restait maigre a cote du reste de l'interface */
 .onglets svg { width: 21px; height: 21px; stroke: currentColor; fill: none;
   stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ------------------------------------------------- glissement entre pages */
+/* Les deux pages sont dans le DOM en meme temps : sans position absolue elles
+   se partageraient la hauteur. La barre du bas etant dans la page de la
+   liste, elle glisse avec — on entre dans la liste, on n'echange pas un
+   ecran contre un autre. */
+.page-enter-active, .page-leave-active {
+  position: absolute; inset: 0;
+  transition: transform .34s cubic-bezier(.32,.72,0,1), opacity .34s ease;
+}
+/* on entre : la liste vient de la droite, l'accueil recule derriere elle */
+[data-sens="avant"] .page-enter-from { transform: translateX(100%); }
+[data-sens="avant"] .page-leave-to   { transform: translateX(-22%); opacity: .55; }
+/* on ressort : la liste repart a droite, l'accueil revient de la gauche */
+[data-sens="arriere"] .page-enter-from { transform: translateX(-22%); opacity: .55; }
+[data-sens="arriere"] .page-leave-to   { transform: translateX(100%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active, .page-leave-active { transition-duration: .01ms; }
+  [data-sens] .page-enter-from, [data-sens] .page-leave-to { transform: none; }
+}
 
 /* ------------------------------------------------------------------ pager */
 .pager { display: flex; height: 100%; overflow-x: auto; overflow-y: hidden;

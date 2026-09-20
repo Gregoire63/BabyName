@@ -7,6 +7,9 @@ export default defineNuxtConfig({
   ssr: false,                     // le catalogue est statique et embarque : aucun SSR utile
   devtools: { enabled: true },
   app: {
+    // Un seul nom : la direction est portee par [data-sens] sur <html>, pose
+    // par app/middleware/glisse.global.ts avant chaque navigation.
+    pageTransition: { name: 'page', mode: 'default' },
     head: {
       htmlAttrs: { lang: 'fr' },
       title: 'babyNames',

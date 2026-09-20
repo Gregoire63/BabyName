@@ -41,7 +41,7 @@ function debut(e: PointerEvent) {
   if (quotaAtteint.value) return
   // Un geste qui commence sur un bouton appartient au bouton. Sans ce
   // garde-fou, setPointerCapture detourne la suite des evenements vers la
-  // carte et le clic n'arrive JAMAIS : « Favoris », « Tout voir » et
+  // carte et le clic n'arrive JAMAIS : « Favoris », « Plus d'informations » et
   // « Écarter la famille » etaient inertes.
   if ((e.target as HTMLElement)?.closest?.('button')) return
   glisse.value = true; axe = null; x0 = e.clientX; y0 = e.clientY
@@ -290,7 +290,7 @@ async function confirmerFamille() {
 
           <div class="bas">
             <button class="btn btn-0 mini" @click.stop="g.ouvrirFiche(carte.l)">
-              Tout voir
+              Plus d’informations
             </button>
             <button class="btn btn-0 mini doux" @click.stop="demanderFamille">
               Écarter la famille
@@ -353,13 +353,25 @@ async function confirmerFamille() {
 
 .zone { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .cartes { position: relative; display: flex; flex: 1; min-height: 0; }
-.cartes > .fiche:not(.derriere) { position: relative; z-index: 1; width: 100%; }
+
+/* Les cartes se superposent TOUJOURS.
+   La carte active etait en `position: relative`. Pendant le remplacement, la
+   sortante et l'entrante sont toutes les deux dans le DOM : deux elements en
+   flux dans une ligne flex, donc chacun la moitie de la largeur. On voyait
+   l'ecran se couper en deux avec deux prenoms differents.
+   `.neuve-leave-active` essayait bien de passer la sortante en absolu, mais
+   `.cartes > .fiche:not(.derriere)` est plus specifique et gagnait. Plutot
+   que de surencherir en specificite, on sort les deux du flux. */
+.cartes > .fiche { position: absolute; inset: 0; }
+.cartes > .fiche:not(.derriere) { z-index: 1; }
 
 /* La carte suivante arrive : elle grandit depuis l'etat de la pile, elle ne
-   surgit pas de nulle part. */
+   surgit pas de nulle part. La sortante s'efface — apres un vote elle est
+   deja partie au loin, mais pas quand la pile change pour une autre raison. */
 .neuve-enter-active { transition: transform .3s cubic-bezier(.2,.9,.3,1), opacity .26s ease-out; }
 .neuve-enter-from { transform: scale(.94) translateY(16px); opacity: .25; }
-.neuve-leave-active { position: absolute; inset: 0; }
+.neuve-leave-active { z-index: 2; transition: opacity .2s ease-in; }
+.neuve-leave-to { opacity: 0; }
 .fiche { touch-action: none; user-select: none; position: relative; flex: 1;
   display: flex; flex-direction: column; gap: 11px; min-height: 300px; }
 .graphe { margin-top: auto; display: flex; flex-direction: column; gap: 2px; }
