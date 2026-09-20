@@ -5,7 +5,7 @@ import type { Connexion } from './db'
  * Jeu d'essai du developpement.
  *
  * Une base vide ne montre rien : pas de liste, pas de communs, pas de
- * desaccords, pas de classement. On seme donc deux comptes et une liste deja
+ * desaccords, rien a revoir. On seme donc deux comptes et une liste deja
  * bien entamee, pour que chaque ecran ait quelque chose a afficher des le
  * premier `npm run dev`.
  *
@@ -72,20 +72,6 @@ export async function semerSiVide(c: Connexion) {
   await c.query(
     `insert into vetos (groupe_id, user_id, prenom, motif) values ($1,$2,'Jayden','mon ex')
      on conflict do nothing`, [gid, audrey]).catch(() => null)
-
-  // Un podium par personne : c'est lui, desormais, qui construit le classement
-  // general (v_rang_personnel part de classement_manuel autant que de elo).
-  const PODIUMS: Record<string, string[]> = {
-    [greg]: ['Louise', 'Alma', 'Jeanne', 'Basile', 'Anouk'],
-    [audrey]: ['Jeanne', 'Louise', 'Margot', 'Anouk', 'Iris']
-  }
-  for (const [uid, ordre] of Object.entries(PODIUMS)) {
-    for (const [i, prenom] of ordre.entries()) {
-      await c.query(
-        `insert into classement_manuel (groupe_id, user_id, prenom, position)
-         values ($1,$2,$3,$4) on conflict do nothing`, [gid, uid, prenom, i + 1])
-    }
-  }
 
   await c.query(
     `insert into commentaires (groupe_id, user_id, prenom, texte)

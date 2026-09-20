@@ -1,0 +1,54 @@
+<!--
+  Ce que voit l'ecran AVANT que Vue ne demarre.
+
+  L'app est une SPA (ssr: false) : entre le premier octet et le premier rendu,
+  il n'y avait rien — un ecran blanc, le plus long temps d'attente de toute
+  l'application et le seul que rien ne couvrait. Nuxt injecte ce fragment dans
+  la coquille HTML et le retire des que l'app est montee.
+
+  Tout est en ligne, et les couleurs sont ecrites en dur : aucune feuille de
+  style n'est encore chargee a ce moment-la, donc pas de variables CSS.
+-->
+<div class="amorce" role="status" aria-label="Chargement">
+  <svg viewBox="0 0 32 32" aria-hidden="true">
+    <path d="M12 1.5c0 5.8 4.7 10.5 10.5 10.5C16.7 12 12 16.7 12 22.5 12 16.7 7.3 12 1.5 12 7.3 12 12 7.3 12 1.5Z"
+          transform="translate(3 5) scale(1.1)" />
+  </svg>
+  <b>babyNames</b>
+</div>
+
+<style>
+  .amorce {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    background:
+      radial-gradient(120% 55% at 12% -8%, rgba(202,225,217,.55) 0%, transparent 62%),
+      radial-gradient(110% 50% at 95% -4%, rgba(236,187,182,.48) 0%, transparent 58%),
+      #fbfaf9;
+    font: 700 1.05rem/1.4 ui-rounded, 'SF Pro Rounded', Nunito, system-ui, sans-serif;
+    color: #1a234e; letter-spacing: -.02em;
+  }
+  .amorce svg { width: 54px; height: 54px; fill: #1a234e; overflow: visible;
+    animation: amorce-tourne 5.5s cubic-bezier(.5,0,.5,1) infinite,
+               amorce-respire 2.2s ease-in-out infinite; }
+  .amorce b { opacity: .62; font-weight: 800; }
+
+  /* un quart de tour par cycle : l'etoile a quatre branches retombe sur
+     elle-meme, la rotation se lit sans jamais paraitre saccadee */
+  @keyframes amorce-tourne { to { transform: rotate(90deg) } }
+  @keyframes amorce-respire { 0%, 100% { opacity: .72 } 50% { opacity: 1 } }
+
+  @media (prefers-color-scheme: dark) {
+    .amorce {
+      background:
+        radial-gradient(120% 55% at 12% -8%, rgba(44,74,68,.55) 0%, transparent 62%),
+        radial-gradient(110% 50% at 95% -4%, rgba(77,51,48,.5) 0%, transparent 58%),
+        #101321;
+      color: #eef0f7;
+    }
+    .amorce svg { fill: #eef0f7; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .amorce svg { animation: none; opacity: .9; }
+  }
+</style>

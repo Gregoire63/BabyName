@@ -41,6 +41,8 @@ onMounted(() => { rafraichirMoi() })
   --pastille: 999px; /* boutons */
 
   --ombre:   0 1px 2px rgba(26,35,78,.05), 0 12px 32px -14px rgba(26,35,78,.18);
+  /* lueur qui balaie les squelettes de chargement */
+  --lueur:   rgba(255,255,255,.75);
   --degrade: linear-gradient(135deg, var(--menthe) 0%, var(--sable) 52%, var(--peche) 100%);
   /* Lavis d'ambiance : le degrade du logo, tres dilue, en haut de page. */
   --lavis: radial-gradient(120% 55% at 12% -8%, color-mix(in srgb, var(--menthe) 55%, transparent) 0%, transparent 62%),
@@ -53,6 +55,7 @@ onMounted(() => { rafraichirMoi() })
     --menthe: #2c4a44; --peche: #4d3330; --sable: #33313c;
     --oui: #4fc095; --non: #e2726b;
     --ombre: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px -14px rgba(0,0,0,.65);
+    --lueur: rgba(255,255,255,.075);
     --lavis: radial-gradient(120% 55% at 12% -8%, rgba(44,74,68,.55) 0%, transparent 62%),
              radial-gradient(110% 50% at 95% -4%, rgba(77,51,48,.5) 0%, transparent 58%);
   }

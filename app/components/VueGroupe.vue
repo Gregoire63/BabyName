@@ -15,8 +15,8 @@ const props = defineProps<{ depart?: string; segmentDepart?: string }>()
  * dont une seule portait la barre, et personne ne savait laquelle etait quoi.
  *
  * Communs, Duels et Top etaient trois onglets alors qu'ils forment un seul
- * geste. Ils sont devenus les volets de Classement, ou les duels ont depuis
- * cede la place a « A revoir » et « Mes choix ».
+ * geste. Ils sont devenus les volets de Classement, ou duels et classement
+ * pondere ont depuis cede la place a « A revoir » et « Mes choix ».
  *
  * « La liste » plutot que « Parametres » : ces reglages-la sont ceux de CETTE
  * liste. Ce qui concerne le compte vit sur l'accueil, sous son propre nom.
@@ -111,9 +111,10 @@ function allerA(onglet: string, seg?: string) {
   if (onglet === 'accueil') { navigateTo('/'); return }
   // Les anciens noms d'onglets restent valides : ils designent maintenant un
   // volet de Classement. Un lien ou un bouton d'avant n'a pas a le savoir.
-  // « duels » n'existe plus : l'ancien nom ouvre « A revoir », qui a pris sa place.
+  // « duels » et « top » n'existent plus : les anciens noms ouvrent le volet
+  // qui a pris leur place, pour qu'aucun lien deja partage ne tombe a cote.
   const volets: Record<string, string> =
-    { communs: 'communs', duels: 'revoir', revoir: 'revoir', choix: 'choix', top: 'top' }
+    { communs: 'communs', duels: 'revoir', revoir: 'revoir', choix: 'choix', top: 'communs' }
   let cible = onglet
   if (volets[onglet]) { cible = 'classement'; seg = volets[onglet] }
   if (onglet === 'groupe') cible = 'reglages'

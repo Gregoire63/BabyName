@@ -185,7 +185,36 @@ async function confirmerFamille() {
       </button>
     </div>
 
-    <p v-if="!g.pret.value" class="doux" style="text-align:center">Chargement…</p>
+    <!-- La forme de l'ecran est connue d'avance : on la dessine tout de suite
+         plutot que d'ecrire « Chargement… » au milieu du vide. Rien ne saute
+         quand la premiere carte arrive. -->
+    <div v-if="!g.pret.value" class="zone" aria-busy="true">
+      <div class="cartes">
+        <article class="carte fiche fantome">
+          <div class="ligne" style="justify-content:space-between">
+            <Squelette l="62px" :h="24" :r="999" />
+            <Squelette l="104px" :h="28" :r="999" :retard="0.06" />
+          </div>
+          <Squelette l="58%" :h="40" :r="12" :retard="0.1" />
+          <Squelette l="44%" :h="14" :retard="0.14" />
+          <div class="ligne" style="gap:6px">
+            <Squelette l="88px" :h="24" :r="999" :retard="0.18" />
+            <Squelette l="70px" :h="24" :r="999" :retard="0.22" />
+          </div>
+          <div class="ligne" style="gap:16px">
+            <Squelette l="74px" :h="14" :retard="0.26" />
+            <Squelette l="62px" :h="14" :retard="0.3" />
+            <Squelette l="54px" :h="14" :retard="0.34" />
+          </div>
+          <div class="graphe">
+            <Squelette l="100%" :h="78" :r="12" :retard="0.38" />
+          </div>
+        </article>
+      </div>
+      <div class="boutons">
+        <Squelette v-for="i in 3" :key="i" l="62px" :h="62" :r="999" :retard="i * 0.08" />
+      </div>
+    </div>
 
     <template v-else>
       <div v-if="quotaAtteint" class="vide">
@@ -367,6 +396,7 @@ async function confirmerFamille() {
 .verdict.neutre { background: var(--neutre); }
 
 .boutons { display: flex; justify-content: center; gap: 20px; margin: 18px 0 4px; flex: none; }
+.fantome { display: flex; flex-direction: column; gap: 12px; touch-action: auto; }
 .rond { width: 62px; height: 62px; border-radius: 50%; font-size: 1.4rem; display: grid;
   place-items: center; border: 1px solid var(--trait); background: var(--carte);
   box-shadow: var(--ombre); cursor: pointer; transition: transform .08s; }

@@ -3,15 +3,14 @@ import { useGroupeCourant } from '~/composables/etatGroupe'
 import { useVerdicts } from '~/composables/useVerdicts'
 
 /**
- * Le tiroir « decider ensemble ». Quatre volets qui forment une suite :
- * ce sur quoi on s'accorde, ce sur quoi on ne s'accorde pas encore, tout ce
- * que j'ai juge, et l'ordre final.
+ * Le tiroir « decider ensemble ». Trois volets : ce sur quoi on s'accorde,
+ * ce sur quoi on ne s'accorde pas encore, et tout ce que j'ai juge.
  *
- * Les duels ont disparu : departager deux prenoms au hasard, des dizaines de
- * fois, ne disait rien qu'on ne sache deja — le podium que l'on ordonne a la
- * main dit la meme chose en trois gestes. « A revoir » prend leur place, et
- * repond a un vrai manque : un non pose en trois secondes enterrait un prenom
- * que l'autre adorait, sans que personne ne le sache jamais.
+ * Les duels puis le classement pondere ont disparu. Pour deux personnes qui
+ * choisissent un prenom, l'ordre fin n'a jamais servi : la liste des communs,
+ * classee par son score, suffit a la conversation. « A revoir » a pris leur
+ * place et repond, lui, a un vrai manque — un non pose en trois secondes
+ * enterrait un prenom que l'autre adorait, sans que personne ne le sache.
  */
 const props = defineProps<{ actif: boolean; segment: string }>()
 const emit = defineEmits<{ segment: [string] }>()
@@ -21,8 +20,7 @@ const { aRevoir } = useVerdicts()
 const VOLETS = [
   { id: 'communs', t: 'Communs' },
   { id: 'revoir', t: 'À revoir' },
-  { id: 'choix', t: 'Mes choix' },
-  { id: 'top', t: 'Top' }
+  { id: 'choix', t: 'Mes choix' }
 ]
 
 // Chaque volet ne se monte qu'une fois ouvert, et reste monte ensuite : on ne
@@ -38,8 +36,7 @@ const resume = computed(() => {
   switch (props.segment) {
     case 'communs': return `${n} prénom${n > 1 ? 's' : ''} en commun`
     case 'revoir': return d ? `${d} désaccord${d > 1 ? 's' : ''}` : 'aucun désaccord'
-    case 'choix': return 'tout ce que vous avez jugé'
-    default: return 'votre podium et le général'
+    default: return 'tout ce que vous avez jugé'
   }
 })
 </script>
@@ -66,7 +63,6 @@ const resume = computed(() => {
                    :actif="ici('revoir')" />
     <PanneauMesChoix v-if="vus.has('choix')" v-show="segment === 'choix'"
                      :actif="ici('choix')" />
-    <PanneauTop v-if="vus.has('top')" v-show="segment === 'top'" :actif="ici('top')" />
   </div>
 </template>
 

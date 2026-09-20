@@ -133,7 +133,30 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         </button>
       </header>
 
-      <p v-if="chargement" class="doux">Chargement…</p>
+      <div v-if="chargement" class="bento" aria-busy="true">
+        <div class="carte grande fantome">
+          <Squelette l="96px" :h="12" />
+          <Squelette l="62%" :h="30" :r="10" :retard="0.06" />
+          <div class="ligne" style="gap:16px;margin-top:4px">
+            <Squelette l="66px" :h="34" :r="10" :retard="0.1" />
+            <Squelette l="66px" :h="34" :r="10" :retard="0.14" />
+            <Squelette l="66px" :h="34" :r="10" :retard="0.18" />
+          </div>
+        </div>
+        <div class="carte tuile colonne fantome" style="min-height:118px">
+          <Squelette l="34px" :h="34" :r="999" :retard="0.2" />
+          <Squelette l="78%" :h="15" :retard="0.24" />
+        </div>
+        <div class="carte tuile colonne fantome" style="min-height:118px">
+          <Squelette l="34px" :h="34" :r="999" :retard="0.26" />
+          <Squelette l="78%" :h="15" :retard="0.3" />
+        </div>
+        <div v-for="b in 2" :key="b" class="carte large colonne fantome">
+          <Squelette l="130px" :h="11" :retard="0.32 + b * 0.04" />
+          <Squelette v-for="i in 3" :key="i" :l="`${74 - i * 9}%`" :h="17"
+                     :retard="0.34 + b * 0.04 + i * 0.05" />
+        </div>
+      </div>
 
       <div v-else-if="panne" class="carte pile panne">
         <h2>Ça coince côté serveur</h2>
@@ -330,6 +353,8 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .passee { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 .credit { text-align: center; margin: 14px 0 0; }
 .panne { border-color: var(--non); }
+.fantome { display: flex; flex-direction: column; gap: 9px; justify-content: center; }
+.grande.fantome { background: var(--carte); }
 .version { background: none; border: 0; color: inherit; font: inherit; opacity: .65;
   padding: 7px 4px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 </style>

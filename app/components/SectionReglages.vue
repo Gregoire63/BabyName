@@ -65,7 +65,15 @@ const filtresActifs = computed(() => {
 
 <template>
   <div class="pile">
-    <div v-if="!g.etat.value" class="doux">Chargement…</div>
+    <template v-if="!g.etat.value">
+      <Squelette l="62%" :h="28" :r="9" />
+      <Squelette l="38%" :h="13" :retard="0.05" />
+      <section v-for="b in 3" :key="b" class="carte pile" aria-busy="true">
+        <Squelette l="112px" :h="18" :r="8" :retard="b * 0.07" />
+        <Squelette :l="`${88 - b * 10}%`" :h="13" :retard="0.05 + b * 0.07" />
+        <Squelette :l="`${64 - b * 8}%`" :h="13" :retard="0.1 + b * 0.07" />
+      </section>
+    </template>
 
     <template v-else>
       <TeteListe onglet="Réglages de cette liste" />

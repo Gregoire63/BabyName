@@ -5,5 +5,5 @@ onMounted(() => navigateTo('/', { replace: true }))
 </script>
 
 <template>
-  <p class="doux" style="padding:28px;text-align:center">Un instant…</p>
+  <Chargement plein />
 </template>
