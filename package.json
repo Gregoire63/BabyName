@@ -6,7 +6,8 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "dev:neuf": "node --input-type=commonjs -e \"require('node:fs').rmSync('.data',{recursive:true,force:true})\" && nuxt dev"
   },
   "dependencies": {
     "nuxt": "^4.1.0",
@@ -15,6 +16,7 @@
     "pg": "^8.13.0"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.0"
+    "@types/pg": "^8.11.0",
+    "@electric-sql/pglite": "^0.3.0"
   }
 }

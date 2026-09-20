@@ -18,12 +18,7 @@ export default defineEventHandler(async (e) => {
   const sql = await useStorage('assets:server').getItem<string>('schema.sql')
   if (!sql) throw createError({ statusCode: 500, statusMessage: 'schema_introuvable' })
 
-  const client = await db().connect()
-  try {
-    await client.query(sql)                       // le fichier entier, en une transaction implicite
-  } finally {
-    client.release()
-  }
+  await (await base()).executer(sql)              // le fichier entier, d'un bloc
 
   const tables = await q<{ table_name: string }>(
     `select table_name from information_schema.tables

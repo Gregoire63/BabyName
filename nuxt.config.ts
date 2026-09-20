@@ -1,3 +1,7 @@
+import { fileURLToPath } from 'node:url'
+
+const VIDE = fileURLToPath(new URL('./vide.mjs', import.meta.url))
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-09-01',
   ssr: false,                     // le catalogue est statique et embarque : aucun SSR utile
@@ -31,5 +35,17 @@ export default defineNuxtConfig({
     migrationSecret: '',          // NUXT_MIGRATION_SECRET : à retirer une fois la migration faite
     public: { siteUrl: '' }       // NUXT_PUBLIC_SITE_URL
   },
-  nitro: { preset: 'vercel' }
+  nitro: { preset: 'vercel' },
+
+  // Le Postgres embarque du developpement n'a rien a faire dans la fonction
+  // serverless : son code y est deja mort, mais le traceur recopiait quand
+  // meme le paquet et ses deux .wasm. Voir vide.mjs.
+  $production: {
+    nitro: {
+      alias: {
+        '@electric-sql/pglite': VIDE,
+        '@electric-sql/pglite/contrib/pgcrypto': VIDE
+      }
+    }
+  }
 })

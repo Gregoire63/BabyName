@@ -8,20 +8,14 @@ export default defineEventHandler(async (e) => {
   if (ordre.length > 20) throw createError({ statusCode: 400, statusMessage: 'max_20' })
   if (new Set(ordre).size !== ordre.length) throw createError({ statusCode: 400, statusMessage: 'doublons' })
 
-  const client = await db().connect()
-  try {
-    await client.query('begin')
-    await client.query(`delete from classement_manuel where groupe_id=$1 and user_id=$2`, [gid, moi.user_id])
+  await transaction(async (c) => {
+    await c.query(`delete from classement_manuel where groupe_id=$1 and user_id=$2`,
+      [gid, moi.user_id])
     for (let i = 0; i < ordre.length; i++) {
-      await client.query(
+      await c.query(
         `insert into classement_manuel (groupe_id, user_id, prenom, position) values ($1,$2,$3,$4)`,
         [gid, moi.user_id, ordre[i], i + 1])
     }
-    await client.query('commit')
-  } catch (err) {
-    await client.query('rollback'); throw err
-  } finally {
-    client.release()
-  }
+  })
   return { ok: true, n: ordre.length }
 })

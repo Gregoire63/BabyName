@@ -9,8 +9,13 @@ const b64 = (b: Buffer) => b.toString('base64url')
 function secret(): string {
   // String() : destr transformerait un secret 100 % numerique en nombre
   const s = String(useRuntimeConfig().sessionSecret || process.env.SESSION_SECRET || '')
-  if (!s) throw createError({ statusCode: 500, statusMessage: 'SESSION_SECRET absente' })
-  return s
+  if (s) return s
+  // En developpement, la base est locale et jetable : exiger le secret de
+  // production pour pouvoir simplement se connecter en local n'apporte
+  // aucune securite, ca empeche juste de lancer l'app. `import.meta.dev`
+  // vaut false a la compilation : cette branche n'existe pas en production.
+  if (import.meta.dev) return 'developpement-local-sans-valeur'
+  throw createError({ statusCode: 500, statusMessage: 'SESSION_SECRET absente' })
 }
 
 function signer(charge: string): string {
@@ -37,7 +42,9 @@ export function lireJeton(jeton: string | undefined): string | null {
 
 export function poserSession(e: H3Event, userId: string) {
   setCookie(e, COOKIE, creerJeton(userId), {
-    httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: DUREE
+    // secure en production ; en local on sert en http, et Safari refuse un
+    // cookie Secure sur http://localhost — on ne pourrait pas se connecter.
+    httpOnly: true, secure: !import.meta.dev, sameSite: 'lax', path: '/', maxAge: DUREE
   })
 }
 
