@@ -15,8 +15,15 @@ export interface EtatGroupe {
   filtres: Ref<Filtres>
   dejaVotes: Ref<Set<string>>
   aimes: Ref<Prenom[]>
+  /** Tous les prenoms vetos du groupe : il faut les connaitre pour les
+   *  retirer de la pile. Qui les a poses ne sort pas du serveur. */
   vetos: Ref<Set<string>>
+  /** Les miens, avec leur motif — les seuls que j'ai le droit de voir. */
+  mesVetos: Ref<{ prenom: string; motif: string | null }[]>
+  poserVeto: (prenom: string, motif?: string) => Promise<void>
+  retirerVeto: (prenom: string) => Promise<void>
   favoris: Ref<Set<string>>
+  basculerFavori: (prenom: string) => Promise<void>
   /** Les prenoms sur lesquels tout le monde s'accorde. Charges avec le reste :
    *  l'onglet Classement en a besoin pour sa pastille avant meme d'etre ouvert. */
   communs: Ref<any[]>
@@ -50,9 +57,9 @@ export const CLE_GROUPE = Symbol('groupe') as InjectionKey<EtatGroupe>
  */
 const CHAMPS = [
   'gid', 'etat', 'catalogue', 'parNom', 'origines', 'filtres', 'dejaVotes',
-  'aimes', 'vetos', 'favoris', 'communs', 'rechargerCommuns', 'votes',
-  'rechargerVotes', 'voter', 'pret', 'recharger', 'ouvrirFiche',
-  'ouvrirFiltres', 'allerA'
+  'aimes', 'vetos', 'mesVetos', 'poserVeto', 'retirerVeto', 'favoris',
+  'basculerFavori', 'communs', 'rechargerCommuns', 'votes', 'rechargerVotes',
+  'voter', 'pret', 'recharger', 'ouvrirFiche', 'ouvrirFiltres', 'allerA'
 ] as const
 
 export function useGroupeCourant(): EtatGroupe {

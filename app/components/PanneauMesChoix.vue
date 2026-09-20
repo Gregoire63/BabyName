@@ -18,9 +18,21 @@ const GROUPES = [
   { v: 1 as const, t: 'Neutre', d: 'Ni oui ni non — ils restent en jeu.' },
   { v: 0 as const, t: 'Non', d: 'Écartés. Un autre avis peut les faire revenir.' }
 ]
+
+// Les gardés et les vetos ne sont pas des verdicts : ils se superposent aux
+// oui / neutre / non. Ils meritent donc leurs propres blocs, sans quoi on ne
+// les voyait nulle part — sauf une etincelle discrete sur les lignes.
+const gardes = computed(() => [...g.favoris.value])
+const vetos = computed(() => g.mesVetos.value)
+const retrait = ref('')
+
+async function retirerVeto(prenom: string) {
+  retrait.value = prenom
+  try { await g.retirerVeto(prenom) } finally { retrait.value = '' }
+}
 const listes = { 2: miens(2), 1: miens(1), 0: miens(0) } as const
 
-const ouvert = ref<number | null>(2)
+const ouvert = ref<number | null>(2)   // -1 gardes, -2 vetos
 const tout = ref<Set<number>>(new Set())
 const PALIER = 24
 const occupe = ref('')
@@ -109,6 +121,55 @@ async function remettre(prenoms: string[]) {
         </template>
       </template>
     </section>
+
+    <section class="carte pile groupe">
+      <button class="entete" @click="bascule(-1)">
+        <Etincelles :taille="14" couleur="var(--peche)" une />
+        <strong style="flex:1;text-align:left">Gardés</strong>
+        <span class="puce">{{ gardes.length }}</span>
+        <span class="doux">{{ ouvert === -1 ? '−' : '+' }}</span>
+      </button>
+      <template v-if="ouvert === -1">
+        <p class="mini doux" style="margin:0">
+          Ceux que vous gardez sous le coude, quel que soit votre vote.
+        </p>
+        <p v-if="!gardes.length" class="mini doux" style="margin:0">
+          Aucun pour l’instant — l’étoile sur la carte de tri les met ici.
+        </p>
+        <div v-for="p in gardes" :key="p" class="rangee">
+          <button class="nom" @click="g.ouvrirFiche(p)">{{ p }}</button>
+          <button class="btn btn-0 mini doux" @click="g.basculerFavori(p)">Retirer</button>
+        </div>
+      </template>
+    </section>
+
+    <section class="carte pile groupe">
+      <button class="entete" @click="bascule(-2)">
+        <span class="pastille veto" />
+        <strong style="flex:1;text-align:left">Mes vetos</strong>
+        <span class="puce">{{ vetos.length }}</span>
+        <span class="doux">{{ ouvert === -2 ? '−' : '+' }}</span>
+      </button>
+      <template v-if="ouvert === -2">
+        <p class="mini doux" style="margin:0">
+          Définitifs : ces prénoms ne peuvent plus devenir communs. Personne
+          d’autre ne voit que c’est vous qui les avez posés.
+        </p>
+        <p v-if="!vetos.length" class="mini doux" style="margin:0">
+          Aucun veto posé.
+        </p>
+        <div v-for="v in vetos" :key="v.prenom" class="rangee">
+          <button class="nom" @click="g.ouvrirFiche(v.prenom)">
+            {{ v.prenom }}
+            <em v-if="v.motif" class="motif">{{ v.motif }}</em>
+          </button>
+          <button class="btn btn-0 mini doux" :disabled="retrait === v.prenom"
+                  @click="retirerVeto(v.prenom)">
+            {{ retrait === v.prenom ? '…' : 'Lever' }}
+          </button>
+        </div>
+      </template>
+    </section>
   </div>
 </template>
 
@@ -121,6 +182,8 @@ async function remettre(prenoms: string[]) {
 .pastille.v2 { background: var(--oui); }
 .pastille.v1 { background: var(--encre); }
 .pastille.v0 { background: var(--non); }
+.pastille.veto { background: var(--non); box-shadow: 0 0 0 3px color-mix(in srgb, var(--non) 25%, transparent); }
+.motif { font-style: normal; font-size: .72rem; color: var(--doux); font-weight: 500; }
 
 .rangee { display: flex; align-items: center; gap: 8px; padding: 6px 0;
   border-top: 1px solid var(--trait); }

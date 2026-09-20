@@ -69,9 +69,14 @@ export async function semerSiVide(c: Connexion) {
     `insert into favoris (groupe_id, user_id, prenom) values ($1,$2,'Alma'), ($1,$2,'Nine')
      on conflict do nothing`, [gid, greg]).catch(() => null)
 
+  // Un veto de chaque cote : celui de Greg doit apparaitre dans SES choix,
+  // celui d'Audrey ne doit apparaitre nulle part pour lui.
   await c.query(
     `insert into vetos (groupe_id, user_id, prenom, motif) values ($1,$2,'Jayden','mon ex')
      on conflict do nothing`, [gid, audrey]).catch(() => null)
+  await c.query(
+    `insert into vetos (groupe_id, user_id, prenom, motif) values ($1,$2,'Brandon','non')
+     on conflict do nothing`, [gid, greg]).catch(() => null)
 
   await c.query(
     `insert into commentaires (groupe_id, user_id, prenom, texte)

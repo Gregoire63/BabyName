@@ -36,6 +36,40 @@ const quotaAtteint = computed(() => faits.value >= plafond.value)
  */
 const echange = ref(false)
 
+// --- veto ----------------------------------------------------------------
+// Definitif et limite : ca ne se pose pas d'un geste, d'ou la confirmation.
+const vetoPour = ref<Prenom | null>(null)
+const motifVeto = ref('')
+const erreurVeto = ref('')
+const envoiVeto = ref(false)
+
+const vetosMax = computed(() => g.etat.value?.groupe?.nb_vetos_max ?? 3)
+const vetosRestants = computed(() => Math.max(0, vetosMax.value - g.mesVetos.value.length))
+
+function demanderVeto() {
+  if (!carte.value) return
+  motifVeto.value = ''
+  erreurVeto.value = ''
+  vetoPour.value = carte.value
+}
+
+async function confirmerVeto(fermer: () => void) {
+  const p = vetoPour.value
+  if (!p || envoiVeto.value) return
+  envoiVeto.value = true
+  erreurVeto.value = ''
+  try {
+    await g.poserVeto(p.l, motifVeto.value.trim() || undefined)
+    fermer()
+  } catch (e: any) {
+    erreurVeto.value = e?.data?.statusMessage === 'quota_veto_atteint'
+      ? 'Vos vetos sont épuisés. Un veto, ça se dépense.'
+      : e?.data?.statusMessage === 'deja_veto'
+        ? 'Ce prénom a déjà un veto.'
+        : 'Le veto n’a pas pu être posé.'
+  } finally { envoiVeto.value = false }
+}
+
 /** La ligne de contexte sous le nom de la liste : ou j'en suis, ce qui reste. */
 const contexte = computed(() => g.pret.value
   ? `${faits.value}/${plafond.value} jugés · ${pioche.value.length.toLocaleString('fr-FR')} possibles`
@@ -145,12 +179,9 @@ async function voter(valeur: 0 | 1 | 2) {
 }
 
 async function basculerFavori() {
-  const p = carte.value; if (!p) return
-  const actif = !g.favoris.value.has(p.l)
-  const s = new Set(g.favoris.value)
-  actif ? s.add(p.l) : s.delete(p.l)
-  g.favoris.value = s
-  await $fetch(`/api/groupes/${g.gid}/favori`, { method: 'POST', body: { prenom: p.l, actif } })
+  // un seul chemin pour les gardes : celui de VueGroupe, partage avec
+  // « Mes choix » et la recherche
+  if (carte.value) await g.basculerFavori(carte.value.l)
 }
 
 /** Racine commune d'une famille : 70 % du début du slug, 4 lettres minimum. */
@@ -317,6 +348,7 @@ async function confirmerFamille() {
             <button class="btn btn-0 mini doux" @click.stop="demanderFamille">
               Écarter la famille
             </button>
+            <button class="btn btn-0 mini rouge" @click.stop="demanderVeto">Veto</button>
           </div>
         </article>
         </Transition>
@@ -342,6 +374,32 @@ async function confirmerFamille() {
         </span>
       </div>
     </Transition>
+
+    <Feuille v-if="vetoPour" titre="Poser un veto" @fermer="vetoPour = null">
+      <p style="margin:0 0 4px">
+        <strong style="font-size:1.35rem">{{ vetoPour.l }}</strong>
+      </p>
+      <p class="mini doux" style="margin:0 0 12px">
+        Un veto est <strong>définitif</strong> : ce prénom ne pourra plus jamais
+        apparaître dans vos communs, quoi que vote l’autre. Personne d’autre ne
+        verra que c’est vous qui l’avez posé.
+      </p>
+      <input v-model="motifVeto" class="champ" maxlength="200"
+             placeholder="Pourquoi ? (pour vous, facultatif)">
+      <p class="mini doux" style="margin:10px 0 0">
+        Il vous en reste <strong>{{ vetosRestants }}</strong> sur {{ vetosMax }}.
+      </p>
+      <p v-if="erreurVeto" class="mini" style="color:var(--non);margin:8px 0 0">
+        {{ erreurVeto }}
+      </p>
+
+      <template #pied="{ fermer }">
+        <button class="btn btn-1 rouge-plein" :disabled="envoiVeto || !vetosRestants"
+                @click="confirmerVeto(fermer)">
+          {{ envoiVeto ? 'Un instant…' : `Poser mon veto sur ${vetoPour.l}` }}
+        </button>
+      </template>
+    </Feuille>
 
     <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec"
                 @fermer="match = null" />
@@ -414,7 +472,8 @@ async function confirmerFamille() {
 .sens { margin: 0; font-size: 1rem; font-style: italic; }
 .resume { gap: 16px; font-size: .84rem; font-variant-numeric: tabular-nums;
   color: var(--doux); font-weight: 560; }
-.bas { display: flex; justify-content: space-between; align-items: center; padding-top: 2px; }
+.bas { display: flex; justify-content: space-between; align-items: center;
+  gap: 10px; flex-wrap: wrap; padding-top: 2px; }
 .bas .btn { padding: 6px 0; }
 
 .etoile { border: 1px solid var(--trait); background: var(--carte); cursor: pointer;
@@ -449,6 +508,10 @@ async function confirmerFamille() {
   z-index: 30; flex-wrap: wrap; }
 .fondu-enter-active, .fondu-leave-active { transition: opacity .25s, translate .25s; }
 .fondu-enter-from, .fondu-leave-to { opacity: 0; translate: 0 8px; }
+
+.bas .rouge { color: var(--non); }
+.rouge-plein { background: var(--non); border-color: var(--non); color: #fff; }
+.rouge-plein:disabled { opacity: .5; }
 
 .voile-confirme { position: fixed; inset: 0; z-index: 65; background: rgba(26,35,78,.42);
   backdrop-filter: blur(3px); display: flex; align-items: flex-end;

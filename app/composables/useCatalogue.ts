@@ -59,7 +59,7 @@ async function chargerJson(): Promise<any> {
 let cache: { liste: Prenom[]; origines: string[]; annees: [number, number] } | null = null
 let enCours: Promise<typeof cache> | null = null
 
-const sansAccent = (s: string) =>
+export const sansAccent = (s: string) =>
   s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 export async function chargerCatalogue() {

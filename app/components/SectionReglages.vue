@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
+import { sansAccent, type Prenom } from '~/composables/useCatalogue'
+import { useVerdicts, MOT } from '~/composables/useVerdicts'
 
 /**
  * Tout ce qui se regle : la liste d'abord, le compte ensuite. C'etait
@@ -7,6 +9,45 @@ import { useGroupeCourant } from '~/composables/etatGroupe'
  */
 const props = defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
+
+/**
+ * Chercher un prenom precis dans TOUT le catalogue.
+ *
+ * Les filtres de la liste ne s'appliquent pas ici, et c'est voulu : quand on
+ * cherche le prenom d'une cousine ou celui qu'on vient d'entendre a la radio,
+ * on veut savoir ce qu'on en a deja dit — pas se faire repondre qu'il ne
+ * passe pas le filtre « 2 a 3 syllabes ».
+ */
+const recherche = ref('')
+const { parPrenom } = useVerdicts()
+const occupe = ref('')
+
+const trouves = computed<Prenom[]>(() => {
+  const r = sansAccent(recherche.value.trim())
+  if (r.length < 2) return []
+  const debut: Prenom[] = []
+  const dedans: Prenom[] = []
+  for (const p of g.catalogue.value) {
+    if (p.slug.startsWith(r)) debut.push(p)
+    else if (p.slug.includes(r)) dedans.push(p)
+    if (debut.length >= 40) break
+  }
+  // Les plus donnes d'abord : c'est presque toujours celui qu'on cherche.
+  const parFrequence = (a: Prenom, b: Prenom) => b.n - a.n
+  return [...debut.sort(parFrequence), ...dedans.sort(parFrequence)].slice(0, 25)
+})
+
+const etat = (nom: string) => {
+  if (g.vetos.value.has(nom)) return { t: 'Veto', c: 'veto' }
+  const v = parPrenom.value.get(nom)?.mien
+  if (v === undefined || v === null) return null
+  return { t: MOT[v], c: `v${v}` }
+}
+
+async function choisir(nom: string, valeur: 0 | 1 | 2) {
+  occupe.value = nom
+  try { await g.voter(nom, valeur) } finally { occupe.value = '' }
+}
 
 const copie = ref(false)
 const renomme = ref(false)
@@ -34,15 +75,6 @@ async function partager() {
   if (navigator.share) { try { await navigator.share(donnees); return } catch { /* annulé */ } }
   await navigator.clipboard.writeText(lien.value)
   copie.value = true; setTimeout(() => copie.value = false, 1800)
-}
-
-const erreur = ref('')
-async function retirerVeto(prenom: string) {
-  erreur.value = ''
-  try { await $fetch(`/api/groupes/${g.gid}/veto?prenom=${encodeURIComponent(prenom)}`,
-    { method: 'DELETE' }) }
-  catch { erreur.value = 'Seul celui qui a posé ce veto peut le retirer.' }
-  await g.recharger()
 }
 
 const filtresActifs = computed(() => {
@@ -97,6 +129,31 @@ const filtresActifs = computed(() => {
       </section>
 
       <section class="carte pile">
+        <h2>Chercher un prénom</h2>
+        <p class="mini doux" style="margin:0">
+          Dans tout le catalogue, filtres de la liste ignorés. On vous dit ce
+          que vous en avez déjà dit, et vous pouvez le changer ici.
+        </p>
+        <input v-model="recherche" class="champ chercher" placeholder="Louise, Gabriel…"
+               autocapitalize="off" autocorrect="off" spellcheck="false">
+
+        <p v-if="recherche.trim().length >= 2 && !trouves.length" class="mini doux"
+           style="margin:0">
+          Aucun prénom ne correspond.
+        </p>
+        <div v-for="p in trouves" :key="p.l" class="trouve">
+          <button class="nom" @click="g.ouvrirFiche(p.l)">
+            {{ p.l }}
+            <Etincelles v-if="g.favoris.value.has(p.l)" :taille="12"
+                        couleur="var(--peche)" une />
+          </button>
+          <span v-if="etat(p.l)" class="puce" :class="etat(p.l)!.c">{{ etat(p.l)!.t }}</span>
+          <BoutonsVerdict :valeur="parPrenom.get(p.l)?.mien ?? null"
+                          :occupe="occupe === p.l" @choisir="choisir(p.l, $event)" />
+        </div>
+      </section>
+
+      <section class="carte pile">
         <h2>Qui en est</h2>
         <div v-for="m in g.etat.value.avancement" :key="m.user_id" class="ligne">
           <span style="flex:1">{{ m.pseudo }}</span>
@@ -115,34 +172,10 @@ const filtresActifs = computed(() => {
         <p v-else class="mini doux" style="margin:0">Aucun filtre : tout le catalogue passe.</p>
       </section>
 
-      <section v-if="g.favoris.value.size" class="carte pile">
-        <h2>Mes gardés</h2>
-        <p class="mini doux" style="margin:0">
-          Ceux que vous gardez sous le coude, même sans unanimité.
-        </p>
-        <div class="ligne" style="flex-wrap:wrap;gap:6px">
-          <button v-for="f in [...g.favoris.value]" :key="f" class="puce"
-                  style="border:0;cursor:pointer" @click="g.ouvrirFiche(f)">{{ f }}</button>
-        </div>
-      </section>
-
-      <section v-if="g.etat.value.vetos.length" class="carte pile">
-        <h2>Vetos</h2>
-        <p class="mini doux" style="margin:0">
-          Définitifs. {{ g.etat.value.groupe.nb_vetos_max }} par personne, pas un de plus.
-        </p>
-        <p v-if="erreur" class="mini" style="color:var(--non);margin:0">{{ erreur }}</p>
-        <div v-for="v in g.etat.value.vetos" :key="v.prenom" class="ligne">
-          <span style="flex:1"><strong>{{ v.prenom }}</strong>
-            <span class="mini doux"> — {{ v.pseudo }}<template v-if="v.motif">, {{ v.motif }}</template></span>
-          </span>
-          <button class="btn btn-0 mini" @click="retirerVeto(v.prenom)">Retirer</button>
-        </div>
-      </section>
-
       <p class="mini doux" style="text-align:center;margin:6px 0 0">
-        Vos prénoms écartés sont dans Classement · Mes choix. Votre nom et votre
-        clé d’accès sont sur l’accueil, sous votre nom.
+        Vos choix, vos gardés, vos écartés et vos vetos sont dans
+        Classement · Mes choix. Votre nom et votre clé d’accès sont sur
+        l’accueil, sous votre nom.
       </p>
     </template>
   </div>
@@ -153,4 +186,13 @@ const filtresActifs = computed(() => {
   color: var(--encre); }
 .code { font-size: 1.7rem; letter-spacing: .16em; font-weight: 700; }
 .invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
+.trouve { display: flex; align-items: center; gap: 8px; padding: 7px 0;
+  border-top: 1px solid var(--trait); }
+.trouve .nom { flex: 1; min-width: 0; text-align: left; border: 0; background: none;
+  font: inherit; font-weight: 600; color: var(--texte); cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: flex; align-items: center; gap: 5px; }
+.trouve .puce { font-size: .66rem; flex: none; }
+.trouve .v0, .trouve .veto { background: color-mix(in srgb, var(--non) 22%, transparent); }
+.trouve .v2 { background: color-mix(in srgb, var(--oui) 22%, transparent); }
 </style>

@@ -40,6 +40,7 @@ const filtres = ref<Filtres>(filtresParDefaut())
 const dejaVotes = ref<Set<string>>(new Set())
 const aimes = ref<Prenom[]>([])
 const vetos = ref<Set<string>>(new Set())
+const mesVetos = ref<{ prenom: string; motif: string | null }[]>([])
 const favoris = ref<Set<string>>(new Set())
 const communs = ref<any[]>([])
 const votes = ref<any[]>([])
@@ -71,6 +72,29 @@ async function voter(prenom: string, valeur: 0 | 1 | 2) {
   await Promise.all([rechargerVotes(), rechargerCommuns()])
 }
 
+/** Poser un veto : definitif, limite, et invisible pour les autres. */
+async function poserVeto(prenom: string, motif?: string) {
+  await $fetch(`/api/groupes/${gid}/veto`, { method: 'POST', body: { prenom, motif } })
+  vetos.value = new Set([...vetos.value, prenom])
+  await Promise.all([recharger(), rechargerCommuns()])
+}
+
+async function retirerVeto(prenom: string) {
+  await $fetch(`/api/groupes/${gid}/veto?prenom=${encodeURIComponent(prenom)}`,
+    { method: 'DELETE' })
+  const s = new Set(vetos.value); s.delete(prenom); vetos.value = s
+  await Promise.all([recharger(), rechargerCommuns()])
+}
+
+async function basculerFavori(prenom: string) {
+  const actif = !favoris.value.has(prenom)
+  const s = new Set(favoris.value)
+  actif ? s.add(prenom) : s.delete(prenom)
+  favoris.value = s
+  await $fetch(`/api/groupes/${gid}/favori`, { method: 'POST', body: { prenom, actif } })
+    .catch(() => null)
+}
+
 async function recharger() {
   const [e] = await Promise.all([
     $fetch<any>(`/api/groupes/${gid}`),
@@ -81,7 +105,8 @@ async function recharger() {
   if (e.groupe.filtres && Object.keys(e.groupe.filtres).length) {
     filtres.value = { ...filtresParDefaut(), ...e.groupe.filtres }
   }
-  vetos.value = new Set(e.vetos.map((v: any) => v.prenom))
+  vetos.value = new Set(e.vetos)
+  mesVetos.value = e.mes_vetos ?? []
   favoris.value = new Set(e.mes_favoris)
 
   const moiId = e.moi.user_id
@@ -125,7 +150,8 @@ function allerA(onglet: string, seg?: string) {
 
 const partage: EtatGroupe = {
   gid, etat, catalogue, parNom, origines, filtres, dejaVotes, aimes, vetos,
-  favoris, communs, rechargerCommuns, votes, rechargerVotes, voter,
+  mesVetos, poserVeto, retirerVeto, favoris, basculerFavori,
+  communs, rechargerCommuns, votes, rechargerVotes, voter,
   pret, recharger, ouvrirFiche, ouvrirFiltres, allerA
 }
 provide(CLE_GROUPE, partage)
