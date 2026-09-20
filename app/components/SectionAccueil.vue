@@ -1,24 +1,19 @@
 <script setup lang="ts">
 import { chargerCatalogue, frequenceLisible, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
-import { CLE_GROUPE } from '~/composables/etatGroupe'
 
-// L'accueil sert a deux endroits : la page /, et le premier onglet du pager
-// d'une liste. Meme contenu, seule l'enveloppe de defilement change — le
-// pager fournit deja sa propre section scrollable et son rembourrage.
-const props = defineProps<{ dansPager?: boolean; actif?: boolean }>()
-
-// Dans le pager, l'accueil sait dans quelle liste il se trouve : la liste
-// ouverte passe en tete et n'est plus un lien — la toucher glisse vers le tri
-// au lieu de recharger la page sur elle-meme.
-const g = inject(CLE_GROUPE, null)
-const gidCourant = computed(() => (props.dansPager && g) ? String(g.gid) : null)
+/**
+ * L'accueil, hors de toute liste. C'est le seul ecran sans barre du bas :
+ * cette barre n'apparait que dans une liste, et c'est precisement ce qui dit
+ * qu'on y est. Ce qui touche au compte vit ici, pas dans les reglages d'une
+ * liste — un pseudo et une cle d'acces n'appartiennent a aucune liste.
+ */
+const compteOuvert = ref(false)
+const rejoindreOuvert = ref(false)
 
 const moi = useMoi()
 const groupes = ref<any[]>([])
 const chargement = ref(true)
-const code = ref('')
-const erreur = ref('')
 const assistant = ref(false)
 const catalogue = ref<Prenom[]>([])
 const annee = ref(2025)
@@ -51,28 +46,14 @@ async function creer(filtres: Filtres) {
   await navigateTo(`/g/${g.id}/swipe`)
 }
 
-async function rejoindre() {
-  erreur.value = ''
-  try {
-    const g = await $fetch<any>('/api/groupes/rejoindre',
-      { method: 'POST', body: { code: code.value.trim() } })
-    await navigateTo(`/g/${g.id}/swipe`)
-  } catch { erreur.value = 'Code inconnu.' }
-}
-
-async function sortir() {
-  await $fetch('/api/auth/sortir', { method: 'POST' })
-  await navigateTo('/connexion')
-}
-
 onMounted(async () => {
-  if (props.dansPager) { await demarrer(); return }
   if (!(await rafraichirMoi())) return navigateTo('/connexion')
   // Lien d'invitation : on entre directement, sans faire retaper le code.
-  const c = useRoute().query.code
-  if (typeof c === 'string' && c.trim().length === 8) {
-    code.value = c.trim()
-    await rejoindre()
+  const c = String(useRoute().query.code ?? '').trim().toLowerCase()
+  if (/^[0-9a-f]{8}$/.test(c)) {
+    const g = await $fetch<any>('/api/groupes/rejoindre', { method: 'POST', body: { code: c } })
+      .catch(() => null)
+    if (g) return navigateTo(`/g/${g.id}/swipe`)
   }
   await demarrer()
 })
@@ -84,21 +65,9 @@ async function demarrer() {
   annee.value = cat!.annees[1]
 }
 
-// Dans le pager, on recharge la liste des listes a chaque retour sur l'onglet :
-// le nombre de communs et la date du dernier vote bougent pendant la session.
-watch(() => props.actif, a => { if (a && props.dansPager) charger() })
-
 // --- la liste principale, les autres en dessous ----------------------------
-const principale = computed(() => {
-  const l = groupes.value
-  if (!l.length) return null
-  return l.find(x => String(x.id) === gidCourant.value) ?? l[0]
-})
-const autres = computed(() =>
-  groupes.value.filter(x => x !== principale.value))
-/** La carte du haut designe-t-elle la liste dans laquelle on est deja ? */
-const ici = computed(() =>
-  !!principale.value && String(principale.value.id) === gidCourant.value)
+const principale = computed(() => groupes.value[0] ?? null)
+const autres = computed(() => groupes.value.slice(1))
 
 const quandDernier = (d: string | null) => {
   if (!d) return 'pas encore commencée'
@@ -107,12 +76,22 @@ const quandDernier = (d: string | null) => {
 }
 
 // --- statistiques de l'année ----------------------------------------------
+/**
+ * « Les plus donnes » se classait sur `n`, le nombre de naissances sur TROIS
+ * ans, sous un titre qui annoncait une annee. Les deux ne donnent pas le meme
+ * palmares : sur 2025 seul, Noah repasse devant Leo et Alma entre chez les
+ * filles. On classe donc sur le dernier point de la serie annuelle, qui est
+ * bien l'annee affichee. Repli sur `f` pour les prenoms sans serie (les plus
+ * rares — jamais dans un top 3).
+ */
+const derniereAnnee = (p: Prenom) => p.sr?.length ? p.sr[p.sr.length - 1]! : p.f
+
 const stats = computed(() => {
   const l = catalogue.value
   if (!l.length) return null
   const solide = l.filter(p => p.n >= 250)
   const top = (s: 'f' | 'm') => l.filter(p => p.sexe === s)
-    .sort((a, b) => b.n - a.n).slice(0, 3)
+    .sort((a, b) => derniereAnnee(b) - derniereAnnee(a)).slice(0, 3)
   const monte = [...solide].sort((a, b) => b.t - a.t).slice(0, 3)
   const tombe = [...solide].sort((a, b) => a.t - b.t).slice(0, 3)
   const guetter = [...l].filter(p => p.n >= 150).sort((a, b) => b.r - a.r).slice(0, 3)
@@ -141,12 +120,17 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 </script>
 
 <template>
-  <div class="ecran" :class="{ page: !dansPager }">
-    <div class="defile" :class="{ page: !dansPager }">
+  <div class="ecran page">
+    <div class="defile page">
       <header class="tete">
         <img src="/logo.png" alt="" width="34" height="34">
         <h1 style="flex:1">babyNames</h1>
-        <span class="mini doux qui">{{ moi?.pseudo ?? '' }}</span>
+        <button class="qui" @click="compteOuvert = true">
+          <span>{{ moi?.pseudo ?? '…' }}</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8.6" r="3.4" /><path d="M5 19.4a7 7 0 0 1 14 0" />
+          </svg>
+        </button>
       </header>
 
       <p v-if="chargement" class="doux">Chargement…</p>
@@ -158,17 +142,15 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           Votre session est intacte — c’est la liste qui n’a pas pu être lue.
         </p>
         <button class="btn btn-1" @click="chargement = true; charger()">Réessayer</button>
-        <button class="btn btn-0 doux" @click="sortir">Se déconnecter</button>
+        <button class="btn btn-0 doux" @click="compteOuvert = true">Mon compte</button>
       </div>
 
       <div v-else class="bento">
         <!-- liste en cours -->
-        <component :is="ici ? 'button' : 'NuxtLink'" v-if="principale"
-                   v-bind="ici ? {} : { to: `/g/${principale.id}/swipe` }"
-                   class="carte degrade grande"
-                   @click="ici && g!.allerA('swipe')">
+        <NuxtLink v-if="principale" :to="`/g/${principale.id}/swipe`"
+                  class="carte degrade grande">
           <Etincelles class="deco" :taille="30" />
-          <p class="etiquette">{{ ici ? 'Vous êtes dans cette liste' : 'Liste en cours' }}</p>
+          <p class="etiquette">Liste en cours</p>
           <h2 class="titre">{{ principale.nom }}</h2>
           <div class="ligne chiffres">
             <span><strong>{{ principale.mes_votes }}</strong> jugés par vous</span>
@@ -176,10 +158,9 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
             <span><strong>{{ principale.nb_membres }}</strong> {{ principale.nb_membres > 1 ? 'membres' : 'membre' }}</span>
           </div>
           <p class="mini" style="margin:0;opacity:.66">
-            Dernier vote {{ quandDernier(principale.derniere_activite) }}<template v-if="ici">
-              · toucher pour trier</template>
+            Dernier vote {{ quandDernier(principale.derniere_activite) }}
           </p>
-        </component>
+        </NuxtLink>
 
         <div v-else class="carte degrade grande accueil">
           <Etincelles class="deco" :taille="30" />
@@ -197,27 +178,28 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           <span class="mini doux">Quelques questions, puis on trie</span>
         </button>
 
-        <div class="carte tuile colonne">
-          <strong>Rejoindre</strong>
-          <input v-model="code" class="champ mini" placeholder="8 caractères"
-                 maxlength="8" autocapitalize="off" @keyup.enter="rejoindre">
-          <button class="btn mini" :disabled="code.trim().length !== 8" @click="rejoindre">
-            Entrer
-          </button>
-          <p v-if="erreur" class="mini" style="color:var(--non);margin:0">{{ erreur }}</p>
-        </div>
+        <button class="carte tuile colonne creer" @click="rejoindreOuvert = true">
+          <span class="rond">→</span>
+          <strong>Rejoindre une liste</strong>
+          <span class="mini doux">Avec le code de quelqu’un</span>
+        </button>
 
         <BoutonInstaller class="large" />
 
         <!-- statistiques -->
         <template v-if="stats">
-          <p class="section">La France en {{ annee }}</p>
+          <p class="section">Les naissances de {{ annee }}</p>
+          <p class="mini doux large note">
+            Dernier millésime publié par l’INSEE. Le fichier des prénoms paraît une
+            fois par an — il n’existe pas de chiffres sur les douze derniers mois,
+            ni pour {{ annee + 1 }}.
+          </p>
 
           <div class="carte tuile colonne large">
             <p class="etiquette">Les plus donnés · filles</p>
             <button v-for="(p, i) in stats.topF" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="n">{{ i + 1 }}</span><span class="q">{{ p.l }}</span>
-              <em>{{ frequenceLisible(p.f) }}</em>
+              <em>{{ frequenceLisible(derniereAnnee(p)) }}</em>
             </button>
           </div>
 
@@ -225,7 +207,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
             <p class="etiquette">Les plus donnés · garçons</p>
             <button v-for="(p, i) in stats.topM" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="n">{{ i + 1 }}</span><span class="q">{{ p.l }}</span>
-              <em>{{ frequenceLisible(p.f) }}</em>
+              <em>{{ frequenceLisible(derniereAnnee(p)) }}</em>
             </button>
           </div>
 
@@ -287,13 +269,14 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           millésime 2025<br>
           <button class="version" @click="vider">
             version {{ version }}{{ purge ? ' — rechargement…' : ' · toucher pour recharger à neuf' }}
-          </button><br>
-          <button class="version" @click="sortir">Se déconnecter</button>
+          </button>
         </p>
       </div>
     </div>
 
     <AssistantFiltres v-if="assistant" @fermer="assistant = false" @valider="creer" />
+    <FeuilleRejoindre v-if="rejoindreOuvert" @fermer="rejoindreOuvert = false" />
+    <FeuilleCompte v-if="compteOuvert" @fermer="compteOuvert = false" />
     <FichePrenom v-if="fiche" :p="fiche" @fermer="fiche = null" />
   </div>
 </template>
@@ -306,7 +289,14 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .tete img { border-radius: 9px; }
 .tete h1 { font-size: 1.25rem; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; }
-.qui { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qui { flex: none; max-width: 46%; display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--trait); border-radius: var(--pastille); background: var(--carte);
+  padding: 6px 12px 6px 13px; font: inherit; font-size: .78rem; font-weight: 700;
+  color: var(--doux); cursor: pointer; }
+.qui span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qui svg { width: 15px; height: 15px; flex: none; stroke: currentColor; fill: none;
+  stroke-width: 2.2; stroke-linecap: round; }
+.qui:active { background: var(--fond); }
 
 .bento { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .bento > * { min-width: 0; }
@@ -339,6 +329,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .rang .n { color: var(--doux); font-size: .74rem; width: 11px; flex: none; }
 .creer { align-items: center; justify-content: center; text-align: center; gap: 6px; }
 
+.note { margin: -6px 0 0; }
 .section { margin: 10px 0 -2px; font-size: .72rem; text-transform: uppercase;
   letter-spacing: .07em; font-weight: 700; color: var(--doux); }
 .large.colonne { display: flex; flex-direction: column; gap: 7px; padding: 15px 16px; }

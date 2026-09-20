@@ -44,7 +44,7 @@ export async function semerSiVide(c: Connexion) {
 
   const g = await c.query(
     `insert into groupes (nom, code_invitation, cree_par, quota_swipe_jour, nb_vetos_max)
-     values ('Notre liste', 'dev00000', $1, 40, 3) returning id`, [greg])
+     values ('Notre liste', 'dec0de00', $1, 40, 3) returning id`, [greg])
   const gid = g.rows[0].id
 
   for (const [uid, role] of [[greg, 'parent'], [audrey, 'parent']] as const) {
@@ -95,7 +95,7 @@ export async function semerSiVide(c: Connexion) {
 
   console.log(
     '\n  Base de developpement semee (Postgres embarque, dossier .data/).\n' +
-    `  Liste « Notre liste », code d'invitation dev00000.\n` +
+    `  Liste « Notre liste », code d'invitation dec0de00.\n` +
     `  Cle de Greg   : ${CLES_DEV.greg}\n` +
     `  Cle d'Audrey  : ${CLES_DEV.audrey}\n` +
     '  Ouvrez-en une dans une fenetre privee pour voir le vote aveugle a deux.\n' +

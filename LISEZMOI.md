@@ -15,7 +15,7 @@ une liste déjà entamée. Le terminal affiche alors :
 
 ```
   Base de developpement semee (Postgres embarque, dossier .data/).
-  Liste « Notre liste », code d'invitation dev00000.
+  Liste « Notre liste », code d'invitation dec0de00.
   Cle de Greg   : DEVG-REGX-2345
   Cle d'Audrey  : DEVA-DREY-2345
 ```

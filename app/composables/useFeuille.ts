@@ -3,7 +3,8 @@ import type { Ref } from 'vue'
 /**
  * Feuille que l'on tire vers le bas pour fermer.
  *
- * Deux pieges evites ici :
+ * Trois pieges evites ici :
+ *  - un geste qui demarre sur un bouton n'est pas un geste : voir `debut`.
  *  - le contenu de la feuille defile. Tirer vers le bas au milieu d'une liste
  *    deja defilee doit faire remonter la liste, pas fermer la feuille : on
  *    n'arme le geste que si le contenu est en haut (scrollTop a 0).
@@ -21,6 +22,11 @@ export function useFeuille(fermer: () => void, contenu?: Ref<HTMLElement | undef
   let arme = false
 
   function debut(e: PointerEvent) {
+    // Un geste qui commence sur une commande appartient a la commande. Sans ce
+    // garde-fou, setPointerCapture detourne la suite des evenements vers la
+    // zone de prise et le clic n'arrive JAMAIS au bouton : la croix de
+    // fermeture ne fermait rien.
+    if ((e.target as HTMLElement)?.closest?.('button, a, input, label, select, textarea')) return
     // On ne prend la main que si rien n'est defile au-dessus.
     arme = (contenu?.value?.scrollTop ?? 0) <= 0
     if (!arme) return

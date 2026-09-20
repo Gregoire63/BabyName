@@ -65,16 +65,15 @@ const selection = computed(() => {
 </script>
 
 <template>
-  <div class="plein">
-    <header class="tete">
-      <button class="btn btn-0 mini doux" :disabled="etape === 0" @click="retour">Retour</button>
+  <Feuille plein titre="Créer une liste" @fermer="emit('fermer')">
+    <template #action>
       <div class="points">
         <i v-for="(e, i) in ETAPES" :key="e" :class="{ on: i <= etape }" />
       </div>
-      <button class="btn btn-0 mini doux" @click="emit('fermer')">Annuler</button>
-    </header>
+      <button class="btn btn-0 mini doux" :disabled="etape === 0" @click="retour">Retour</button>
+    </template>
 
-    <main class="corps">
+    <div class="corps">
       <template v-if="etape === 0">
         <h1>Vous cherchez un prénom pour…</h1>
         <p class="doux">On peut tout changer plus tard, rien n’est figé.</p>
@@ -144,9 +143,9 @@ const selection = computed(() => {
           Pas de prénoms composés
         </label>
       </template>
-    </main>
+    </div>
 
-    <footer class="pied">
+    <template #pied>
       <p class="compte">
         <strong>{{ nb.toLocaleString('fr-FR') }}</strong> prénoms — {{ selection }}
       </p>
@@ -160,21 +159,17 @@ const selection = computed(() => {
       <button v-else class="btn btn-0 mini doux" @click="sansFiltre">
         Passer, je filtrerai après
       </button>
-    </footer>
-  </div>
+    </template>
+  </Feuille>
 </template>
 
 <style scoped>
-.plein { position: fixed; inset: 0; z-index: 70; background: var(--fond);
-  display: flex; flex-direction: column; }
-.tete { display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: max(10px, env(safe-area-inset-top)) 12px 6px; }
-.points { display: flex; gap: 5px; }
+.points { display: flex; gap: 5px; flex: none; }
 .points i { width: 20px; height: 3px; border-radius: 999px; background: var(--trait); }
 .points i.on { background: var(--encre); }
 
-.corps { flex: 1; overflow-y: auto; padding: 14px 20px 20px;
-  display: flex; flex-direction: column; gap: 10px; }
+/* le defilement et le rembourrage viennent de la feuille */
+.corps { display: flex; flex-direction: column; gap: 10px; }
 .corps h1 { font-size: 1.55rem; }
 .corps > p { margin: 0 0 6px; font-size: .92rem; }
 .choix { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
@@ -188,9 +183,6 @@ const selection = computed(() => {
   border-radius: 999px; padding: 8px 14px; font: inherit; font-size: .84rem; cursor: pointer; }
 .jeton.in { background: var(--encre); border-color: var(--encre); color: var(--fond); }
 
-.pied { padding: 12px 20px calc(16px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--trait); display: flex; flex-direction: column; gap: 10px;
-  background: var(--carte); }
 .compte { margin: 0; text-align: center; font-size: .92rem; color: var(--doux);
   font-variant-numeric: tabular-nums; }
 .compte strong { color: var(--texte); font-size: 1.15rem; }

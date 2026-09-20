@@ -113,12 +113,18 @@ button { font: inherit; color: inherit; }
   display: flex; background: color-mix(in srgb, var(--fond) 88%, transparent);
   backdrop-filter: blur(16px); border-top: 1px solid var(--trait);
   padding-bottom: env(safe-area-inset-bottom); }
-/* quatre onglets, plus six : les libelles peuvent enfin se lire */
-.onglets button { flex: 1; min-width: 0; background: none; border: 0; padding: 9px 2px 11px;
-  color: var(--doux); font-size: .69rem; font-weight: 700; cursor: pointer;
+/* quatre cibles, plus six : les libelles peuvent enfin se lire */
+.onglets button, .onglets a { flex: 1; min-width: 0; background: none; border: 0;
+  padding: 9px 2px 11px; color: var(--doux); font-size: .69rem; font-weight: 700;
+  cursor: pointer; text-decoration: none;
   display: grid; justify-items: center; gap: 3px; transition: color .15s;
   white-space: nowrap; letter-spacing: -.01em; }
 .onglets button.on { color: var(--encre); }
+/* la sortie n'est pas un onglet : elle quitte la liste, elle ne s'allume
+   jamais, et le filet la detache des trois onglets de la liste */
+.onglets .sortie { position: relative; }
+.onglets .sortie::after { content: ''; position: absolute; right: 0; top: 22%; bottom: 22%;
+  width: 1px; background: var(--trait); }
 /* trait epais a bouts ronds, comme le monogramme : a 21 px, un trait de 2
    restait maigre a cote du reste de l'interface */
 .onglets svg { width: 21px; height: 21px; stroke: currentColor; fill: none;

@@ -4,9 +4,6 @@ const modele = defineModel<Filtres>({ required: true })
 const props = defineProps<{ origines: string[]; nb: number }>()
 const emit = defineEmits<{ fermer: [] }>()
 
-const dedans = ref<HTMLElement>()
-const f = useFeuille(() => emit('fermer'), dedans)
-
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 const avance = ref(false)
 
@@ -31,17 +28,14 @@ function cycler(o: string) {
 </script>
 
 <template>
-  <div class="voile" @click.self="emit('fermer')">
-    <div class="feuille" :style="f.style.value"
-         @pointerdown="f.debut" @pointermove="f.bouge"
-         @pointerup="f.fin" @pointercancel="f.fin">
-      <div class="poignee" />
-      <div ref="dedans" class="dedans pile">
-        <div class="ligne">
-          <h2 style="flex:1">Filtres</h2>
-          <button class="btn btn-0 mini doux" @click="modele = filtresParDefaut()">Remettre à zéro</button>
-        </div>
+  <Feuille titre="Filtres" @fermer="emit('fermer')">
+    <template #action>
+      <button class="btn btn-0 mini doux" @click="modele = filtresParDefaut()">
+        Remettre à zéro
+      </button>
+    </template>
 
+    <div class="pile">
         <input v-model="modele.recherche" class="champ" placeholder="Chercher un prénom"
                autocapitalize="off">
 
@@ -141,33 +135,17 @@ function cycler(o: string) {
             Seulement les prénoms d’avant 1970 qui remontent
           </label>
         </template>
-      </div>
-
-      <div class="pied">
-        <button class="btn btn-1" style="width:100%" @click="emit('fermer')">
-          {{ props.nb.toLocaleString('fr-FR') }} prénoms — voir
-        </button>
-      </div>
     </div>
-  </div>
+
+    <template #pied="{ fermer }">
+      <button class="btn btn-1" style="width:100%" @click="fermer">
+        {{ props.nb.toLocaleString('fr-FR') }} prénoms — voir
+      </button>
+    </template>
+  </Feuille>
 </template>
 
 <style scoped>
-.voile { position: fixed; inset: 0; z-index: 55; background: rgba(26,35,78,.42);
-  backdrop-filter: blur(3px); display: flex; align-items: flex-end; justify-content: center; }
-.feuille { width: 100%; max-width: 560px; max-height: 92%; background: var(--carte);
-  border-radius: 22px 22px 0 0; display: flex; flex-direction: column;
-  animation: monte .24s cubic-bezier(.2,.8,.3,1); }
-@keyframes monte { from { transform: translateY(18px); opacity: .6 } }
-.feuille { touch-action: none; }
-.poignee { width: 42px; height: 5px; border-radius: 999px; background: var(--trait);
-  margin: 10px auto 4px; flex: none; }
-.dedans { touch-action: pan-y; }
-.pied { touch-action: auto; }
-.dedans { overflow-y: auto; overscroll-behavior: contain; padding: 8px 20px 16px; }
-.pied { padding: 10px 20px calc(14px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--trait); }
-
 .titre { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
   color: var(--doux); margin: 0 0 7px; font-weight: 650; }
 .nuage { display: flex; flex-wrap: wrap; gap: 6px; }

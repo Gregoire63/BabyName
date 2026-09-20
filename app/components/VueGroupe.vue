@@ -6,19 +6,25 @@ import { CLE_GROUPE } from '~/composables/etatGroupe'
 const props = defineProps<{ depart?: string; segmentDepart?: string }>()
 
 /**
- * Quatre onglets, pas six.
+ * Trois onglets dans la liste, plus une porte de sortie.
  *
- * Accueil sort de la liste, les trois autres y restent. Communs, Duels et Top
- * etaient trois onglets separes alors qu'ils forment un seul geste : on trouve
- * les accords, on les departage, on obtient l'ordre. Ils sont devenus les trois
- * volets de Classement — et la barre du bas est passee de six cibles serrees a
- * quatre lisibles.
+ * La barre du bas n'existe QUE dans une liste : c'est ce qui dit qu'on y est.
+ * Hors liste, sur l'accueil, il n'y a pas de barre — donc pas d'ambiguite sur
+ * ce que reglent les reglages. Accueil n'est pas un quatrieme onglet mais un
+ * bouton qui sort : dupliquer l'accueil en volet donnait deux pages identiques
+ * dont une seule portait la barre, et personne ne savait laquelle etait quoi.
+ *
+ * Communs, Duels et Top etaient trois onglets alors qu'ils forment un seul
+ * geste : trouver les accords, les departager, obtenir l'ordre. Ils sont
+ * devenus les trois volets de Classement.
+ *
+ * « La liste » plutot que « Parametres » : ces reglages-la sont ceux de CETTE
+ * liste. Ce qui concerne le compte vit sur l'accueil, sous son propre nom.
  */
 const ONGLETS = [
-  { id: 'accueil', t: 'Accueil' },
   { id: 'swipe', t: 'Swipe' },
   { id: 'classement', t: 'Classement' },
-  { id: 'reglages', t: 'Paramètres' }
+  { id: 'reglages', t: 'La liste' }
 ]
 
 const gid = useRoute().params.id as string
@@ -85,6 +91,7 @@ async function fermerFiltres() {
 }
 
 function allerA(onglet: string, seg?: string) {
+  if (onglet === 'accueil') { navigateTo('/'); return }
   // Les anciens noms d'onglets restent valides : ils designent maintenant un
   // volet de Classement. Un lien ou un bouton d'avant n'a pas a le savoir.
   const volets: Record<string, string> = { communs: 'communs', duels: 'duels', top: 'top' }
@@ -114,7 +121,7 @@ function marquerVus() {
   try { localStorage.setItem(cleVus, String(vus.value)) } catch { /* mode prive */ }
 }
 watch([index, segment, communs], ([i, s]) => {
-  if (i === 2 && s === 'communs') marquerVus()
+  if (ONGLETS[i as number]?.id === 'classement' && s === 'communs') marquerVus()
 })
 
 // --- navigation -----------------------------------------------------------
@@ -140,10 +147,6 @@ function auDefilement() {
 }
 
 onMounted(async () => {
-  // La derniere liste ouverte : « / » y renvoie, pour que la barre du bas soit
-  // toujours la plutot que d'apparaitre en entrant dans une liste.
-  try { localStorage.setItem('derniere-liste', gid) } catch { /* mode prive */ }
-
   // position de depart sans animation, avant la premiere peinture visible
   await nextTick()
   const el = pager.value
@@ -160,24 +163,30 @@ onMounted(async () => {
 <template>
   <div class="cadre">
     <div ref="pager" class="pager" @scroll.passive="auDefilement">
-      <section><SectionAccueil v-if="vues.has(0)" dans-pager :actif="index === 0" /></section>
-      <section><SectionTrier v-if="vues.has(1)" :actif="index === 1" /></section>
+      <section><SectionTrier v-if="vues.has(0)" :actif="index === 0" /></section>
       <section>
-        <SectionClassement v-if="vues.has(2)" :actif="index === 2"
+        <SectionClassement v-if="vues.has(1)" :actif="index === 1"
                            :segment="segment" @segment="segment = $event" />
       </section>
-      <section><SectionReglages v-if="vues.has(3)" :actif="index === 3" /></section>
+      <section><SectionReglages v-if="vues.has(2)" :actif="index === 2" /></section>
     </div>
 
     <nav class="onglets">
+      <!-- la sortie, pas un onglet : elle quitte la liste -->
+      <NuxtLink to="/" class="sortie">
+        <span class="picto">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 11 12 4l8 7M6.5 9.6V19h11V9.6" />
+          </svg>
+        </span>
+        Accueil
+      </NuxtLink>
+
       <button v-for="(o, i) in ONGLETS" :key="o.id" :class="{ on: index === i }"
               @click="glisserVers(i)">
         <span class="picto">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <template v-if="o.id === 'accueil'">
-              <path d="M4 11 12 4l8 7M6.5 9.6V19h11V9.6" />
-            </template>
-            <template v-else-if="o.id === 'swipe'">
+            <template v-if="o.id === 'swipe'">
               <rect x="4" y="3" width="16" height="18" rx="3" />
               <path d="M8 16h8" />
             </template>
