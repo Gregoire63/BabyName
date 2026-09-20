@@ -1,202 +1,71 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
-const props = defineProps<{ actif: boolean }>()
+
+/**
+ * Le tiroir « decider ensemble ». Trois volets qui forment une seule suite :
+ * on voit sur quoi on s'accorde, on departage, on obtient un ordre. C'etaient
+ * trois onglets separes ; separes, on ne voyait pas qu'ils s'enchainent.
+ */
+const props = defineProps<{ actif: boolean; segment: string }>()
+const emit = defineEmits<{ segment: [string] }>()
 const g = useGroupeCourant()
 
-const general = ref<any[]>([])
-const monTop = ref<string[]>([])
-const mesOui = ref<string[]>([])
-const mesFavoris = ref<Set<string>>(new Set())
-const charge = ref(false)
-const sauve = ref(false)
-const modifie = ref(false)
+const VOLETS = [
+  { id: 'communs', t: 'Communs' },
+  { id: 'duels', t: 'Duels' },
+  { id: 'top', t: 'Top' }
+]
 
-async function charger() {
-  const r = await $fetch<any>(`/api/groupes/${g.gid}/classement`).catch(() => null)
-  if (!r) { charge.value = true; return }
-  general.value = r.general
-  mesOui.value = r.mes_oui ?? []
-  mesFavoris.value = new Set(r.mes_favoris ?? [])
+// Chaque volet ne se monte qu'une fois ouvert, et reste monte ensuite : on ne
+// rejoue pas un chargement a chaque aller-retour entre les trois.
+const vus = ref<Set<string>>(new Set([props.segment]))
+watch(() => props.segment, s => { vus.value = new Set([...vus.value, s]) })
 
-  // Trois sources, de la plus explicite a la plus implicite. Sans la
-  // troisieme, quelqu'un qui a dit oui a trente prenoms sans jouer un seul
-  // duel voyait un podium vide : ses choix existaient, on ne les montrait pas.
-  monTop.value = r.mon_top.length
-    ? r.mon_top.map((x: any) => x.prenom)
-    : r.mon_rang.length
-      ? r.mon_rang.slice(0, 12).map((x: any) => x.prenom)
-      : mesOui.value.slice(0, 12)
-  modifie.value = false
-  charge.value = true
-}
-watch([() => props.actif, g.pret], ([a, p]) => { if (a && p) charger() }, { immediate: true })
+const ici = (id: string) => props.actif && props.segment === id
 
-// Glisser-deposer au doigt : HTML5 drag ne marche pas sur mobile.
-const tire = ref(-1)
-const survol = ref(-1)
-
-function deplacer(de: number, vers: number) {
-  if (de < 0 || vers < 0 || de === vers) return
-  const l = [...monTop.value]
-  const [x] = l.splice(de, 1)
-  l.splice(vers, 0, x!)
-  monTop.value = l
-  modifie.value = true
-}
-
-function debut(i: number, e: PointerEvent) {
-  tire.value = i
-  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-}
-function bouge(e: PointerEvent) {
-  if (tire.value < 0) return
-  const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-rang]')
-  survol.value = el ? Number((el as HTMLElement).dataset.rang) : -1
-}
-function fin() {
-  if (tire.value >= 0 && survol.value >= 0) deplacer(tire.value, survol.value)
-  tire.value = -1; survol.value = -1
-}
-
-/** Prenoms dits oui (ou gardes) qui ne sont pas encore dans le podium. */
-const horsPodium = computed(() => {
-  const dans = new Set(monTop.value)
-  const tout = [...new Set([...mesOui.value, ...mesFavoris.value])]
-  return tout.filter(p => !dans.has(p))
+const resume = computed(() => {
+  const n = g.communs.value.length
+  return props.segment === 'communs'
+    ? `${n} prénom${n > 1 ? 's' : ''} en commun`
+    : props.segment === 'duels'
+      ? 'départager deux à deux'
+      : 'votre podium et le général'
 })
-
-function ajouterAuPodium(p: string) {
-  monTop.value = [...monTop.value, p]
-  modifie.value = true
-}
-
-function retirerDuPodium(i: number) {
-  const l = [...monTop.value]
-  l.splice(i, 1)
-  monTop.value = l
-  modifie.value = true
-}
-
-async function enregistrer() {
-  await $fetch(`/api/groupes/${g.gid}/classement`,
-    { method: 'PUT', body: { ordre: monTop.value } })
-  sauve.value = true; modifie.value = false
-  setTimeout(() => sauve.value = false, 1800)
-  await charger()
-}
 </script>
 
 <template>
   <div class="pile">
-    <h1>Classement</h1>
-    <p v-if="!charge" class="doux">Chargement…</p>
+    <TeteListe onglet="Classement" :info="resume" />
 
-    <template v-else>
-      <section class="carte pile">
-        <div class="ligne">
-          <h2 style="flex:1">Mon podium</h2>
-          <button v-if="modifie" class="btn btn-1 mini" @click="enregistrer">Enregistrer</button>
-          <span v-else-if="sauve" class="puce">Enregistré</span>
-        </div>
-        <p class="mini doux" style="margin:0">
-          Tirez la poignée pour réordonner. Votre podium pèse plus lourd que vos duels.
-        </p>
+    <div class="segment" role="tablist">
+      <button v-for="v in VOLETS" :key="v.id" role="tab"
+              :aria-selected="segment === v.id" :class="{ on: segment === v.id }"
+              @click="emit('segment', v.id)">
+        {{ v.t }}
+        <i v-if="v.id === 'communs' && g.communs.value.length" class="nb">
+          {{ g.communs.value.length }}</i>
+      </button>
+    </div>
 
-        <ol v-if="monTop.length" class="liste">
-          <li v-for="(p, i) in monTop" :key="p" :data-rang="i"
-              :class="{ tire: tire === i, cible: survol === i && tire !== i }">
-            <span class="rang">{{ i + 1 }}</span>
-            <span class="nom" @click="g.ouvrirFiche(p)">
-              {{ p }}<Etincelles v-if="mesFavoris.has(p)" class="fav" :taille="13"
-                                 couleur="var(--peche)" une />
-            </span>
-            <button class="retirer" aria-label="Retirer du podium"
-                    @click="retirerDuPodium(i)">−</button>
-            <button class="poignee" aria-label="Déplacer"
-                    @pointerdown="debut(i, $event)" @pointermove="bouge"
-                    @pointerup="fin" @pointercancel="fin">⋮⋮</button>
-          </li>
-        </ol>
-        <p v-else class="mini doux" style="margin:0">
-          Dites oui à quelques prénoms, ou jouez des duels : votre podium se
-          remplira tout seul.
-        </p>
-      </section>
-
-      <section v-if="mesOui.length || mesFavoris.size" class="carte pile">
-        <div class="ligne">
-          <h2 style="flex:1">Mes oui</h2>
-          <span class="puce">{{ mesOui.length }}</span>
-        </div>
-        <p class="mini doux" style="margin:0">
-          Tout ce à quoi vous avez dit oui, plus vos gardés — qu’ils aient trouvé
-          un accord ou non. Touchez un prénom pour sa fiche, le + pour le monter
-          au podium.
-        </p>
-        <div v-if="horsPodium.length" class="ligne" style="flex-wrap:wrap;gap:6px">
-          <span v-for="p in horsPodium" :key="p" class="jeton">
-            <button class="etiq" @click="g.ouvrirFiche(p)">
-              {{ p }}<Etincelles v-if="mesFavoris.has(p)" class="fav" :taille="12"
-                                 couleur="var(--peche)" une />
-            </button>
-            <button class="plus" :aria-label="`Ajouter ${p} au podium`"
-                    @click="ajouterAuPodium(p)">+</button>
-          </span>
-        </div>
-        <p v-else class="mini doux" style="margin:0">
-          Tous vos oui sont déjà dans le podium.
-        </p>
-      </section>
-
-      <section class="carte pile">
-        <h2>Classement général</h2>
-        <p class="mini doux" style="margin:0">
-          Le consensus dit si tout le monde est d’accord, ou si un seul porte le prénom
-          à bout de bras.
-        </p>
-        <ol v-if="general.length" class="liste">
-          <li v-for="(x, i) in general.slice(0, 30)" :key="x.prenom">
-            <span class="rang">{{ i + 1 }}</span>
-            <span class="nom" @click="g.ouvrirFiche(x.prenom)">{{ x.prenom }}</span>
-            <span class="jauge" :aria-label="`consensus ${(Number(x.consensus)*100).toFixed(0)}%`">
-              <i :style="{ width: (Number(x.consensus) * 100) + '%' }" />
-            </span>
-          </li>
-        </ol>
-        <p v-else class="mini doux" style="margin:0">
-          Il apparaît dès que chacun a joué quelques duels.
-        </p>
-      </section>
-    </template>
+    <PanneauCommuns v-if="vus.has('communs')" v-show="segment === 'communs'"
+                    :actif="ici('communs')" />
+    <PanneauDuels v-if="vus.has('duels')" v-show="segment === 'duels'"
+                  :actif="ici('duels')" @voir-top="emit('segment', 'top')" />
+    <PanneauTop v-if="vus.has('top')" v-show="segment === 'top'" :actif="ici('top')" />
   </div>
 </template>
 
 <style scoped>
-.liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.liste li { display: flex; align-items: center; gap: 10px; padding: 10px 12px;
-  border: 1px solid var(--trait); border-radius: 12px; background: var(--fond);
-  transition: transform .12s, border-color .12s; }
-.liste li.tire { opacity: .45; }
-.liste li.cible { border-color: var(--encre); transform: scale(1.015); }
-.rang { width: 22px; text-align: center; color: var(--doux); font-variant-numeric: tabular-nums;
-  font-weight: 700; font-size: .82rem; flex: none; }
-.nom { flex: 1; min-width: 0; cursor: pointer; font-weight: 560; }
-.poignee { border: 0; background: none; color: var(--doux); cursor: grab;
-  touch-action: none; padding: 4px 2px; letter-spacing: -2px; font-size: .9rem; }
-.retirer { border: 0; background: none; color: var(--doux); cursor: pointer;
-  font-size: 1.1rem; line-height: 1; padding: 2px 6px; opacity: .55; }
-.nom { display: flex; align-items: center; gap: 5px; }
-.fav { display: inline-block; }
-
-.jeton { display: inline-flex; align-items: center; border: 1px solid var(--trait);
-  border-radius: var(--pastille); overflow: hidden; background: var(--fond); }
-.jeton .etiq { border: 0; background: none; padding: 6px 4px 6px 12px; cursor: pointer;
-  font: inherit; font-size: .8rem; font-weight: 700; color: var(--texte);
-  display: flex; align-items: center; gap: 5px; }
-.jeton .plus { border: 0; background: none; cursor: pointer; color: var(--doux);
-  font-size: 1.05rem; line-height: 1; padding: 5px 11px 6px 7px; }
-.jeton .plus:active { color: var(--encre); }
-.jauge { width: 54px; height: 5px; border-radius: 999px; background: var(--trait);
-  overflow: hidden; flex: none; }
-.jauge i { display: block; height: 100%; background: var(--encre); }
+.segment { display: flex; gap: 3px; padding: 3px; border-radius: var(--pastille);
+  background: color-mix(in srgb, var(--sable) 58%, transparent); }
+.segment button { flex: 1; min-width: 0; border: 0; border-radius: var(--pastille);
+  background: none; padding: 8px 6px; font: inherit; font-size: .8rem; font-weight: 700;
+  color: var(--doux); cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  transition: background .16s, color .16s; }
+.segment button.on { background: var(--fond); color: var(--texte);
+  box-shadow: 0 1px 3px rgba(26,35,78,.09); }
+.nb { font-style: normal; font-size: .64rem; font-weight: 800; min-width: 16px;
+  padding: 1px 5px; border-radius: 999px; background: var(--menthe); color: var(--encre);
+  font-variant-numeric: tabular-nums; }
 </style>

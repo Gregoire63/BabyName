@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
+
+/**
+ * Tout ce qui se regle : la liste d'abord, le compte ensuite. C'etait
+ * l'onglet « Liste », qui melangeait les deux sans le dire.
+ */
 const props = defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
 
@@ -34,17 +39,20 @@ async function remettre(prenoms: string[]) {
 const copie = ref(false)
 const renomme = ref(false)
 const nouveauNom = ref('')
-const editeNom = ref(false)
 
-watch(g.etat, e => { if (e && !nouveauNom.value) nouveauNom.value = e.groupe.nom }, { immediate: true })
+watch(g.etat, e => { if (e && !nouveauNom.value) nouveauNom.value = e.groupe.nom },
+  { immediate: true })
 
 const lien = computed(() => g.etat.value
   ? `${location.origin}/?code=${g.etat.value.groupe.code_invitation}` : '')
 
+const nomChange = computed(() =>
+  !!nouveauNom.value.trim() && nouveauNom.value !== g.etat.value?.groupe?.nom)
+
 async function renommer() {
-  if (!nouveauNom.value.trim()) return
+  if (!nomChange.value) return
   await $fetch(`/api/groupes/${g.gid}/nom`, { method: 'PUT', body: { nom: nouveauNom.value } })
-  renomme.value = true; editeNom.value = false
+  renomme.value = true
   setTimeout(() => renomme.value = false, 1600)
   await g.recharger()
 }
@@ -108,15 +116,19 @@ const filtresActifs = computed(() => {
     <div v-if="!g.etat.value" class="doux">Chargement…</div>
 
     <template v-else>
-      <div class="ligne">
-        <h1 v-if="!editeNom" style="flex:1" @click="editeNom = true">
-          {{ g.etat.value.groupe.nom }}
-        </h1>
-        <template v-else>
+      <TeteListe onglet="Paramètres" />
+
+      <p class="section">Cette liste</p>
+
+      <section class="carte pile">
+        <h2>Nom</h2>
+        <div class="ligne">
           <input v-model="nouveauNom" class="champ" style="flex:1" @keyup.enter="renommer">
-          <button class="btn mini" @click="renommer">{{ renomme ? 'Fait' : 'OK' }}</button>
-        </template>
-      </div>
+          <button class="btn mini" :disabled="!nomChange" @click="renommer">
+            {{ renomme ? 'Fait' : 'Renommer' }}
+          </button>
+        </div>
+      </section>
 
       <section class="carte degrade invit">
         <p class="mini" style="margin:0;opacity:.72">Code d’invitation</p>
@@ -136,7 +148,7 @@ const filtresActifs = computed(() => {
 
       <section class="carte pile">
         <div class="ligne">
-          <h2 style="flex:1">Filtres de la liste</h2>
+          <h2 style="flex:1">Filtres</h2>
           <button class="btn btn-0 mini" @click="g.ouvrirFiltres()">Modifier</button>
         </div>
         <div v-if="filtresActifs.length" class="ligne" style="flex-wrap:wrap;gap:6px">
@@ -208,10 +220,11 @@ const filtresActifs = computed(() => {
         </div>
       </section>
 
+      <p class="section">Mon compte</p>
+
       <section class="carte pile">
-        <h2>Mon compte</h2>
+        <h2>{{ moi?.pseudo ?? '…' }}</h2>
         <p class="mini doux" style="margin:0">
-          Connecté en tant que <strong>{{ moi?.pseudo ?? '…' }}</strong>.
           Votre clé d’accès ne sert qu’à retrouver ce compte sur un autre téléphone.
         </p>
 
@@ -240,7 +253,7 @@ const filtresActifs = computed(() => {
       </section>
 
       <div class="ligne" style="justify-content:center;gap:16px">
-        <NuxtLink class="btn btn-0 doux" to="/">Toutes mes listes</NuxtLink>
+        <button class="btn btn-0 doux" @click="g.allerA('accueil')">Toutes mes listes</button>
         <button class="btn btn-0 doux" @click="sortir">Se déconnecter</button>
       </div>
     </template>
@@ -248,6 +261,8 @@ const filtresActifs = computed(() => {
 </template>
 
 <style scoped>
+.section { margin: 10px 0 -4px; font-size: .72rem; text-transform: uppercase;
+  letter-spacing: .07em; font-weight: 800; color: var(--doux); }
 .invit { display: flex; flex-direction: column; align-items: center; gap: 10px;
   color: var(--encre); }
 .code { font-size: 1.7rem; letter-spacing: .16em; font-weight: 700; }

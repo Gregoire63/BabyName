@@ -3,21 +3,29 @@ import { chargerCatalogue, filtrer, filtresParDefaut, type Prenom, type Filtres 
   from '~/composables/useCatalogue'
 import { CLE_GROUPE } from '~/composables/etatGroupe'
 
-const props = defineProps<{ depart?: string }>()
+const props = defineProps<{ depart?: string; segmentDepart?: string }>()
 
+/**
+ * Quatre onglets, pas six.
+ *
+ * Accueil sort de la liste, les trois autres y restent. Communs, Duels et Top
+ * etaient trois onglets separes alors qu'ils forment un seul geste : on trouve
+ * les accords, on les departage, on obtient l'ordre. Ils sont devenus les trois
+ * volets de Classement — et la barre du bas est passee de six cibles serrees a
+ * quatre lisibles.
+ */
 const ONGLETS = [
   { id: 'accueil', t: 'Accueil' },
-  { id: 'swipe', t: 'Trier' },
-  { id: 'communs', t: 'Communs' },
-  { id: 'duels', t: 'Duels' },
-  { id: 'classement', t: 'Top' },
-  { id: 'groupe', t: 'Liste' }
+  { id: 'swipe', t: 'Swipe' },
+  { id: 'classement', t: 'Classement' },
+  { id: 'reglages', t: 'Paramètres' }
 ]
 
 const gid = useRoute().params.id as string
 const pager = ref<HTMLElement>()
 const index = ref(Math.max(0, ONGLETS.findIndex(o => o.id === (props.depart ?? 'swipe'))))
 const vues = ref<Set<number>>(new Set([index.value]))
+const segment = ref(props.segmentDepart ?? 'communs')
 
 const etat = ref<any>(null)
 const catalogue = ref<Prenom[]>([])
@@ -27,6 +35,7 @@ const dejaVotes = ref<Set<string>>(new Set())
 const aimes = ref<Prenom[]>([])
 const vetos = ref<Set<string>>(new Set())
 const favoris = ref<Set<string>>(new Set())
+const communs = ref<any[]>([])
 const pret = ref(false)
 const fiche = ref<Prenom | null>(null)
 // Le panneau de filtres vit ici, pas dans l'onglet de tri : on doit pouvoir
@@ -35,10 +44,15 @@ const filtresOuverts = ref(false)
 
 const parNom = computed(() => new Map(catalogue.value.map(p => [p.l, p])))
 
+async function rechargerCommuns() {
+  communs.value = await $fetch<any[]>(`/api/groupes/${gid}/communs`).catch(() => [])
+}
+
 async function recharger() {
   const [e, mesVotes] = await Promise.all([
     $fetch<any>(`/api/groupes/${gid}`),
-    $fetch<any>(`/api/groupes/${gid}/votes`)
+    $fetch<any>(`/api/groupes/${gid}/votes`),
+    rechargerCommuns()
   ])
   etat.value = e
   if (e.groupe.filtres && Object.keys(e.groupe.filtres).length) {
@@ -70,14 +84,37 @@ async function fermerFiltres() {
     { method: 'PUT', body: filtres.value }).catch(() => null)
 }
 
-function allerA(onglet: string) {
-  const i = ONGLETS.findIndex(o => o.id === onglet)
+function allerA(onglet: string, seg?: string) {
+  // Les anciens noms d'onglets restent valides : ils designent maintenant un
+  // volet de Classement. Un lien ou un bouton d'avant n'a pas a le savoir.
+  const volets: Record<string, string> = { communs: 'communs', duels: 'duels', top: 'top' }
+  let cible = onglet
+  if (volets[onglet]) { cible = 'classement'; seg = volets[onglet] }
+  if (onglet === 'groupe') cible = 'reglages'
+  if (seg) segment.value = seg
+  const i = ONGLETS.findIndex(o => o.id === cible)
   if (i >= 0) glisserVers(i)
 }
 
 provide(CLE_GROUPE, {
-  gid, etat, catalogue, parNom, origines, filtres,
-  dejaVotes, aimes, vetos, favoris, pret, recharger, ouvrirFiche, ouvrirFiltres, allerA
+  gid, etat, catalogue, parNom, origines, filtres, dejaVotes, aimes, vetos,
+  favoris, communs, rechargerCommuns, pret, recharger, ouvrirFiche,
+  ouvrirFiltres, allerA
+})
+
+// --- pastille des accords -------------------------------------------------
+// « Il y a du nouveau en commun » doit se voir sans ouvrir l'onglet. On retient
+// le nombre deja vu ; la pastille ne parle que de ce qui est arrive depuis.
+const cleVus = `communs-vus:${gid}`
+const vus = ref(0)
+onMounted(() => { vus.value = Number(localStorage.getItem(cleVus) ?? 0) })
+const nouveaux = computed(() => Math.max(0, communs.value.length - vus.value))
+function marquerVus() {
+  vus.value = communs.value.length
+  try { localStorage.setItem(cleVus, String(vus.value)) } catch { /* mode prive */ }
+}
+watch([index, segment, communs], ([i, s]) => {
+  if (i === 2 && s === 'communs') marquerVus()
 })
 
 // --- navigation -----------------------------------------------------------
@@ -103,6 +140,10 @@ function auDefilement() {
 }
 
 onMounted(async () => {
+  // La derniere liste ouverte : « / » y renvoie, pour que la barre du bas soit
+  // toujours la plutot que d'apparaitre en entrant dans une liste.
+  try { localStorage.setItem('derniere-liste', gid) } catch { /* mode prive */ }
+
   // position de depart sans animation, avant la premiere peinture visible
   await nextTick()
   const el = pager.value
@@ -121,38 +162,38 @@ onMounted(async () => {
     <div ref="pager" class="pager" @scroll.passive="auDefilement">
       <section><SectionAccueil v-if="vues.has(0)" dans-pager :actif="index === 0" /></section>
       <section><SectionTrier v-if="vues.has(1)" :actif="index === 1" /></section>
-      <section><SectionCommuns v-if="vues.has(2)" :actif="index === 2" /></section>
-      <section><SectionDuels v-if="vues.has(3)" :actif="index === 3" /></section>
-      <section><SectionClassement v-if="vues.has(4)" :actif="index === 4" /></section>
-      <section><SectionListe v-if="vues.has(5)" :actif="index === 5" /></section>
+      <section>
+        <SectionClassement v-if="vues.has(2)" :actif="index === 2"
+                           :segment="segment" @segment="segment = $event" />
+      </section>
+      <section><SectionReglages v-if="vues.has(3)" :actif="index === 3" /></section>
     </div>
 
     <nav class="onglets">
       <button v-for="(o, i) in ONGLETS" :key="o.id" :class="{ on: index === i }"
               @click="glisserVers(i)">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <template v-if="o.id === 'accueil'">
-            <path d="M4 11 12 4l8 7M6.5 9.6V19h11V9.6" />
-          </template>
-          <template v-else-if="o.id === 'swipe'">
-            <rect x="4" y="3" width="16" height="18" rx="3" />
-            <path d="M8 16h8" />
-          </template>
-          <template v-else-if="o.id === 'communs'">
-            <path d="M12 20.4S4 15.6 4 10.4A4.4 4.4 0 0 1 12 7.6a4.4 4.4 0 0 1 8 2.8c0 5.2-8 10-8 10Z"
-                  :fill="index === i ? 'currentColor' : 'none'" />
-          </template>
-          <template v-else-if="o.id === 'duels'">
-            <path d="M12 4v16M6 8l-2 2 2 2M18 8l2 2-2 2" />
-          </template>
-          <template v-else-if="o.id === 'classement'">
-            <path d="M5 19V9M12 19V5M19 19v-6" />
-          </template>
-          <template v-else>
-            <circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.3" />
-            <path d="M3.5 19a5.5 5.5 0 0 1 11 0M15.5 19a4 4 0 0 1 5-3.3" />
-          </template>
-        </svg>
+        <span class="picto">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <template v-if="o.id === 'accueil'">
+              <path d="M4 11 12 4l8 7M6.5 9.6V19h11V9.6" />
+            </template>
+            <template v-else-if="o.id === 'swipe'">
+              <rect x="4" y="3" width="16" height="18" rx="3" />
+              <path d="M8 16h8" />
+            </template>
+            <template v-else-if="o.id === 'classement'">
+              <path d="M5 19V9M12 19V5M19 19v-6" />
+            </template>
+            <template v-else>
+              <!-- curseurs de reglage : une roue dentee a 21 px et 2,4 de
+                   trait devient un soleil, ce qui ne veut plus rien dire -->
+              <path d="M4 7h4M12 7h8M4 12h10M18 12h2M4 17h2M10 17h10" />
+              <circle cx="10" cy="7" r="2" /><circle cx="16" cy="12" r="2" />
+              <circle cx="8" cy="17" r="2" />
+            </template>
+          </svg>
+          <i v-if="o.id === 'classement' && nouveaux" class="pastille">{{ nouveaux }}</i>
+        </span>
         {{ o.t }}
       </button>
     </nav>
@@ -166,4 +207,10 @@ onMounted(async () => {
 
 <style scoped>
 .cadre { height: 100%; }
+.picto { position: relative; display: block; line-height: 0; }
+.pastille { position: absolute; top: -5px; left: 50%; margin-left: 4px;
+  min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px;
+  background: var(--peche); color: var(--encre); font-size: .58rem;
+  font-weight: 800; font-style: normal; line-height: 15px; text-align: center;
+  font-variant-numeric: tabular-nums; }
 </style>

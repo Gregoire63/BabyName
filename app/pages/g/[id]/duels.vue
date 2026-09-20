@@ -1,3 +1,3 @@
 <template>
-  <VueGroupe depart="duels" />
+  <VueGroupe depart="classement" segment-depart="duels" />
 </template>

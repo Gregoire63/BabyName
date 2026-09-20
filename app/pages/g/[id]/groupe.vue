@@ -1,3 +1,4 @@
+<!-- L'onglet « Liste » s'appelle maintenant Paramètres. -->
 <template>
-  <VueGroupe depart="groupe" />
+  <VueGroupe depart="reglages" />
 </template>

@@ -32,11 +32,6 @@ async function choisir(gagnant: string | null) {
 
 <template>
   <div class="pile">
-    <div class="haut">
-      <h1>Duels</h1>
-      <span class="puce">{{ faits }} joués</span>
-    </div>
-
     <p v-if="!charge" class="doux">Chargement…</p>
 
     <div v-else-if="!duel" class="vide">
@@ -50,7 +45,7 @@ async function choisir(gagnant: string | null) {
         <Etincelles :taille="34" couleur="var(--peche)" />
         <h2>Tout est départagé</h2>
         <p>Vous avez joué tous les duels utiles. Le classement est à jour.</p>
-        <button class="btn" @click="g.allerA('classement')">Voir le classement</button>
+        <button class="btn" @click="$emit('voirTop')">Voir le classement</button>
       </template>
     </div>
 
@@ -62,6 +57,7 @@ async function choisir(gagnant: string | null) {
       </p>
       <p class="doux" style="text-align:center;margin:2px 0 4px">
         Lequel préférez-vous ? Un tap, sans réfléchir.
+        <template v-if="faits"> · {{ faits }} joué{{ faits > 1 ? 's' : '' }}</template>
       </p>
       <div class="duel">
         <button v-for="cote in [duel.a, duel.b]" :key="cote" class="carte choix"
@@ -80,7 +76,6 @@ async function choisir(gagnant: string | null) {
 </template>
 
 <style scoped>
-.haut { display: flex; align-items: center; justify-content: space-between; }
 .reprise { margin: 0; padding: 11px 13px; border-radius: 13px;
   background: color-mix(in srgb, var(--menthe) 48%, transparent); }
 .duel { display: grid; gap: 14px; }

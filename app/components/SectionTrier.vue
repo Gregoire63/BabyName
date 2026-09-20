@@ -24,6 +24,11 @@ const suivante = computed(() => pioche.value[1] ?? null)
 const plafond = computed(() => quota.value + bonus.value)
 const quotaAtteint = computed(() => faits.value >= plafond.value)
 
+/** La ligne de contexte sous le nom de la liste : ou j'en suis, ce qui reste. */
+const contexte = computed(() => g.pret.value
+  ? `${faits.value}/${plafond.value} jugés · ${pioche.value.length.toLocaleString('fr-FR')} possibles`
+  : '…')
+
 onMounted(() => { faits.value = Number(localStorage.getItem(cleJour) ?? 0) })
 
 // --- geste ----------------------------------------------------------------
@@ -173,11 +178,9 @@ async function confirmerFamille() {
 <template>
   <div class="ecran">
     <div class="haut">
-      <span class="puce">{{ faits }}/{{ plafond }}</span>
-      <span class="mini doux" style="flex:1;text-align:center">
-        {{ g.pret.value ? pioche.length.toLocaleString('fr-FR') + ' possibles' : '…' }}
-      </span>
-      <button class="btn btn-0 mini" style="padding:6px 10px" @click="g.ouvrirFiltres()">
+      <TeteListe class="titre" onglet="Swipe" compact :info="contexte" />
+      <button class="btn btn-0 mini" style="padding:6px 10px;flex:none"
+              @click="g.ouvrirFiltres()">
         Filtres
       </button>
     </div>
@@ -317,6 +320,7 @@ async function confirmerFamille() {
 <style scoped>
 .ecran { display: flex; flex-direction: column; gap: 12px; height: 100%; min-height: 340px; }
 .haut { display: flex; align-items: center; gap: 8px; }
+.haut .titre { flex: 1; min-width: 0; }
 
 .zone { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .cartes { position: relative; display: flex; flex: 1; min-height: 0; }

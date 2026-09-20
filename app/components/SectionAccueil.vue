@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { chargerCatalogue, frequenceLisible, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
+import { CLE_GROUPE } from '~/composables/etatGroupe'
 
 // L'accueil sert a deux endroits : la page /, et le premier onglet du pager
 // d'une liste. Meme contenu, seule l'enveloppe de defilement change — le
 // pager fournit deja sa propre section scrollable et son rembourrage.
 const props = defineProps<{ dansPager?: boolean; actif?: boolean }>()
+
+// Dans le pager, l'accueil sait dans quelle liste il se trouve : la liste
+// ouverte passe en tete et n'est plus un lien — la toucher glisse vers le tri
+// au lieu de recharger la page sur elle-meme.
+const g = inject(CLE_GROUPE, null)
+const gidCourant = computed(() => (props.dansPager && g) ? String(g.gid) : null)
 
 const moi = useMoi()
 const groupes = ref<any[]>([])
@@ -82,8 +89,16 @@ async function demarrer() {
 watch(() => props.actif, a => { if (a && props.dansPager) charger() })
 
 // --- la liste principale, les autres en dessous ----------------------------
-const principale = computed(() => groupes.value[0] ?? null)
-const autres = computed(() => groupes.value.slice(1))
+const principale = computed(() => {
+  const l = groupes.value
+  if (!l.length) return null
+  return l.find(x => String(x.id) === gidCourant.value) ?? l[0]
+})
+const autres = computed(() =>
+  groupes.value.filter(x => x !== principale.value))
+/** La carte du haut designe-t-elle la liste dans laquelle on est deja ? */
+const ici = computed(() =>
+  !!principale.value && String(principale.value.id) === gidCourant.value)
 
 const quandDernier = (d: string | null) => {
   if (!d) return 'pas encore commencée'
@@ -148,10 +163,12 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
       <div v-else class="bento">
         <!-- liste en cours -->
-        <NuxtLink v-if="principale" :to="`/g/${principale.id}/swipe`"
-                  class="carte degrade grande">
+        <component :is="ici ? 'button' : 'NuxtLink'" v-if="principale"
+                   v-bind="ici ? {} : { to: `/g/${principale.id}/swipe` }"
+                   class="carte degrade grande"
+                   @click="ici && g!.allerA('swipe')">
           <Etincelles class="deco" :taille="30" />
-          <p class="etiquette">Liste en cours</p>
+          <p class="etiquette">{{ ici ? 'Vous êtes dans cette liste' : 'Liste en cours' }}</p>
           <h2 class="titre">{{ principale.nom }}</h2>
           <div class="ligne chiffres">
             <span><strong>{{ principale.mes_votes }}</strong> jugés par vous</span>
@@ -159,9 +176,10 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
             <span><strong>{{ principale.nb_membres }}</strong> {{ principale.nb_membres > 1 ? 'membres' : 'membre' }}</span>
           </div>
           <p class="mini" style="margin:0;opacity:.66">
-            Dernier vote {{ quandDernier(principale.derniere_activite) }}
+            Dernier vote {{ quandDernier(principale.derniere_activite) }}<template v-if="ici">
+              · toucher pour trier</template>
           </p>
-        </NuxtLink>
+        </component>
 
         <div v-else class="carte degrade grande accueil">
           <Etincelles class="deco" :taille="30" />
@@ -295,7 +313,8 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .grande, .large, .section, .credit { grid-column: 1 / -1; }
 
 .grande { display: flex; flex-direction: column; gap: 7px; color: var(--encre); padding: 20px;
-  position: relative; overflow: hidden; }
+  position: relative; overflow: hidden; text-align: left; font: inherit;
+  border: 0; width: 100%; cursor: pointer; }
 .deco { position: absolute; top: 14px; right: 16px; opacity: .3; }
 .titre { font-size: 1.5rem; letter-spacing: -.03em; }
 .etiquette { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em;
