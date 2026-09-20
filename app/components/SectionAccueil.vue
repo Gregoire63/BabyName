@@ -189,11 +189,6 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <!-- statistiques -->
         <template v-if="stats">
           <p class="section">Les naissances de {{ annee }}</p>
-          <p class="mini doux large note">
-            Dernier millésime publié par l’INSEE. Le fichier des prénoms paraît une
-            fois par an — il n’existe pas de chiffres sur les douze derniers mois,
-            ni pour {{ annee + 1 }}.
-          </p>
 
           <div class="carte tuile colonne large">
             <p class="etiquette">Les plus donnés · filles</p>
@@ -329,7 +324,6 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .rang .n { color: var(--doux); font-size: .74rem; width: 11px; flex: none; }
 .creer { align-items: center; justify-content: center; text-align: center; gap: 6px; }
 
-.note { margin: -6px 0 0; }
 .section { margin: 10px 0 -2px; font-size: .72rem; text-transform: uppercase;
   letter-spacing: .07em; font-weight: 700; color: var(--doux); }
 .large.colonne { display: flex; flex-direction: column; gap: 7px; padding: 15px 16px; }

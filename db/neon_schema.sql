@@ -195,13 +195,25 @@ having count(*) = (select count(*) from membres mm where mm.groupe_id = v.groupe
 -- sinon, sans classement manuel, les rangs commencent a 21 et la
 -- normalisation du classement general ecrase toute l'echelle.
 create or replace view v_rang_personnel as
-with base as (
-  select e.groupe_id, e.user_id, e.prenom, cm.position as pos_manuelle,
-         row_number() over (partition by e.groupe_id, e.user_id order by e.score desc) as rang_elo,
-         coalesce(max(cm.position) over (partition by e.groupe_id, e.user_id), 0) as n_manuel
-  from elo e
+with sources as (
+  -- La vue partait de `elo`, donc d'un duel joue. Sans duels, elle etait vide
+  -- et le classement general avec elle, alors que le podium manuel existait.
+  -- On part de l'union des deux sources : un podium seul suffit desormais.
+  select groupe_id, user_id, prenom from classement_manuel
+  union
+  select groupe_id, user_id, prenom from elo
+),
+base as (
+  select s.groupe_id, s.user_id, s.prenom,
+         cm.position as pos_manuelle,
+         row_number() over (partition by s.groupe_id, s.user_id
+                            order by coalesce(e.score, 1500) desc, s.prenom) as rang_elo,
+         coalesce(max(cm.position) over (partition by s.groupe_id, s.user_id), 0) as n_manuel
+  from sources s
   left join classement_manuel cm
-    on cm.groupe_id = e.groupe_id and cm.user_id = e.user_id and cm.prenom = e.prenom
+    on cm.groupe_id = s.groupe_id and cm.user_id = s.user_id and cm.prenom = s.prenom
+  left join elo e
+    on e.groupe_id = s.groupe_id and e.user_id = s.user_id and e.prenom = s.prenom
 )
 select groupe_id, user_id, prenom,
        coalesce(pos_manuelle,

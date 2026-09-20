@@ -19,8 +19,8 @@ async function charger() {
   mesFavoris.value = new Set(r.mes_favoris ?? [])
 
   // Trois sources, de la plus explicite a la plus implicite. Sans la
-  // troisieme, quelqu'un qui a dit oui a trente prenoms sans jouer un seul
-  // duel voyait un podium vide : ses choix existaient, on ne les montrait pas.
+  // troisieme, quelqu'un qui a dit oui a trente prenoms voyait un podium
+  // vide : ses choix existaient, on ne les montrait pas.
   monTop.value = r.mon_top.length
     ? r.mon_top.map((x: any) => x.prenom)
     : r.mon_rang.length
@@ -58,18 +58,6 @@ function fin() {
   tire.value = -1; survol.value = -1
 }
 
-/** Prenoms dits oui (ou gardes) qui ne sont pas encore dans le podium. */
-const horsPodium = computed(() => {
-  const dans = new Set(monTop.value)
-  const tout = [...new Set([...mesOui.value, ...mesFavoris.value])]
-  return tout.filter(p => !dans.has(p))
-})
-
-function ajouterAuPodium(p: string) {
-  monTop.value = [...monTop.value, p]
-  modifie.value = true
-}
-
 function retirerDuPodium(i: number) {
   const l = [...monTop.value]
   l.splice(i, 1)
@@ -98,7 +86,8 @@ async function enregistrer() {
           <span v-else-if="sauve" class="puce">Enregistré</span>
         </div>
         <p class="mini doux" style="margin:0">
-          Tirez la poignée pour réordonner. Votre podium pèse plus lourd que vos duels.
+          Tirez la poignée pour réordonner. C’est ce podium, et lui seul, qui
+          construit le classement général.
         </p>
 
         <ol v-if="monTop.length" class="liste">
@@ -117,33 +106,8 @@ async function enregistrer() {
           </li>
         </ol>
         <p v-else class="mini doux" style="margin:0">
-          Dites oui à quelques prénoms, ou jouez des duels : votre podium se
-          remplira tout seul.
-        </p>
-      </section>
-
-      <section v-if="mesOui.length || mesFavoris.size" class="carte pile">
-        <div class="ligne">
-          <h2 style="flex:1">Mes oui</h2>
-          <span class="puce">{{ mesOui.length }}</span>
-        </div>
-        <p class="mini doux" style="margin:0">
-          Tout ce à quoi vous avez dit oui, plus vos gardés — qu’ils aient trouvé
-          un accord ou non. Touchez un prénom pour sa fiche, le + pour le monter
-          au podium.
-        </p>
-        <div v-if="horsPodium.length" class="ligne" style="flex-wrap:wrap;gap:6px">
-          <span v-for="p in horsPodium" :key="p" class="jeton">
-            <button class="etiq" @click="g.ouvrirFiche(p)">
-              {{ p }}<Etincelles v-if="mesFavoris.has(p)" class="fav" :taille="12"
-                                 couleur="var(--peche)" une />
-            </button>
-            <button class="plus" :aria-label="`Ajouter ${p} au podium`"
-                    @click="ajouterAuPodium(p)">+</button>
-          </span>
-        </div>
-        <p v-else class="mini doux" style="margin:0">
-          Tous vos oui sont déjà dans le podium.
+          Dites oui à quelques prénoms : ils remplissent votre podium tout seuls.
+          Vous pouvez ensuite les remettre dans l’ordre.
         </p>
       </section>
 
@@ -163,7 +127,7 @@ async function enregistrer() {
           </li>
         </ol>
         <p v-else class="mini doux" style="margin:0">
-          Il apparaît dès que chacun a joué quelques duels.
+          Il apparaît dès que chacun a posé son podium.
         </p>
       </section>
     </template>
@@ -187,14 +151,6 @@ async function enregistrer() {
 .nom { display: flex; align-items: center; gap: 5px; }
 .fav { display: inline-block; }
 
-.jeton { display: inline-flex; align-items: center; border: 1px solid var(--trait);
-  border-radius: var(--pastille); overflow: hidden; background: var(--fond); }
-.jeton .etiq { border: 0; background: none; padding: 6px 4px 6px 12px; cursor: pointer;
-  font: inherit; font-size: .8rem; font-weight: 700; color: var(--texte);
-  display: flex; align-items: center; gap: 5px; }
-.jeton .plus { border: 0; background: none; cursor: pointer; color: var(--doux);
-  font-size: 1.05rem; line-height: 1; padding: 5px 11px 6px 7px; }
-.jeton .plus:active { color: var(--encre); }
 .jauge { width: 54px; height: 5px; border-radius: 999px; background: var(--trait);
   overflow: hidden; flex: none; }
 .jauge i { display: block; height: 100%; background: var(--encre); }

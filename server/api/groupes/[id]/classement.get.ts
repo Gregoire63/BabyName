@@ -1,8 +1,8 @@
 /**
- * Le classement personnel ne doit pas dépendre des duels : tant qu'on n'en a
- * joué aucun, la table elo est vide et l'onglet paraissait vide alors qu'on
- * avait déjà dit oui à trente prénoms. On renvoie donc aussi les oui et les
- * favoris, qui servent de podium de départ.
+ * Le classement personnel ne doit dépendre de rien d'autre que des choix déjà
+ * faits : on renvoie aussi les oui et les favoris, qui servent de podium de
+ * départ. Sans eux, quelqu'un qui a dit oui à trente prénoms voyait un podium
+ * vide — ses choix existaient, on ne les montrait pas.
  */
 export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)

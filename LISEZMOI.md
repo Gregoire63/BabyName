@@ -32,7 +32,7 @@ aveugle se teste à deux, sur la même base.
 |---|---|
 | Greg | 27 votes, 2 gardés (Alma, Nine), une famille écartée d'un geste (`kevi`) et des non un par un |
 | Audrey | 19 votes, un veto sur Jayden, un commentaire sur Louise |
-| en commun | 9 prénoms, de quoi remplir Communs, Duels et Top |
+| en commun | 9 prénoms, plus des désaccords francs (Marius, Hector : Greg oui, Audrey non) pour remplir « À revoir » |
 
 `Kevin` est volontairement jugé « non » **avant** le balayage de sa famille :
 c'est le cas limite qui vérifie qu'un choix individuel survit à la remise en

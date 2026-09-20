@@ -4,10 +4,10 @@ import type { Connexion } from './db'
 /**
  * Jeu d'essai du developpement.
  *
- * Une base vide ne montre rien : pas de liste, pas de communs, pas de duels,
- * pas de classement. On seme donc deux comptes et une liste deja bien
- * entamee, pour que chaque ecran ait quelque chose a afficher des le premier
- * `npm run dev`.
+ * Une base vide ne montre rien : pas de liste, pas de communs, pas de
+ * desaccords, pas de classement. On seme donc deux comptes et une liste deja
+ * bien entamee, pour que chaque ecran ait quelque chose a afficher des le
+ * premier `npm run dev`.
  *
  * Les cles sont fixes exprès : elles sont ecrites en clair ci-dessous et
  * affichees au demarrage. Ce n'est pas un secret qui fuite — elles n'ouvrent
@@ -16,8 +16,9 @@ import type { Connexion } from './db'
  */
 export const CLES_DEV = { greg: 'DEVG-REGX-2345', audrey: 'DEVA-DREY-2345' }
 
-// Deux gouts differents, avec un recouvrement volontaire : sans desaccord on
-// ne verrait jamais l'ecran « rien en commun », sans accord jamais les duels.
+// Deux gouts differents, avec un recouvrement volontaire ET des desaccords
+// francs (Greg dit oui a Marius et Hector, Audrey dit non) : sans eux, le
+// volet « A revoir » serait vide et on ne verrait jamais s'il marche.
 const GOUTS_GREG = {
   oui: ['Louise', 'Jeanne', 'Alma', 'Nine', 'Iris', 'Suzanne', 'Colette', 'Hector',
         'Basile', 'Marius', 'Anouk', 'Lucien'],
@@ -72,19 +73,17 @@ export async function semerSiVide(c: Connexion) {
     `insert into vetos (groupe_id, user_id, prenom, motif) values ($1,$2,'Jayden','mon ex')
      on conflict do nothing`, [gid, audrey]).catch(() => null)
 
-  // Quelques duels : sans eux le classement general reste vide. Le declencheur
-  // trg_elo fait le reste — au passage, ca verifie que le plpgsql tourne bien
-  // sur la base embarquee comme sur Neon.
-  const DUELS = [
-    ['Louise', 'Jeanne', 'Louise'], ['Jeanne', 'Iris', 'Jeanne'],
-    ['Louise', 'Iris', 'Louise'], ['Basile', 'Anouk', 'Anouk'],
-    ['Alma', 'Nine', 'Alma'], ['Suzanne', 'Colette', 'Colette']
-  ] as const
-  for (const uid of [greg, audrey]) {
-    for (const [a, b, gagnant] of DUELS) {
+  // Un podium par personne : c'est lui, desormais, qui construit le classement
+  // general (v_rang_personnel part de classement_manuel autant que de elo).
+  const PODIUMS: Record<string, string[]> = {
+    [greg]: ['Louise', 'Alma', 'Jeanne', 'Basile', 'Anouk'],
+    [audrey]: ['Jeanne', 'Louise', 'Margot', 'Anouk', 'Iris']
+  }
+  for (const [uid, ordre] of Object.entries(PODIUMS)) {
+    for (const [i, prenom] of ordre.entries()) {
       await c.query(
-        `insert into duels (groupe_id, user_id, prenom_a, prenom_b, gagnant)
-         values ($1,$2,$3,$4,$5)`, [gid, uid, a, b, gagnant]).catch(() => null)
+        `insert into classement_manuel (groupe_id, user_id, prenom, position)
+         values ($1,$2,$3,$4) on conflict do nothing`, [gid, uid, prenom, i + 1])
     }
   }
 

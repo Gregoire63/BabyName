@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { chargerCatalogue, filtrer, filtresParDefaut, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
-import { CLE_GROUPE } from '~/composables/etatGroupe'
+import { CLE_GROUPE, type EtatGroupe } from '~/composables/etatGroupe'
 
 const props = defineProps<{ depart?: string; segmentDepart?: string }>()
 
@@ -15,8 +15,8 @@ const props = defineProps<{ depart?: string; segmentDepart?: string }>()
  * dont une seule portait la barre, et personne ne savait laquelle etait quoi.
  *
  * Communs, Duels et Top etaient trois onglets alors qu'ils forment un seul
- * geste : trouver les accords, les departager, obtenir l'ordre. Ils sont
- * devenus les trois volets de Classement.
+ * geste. Ils sont devenus les volets de Classement, ou les duels ont depuis
+ * cede la place a « A revoir » et « Mes choix ».
  *
  * « La liste » plutot que « Parametres » : ces reglages-la sont ceux de CETTE
  * liste. Ce qui concerne le compte vit sur l'accueil, sous son propre nom.
@@ -42,6 +42,7 @@ const aimes = ref<Prenom[]>([])
 const vetos = ref<Set<string>>(new Set())
 const favoris = ref<Set<string>>(new Set())
 const communs = ref<any[]>([])
+const votes = ref<any[]>([])
 const pret = ref(false)
 const fiche = ref<Prenom | null>(null)
 // Le panneau de filtres vit ici, pas dans l'onglet de tri : on doit pouvoir
@@ -54,10 +55,26 @@ async function rechargerCommuns() {
   communs.value = await $fetch<any[]>(`/api/groupes/${gid}/communs`).catch(() => [])
 }
 
+async function rechargerVotes() {
+  const r = await $fetch<any>(`/api/groupes/${gid}/votes`).catch(() => null)
+  votes.value = r?.votes ?? []
+}
+
+/**
+ * Changer mon vote depuis n'importe quel ecran — le tri, « A revoir », « Mes
+ * choix ». Un seul chemin : la regle du balayage et celle du vote aveugle sont
+ * cote serveur, on ne les rejoue pas ici.
+ */
+async function voter(prenom: string, valeur: 0 | 1 | 2) {
+  await $fetch(`/api/groupes/${gid}/vote`, { method: 'POST', body: { prenom, valeur } })
+  const s = new Set(dejaVotes.value); s.add(prenom); dejaVotes.value = s
+  await Promise.all([rechargerVotes(), rechargerCommuns()])
+}
+
 async function recharger() {
-  const [e, mesVotes] = await Promise.all([
+  const [e] = await Promise.all([
     $fetch<any>(`/api/groupes/${gid}`),
-    $fetch<any>(`/api/groupes/${gid}/votes`),
+    rechargerVotes(),
     rechargerCommuns()
   ])
   etat.value = e
@@ -68,7 +85,7 @@ async function recharger() {
   favoris.value = new Set(e.mes_favoris)
 
   const moiId = e.moi.user_id
-  const miens = (mesVotes?.votes ?? []).filter((v: any) => v.user_id === moiId)
+  const miens = votes.value.filter((v: any) => v.user_id === moiId)
   dejaVotes.value = new Set(miens.map((v: any) => v.prenom))
   aimes.value = miens.filter((v: any) => v.valeur === 2)
     .map((v: any) => parNom.value.get(v.prenom)!).filter(Boolean)
@@ -94,7 +111,9 @@ function allerA(onglet: string, seg?: string) {
   if (onglet === 'accueil') { navigateTo('/'); return }
   // Les anciens noms d'onglets restent valides : ils designent maintenant un
   // volet de Classement. Un lien ou un bouton d'avant n'a pas a le savoir.
-  const volets: Record<string, string> = { communs: 'communs', duels: 'duels', top: 'top' }
+  // « duels » n'existe plus : l'ancien nom ouvre « A revoir », qui a pris sa place.
+  const volets: Record<string, string> =
+    { communs: 'communs', duels: 'revoir', revoir: 'revoir', choix: 'choix', top: 'top' }
   let cible = onglet
   if (volets[onglet]) { cible = 'classement'; seg = volets[onglet] }
   if (onglet === 'groupe') cible = 'reglages'
@@ -103,11 +122,12 @@ function allerA(onglet: string, seg?: string) {
   if (i >= 0) glisserVers(i)
 }
 
-provide(CLE_GROUPE, {
+const partage: EtatGroupe = {
   gid, etat, catalogue, parNom, origines, filtres, dejaVotes, aimes, vetos,
-  favoris, communs, rechargerCommuns, pret, recharger, ouvrirFiche,
-  ouvrirFiltres, allerA
-})
+  favoris, communs, rechargerCommuns, votes, rechargerVotes, voter,
+  pret, recharger, ouvrirFiche, ouvrirFiltres, allerA
+}
+provide(CLE_GROUPE, partage)
 
 // --- pastille des accords -------------------------------------------------
 // « Il y a du nouveau en commun » doit se voir sans ouvrir l'onglet. On retient

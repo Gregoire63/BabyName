@@ -8,34 +8,6 @@ import { useGroupeCourant } from '~/composables/etatGroupe'
 const props = defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
 
-// --- prénoms écartés ------------------------------------------------------
-const ecartes = ref<{ racine: string; prenoms: string[]; le: string }[]>([])
-const seuls = ref<{ prenom: string; le: string }[]>([])
-const totalEcartes = ref(0)
-const ouvertEcartes = ref(false)
-const remise = ref('')
-
-async function chargerEcartes() {
-  const r = await $fetch<any>(`/api/groupes/${g.gid}/ecartes`).catch(() => null)
-  ecartes.value = r?.familles ?? []
-  seuls.value = r?.seuls ?? []
-  totalEcartes.value = r?.total ?? 0
-}
-watch(() => props.actif, a => { if (a) chargerEcartes() }, { immediate: true })
-
-/** Remet des prénoms dans la pile : on supprime simplement mes votes « non ». */
-async function remettre(prenoms: string[]) {
-  remise.value = prenoms[0] ?? ''
-  await $fetch(`/api/groupes/${g.gid}/vote`,
-    { method: 'DELETE', body: { prenoms } }).catch(() => null)
-  // La pile de tri lit dejaVotes : sans ça, il faudrait recharger la page.
-  const s = new Set(g.dejaVotes.value)
-  for (const p of prenoms) s.delete(p)
-  g.dejaVotes.value = s
-  remise.value = ''
-  await chargerEcartes()
-}
-
 const copie = ref(false)
 const renomme = ref(false)
 const nouveauNom = ref('')
@@ -135,44 +107,6 @@ const filtresActifs = computed(() => {
         <p v-else class="mini doux" style="margin:0">Aucun filtre : tout le catalogue passe.</p>
       </section>
 
-      <section v-if="totalEcartes" class="carte pile">
-        <div class="ligne" style="cursor:pointer" @click="ouvertEcartes = !ouvertEcartes">
-          <h2 style="flex:1">Prénoms écartés</h2>
-          <span class="puce">{{ totalEcartes }}</span>
-          <span class="doux">{{ ouvertEcartes ? '−' : '+' }}</span>
-        </div>
-        <p class="mini doux" style="margin:0">
-          Les remettre les renvoie dans la pile à trier.
-        </p>
-
-        <template v-if="ouvertEcartes">
-          <template v-if="ecartes.length">
-            <p class="etiquette">Familles écartées d’un geste</p>
-            <div v-for="f in ecartes" :key="f.racine" class="famille">
-              <div class="ligne" style="flex-wrap:wrap;gap:6px;flex:1">
-                <button v-for="p in f.prenoms" :key="p" class="puce"
-                        style="border:0;cursor:pointer" @click="g.ouvrirFiche(p)">{{ p }}</button>
-              </div>
-              <button class="btn btn-0 mini" :disabled="remise === f.prenoms[0]"
-                      @click="remettre(f.prenoms)">
-                {{ remise === f.prenoms[0] ? '…' : `Remettre les ${f.prenoms.length}` }}
-              </button>
-            </div>
-          </template>
-
-          <template v-if="seuls.length">
-            <p class="etiquette">Écartés un par un</p>
-            <div class="ligne" style="flex-wrap:wrap;gap:6px">
-              <span v-for="u in seuls" :key="u.prenom" class="jeton">
-                <button class="etiq" @click="g.ouvrirFiche(u.prenom)">{{ u.prenom }}</button>
-                <button class="plus" :aria-label="`Remettre ${u.prenom}`"
-                        :disabled="remise === u.prenom" @click="remettre([u.prenom])">↩</button>
-              </span>
-            </div>
-          </template>
-        </template>
-      </section>
-
       <section v-if="g.favoris.value.size" class="carte pile">
         <h2>Mes gardés</h2>
         <p class="mini doux" style="margin:0">
@@ -199,8 +133,8 @@ const filtresActifs = computed(() => {
       </section>
 
       <p class="mini doux" style="text-align:center;margin:6px 0 0">
-        Votre nom et votre clé d’accès ne dépendent d’aucune liste :
-        ils sont sur l’accueil, sous votre nom.
+        Vos prénoms écartés sont dans Classement · Mes choix. Votre nom et votre
+        clé d’accès sont sur l’accueil, sous votre nom.
       </p>
     </template>
   </div>
@@ -210,17 +144,5 @@ const filtresActifs = computed(() => {
 .invit { display: flex; flex-direction: column; align-items: center; gap: 10px;
   color: var(--encre); }
 .code { font-size: 1.7rem; letter-spacing: .16em; font-weight: 700; }
-.famille { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0;
-  border-top: 1px solid var(--trait); }
-.famille .btn { flex: none; white-space: nowrap; }
-.etiquette { margin: 6px 0 0; font-size: .68rem; text-transform: uppercase;
-  letter-spacing: .07em; font-weight: 800; color: var(--doux); }
-.jeton { display: inline-flex; align-items: center; border: 1px solid var(--trait);
-  border-radius: var(--pastille); overflow: hidden; background: var(--fond); }
-.jeton .etiq { border: 0; background: none; padding: 6px 4px 6px 12px; cursor: pointer;
-  font: inherit; font-size: .8rem; font-weight: 700; color: var(--texte); }
-.jeton .plus { border: 0; background: none; cursor: pointer; color: var(--doux);
-  font-size: .9rem; line-height: 1; padding: 6px 11px 6px 7px; }
-.jeton .plus:disabled { opacity: .4; }
 .invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
 </style>
