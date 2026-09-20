@@ -1,12 +1,19 @@
 /**
- * Catalogue embarqué : 7 667 prénoms, 180 Ko gzip, chargé une fois puis gardé
- * en mémoire. Tout le filtrage et tout le tri se font ici, côté client :
- * un changement de filtre ne doit jamais coûter un aller-retour réseau.
+ * Catalogue embarqué : 19 608 prénoms — tout ce que l'INSEE publie sur
+ * 2023-2025 — 292 Ko gzip, chargé une fois puis gardé en mémoire. Tout le
+ * filtrage et tout le tri se font ici, côté client : un changement de filtre
+ * ne doit jamais coûter un aller-retour réseau.
+ *
+ * 11 941 d'entre eux portent `q` (rare) : moins de 20 naissances sur 3 ans.
+ * L'INSEE arrondissant à 5, leur pente et leur risque ne sont que du bruit
+ * d'arrondi, et 12 000 cartes de plus noieraient le swipe. Ils sont donc
+ * exclus de la pile par `filtrer()` tant que `inclure_rares` est faux — mais
+ * ils restent dans le catalogue, donc trouvables par la recherche.
  */
 export interface Prenom {
   l: string; slug: string; sexe: 'f' | 'm' | 'fm'
   u: number; f: number; n: number; t: number; p: number
-  o: number; r: number; rv: boolean
+  o: number; r: number; rv: boolean; q: boolean
   c: number; y: number; k: boolean; i: string; e: string
   g: string[]; m: string | null; me: string | null
   ob: boolean; obn: string | null; dm: string[]
@@ -27,6 +34,7 @@ export interface Filtres {
   initiales_out: string[]
   finales_out: string[]
   revival_seulement: boolean
+  inclure_rares: boolean
   recherche: string
 }
 
@@ -38,21 +46,33 @@ export const filtresParDefaut = (): Filtres => ({
   originalite: [0, 100], risque_max: 100,
   sens_requis: false, exclure_objet: false,
   initiales_out: [], finales_out: [],
-  revival_seulement: false, recherche: ''
+  revival_seulement: false, inclure_rares: false, recherche: ''
 })
 
-/** Le catalogue est livré pré-compressé. On le décompresse dans le navigateur ;
- *  si DecompressionStream manque, on retombe sur le .json non compressé. */
+/**
+ * Le catalogue est livré pré-compressé, et c'est là qu'est le piège : selon le
+ * serveur, `/data/catalogue.json.gz` arrive soit tel quel, soit déjà décompressé
+ * par le navigateur parce que le serveur a ajouté `Content-Encoding: gzip`
+ * (c'est ce que fait le serveur de dev). Décompresser à l'aveugle échouait
+ * silencieusement dans ce deuxième cas et on retombait sur le .json — 2,3 Mo au
+ * lieu de 292 Ko, sans que rien ne le signale.
+ *
+ * On regarde donc les deux premiers octets : 1f 8b, c'est du gzip, on
+ * décompresse ; sinon c'est déjà du texte, on le lit tel quel.
+ */
 async function chargerJson(): Promise<any> {
-  if (typeof DecompressionStream !== 'undefined') {
-    try {
-      const r = await fetch('/data/catalogue.json.gz')
-      if (r.ok && r.body) {
-        const flux = r.body.pipeThrough(new DecompressionStream('gzip'))
+  try {
+    const r = await fetch('/data/catalogue.json.gz')
+    if (r.ok) {
+      const brut = new Uint8Array(await r.arrayBuffer())
+      const gzip = brut[0] === 0x1f && brut[1] === 0x8b
+      if (!gzip) return JSON.parse(new TextDecoder().decode(brut))
+      if (typeof DecompressionStream !== 'undefined') {
+        const flux = new Blob([brut]).stream().pipeThrough(new DecompressionStream('gzip'))
         return JSON.parse(await new Response(flux).text())
       }
-    } catch { /* on tente le repli */ }
-  }
+    }
+  } catch { /* on tente le repli */ }
   return $fetch('/data/catalogue.json')
 }
 
@@ -73,7 +93,7 @@ export async function chargerCatalogue() {
       liste[k] = {
         l: c.l[k], slug: sansAccent(c.l[k]).replace(/[^a-z]/g, ''),
         sexe: d.sexe[c.s[k]], u: c.u[k], f: c.f[k], n: c.n[k], t: c.t[k], p: c.p[k],
-        o: c.o[k], r: c.r[k], rv: !!c.rv[k],
+        o: c.o[k], r: c.r[k], rv: !!c.rv[k], q: !!(c.q && c.q[k]),
         c: c.c[k], y: c.y[k], k: !!c.k[k], i: c.i[k], e: c.e[k],
         g: c.g[k].map((x: number) => d.origines[x]),
         m: c.m[k], me: c.me[k], ob: !!c.ob[k], obn: c.obn[k], dm: c.dm[k],
@@ -95,6 +115,7 @@ export function filtrer(liste: Prenom[], f: Filtres): Prenom[] {
   const sexes = new Set(f.sexe)
 
   return liste.filter(p => {
+    if (p.q && !f.inclure_rares) return false
     if (!sexes.has(p.sexe)) return false
     if (p.c < f.car[0] || p.c > f.car[1]) return false
     if (p.y < f.syllabes[0] || p.y > f.syllabes[1]) return false

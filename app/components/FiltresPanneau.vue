@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { filtresParDefaut, type Filtres } from '~/composables/useCatalogue'
 const modele = defineModel<Filtres>({ required: true })
-const props = defineProps<{ origines: string[]; nb: number }>()
+const props = defineProps<{ origines: string[]; nb: number; nbRares: number }>()
 const emit = defineEmits<{ fermer: [] }>()
 
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
@@ -106,6 +106,14 @@ function cycler(o: string) {
             <input v-model="modele.exclure_objet" type="checkbox">
             Écarter ceux qui sont aussi un objet ou une marque
           </label>
+          <label class="ligne mini">
+            <input v-model="modele.inclure_rares" type="checkbox">
+            Inclure les prénoms très rares<template v-if="props.nbRares"> — + {{ props.nbRares.toLocaleString('fr-FR') }}</template>
+          </label>
+          <p class="mini doux" style="margin:-3px 0 0 24px">
+            Moins de 20 naissances en trois ans. Le catalogue les contient tous et
+            la recherche les trouve déjà : cette case les fait entrer dans le swipe.
+          </p>
         </div>
 
         <button class="btn btn-0 mini doux" style="align-self:flex-start"

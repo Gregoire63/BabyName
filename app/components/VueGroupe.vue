@@ -126,6 +126,16 @@ function ouvrirFiltres() { filtresOuverts.value = true }
 const nbFiltres = computed(() =>
   catalogue.value.length ? filtrer(catalogue.value, filtres.value).length : 0)
 
+/** Combien de prénoms la bascule « très rares » ouvrirait, filtres en cours
+ *  mis à part elle. On l'annonce : « + 4 210 » veut dire quelque chose,
+ *  « inclure les rares » ne veut rien dire. */
+const nbRares = computed(() => {
+  if (!catalogue.value.length) return 0
+  const f = filtres.value
+  return filtrer(catalogue.value, { ...f, inclure_rares: true }).length
+       - filtrer(catalogue.value, { ...f, inclure_rares: false }).length
+})
+
 async function fermerFiltres() {
   filtresOuverts.value = false
   await $fetch(`/api/groupes/${gid}/filtres`,
@@ -257,7 +267,7 @@ onMounted(async () => {
     <FichePrenom v-if="fiche" :p="fiche" @fermer="fiche = null" />
 
     <FiltresPanneau v-if="filtresOuverts" v-model="filtres" :origines="origines"
-                    :nb="nbFiltres" @fermer="fermerFiltres" />
+                    :nb="nbFiltres" :nb-rares="nbRares" @fermer="fermerFiltres" />
   </div>
 </template>
 

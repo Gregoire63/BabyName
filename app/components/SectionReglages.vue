@@ -91,6 +91,7 @@ const filtresActifs = computed(() => {
   if (f.sens_requis) out.push('sens connu')
   if (f.exclure_objet) out.push('sans homonyme objet')
   if (f.revival_seulement) out.push('revivals seulement')
+  if (f.inclure_rares) out.push('prénoms très rares inclus')
   return out
 })
 </script>
@@ -147,6 +148,7 @@ const filtresActifs = computed(() => {
             <Etincelles v-if="g.favoris.value.has(p.l)" :taille="12"
                         couleur="var(--peche)" une />
           </button>
+          <span v-if="p.q" class="puce rare" :title="`${p.n} naissances en trois ans`">rare</span>
           <span v-if="etat(p.l)" class="puce" :class="etat(p.l)!.c">{{ etat(p.l)!.t }}</span>
           <BoutonsVerdict :valeur="parPrenom.get(p.l)?.mien ?? null"
                           :occupe="occupe === p.l" @choisir="choisir(p.l, $event)" />
@@ -169,7 +171,10 @@ const filtresActifs = computed(() => {
         <div v-if="filtresActifs.length" class="ligne" style="flex-wrap:wrap;gap:6px">
           <span v-for="f in filtresActifs" :key="f" class="puce">{{ f }}</span>
         </div>
-        <p v-else class="mini doux" style="margin:0">Aucun filtre : tout le catalogue passe.</p>
+        <p v-else class="mini doux" style="margin:0">
+          Aucun filtre. Le swipe laisse de côté les prénoms très rares — la
+          recherche ci-dessus, elle, les trouve.
+        </p>
       </section>
 
       <p class="mini doux" style="text-align:center;margin:6px 0 0">
@@ -195,4 +200,7 @@ const filtresActifs = computed(() => {
 .trouve .puce { font-size: .66rem; flex: none; }
 .trouve .v0, .trouve .veto { background: color-mix(in srgb, var(--non) 22%, transparent); }
 .trouve .v2 { background: color-mix(in srgb, var(--oui) 22%, transparent); }
+/* Un prenom trouve par la recherche mais absent du swipe : sans ce marqueur
+   on croit a un bug de la pile. */
+.trouve .rare { background: none; border: 1px dashed var(--trait); color: var(--doux); }
 </style>

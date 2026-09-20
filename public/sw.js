@@ -7,7 +7,7 @@
    servi par le reseau d'abord, ou revalide en arriere-plan. Un fichier sans
    nom hache garde en cache-d'abord, c'est une application figee pour
    toujours sur le telephone de quelqu'un. */
-const VERSION = 'bn-6'
+const VERSION = 'bn-7'   // bn-7 : catalogue passe de 7 667 a 19 608 prenoms
 const COQUILLE = `coquille-${VERSION}`
 const BIENS = `biens-${VERSION}`
 
