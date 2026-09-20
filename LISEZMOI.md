@@ -39,6 +39,30 @@ aveugle se teste à deux, sur la même base.
 c'est le cas limite qui vérifie qu'un choix individuel survit à la remise en
 jeu d'une famille.
 
+## Si le dev refuse de démarrer
+
+Symptômes : `Failed to fetch dynamically imported module .../pages/index.vue`,
+et des `.vue` servis en `text/css`. C'est un **service worker** resté installé
+sur `localhost:3000` — typiquement après un `npm run preview`, qui sert la
+version construite sur le même port que `npm run dev`.
+
+Le worker met en cache-d'abord tout `/_nuxt/`. En production ce sont des noms
+hachés, donc immuables ; en dev c'est l'espace de modules de Vite. Il servait
+du vieux, Vite recevait n'importe quoi, et l'app ne démarrait plus.
+
+Depuis, le plugin PWA ne s'enregistre plus en dev et désinstalle ce qui
+traîne, et `sw.js` exige une vraie empreinte dans le nom de fichier. Si vous
+tombez sur un navigateur encore dans l'ancien état, collez ceci dans la
+console de `localhost:3000` :
+
+```js
+navigator.serviceWorker.getRegistrations()
+  .then(rs => Promise.all(rs.map(r => r.unregister())))
+  .then(() => caches.keys())
+  .then(ks => Promise.all(ks.map(k => caches.delete(k))))
+  .then(() => location.reload())
+```
+
 ## Pourquoi un Postgres embarqué
 
 Neon n'est joignable ni depuis la machine de dev ni depuis un connecteur, et

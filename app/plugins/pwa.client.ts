@@ -12,6 +12,34 @@
  *      ca rattrape le cas ou le service worker n'existe pas ou a echoue.
  */
 export default defineNuxtPlugin(() => {
+  /**
+   * Rien de tout ca en developpement — et menage si quelque chose traine.
+   *
+   * Le service worker met en cache-d'abord tout /_nuxt/, parce qu'en
+   * production ce sont des noms haches, donc immuables. En dev, /_nuxt/ est
+   * l'espace de modules de Vite : des URL qui changent de sens a chaque
+   * redemarrage. Le worker servait alors du vieux, et Vite recevait un
+   * .vue repondu en text/css — l'app ne demarrait plus du tout.
+   *
+   * Pire : le worker survit au passage de `npm run preview` a `npm run dev`,
+   * puisque c'est le meme localhost. On le desinstalle donc explicitement, et
+   * on vide les caches : sans ca il faut aller le faire a la main dans les
+   * outils du navigateur.
+   */
+  if (import.meta.dev) {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(async (rs) => {
+        if (!rs.length) return
+        await Promise.all(rs.map(r => r.unregister()))
+        if ('caches' in window) {
+          for (const k of await caches.keys()) await caches.delete(k)
+        }
+        console.warn('[babyNames] service worker desinstalle (developpement) — rechargez')
+      }).catch(() => { /* navigation privee */ })
+    }
+    return
+  }
+
   const invite = useState<any>('pwa_invite', () => null)
   const installe = useState<boolean>('pwa_installe', () => false)
 

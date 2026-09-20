@@ -7,7 +7,7 @@
    servi par le reseau d'abord, ou revalide en arriere-plan. Un fichier sans
    nom hache garde en cache-d'abord, c'est une application figee pour
    toujours sur le telephone de quelqu'un. */
-const VERSION = 'bn-5'
+const VERSION = 'bn-6'
 const COQUILLE = `coquille-${VERSION}`
 const BIENS = `biens-${VERSION}`
 
@@ -32,6 +32,25 @@ self.addEventListener('message', e => {
   if (e.data === 'saute') self.skipWaiting()
 })
 
+/**
+ * Le chemin porte-t-il vraiment un nom hache ?
+ *
+ * « Commence par /_nuxt/ » ne suffisait pas. En developpement, /_nuxt/ est
+ * l'espace de modules de Vite : /_nuxt/pages/index.vue, /_nuxt/@vite/client,
+ * /_nuxt/Etincelles.vue?vue&type=style… Rien d'immuable la-dedans, et les
+ * garder en cache-d'abord rendait l'application impossible a demarrer.
+ *
+ * On exige donc la forme reelle d'un bien construit : aucun parametre, et un
+ * nom de fichier qui porte une empreinte — CHzE9kQp.js, entry.k3rnOOsa.css.
+ */
+const EMPREINTE = /^(?:[\w-]+\.)?[A-Za-z0-9_-]{8,}\.(?:js|mjs|css|woff2?)$/
+function hache(u) {
+  if (!u.pathname.startsWith('/_nuxt/')) return false
+  if (u.pathname.startsWith('/_nuxt/builds/')) return false
+  if (u.search) return false
+  return EMPREINTE.test(u.pathname.slice(u.pathname.lastIndexOf('/') + 1))
+}
+
 self.addEventListener('fetch', e => {
   const r = e.request
   if (r.method !== 'GET') return
@@ -54,7 +73,7 @@ self.addEventListener('fetch', e => {
   }
 
   // Noms haches : immuables, cache d'abord sans remords.
-  if (u.pathname.startsWith('/_nuxt/') && !u.pathname.startsWith('/_nuxt/builds/')) {
+  if (hache(u)) {
     e.respondWith((async () => {
       const c = await caches.open(BIENS)
       const garde = await c.match(r)
