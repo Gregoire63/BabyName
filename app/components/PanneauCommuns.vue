@@ -78,7 +78,6 @@ const enRetard = computed(() => {
               · « {{ g.parNom.value.get(c.prenom)!.m }} »</template>
           </p>
         </div>
-        <span class="puce">{{ Number(c.score).toFixed(1) }}</span>
       </div>
 
       <div v-if="ouvert === c.prenom" class="pile" style="margin-top:14px;gap:10px">

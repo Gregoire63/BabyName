@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { filtrer, ordonner, frequenceLisible, type Prenom } from '~/composables/useCatalogue'
+import { filtrer, ordonner, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 
 defineProps<{ actif: boolean }>()
@@ -286,7 +286,7 @@ async function confirmerFamille() {
         <Transition name="fond" mode="out-in">
           <article v-if="suivante" :key="suivante.l" class="carte fiche derriere"
                    :class="{ monte: envol }">
-            <h2 class="nom">{{ suivante.l }}</h2>
+            <ContenuCarte :p="suivante" :interactif="false" />
           </article>
         </Transition>
 
@@ -299,57 +299,9 @@ async function confirmerFamille() {
             {{ intention === 'oui' ? 'Oui' : intention === 'non' ? 'Non' : 'Neutre' }}
           </div>
 
-          <div class="ligne" style="justify-content:space-between">
-            <span class="puce">
-              {{ carte.sexe === 'fm' ? 'mixte' : carte.sexe === 'f' ? 'fille' : 'garçon' }}
-            </span>
-            <button class="etoile" :class="{ on: g.favoris.value.has(carte.l) }"
-                    @click.stop="basculerFavori">
-              <Etincelles :taille="20" />
-              <span>{{ g.favoris.value.has(carte.l) ? 'Dans les favoris' : 'Favoris' }}</span>
-            </button>
-          </div>
-
-          <h2 class="nom">{{ carte.l }}</h2>
-          <p v-if="carte.m" class="sens">« {{ carte.m }} »</p>
-          <p v-else-if="carte.me" class="sens doux">« {{ carte.me }} »</p>
-
-          <div class="ligne" style="flex-wrap:wrap;gap:6px">
-            <span v-for="o in carte.g" :key="o" class="puce">{{ o }}</span>
-          </div>
-
-          <div class="ligne resume">
-            <span>{{ frequenceLisible(carte.f) }}</span>
-            <span :style="{ color: carte.t > 8 ? 'var(--non)' : carte.t < -5 ? 'var(--oui)' : 'inherit' }">
-              {{ carte.t > 0 ? '+' : '' }}{{ carte.t.toFixed(0) }} %/an
-            </span>
-            <span>{{ carte.y }} syll.</span>
-          </div>
-
-          <p v-if="carte.r > 30" class="alerte">
-            Rare et en forte hausse — il peut être partout dans cinq ans.
-          </p>
-          <p v-else-if="carte.rv" class="alerte">
-            Prénom d’avant 1970 qui remonte.
-          </p>
-          <p v-else-if="carte.ob" class="alerte">
-            Aussi : {{ carte.obn || 'un nom commun' }}.
-          </p>
-
-          <div v-if="carte.sr" class="graphe">
-            <CourbePrenom :serie="carte.sr" :hauteur="78" />
-            <span class="mini doux">1986 → 2025</span>
-          </div>
-
-          <div class="bas">
-            <button class="btn btn-0 mini" @click.stop="g.ouvrirFiche(carte.l)">
-              Plus d’informations
-            </button>
-            <button class="btn btn-0 mini doux" @click.stop="demanderFamille">
-              Écarter la famille
-            </button>
-            <button class="btn btn-0 mini rouge" @click.stop="demanderVeto">Veto</button>
-          </div>
+          <ContenuCarte :p="carte" @fiche="g.ouvrirFiche(carte.l)"
+                        @favori="basculerFavori" @famille="demanderFamille"
+                        @veto="demanderVeto" />
         </article>
         </Transition>
         </div>
@@ -456,10 +408,6 @@ async function confirmerFamille() {
 .neuve-leave-to { opacity: 0; }
 .fiche { touch-action: none; user-select: none; position: relative; flex: 1;
   display: flex; flex-direction: column; gap: 11px; min-height: 300px; }
-.graphe { margin-top: auto; display: flex; flex-direction: column; gap: 2px; }
-.graphe span { align-self: flex-end; }
-.alerte { margin: 0; font-size: .84rem; padding: 9px 11px; border-radius: 11px;
-  background: color-mix(in srgb, var(--peche) 45%, transparent); }
 .fiche.derriere { position: absolute; inset: 0; z-index: 0;
   transform: scale(.94) translateY(16px); opacity: .4; pointer-events: none;
   transition: transform .34s cubic-bezier(.2,.9,.3,1), opacity .34s; }
@@ -468,24 +416,7 @@ async function confirmerFamille() {
    la carte de devant occupe deja exactement sa place */
 .fiche.derriere.fond-enter-from { opacity: 0; }
 .fiche.derriere.fond-leave-active { opacity: 0; transition: none; }
-.nom { font-size: 2.4rem; letter-spacing: -.035em; margin: 2px 0 0; }
-.sens { margin: 0; font-size: 1rem; font-style: italic; }
-.resume { gap: 16px; font-size: .84rem; font-variant-numeric: tabular-nums;
-  color: var(--doux); font-weight: 560; }
-.bas { display: flex; justify-content: space-between; align-items: center;
-  gap: 10px; flex-wrap: wrap; padding-top: 2px; }
-.bas .btn { padding: 6px 0; }
 
-.etoile { border: 1px solid var(--trait); background: var(--carte); cursor: pointer;
-  padding: 6px 13px 6px 10px; border-radius: var(--pastille); display: flex;
-  align-items: center; gap: 6px; font-size: .76rem; font-weight: 700;
-  transition: transform .12s, background .15s, border-color .15s; }
-.etoile span { line-height: 1; }
-.etoile:active { transform: scale(.95); }
-.etoile.on { color: var(--encre); border-color: transparent;
-  background: color-mix(in srgb, var(--peche) 55%, transparent); }
-.etoile:not(.on) { color: var(--doux); }
-.etoile:active { transform: scale(.88); }
 
 .verdict { position: absolute; top: 14px; left: 50%; translate: -50% 0; padding: 7px 20px;
   border-radius: var(--pastille); font-weight: 800; letter-spacing: .02em; z-index: 2;
@@ -509,7 +440,6 @@ async function confirmerFamille() {
 .fondu-enter-active, .fondu-leave-active { transition: opacity .25s, translate .25s; }
 .fondu-enter-from, .fondu-leave-to { opacity: 0; translate: 0 8px; }
 
-.bas .rouge { color: var(--non); }
 .rouge-plein { background: var(--non); border-color: var(--non); color: #fff; }
 .rouge-plein:disabled { opacity: .5; }
 
