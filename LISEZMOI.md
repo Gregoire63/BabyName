@@ -72,6 +72,41 @@ Dès que `.env` contient une URL, la base embarquée n'est plus utilisée.
 **Attention : vous écrivez alors dans la base de production.** Pour éviter ça,
 créez une branche dans Neon et utilisez son URL.
 
+## Déploiement
+
+Vercel déploie à chaque `git push` sur `main`, à condition que le dépôt soit
+connecté au projet : **Vercel → babyname → Settings → Git → Connect Git
+Repository → GitHub → Gregoire63/BabyName**, branche de production `main`.
+Sans cette connexion, l'app se déploie mais aucun push ne la met à jour.
+
+`vercel.json` n'autorise que `main` :
+
+```json
+{ "git": { "deploymentEnabled": { "main": true, "*": false } } }
+```
+
+Ce n'est pas de la coquetterie. Les variables Neon visent `preview` autant que
+`production` : sans cette règle, une branche poussée pour essayer quelque chose
+déploie une preview qui écrit dans **la base de production**. Pour retrouver
+les previews proprement, il faut d'abord donner aux previews leur propre
+branche Neon, puis remettre la branche voulue à `true` ici.
+
+Réglages du projet, pour mémoire :
+
+| | |
+|---|---|
+| Framework | Nuxt.js (détecté) |
+| Root directory | racine du dépôt |
+| Build / Install | par défaut |
+| Node | 22.x |
+| Région | cdg1 (Paris) |
+| Branche de production | `main` |
+
+Variables d'environnement en production : les `NEON_DATABASE_*` posées par
+l'intégration Neon, et `NUXT_SESSION_SECRET`. L'app ne cherche pas un nom
+précis : `server/utils/db.ts` prend la première variable qui finit par
+`DATABASE_URL` ou `POSTGRES_URL`, en préférant les poolées.
+
 ## Schéma
 
 `server/assets/schema.sql` fait foi, et il est idempotent
