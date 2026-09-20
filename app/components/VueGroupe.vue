@@ -5,6 +5,7 @@ import { CLE_GROUPE } from '~/composables/etatGroupe'
 const props = defineProps<{ depart?: string }>()
 
 const ONGLETS = [
+  { id: 'accueil', t: 'Accueil' },
   { id: 'swipe', t: 'Trier' },
   { id: 'communs', t: 'Communs' },
   { id: 'duels', t: 'Duels' },
@@ -102,18 +103,22 @@ onMounted(async () => {
 <template>
   <div class="cadre">
     <div ref="pager" class="pager" @scroll.passive="auDefilement">
-      <section><SectionTrier v-if="vues.has(0)" :actif="index === 0" /></section>
-      <section><SectionCommuns v-if="vues.has(1)" :actif="index === 1" /></section>
-      <section><SectionDuels v-if="vues.has(2)" :actif="index === 2" /></section>
-      <section><SectionClassement v-if="vues.has(3)" :actif="index === 3" /></section>
-      <section><SectionListe v-if="vues.has(4)" :actif="index === 4" /></section>
+      <section><SectionAccueil v-if="vues.has(0)" dans-pager :actif="index === 0" /></section>
+      <section><SectionTrier v-if="vues.has(1)" :actif="index === 1" /></section>
+      <section><SectionCommuns v-if="vues.has(2)" :actif="index === 2" /></section>
+      <section><SectionDuels v-if="vues.has(3)" :actif="index === 3" /></section>
+      <section><SectionClassement v-if="vues.has(4)" :actif="index === 4" /></section>
+      <section><SectionListe v-if="vues.has(5)" :actif="index === 5" /></section>
     </div>
 
     <nav class="onglets">
       <button v-for="(o, i) in ONGLETS" :key="o.id" :class="{ on: index === i }"
               @click="glisserVers(i)">
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <template v-if="o.id === 'swipe'">
+          <template v-if="o.id === 'accueil'">
+            <path d="M4 11 12 4l8 7M6.5 9.6V19h11V9.6" />
+          </template>
+          <template v-else-if="o.id === 'swipe'">
             <rect x="4" y="3" width="16" height="18" rx="3" />
             <path d="M8 16h8" />
           </template>

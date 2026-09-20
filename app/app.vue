@@ -113,12 +113,13 @@ button { font: inherit; color: inherit; }
   display: flex; background: color-mix(in srgb, var(--fond) 88%, transparent);
   backdrop-filter: blur(16px); border-top: 1px solid var(--trait);
   padding-bottom: env(safe-area-inset-bottom); }
-.onglets button { flex: 1; background: none; border: 0; padding: 10px 2px 12px;
-  color: var(--doux); font-size: .68rem; font-weight: 700; cursor: pointer;
-  display: grid; justify-items: center; gap: 3px; transition: color .15s; }
+.onglets button { flex: 1; min-width: 0; background: none; border: 0; padding: 9px 1px 11px;
+  color: var(--doux); font-size: .625rem; font-weight: 700; cursor: pointer;
+  display: grid; justify-items: center; gap: 3px; transition: color .15s;
+  white-space: nowrap; letter-spacing: -.01em; }
 .onglets button.on { color: var(--encre); }
 /* trait epais a bouts ronds, comme le monogramme */
-.onglets svg { width: 22px; height: 22px; stroke: currentColor; fill: none;
+.onglets svg { width: 21px; height: 21px; stroke: currentColor; fill: none;
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ------------------------------------------------------------------ pager */
