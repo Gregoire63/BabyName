@@ -1,9 +1,22 @@
+# Secrets. Le .env de la racine contient la chaine Neon : il ne doit jamais
+# partir, et c'est la seule ligne de ce fichier qui compte vraiment.
+.env
+.env.*
+
+# Dependances et sorties de build
 node_modules
 .node_modules_corrompu_*
 .nuxt
 .output
 .vercel
-.env
-.env.*
 .data
 dist
+__pycache__/
+
+# Donnees derivees : build_metrics + merge_* les regenerent en ~10 s.
+data/build/
+
+# data/raw et data/cache sont VERSIONNES exprES. Voir data/raw/PROVENANCE.md :
+# insee.fr, le Wiktionnaire et query.wikidata.org sont bloques par le proxy
+# d'egress ; ces fichiers ont ete recuperes a la main via le navigateur et ne
+# se retelechargent pas avec un script. Les perdre coute une journee.
