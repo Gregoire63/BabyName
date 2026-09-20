@@ -13,14 +13,60 @@ const retour = ref<{ prenom: string; votes: any[] } | null>(null)
 const familleAEcarter = ref<Prenom[] | null>(null)
 const cleJour = `pr_${g.gid}_${new Date().toISOString().slice(0, 10)}`
 
-const pioche = computed(() => {
+const dispo = computed(() => {
   if (!g.pret.value) return []
-  const dispo = filtrer(g.catalogue.value, g.filtres.value)
+  return filtrer(g.catalogue.value, g.filtres.value)
     .filter(p => !g.dejaVotes.value.has(p.l) && !g.vetos.value.has(p.l))
-  return ordonner(dispo, g.aimes.value)
 })
-const carte = computed(() => pioche.value[0] ?? null)
-const suivante = computed(() => pioche.value[1] ?? null)
+
+/** L'ordre courant. Il change a chaque « oui » : ordonner() remonte ce qui
+ *  ressemble aux prenoms aimes, et au 3e oui il bascule carrement du tri par
+ *  frequence au tri par affinite. */
+const suite = computed(() => ordonner(dispo.value, g.aimes.value))
+
+/**
+ * LA TETE DE PILE EST FIGEE.
+ *
+ * `suite` est recalculee a chaque vote. Sans ce verrou, le prenom qu'on
+ * apercevait derriere la carte n'etait pas celui qui arrivait ensuite : il
+ * etait remplace par un autre au moment meme du vote, ce qui se voyait comme
+ * un rechargement. Promettre une carte et en donner une autre, c'est le seul
+ * endroit de l'app ou l'interface ment.
+ *
+ * Les deux cartes visibles sont donc retenues telles quelles ; tout
+ * reordonnancement, tout ajout ne s'applique qu'A PARTIR DE LA TROISIEME. Une
+ * carte retenue qui cesse d'etre valable (votee, veto, sortie par un filtre)
+ * est lachee — c'est le seul cas ou la tete bouge toute seule.
+ *
+ * Cout : l'affinite ne prend effet qu'une carte plus tard. Cela ne se voit pas.
+ */
+const TETE = 2
+const tete = ref<Prenom[]>([])
+
+watch(suite, (liste) => {
+  const valides = new Map(liste.map(p => [p.l, p]))
+  const garde: Prenom[] = []
+  const vus = new Set<string>()
+  for (const p of tete.value) {
+    const frais = valides.get(p.l)          // on reprend l'objet a jour
+    if (frais && !vus.has(p.l)) { garde.push(frais); vus.add(p.l) }
+  }
+  for (const p of liste) {
+    if (garde.length >= TETE) break
+    if (!vus.has(p.l)) { garde.push(p); vus.add(p.l) }
+  }
+  tete.value = garde
+}, { immediate: true })
+
+const carte = computed(() => tete.value[0] ?? null)
+const suivante = computed(() => tete.value[1] ?? null)
+
+/** La pile entiere : la tete figee, puis le reste dans l'ordre courant.
+ *  Sert au decompte affiche et a « ecarter la famille ». */
+const pioche = computed(() => {
+  const vus = new Set(tete.value.map(p => p.l))
+  return [...tete.value, ...suite.value.filter(p => !vus.has(p.l))]
+})
 const plafond = computed(() => quota.value + bonus.value)
 const quotaAtteint = computed(() => faits.value >= plafond.value)
 
