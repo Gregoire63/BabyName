@@ -9,7 +9,9 @@ const quota = computed(() => g.etat.value?.groupe?.quota_swipe_jour ?? 40)
 const bonus = ref(0)
 const faits = ref(0)
 const panneau = ref(false)
+const match = ref<{ prenom: string; avec: string[] } | null>(null)
 const retour = ref<{ prenom: string; votes: any[] } | null>(null)
+const familleAEcarter = ref<Prenom[] | null>(null)
 const cleJour = `pr_${g.gid}_${new Date().toISOString().slice(0, 10)}`
 
 const pioche = computed(() => {
@@ -32,6 +34,11 @@ const SEUIL = 88
 
 function debut(e: PointerEvent) {
   if (quotaAtteint.value) return
+  // Un geste qui commence sur un bouton appartient au bouton. Sans ce
+  // garde-fou, setPointerCapture detourne la suite des evenements vers la
+  // carte et le clic n'arrive JAMAIS : « Favoris », « Tout voir » et
+  // « Écarter la famille » etaient inertes.
+  if ((e.target as HTMLElement)?.closest?.('button')) return
   glisse.value = true; axe = null; x0 = e.clientX; y0 = e.clientY
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 }
@@ -73,8 +80,24 @@ async function voter(valeur: 0 | 1 | 2) {
   dx.value = 0; dy.value = 0
   const r = await $fetch<any>(`/api/groupes/${g.gid}/vote`,
     { method: 'POST', body: { prenom: p.l, valeur } }).catch(() => null)
-  const autres = (r?.votes ?? []).filter((v: any) => v.valeur !== undefined && v.pseudo)
-  if (autres.length > 1) retour.value = { prenom: p.l, votes: autres }
+
+  // Le serveur ne renvoie les votes des autres QUE parce qu'on vient de voter
+  // (regle du vote aveugle, cf. server/utils/votes.ts).
+  const tous = (r?.votes ?? []).filter((v: any) => v.valeur !== undefined && v.pseudo)
+  const moiId = g.etat.value?.moi?.user_id
+  const autres = tous.filter((v: any) => v.user_id !== moiId)
+  if (!autres.length) return
+
+  // Accord total : j'ai dit oui, et tous ceux qui ont vote ont dit oui aussi.
+  const nbMembres = g.etat.value?.avancement?.length ?? 2
+  const accord = valeur === 2 && autres.every((v: any) => v.valeur === 2)
+                 && tous.length >= nbMembres
+  if (accord) {
+    match.value = { prenom: p.l, avec: autres.map((v: any) => v.pseudo) }
+    return
+  }
+  // Le reste : on dit ce qui s'est dit, sans en faire un evenement.
+  retour.value = { prenom: p.l, votes: autres }
   setTimeout(() => { if (retour.value?.prenom === p.l) retour.value = null }, 2600)
 }
 
@@ -87,10 +110,24 @@ async function basculerFavori() {
   await $fetch(`/api/groupes/${g.gid}/favori`, { method: 'POST', body: { prenom: p.l, actif } })
 }
 
-async function rejeterFamille() {
-  const p = carte.value; if (!p) return
+/** Ce que « écarter la famille » va réellement balayer. */
+function familleDe(p: Prenom): Prenom[] {
   const racine = p.slug.slice(0, Math.max(4, Math.floor(p.slug.length * 0.7)))
-  const cibles = pioche.value.filter(x => x.slug.startsWith(racine)).slice(0, 25)
+  return pioche.value.filter(x => x.slug.startsWith(racine)).slice(0, 25)
+}
+
+function demanderFamille() {
+  const p = carte.value; if (!p) return
+  familleAEcarter.value = familleDe(p)
+}
+
+// Un non sur vingt-cinq prénoms d'un coup, sans retour possible : ça se
+// confirme, et en voyant la liste. Sinon on découvre trop tard ce qu'on a
+// balayé.
+async function confirmerFamille() {
+  const cibles = familleAEcarter.value
+  familleAEcarter.value = null
+  if (!cibles?.length) return
   const s = new Set(g.dejaVotes.value)
   for (const c of cibles) s.add(c.l)
   g.dejaVotes.value = s
@@ -157,9 +194,9 @@ async function enregistrerFiltres() {
               {{ carte.sexe === 'fm' ? 'mixte' : carte.sexe === 'f' ? 'fille' : 'garçon' }}
             </span>
             <button class="etoile" :class="{ on: g.favoris.value.has(carte.l) }"
-                    :aria-label="g.favoris.value.has(carte.l) ? 'Retirer des gardés' : 'Garder'"
                     @click.stop="basculerFavori">
-              <Etincelles :taille="22" />
+              <Etincelles :taille="20" />
+              <span>{{ g.favoris.value.has(carte.l) ? 'Dans les favoris' : 'Favoris' }}</span>
             </button>
           </div>
 
@@ -198,7 +235,7 @@ async function enregistrerFiltres() {
             <button class="btn btn-0 mini" @click.stop="g.ouvrirFiche(carte.l)">
               Tout voir
             </button>
-            <button class="btn btn-0 mini doux" @click.stop="rejeterFamille">
+            <button class="btn btn-0 mini doux" @click.stop="demanderFamille">
               Écarter la famille
             </button>
           </div>
@@ -221,6 +258,29 @@ async function enregistrerFiltres() {
         </span>
       </div>
     </Transition>
+
+    <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec"
+                @fermer="match = null" />
+
+    <div v-if="familleAEcarter" class="voile-confirme" @click.self="familleAEcarter = null">
+      <div class="carte pile confirme">
+        <h2>Écarter toute la famille ?</h2>
+        <p class="mini doux" style="margin:0">
+          {{ familleAEcarter.length }} prénom{{ familleAEcarter.length > 1 ? 's' : '' }}
+          {{ familleAEcarter.length > 1 ? 'passeront' : 'passera' }} en « non » d’un coup.
+          C’est définitif : ils ne réapparaîtront plus dans votre tri.
+        </p>
+        <div class="ligne noms">
+          <span v-for="f in familleAEcarter" :key="f.l" class="puce">{{ f.l }}</span>
+        </div>
+        <div class="ligne" style="gap:8px">
+          <button class="btn btn-1" style="flex:1" @click="confirmerFamille">
+            Écarter {{ familleAEcarter.length }}
+          </button>
+          <button class="btn btn-0 doux" @click="familleAEcarter = null">Annuler</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -245,11 +305,15 @@ async function enregistrerFiltres() {
 .bas { display: flex; justify-content: space-between; align-items: center; padding-top: 2px; }
 .bas .btn { padding: 6px 0; }
 
-.etoile { border: 0; background: none; cursor: pointer; padding: 3px 4px; line-height: 0;
-  transition: transform .12s; }
-.etoile :deep(svg) { transition: fill .15s, opacity .15s; }
-.etoile.on { color: var(--peche); transform: scale(1.12); }
-.etoile:not(.on) { color: var(--doux); opacity: .32; }
+.etoile { border: 1px solid var(--trait); background: var(--carte); cursor: pointer;
+  padding: 6px 13px 6px 10px; border-radius: var(--pastille); display: flex;
+  align-items: center; gap: 6px; font-size: .76rem; font-weight: 700;
+  transition: transform .12s, background .15s, border-color .15s; }
+.etoile span { line-height: 1; }
+.etoile:active { transform: scale(.95); }
+.etoile.on { color: var(--encre); border-color: transparent;
+  background: color-mix(in srgb, var(--peche) 55%, transparent); }
+.etoile:not(.on) { color: var(--doux); }
 .etoile:active { transform: scale(.88); }
 
 .verdict { position: absolute; top: 14px; left: 50%; translate: -50% 0; padding: 7px 20px;
@@ -271,4 +335,12 @@ async function enregistrerFiltres() {
   z-index: 30; flex-wrap: wrap; }
 .fondu-enter-active, .fondu-leave-active { transition: opacity .25s, translate .25s; }
 .fondu-enter-from, .fondu-leave-to { opacity: 0; translate: 0 8px; }
+
+.voile-confirme { position: fixed; inset: 0; z-index: 65; background: rgba(26,35,78,.42);
+  backdrop-filter: blur(3px); display: flex; align-items: flex-end;
+  justify-content: center; padding: 16px; }
+.confirme { width: 100%; max-width: 520px; margin-bottom: calc(8px + env(safe-area-inset-bottom));
+  animation: monter .22s cubic-bezier(.2,.8,.3,1); }
+@keyframes monter { from { transform: translateY(14px); opacity: .5 } }
+.noms { flex-wrap: wrap; gap: 6px; max-height: 148px; overflow-y: auto; }
 </style>
