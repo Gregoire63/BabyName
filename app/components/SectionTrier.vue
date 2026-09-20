@@ -24,6 +24,18 @@ const suivante = computed(() => pioche.value[1] ?? null)
 const plafond = computed(() => quota.value + bonus.value)
 const quotaAtteint = computed(() => faits.value >= plafond.value)
 
+/**
+ * Vrai le temps qu'un vote remplace la carte de devant.
+ *
+ * Dans ce cas precis, la carte qui arrive est celle qu'on regardait deja
+ * derriere, montee a sa taille reelle pendant le vol. La reanimer d'un
+ * `scale(.94) opacity(.25)` la faisait re-apparaitre alors qu'elle etait
+ * deja la — et laissait la place, une demi-seconde, a la carte d'encore
+ * derriere. L'animation d'arrivee garde tout son sens quand la pile change
+ * pour une autre raison : un filtre, un prenom remis en jeu.
+ */
+const echange = ref(false)
+
 /** La ligne de contexte sous le nom de la liste : ou j'en suis, ce qui reste. */
 const contexte = computed(() => g.pret.value
   ? `${faits.value}/${plafond.value} jugés · ${pioche.value.length.toLocaleString('fr-FR')} possibles`
@@ -101,11 +113,14 @@ async function voter(valeur: 0 | 1 | 2) {
   envoler(valeur)
   await new Promise(r => setTimeout(r, 330))
 
+  echange.value = true
   g.dejaVotes.value = new Set([...g.dejaVotes.value, p.l])
   if (valeur === 2) g.aimes.value = [...g.aimes.value, p]
   faits.value++
   localStorage.setItem(cleJour, String(faits.value))
   dx.value = 0; dy.value = 0; envol.value = false
+  // apres que l'arrivee sans animation a ete mise en place
+  setTimeout(() => { echange.value = false }, 60)
   const r = await $fetch<any>(`/api/groupes/${g.gid}/vote`,
     { method: 'POST', body: { prenom: p.l, valeur } }).catch(() => null)
 
@@ -233,11 +248,18 @@ async function confirmerFamille() {
 
       <div v-else class="zone">
         <div class="cartes">
-        <article v-if="suivante" class="carte fiche derriere" :class="{ monte: envol }">
-          <h2 class="nom">{{ suivante.l }}</h2>
-        </article>
+        <!-- mode out-in : la carte du fond est REMPLACEE, jamais renommee sur
+             place. Pendant le vol elle est montee a taille reelle ; y changer
+             le texte affichait le prenom d'encore derriere, en grand, a la
+             place de celui qu'on regardait. -->
+        <Transition name="fond" mode="out-in">
+          <article v-if="suivante" :key="suivante.l" class="carte fiche derriere"
+                   :class="{ monte: envol }">
+            <h2 class="nom">{{ suivante.l }}</h2>
+          </article>
+        </Transition>
 
-        <Transition name="neuve">
+        <Transition :name="echange ? 'reprise' : 'neuve'">
         <article :key="carte.l" class="carte fiche" :style="style"
                  @pointerdown="debut" @pointermove="bouge"
                  @pointerup="fin" @pointercancel="fin">
@@ -368,6 +390,8 @@ async function confirmerFamille() {
 /* La carte suivante arrive : elle grandit depuis l'etat de la pile, elle ne
    surgit pas de nulle part. La sortante s'efface — apres un vote elle est
    deja partie au loin, mais pas quand la pile change pour une autre raison. */
+/* « reprise » n'a volontairement aucune regle : la carte etait deja affichee
+   en grand derriere, elle prend simplement sa place, sans re-arriver. */
 .neuve-enter-active { transition: transform .3s cubic-bezier(.2,.9,.3,1), opacity .26s ease-out; }
 .neuve-enter-from { transform: scale(.94) translateY(16px); opacity: .25; }
 .neuve-leave-active { z-index: 2; transition: opacity .2s ease-in; }
@@ -382,6 +406,10 @@ async function confirmerFamille() {
   transform: scale(.94) translateY(16px); opacity: .4; pointer-events: none;
   transition: transform .34s cubic-bezier(.2,.9,.3,1), opacity .34s; }
 .fiche.derriere.monte { transform: scale(1) translateY(0); opacity: 1; }
+/* la nouvelle carte de fond monte depuis rien ; l'ancienne s'efface d'un coup,
+   la carte de devant occupe deja exactement sa place */
+.fiche.derriere.fond-enter-from { opacity: 0; }
+.fiche.derriere.fond-leave-active { opacity: 0; transition: none; }
 .nom { font-size: 2.4rem; letter-spacing: -.035em; margin: 2px 0 0; }
 .sens { margin: 0; font-size: 1rem; font-style: italic; }
 .resume { gap: 16px; font-size: .84rem; font-variant-numeric: tabular-nums;
