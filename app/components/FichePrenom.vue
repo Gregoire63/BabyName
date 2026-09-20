@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { frequenceLisible, type Prenom } from '~/composables/useCatalogue'
 const props = defineProps<{ p: Prenom }>()
-defineEmits<{ fermer: [] }>()
+const emit = defineEmits<{ fermer: [] }>()
+
+const dedans = ref<HTMLElement>()
+const f = useFeuille(() => emit('fermer'), dedans)
 
 const AN0 = 1986, AN1 = 2025
 
@@ -30,10 +33,12 @@ const lecture = computed(() => {
 </script>
 
 <template>
-  <div class="voile" @click.self="$emit('fermer')">
-    <div class="feuille">
+  <div class="voile" @click.self="emit('fermer')">
+    <div class="feuille" :style="f.style.value"
+         @pointerdown="f.debut" @pointermove="f.bouge"
+         @pointerup="f.fin" @pointercancel="f.fin">
       <div class="poignee" />
-      <div class="dedans">
+      <div ref="dedans" class="dedans">
         <header class="tete">
           <div>
             <h2 class="nom">{{ p.l }}</h2>
@@ -41,7 +46,7 @@ const lecture = computed(() => {
               {{ sexeTexte }} · {{ p.y }} syllabe{{ p.y > 1 ? 's' : '' }} · {{ p.c }} lettres
             </p>
           </div>
-          <button class="btn btn-0 rond" aria-label="Fermer" @click="$emit('fermer')">✕</button>
+          <button class="btn btn-0 rond" aria-label="Fermer" @click="emit('fermer')">✕</button>
         </header>
 
         <p v-if="p.m" class="sens">« {{ p.m }} »</p>
@@ -108,8 +113,10 @@ const lecture = computed(() => {
   border-radius: 22px 22px 0 0; display: flex; flex-direction: column;
   animation: monte .24s cubic-bezier(.2,.8,.3,1); }
 @keyframes monte { from { transform: translateY(16px); opacity: .6 } }
-.poignee { width: 38px; height: 4px; border-radius: 999px; background: var(--trait);
-  margin: 9px auto 2px; flex: none; }
+.feuille { touch-action: none; }
+.poignee { width: 42px; height: 5px; border-radius: 999px; background: var(--trait);
+  margin: 10px auto 2px; flex: none; }
+.dedans { touch-action: pan-y; }
 .dedans { overflow-y: auto; overscroll-behavior: contain; padding: 10px 20px 28px;
   display: flex; flex-direction: column; gap: 14px; }
 .tete { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }

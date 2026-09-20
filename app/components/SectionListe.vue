@@ -1,7 +1,33 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
-defineProps<{ actif: boolean }>()
+const props = defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
+
+// --- prénoms écartés ------------------------------------------------------
+const ecartes = ref<{ racine: string; prenoms: string[]; le: string }[]>([])
+const totalEcartes = ref(0)
+const ouvertEcartes = ref(false)
+const remise = ref('')
+
+async function chargerEcartes() {
+  const r = await $fetch<any>(`/api/groupes/${g.gid}/ecartes`).catch(() => null)
+  ecartes.value = r?.familles ?? []
+  totalEcartes.value = r?.total ?? 0
+}
+watch(() => props.actif, a => { if (a) chargerEcartes() }, { immediate: true })
+
+/** Remet des prénoms dans la pile : on supprime simplement mes votes « non ». */
+async function remettre(prenoms: string[]) {
+  remise.value = prenoms[0] ?? ''
+  await $fetch(`/api/groupes/${g.gid}/vote`,
+    { method: 'DELETE', body: { prenoms } }).catch(() => null)
+  // La pile de tri lit dejaVotes : sans ça, il faudrait recharger la page.
+  const s = new Set(g.dejaVotes.value)
+  for (const p of prenoms) s.delete(p)
+  g.dejaVotes.value = s
+  remise.value = ''
+  await chargerEcartes()
+}
 
 const copie = ref(false)
 const renomme = ref(false)
@@ -109,12 +135,37 @@ const filtresActifs = computed(() => {
       <section class="carte pile">
         <div class="ligne">
           <h2 style="flex:1">Filtres de la liste</h2>
-          <button class="btn btn-0 mini" @click="g.allerA('swipe')">Modifier</button>
+          <button class="btn btn-0 mini" @click="g.ouvrirFiltres()">Modifier</button>
         </div>
         <div v-if="filtresActifs.length" class="ligne" style="flex-wrap:wrap;gap:6px">
           <span v-for="f in filtresActifs" :key="f" class="puce">{{ f }}</span>
         </div>
         <p v-else class="mini doux" style="margin:0">Aucun filtre : tout le catalogue passe.</p>
+      </section>
+
+      <section v-if="totalEcartes" class="carte pile">
+        <div class="ligne" style="cursor:pointer" @click="ouvertEcartes = !ouvertEcartes">
+          <h2 style="flex:1">Prénoms écartés</h2>
+          <span class="puce">{{ totalEcartes }}</span>
+          <span class="doux">{{ ouvertEcartes ? '−' : '+' }}</span>
+        </div>
+        <p class="mini doux" style="margin:0">
+          Vos « non », regroupés par famille comme au moment du balayage.
+          Les remettre les renvoie dans la pile à trier.
+        </p>
+
+        <template v-if="ouvertEcartes">
+          <div v-for="f in ecartes" :key="f.racine" class="famille">
+            <div class="ligne" style="flex-wrap:wrap;gap:6px;flex:1">
+              <button v-for="p in f.prenoms" :key="p" class="puce"
+                      style="border:0;cursor:pointer" @click="g.ouvrirFiche(p)">{{ p }}</button>
+            </div>
+            <button class="btn btn-0 mini" :disabled="remise === f.prenoms[0]"
+                    @click="remettre(f.prenoms)">
+              {{ remise === f.prenoms[0] ? '…' : f.prenoms.length > 1 ? `Remettre les ${f.prenoms.length}` : 'Remettre' }}
+            </button>
+          </div>
+        </template>
       </section>
 
       <section v-if="g.favoris.value.size" class="carte pile">
@@ -185,6 +236,9 @@ const filtresActifs = computed(() => {
 .invit { display: flex; flex-direction: column; align-items: center; gap: 10px;
   color: var(--encre); }
 .code { font-size: 1.7rem; letter-spacing: .16em; font-weight: 700; }
+.famille { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0;
+  border-top: 1px solid var(--trait); }
+.famille .btn { flex: none; white-space: nowrap; }
 .invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
 .cle { display: block; width: 100%; border: 1px dashed var(--trait); border-radius: 13px;
   background: var(--fond); padding: 15px 8px; cursor: pointer; font: inherit;

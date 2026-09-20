@@ -8,7 +8,6 @@ const g = useGroupeCourant()
 const quota = computed(() => g.etat.value?.groupe?.quota_swipe_jour ?? 40)
 const bonus = ref(0)
 const faits = ref(0)
-const panneau = ref(false)
 const match = ref<{ prenom: string; avec: string[] } | null>(null)
 const retour = ref<{ prenom: string; votes: any[] } | null>(null)
 const familleAEcarter = ref<Prenom[] | null>(null)
@@ -29,6 +28,7 @@ onMounted(() => { faits.value = Number(localStorage.getItem(cleJour) ?? 0) })
 
 // --- geste ----------------------------------------------------------------
 const dx = ref(0), dy = ref(0), glisse = ref(false)
+const envol = ref(false)
 let x0 = 0, y0 = 0, axe: 'x' | 'y' | null = null
 const SEUIL = 88
 
@@ -65,19 +65,42 @@ const intention = computed(() => {
   return null
 })
 const style = computed(() => glisse.value || dx.value || dy.value
-  ? { transform: `translate(${dx.value}px, ${dy.value}px) rotate(${dx.value / 24}deg)`,
-      transition: glisse.value ? 'none' : 'transform .2s' }
+  ? {
+      transform: `translate(${dx.value}px, ${dy.value}px) rotate(${dx.value / 24}deg)`,
+      opacity: envol.value ? 0 : 1,
+      transition: glisse.value
+        ? 'none'
+        : envol.value
+          ? 'transform .34s cubic-bezier(.32,0,.4,1), opacity .34s ease-in'
+          : 'transform .2s'
+    }
   : {})
+
+/** Envoie la carte hors de l'ecran dans la direction du vote. */
+function envoler(valeur: 0 | 1 | 2) {
+  const L = window.innerWidth || 400
+  if (valeur === 2)      { dx.value = L * 1.15;  dy.value = -70 }
+  else if (valeur === 0) { dx.value = -L * 1.15; dy.value = -70 }
+  else                   { dx.value = 0;         dy.value = -(window.innerHeight || 800) }
+  envol.value = true
+}
 
 // --- actions --------------------------------------------------------------
 async function voter(valeur: 0 | 1 | 2) {
   const p = carte.value
-  if (!p || quotaAtteint.value) return
+  if (!p || quotaAtteint.value || envol.value) return
+
+  // On laisse la carte partir AVANT de toucher a la pile : si on retire le
+  // prenom tout de suite, le noeud est remplace et il n'y a plus rien a
+  // animer — c'est ce qui donnait l'impression que la carte « saute ».
+  envoler(valeur)
+  await new Promise(r => setTimeout(r, 330))
+
   g.dejaVotes.value = new Set([...g.dejaVotes.value, p.l])
   if (valeur === 2) g.aimes.value = [...g.aimes.value, p]
   faits.value++
   localStorage.setItem(cleJour, String(faits.value))
-  dx.value = 0; dy.value = 0
+  dx.value = 0; dy.value = 0; envol.value = false
   const r = await $fetch<any>(`/api/groupes/${g.gid}/vote`,
     { method: 'POST', body: { prenom: p.l, valeur } }).catch(() => null)
 
@@ -135,12 +158,6 @@ async function confirmerFamille() {
     $fetch(`/api/groupes/${g.gid}/vote`, { method: 'POST', body: { prenom: c.l, valeur: 0 } })
       .catch(() => null)))
 }
-
-async function enregistrerFiltres() {
-  panneau.value = false
-  await $fetch(`/api/groupes/${g.gid}/filtres`,
-    { method: 'PUT', body: g.filtres.value }).catch(() => null)
-}
 </script>
 
 <template>
@@ -150,7 +167,7 @@ async function enregistrerFiltres() {
       <span class="mini doux" style="flex:1;text-align:center">
         {{ g.pret.value ? pioche.length.toLocaleString('fr-FR') + ' possibles' : '…' }}
       </span>
-      <button class="btn btn-0 mini" style="padding:6px 10px" @click="panneau = true">
+      <button class="btn btn-0 mini" style="padding:6px 10px" @click="g.ouvrirFiltres()">
         Filtres
       </button>
     </div>
@@ -158,9 +175,6 @@ async function enregistrerFiltres() {
     <p v-if="!g.pret.value" class="doux" style="text-align:center">Chargement…</p>
 
     <template v-else>
-      <FiltresPanneau v-if="panneau" v-model="g.filtres.value" :origines="g.origines.value"
-                      :nb="pioche.length" @fermer="enregistrerFiltres" />
-
       <div v-if="quotaAtteint" class="vide">
         <Etincelles :taille="34" couleur="var(--peche)" />
         <h2>C’est assez pour aujourd’hui</h2>
@@ -172,16 +186,17 @@ async function enregistrerFiltres() {
       <div v-else-if="!carte" class="vide">
         <h2>Plus rien à trier</h2>
         <p>Vos filtres ne laissent passer aucun prénom non jugé.</p>
-        <button class="btn" @click="panneau = true">Élargir les filtres</button>
+        <button class="btn" @click="g.ouvrirFiltres()">Élargir les filtres</button>
       </div>
 
       <div v-else class="zone">
         <div class="cartes">
-        <article v-if="suivante" class="carte fiche derriere">
+        <article v-if="suivante" class="carte fiche derriere" :class="{ monte: envol }">
           <h2 class="nom">{{ suivante.l }}</h2>
         </article>
 
-        <article class="carte fiche" :style="style"
+        <Transition name="neuve">
+        <article :key="carte.l" class="carte fiche" :style="style"
                  @pointerdown="debut" @pointermove="bouge"
                  @pointerup="fin" @pointercancel="fin">
           <div v-if="intention" class="verdict" :class="intention">
@@ -240,12 +255,17 @@ async function enregistrerFiltres() {
             </button>
           </div>
         </article>
+        </Transition>
         </div>
 
         <div class="boutons">
           <button class="rond non" aria-label="Non" @click="voter(0)">✕</button>
           <button class="rond neutre" aria-label="Neutre" @click="voter(1)">~</button>
-          <button class="rond oui" aria-label="Oui" @click="voter(2)">♥</button>
+          <button class="rond oui" aria-label="Oui" @click="voter(2)">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 21.2s-8.4-5-8.4-11A5 5 0 0 1 12 7.1a5 5 0 0 1 8.4 3.1c0 6-8.4 11-8.4 11Z" />
+            </svg>
+          </button>
         </div>
       </div>
     </template>
@@ -290,14 +310,23 @@ async function enregistrerFiltres() {
 
 .zone { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .cartes { position: relative; display: flex; flex: 1; min-height: 0; }
+.cartes > .fiche:not(.derriere) { position: relative; z-index: 1; width: 100%; }
+
+/* La carte suivante arrive : elle grandit depuis l'etat de la pile, elle ne
+   surgit pas de nulle part. */
+.neuve-enter-active { transition: transform .3s cubic-bezier(.2,.9,.3,1), opacity .26s ease-out; }
+.neuve-enter-from { transform: scale(.94) translateY(16px); opacity: .25; }
+.neuve-leave-active { position: absolute; inset: 0; }
 .fiche { touch-action: none; user-select: none; position: relative; flex: 1;
   display: flex; flex-direction: column; gap: 11px; min-height: 300px; }
 .graphe { margin-top: auto; display: flex; flex-direction: column; gap: 2px; }
 .graphe span { align-self: flex-end; }
 .alerte { margin: 0; font-size: .84rem; padding: 9px 11px; border-radius: 11px;
   background: color-mix(in srgb, var(--peche) 45%, transparent); }
-.fiche.derriere { position: absolute; inset: 0; z-index: -1; transform: scale(.955) translateY(12px);
-  opacity: .45; pointer-events: none; z-index: -1; }
+.fiche.derriere { position: absolute; inset: 0; z-index: 0;
+  transform: scale(.94) translateY(16px); opacity: .4; pointer-events: none;
+  transition: transform .34s cubic-bezier(.2,.9,.3,1), opacity .34s; }
+.fiche.derriere.monte { transform: scale(1) translateY(0); opacity: 1; }
 .nom { font-size: 2.4rem; letter-spacing: -.035em; margin: 2px 0 0; }
 .sens { margin: 0; font-size: 1rem; font-style: italic; }
 .resume { gap: 16px; font-size: .84rem; font-variant-numeric: tabular-nums;
@@ -329,6 +358,7 @@ async function enregistrerFiltres() {
   box-shadow: var(--ombre); cursor: pointer; transition: transform .08s; }
 .rond:active { transform: scale(.93); }
 .rond.non { color: var(--non); } .rond.oui { color: var(--oui); } .rond.neutre { color: var(--neutre); }
+.rond svg { width: 30px; height: 30px; }
 
 .retour { position: fixed; left: 16px; right: 16px; bottom: 86px; max-width: 528px;
   margin: 0 auto; display: flex; gap: 12px; align-items: center; padding: 10px 14px;

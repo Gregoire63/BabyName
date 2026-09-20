@@ -4,6 +4,9 @@ const modele = defineModel<Filtres>({ required: true })
 const props = defineProps<{ origines: string[]; nb: number }>()
 const emit = defineEmits<{ fermer: [] }>()
 
+const dedans = ref<HTMLElement>()
+const f = useFeuille(() => emit('fermer'), dedans)
+
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 const avance = ref(false)
 
@@ -29,9 +32,11 @@ function cycler(o: string) {
 
 <template>
   <div class="voile" @click.self="emit('fermer')">
-    <div class="feuille">
+    <div class="feuille" :style="f.style.value"
+         @pointerdown="f.debut" @pointermove="f.bouge"
+         @pointerup="f.fin" @pointercancel="f.fin">
       <div class="poignee" />
-      <div class="dedans pile">
+      <div ref="dedans" class="dedans pile">
         <div class="ligne">
           <h2 style="flex:1">Filtres</h2>
           <button class="btn btn-0 mini doux" @click="modele = filtresParDefaut()">Remettre à zéro</button>
@@ -62,21 +67,36 @@ function cycler(o: string) {
           </p>
         </div>
 
-        <label class="regle">
-          <span class="titre">Lettres · {{ modele.car[0] }} à {{ modele.car[1] }}</span>
-          <span class="ligne">
-            <input v-model.number="modele.car[0]" type="range" min="2" max="14">
-            <input v-model.number="modele.car[1]" type="range" min="2" max="14">
-          </span>
-        </label>
+        <!-- Deux curseurs cote a cote sans rien pour les distinguer, on ne
+             savait pas lequel etait le minimum. Chacun porte desormais son
+             role et sa valeur. -->
+        <div class="regle">
+          <p class="titre">Longueur du prénom · en lettres</p>
+          <label class="borne">
+            <span>au moins</span>
+            <input v-model.number="modele.car[0]" type="range" min="2" :max="modele.car[1]">
+            <b>{{ modele.car[0] }}</b>
+          </label>
+          <label class="borne">
+            <span>au plus</span>
+            <input v-model.number="modele.car[1]" type="range" :min="modele.car[0]" max="14">
+            <b>{{ modele.car[1] }}</b>
+          </label>
+        </div>
 
-        <label class="regle">
-          <span class="titre">Syllabes · {{ modele.syllabes[0] }} à {{ modele.syllabes[1] }}</span>
-          <span class="ligne">
-            <input v-model.number="modele.syllabes[0]" type="range" min="1" max="6">
-            <input v-model.number="modele.syllabes[1]" type="range" min="1" max="6">
-          </span>
-        </label>
+        <div class="regle">
+          <p class="titre">Nombre de syllabes</p>
+          <label class="borne">
+            <span>au moins</span>
+            <input v-model.number="modele.syllabes[0]" type="range" min="1" :max="modele.syllabes[1]">
+            <b>{{ modele.syllabes[0] }}</b>
+          </label>
+          <label class="borne">
+            <span>au plus</span>
+            <input v-model.number="modele.syllabes[1]" type="range" :min="modele.syllabes[0]" max="6">
+            <b>{{ modele.syllabes[1] }}</b>
+          </label>
+        </div>
 
         <div class="pile" style="gap:9px">
           <label class="ligne mini">
@@ -139,8 +159,11 @@ function cycler(o: string) {
   border-radius: 22px 22px 0 0; display: flex; flex-direction: column;
   animation: monte .24s cubic-bezier(.2,.8,.3,1); }
 @keyframes monte { from { transform: translateY(18px); opacity: .6 } }
-.poignee { width: 38px; height: 4px; border-radius: 999px; background: var(--trait);
-  margin: 9px auto 4px; flex: none; }
+.feuille { touch-action: none; }
+.poignee { width: 42px; height: 5px; border-radius: 999px; background: var(--trait);
+  margin: 10px auto 4px; flex: none; }
+.dedans { touch-action: pan-y; }
+.pied { touch-action: auto; }
 .dedans { overflow-y: auto; overscroll-behavior: contain; padding: 8px 20px 16px; }
 .pied { padding: 10px 20px calc(14px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--trait); }
@@ -154,5 +177,10 @@ function cycler(o: string) {
 .jeton.in { background: var(--encre); border-color: var(--encre); color: var(--fond); }
 .jeton.out { background: color-mix(in srgb, var(--peche) 70%, transparent);
   border-color: transparent; color: var(--texte); text-decoration: line-through; }
-.regle input[type=range] { width: 100%; accent-color: var(--encre); }
+.regle input[type=range] { width: 100%; accent-color: var(--encre); flex: 1; min-width: 0; }
+.borne { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.borne > span { font-size: .72rem; color: var(--doux); width: 64px; flex: none;
+  text-align: right; font-weight: 600; white-space: nowrap; }
+.borne > b { width: 22px; flex: none; text-align: center; font-variant-numeric: tabular-nums;
+  font-weight: 800; }
 </style>

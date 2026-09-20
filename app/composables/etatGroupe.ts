@@ -20,6 +20,7 @@ export interface EtatGroupe {
   pret: Ref<boolean>
   recharger: () => Promise<void>
   ouvrirFiche: (nom: string) => void
+  ouvrirFiltres: () => void
   allerA: (onglet: string) => void
 }
 

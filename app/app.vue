@@ -118,9 +118,10 @@ button { font: inherit; color: inherit; }
   display: grid; justify-items: center; gap: 3px; transition: color .15s;
   white-space: nowrap; letter-spacing: -.01em; }
 .onglets button.on { color: var(--encre); }
-/* trait epais a bouts ronds, comme le monogramme */
+/* trait epais a bouts ronds, comme le monogramme : a 21 px, un trait de 2
+   restait maigre a cote du reste de l'interface */
 .onglets svg { width: 21px; height: 21px; stroke: currentColor; fill: none;
-  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ------------------------------------------------------------------ pager */
 .pager { display: flex; height: 100%; overflow-x: auto; overflow-y: hidden;

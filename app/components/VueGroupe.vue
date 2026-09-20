@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { chargerCatalogue, filtresParDefaut, type Prenom, type Filtres } from '~/composables/useCatalogue'
+import { chargerCatalogue, filtrer, filtresParDefaut, type Prenom, type Filtres }
+  from '~/composables/useCatalogue'
 import { CLE_GROUPE } from '~/composables/etatGroupe'
 
 const props = defineProps<{ depart?: string }>()
@@ -28,6 +29,9 @@ const vetos = ref<Set<string>>(new Set())
 const favoris = ref<Set<string>>(new Set())
 const pret = ref(false)
 const fiche = ref<Prenom | null>(null)
+// Le panneau de filtres vit ici, pas dans l'onglet de tri : on doit pouvoir
+// l'ouvrir aussi depuis les reglages de la liste.
+const filtresOuverts = ref(false)
 
 const parNom = computed(() => new Map(catalogue.value.map(p => [p.l, p])))
 
@@ -54,6 +58,18 @@ function ouvrirFiche(nom: string) {
   fiche.value = parNom.value.get(nom) ?? null
 }
 
+function ouvrirFiltres() { filtresOuverts.value = true }
+
+/** Combien de prénoms passent les filtres en cours — affiché dans le panneau. */
+const nbFiltres = computed(() =>
+  catalogue.value.length ? filtrer(catalogue.value, filtres.value).length : 0)
+
+async function fermerFiltres() {
+  filtresOuverts.value = false
+  await $fetch(`/api/groupes/${gid}/filtres`,
+    { method: 'PUT', body: filtres.value }).catch(() => null)
+}
+
 function allerA(onglet: string) {
   const i = ONGLETS.findIndex(o => o.id === onglet)
   if (i >= 0) glisserVers(i)
@@ -61,7 +77,7 @@ function allerA(onglet: string) {
 
 provide(CLE_GROUPE, {
   gid, etat, catalogue, parNom, origines, filtres,
-  dejaVotes, aimes, vetos, favoris, pret, recharger, ouvrirFiche, allerA
+  dejaVotes, aimes, vetos, favoris, pret, recharger, ouvrirFiche, ouvrirFiltres, allerA
 })
 
 // --- navigation -----------------------------------------------------------
@@ -123,7 +139,8 @@ onMounted(async () => {
             <path d="M8 16h8" />
           </template>
           <template v-else-if="o.id === 'communs'">
-            <path d="M12 20s-7-4.3-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 4.7-7 9-7 9Z" />
+            <path d="M12 20.4S4 15.6 4 10.4A4.4 4.4 0 0 1 12 7.6a4.4 4.4 0 0 1 8 2.8c0 5.2-8 10-8 10Z"
+                  :fill="index === i ? 'currentColor' : 'none'" />
           </template>
           <template v-else-if="o.id === 'duels'">
             <path d="M12 4v16M6 8l-2 2 2 2M18 8l2 2-2 2" />
@@ -141,6 +158,9 @@ onMounted(async () => {
     </nav>
 
     <FichePrenom v-if="fiche" :p="fiche" @fermer="fiche = null" />
+
+    <FiltresPanneau v-if="filtresOuverts" v-model="filtres" :origines="origines"
+                    :nb="nbFiltres" @fermer="fermerFiltres" />
   </div>
 </template>
 
