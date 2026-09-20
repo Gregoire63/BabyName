@@ -244,3 +244,18 @@ alter table utilisateurs alter column email drop not null;
 alter table utilisateurs add column if not exists cle_acces_hash text;
 create unique index if not exists idx_utilisateurs_cle
   on utilisateurs (cle_acces_hash) where cle_acces_hash is not null;
+
+-- ============================================================================
+--  Origine d'un vote « non ».
+--
+--  « Écarter la famille » passe jusqu'à vingt-cinq prénoms en non d'un seul
+--  geste. Pour pouvoir les remettre en bloc, il faut savoir lesquels sont
+--  partis ensemble — on ne peut pas le redeviner après coup : la racine
+--  calculée dépend de la pile au moment du balayage, qui a changé depuis.
+--
+--  balayage vaut la racine commune (slug sans accents) pour un vote issu
+--  d'un balayage, et NULL pour un vote donné prénom par prénom.
+-- ============================================================================
+alter table votes add column if not exists balayage text;
+create index if not exists idx_votes_balayage
+  on votes (groupe_id, user_id, balayage) where balayage is not null;

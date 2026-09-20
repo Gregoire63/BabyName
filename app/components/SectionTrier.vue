@@ -133,16 +133,23 @@ async function basculerFavori() {
   await $fetch(`/api/groupes/${g.gid}/favori`, { method: 'POST', body: { prenom: p.l, actif } })
 }
 
+/** Racine commune d'une famille : 70 % du début du slug, 4 lettres minimum. */
+function racineDe(p: Prenom): string {
+  return p.slug.slice(0, Math.max(4, Math.floor(p.slug.length * 0.7)))
+}
+
 /** Ce que « écarter la famille » va réellement balayer. */
 function familleDe(p: Prenom): Prenom[] {
-  const racine = p.slug.slice(0, Math.max(4, Math.floor(p.slug.length * 0.7)))
+  const racine = racineDe(p)
   return pioche.value.filter(x => x.slug.startsWith(racine)).slice(0, 25)
 }
 
 function demanderFamille() {
   const p = carte.value; if (!p) return
+  racineBalayage = racineDe(p)
   familleAEcarter.value = familleDe(p)
 }
+let racineBalayage = ''
 
 // Un non sur vingt-cinq prénoms d'un coup, sans retour possible : ça se
 // confirme, et en voyant la liste. Sinon on découvre trop tard ce qu'on a
@@ -154,8 +161,11 @@ async function confirmerFamille() {
   const s = new Set(g.dejaVotes.value)
   for (const c of cibles) s.add(c.l)
   g.dejaVotes.value = s
+  // La racine part avec chaque vote : c'est elle qui permettra de remettre
+  // exactement ce groupe-là, et pas un ensemble recalculé plus tard.
   await Promise.all(cibles.map(c =>
-    $fetch(`/api/groupes/${g.gid}/vote`, { method: 'POST', body: { prenom: c.l, valeur: 0 } })
+    $fetch(`/api/groupes/${g.gid}/vote`,
+      { method: 'POST', body: { prenom: c.l, valeur: 0, balayage: racineBalayage } })
       .catch(() => null)))
 }
 </script>
