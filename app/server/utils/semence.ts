@@ -57,6 +57,14 @@ export async function semerSiVide(c: Connexion) {
     `insert into groupes (nom, code_invitation, cree_par, quota_swipe_jour,
                           quota_swipe_mois, nb_vetos_max)
      values ('Essai gratuit', 'dec0de01', $1, 3, 8, 2) returning id`, [greg])
+  // Une troisieme, gratuite elle aussi : elle sert a verifier qu'on ne gagne
+  // pas trois swipes de plus en creant une liste de plus.
+  const g3 = await c.query(
+    `insert into groupes (nom, code_invitation, cree_par, quota_swipe_jour,
+                          quota_swipe_mois, nb_vetos_max)
+     values ('Autre essai', 'dec0de02', $1, 3, 8, 2) returning id`, [greg])
+  await c.query(`insert into membres (groupe_id, user_id, role) values ($1, $2, 'parent')`,
+    [g3.rows[0].id, greg])
   await c.query(`insert into membres (groupe_id, user_id, role) values ($1, $2, 'parent')`,
     [g2.rows[0].id, greg])
 

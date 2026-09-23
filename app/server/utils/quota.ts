@@ -13,9 +13,21 @@
  *    lignes ferait tomber le quota en deux minutes, et punirait justement les
  *    prénoms les plus utiles.
  *
- * 2. Le quota porte sur (liste, membre), et c'est la LISTE qui se débloque en
- *    payant. Une liste de prénoms n'a de sens qu'à deux : bloquer un seul
- *    membre la rend inutilisable pour les deux.
+ * 2. Le quota est celui de la PERSONNE, compté sur toutes ses listes non
+ *    débloquées ; c'est la LISTE qui se débloque en payant.
+ *
+ *    Pas un quota partagé par liste : les deux membres jugent les mêmes
+ *    prénoms chacun de son côté, et « en commun » exige que les DEUX se soient
+ *    prononcés. Une réserve commune ferait que le premier levé mange la
+ *    journée de l'autre, qu'aucun commun n'apparaît, et donc que la version
+ *    gratuite ne montre jamais ce qu'on vend. Elle taxerait aussi les
+ *    invitations, c'est-à-dire le seul canal par lequel l'app se diffuse : à
+ *    trois sur une liste, chacun aurait sept swipes.
+ *
+ *    Mais pas non plus un quota par (liste, membre) : dix listes vides
+ *    donneraient deux cents swipes par jour. On compte donc sur la personne,
+ *    toutes listes gratuites confondues. La limite, elle, vient de la liste
+ *    où l'on swipe — ça laisse la possibilité d'en offrir une plus large.
  *
  * Le jour est celui de Paris, pas celui d'UTC : un quota qui se remet à zéro
  * à deux heures du matin passe pour un bug.
@@ -51,14 +63,21 @@ function illimite(g: { jour: number; mois: number }): Quota {
   }
 }
 
-async function comptes(gid: number, uid: string) {
+/**
+ * Ce que la personne a consommé, sur TOUTES ses listes non débloquées. Une
+ * liste payée ne compte pas : la payer libère vraiment, elle ne déplace pas
+ * la limite sur les autres.
+ */
+async function comptes(uid: string) {
   const r = await q1<{ jour: number; mois: number }>(
-    `select coalesce((select n from quota_jour
-                       where groupe_id = $1 and user_id = $2 and jour = ${JOUR}), 0)::int as jour,
-            coalesce((select sum(n) from quota_jour
-                       where groupe_id = $1 and user_id = $2
-                         and jour >= date_trunc('month', ${JOUR})::date), 0)::int as mois`,
-    [gid, uid])
+    `select coalesce(sum(qj.n) filter (where qj.jour = ${JOUR}), 0)::int as jour,
+            coalesce(sum(qj.n), 0)::int as mois
+       from quota_jour qj
+       join groupes g on g.id = qj.groupe_id
+      where qj.user_id = $1
+        and g.paye_le is null
+        and qj.jour >= date_trunc('month', ${JOUR})::date`,
+    [uid])
   return { jour: r?.jour ?? 0, mois: r?.mois ?? 0 }
 }
 
@@ -77,7 +96,7 @@ function etat(g: { paye: boolean; jour: number; mois: number },
 export async function quotaEtat(gid: number, uid: string): Promise<Quota> {
   const g = await reglages(gid)
   if (g.paye) return illimite(g)
-  return etat(g, await comptes(gid, uid))
+  return etat(g, await comptes(uid))
 }
 
 /**
@@ -90,18 +109,17 @@ export async function consommerGeste(gid: number, uid: string): Promise<Quota | 
   if (g.paye) return illimite(g)
   if (g.jour <= 0 || g.mois <= 0) return null
 
-  const c = await comptes(gid, uid)
-  if (c.mois >= g.mois) return null
+  const c = await comptes(uid)
+  if (c.jour >= g.jour || c.mois >= g.mois) return null
 
-  // Le « where » fait le contrôle et l'incrément dans la même instruction :
-  // deux onglets ouverts ne peuvent pas passer le quota à deux.
-  const r = await q1<{ n: number }>(
-    `insert into quota_jour (groupe_id, user_id, jour, n)
-     values ($1, $2, ${JOUR}, 1)
-     on conflict (groupe_id, user_id, jour)
-     do update set n = quota_jour.n + 1 where quota_jour.n < $3
-     returning n::int as n`,
-    [gid, uid, g.jour])
-  if (!r) return null
-  return etat(g, { jour: r.n, mois: c.mois + 1 })
+  // Le total porte sur plusieurs lignes : on ne peut plus contrôler et
+  // incrémenter dans la même instruction. Deux onglets ouverts au même
+  // instant peuvent donc passer un swipe de trop. C'est un swipe, et le
+  // compteur reste juste ensuite — ça ne vaut pas un verrou.
+  await q(`insert into quota_jour (groupe_id, user_id, jour, n)
+           values ($1, $2, ${JOUR}, 1)
+           on conflict (groupe_id, user_id, jour)
+           do update set n = quota_jour.n + 1`,
+    [gid, uid])
+  return etat(g, { jour: c.jour + 1, mois: c.mois + 1 })
 }
