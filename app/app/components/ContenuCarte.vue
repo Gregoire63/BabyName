@@ -34,7 +34,7 @@ const g = useGroupeCourant()
     </div>
 
     <h2 class="nom">{{ p.l }}</h2>
-    <p v-if="p.m" class="sens">« {{ p.m }} »</p>
+    <p v-if="p.m" class="sens">« {{ p.m }} »<span v-if="p.cf !== null && p.cf < 2" class="doute"> · sens probable</span></p>
     <p v-else-if="p.me" class="sens doux">« {{ p.me }} »</p>
 
     <div class="ligne" style="flex-wrap:wrap;gap:6px">
@@ -79,6 +79,8 @@ const g = useGroupeCourant()
 
 .nom { font-size: 2.4rem; letter-spacing: -.035em; margin: 2px 0 0; }
 .sens { margin: 0; font-size: 1rem; font-style: italic; }
+/* Une etymologie discutee ne doit pas se lire comme un fait. */
+.doute { font-style: normal; font-size: .74rem; color: var(--doux); }
 .resume { gap: 16px; font-size: .84rem; font-variant-numeric: tabular-nums;
   color: var(--doux); font-weight: 560; }
 .alerte { margin: 0; font-size: .84rem; padding: 9px 11px; border-radius: 11px;

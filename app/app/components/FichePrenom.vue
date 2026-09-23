@@ -50,6 +50,10 @@ const lecture = computed(() => {
         </header>
 
         <p v-if="p.m" class="sens">« {{ p.m }} »</p>
+        <p v-if="p.m && p.cf !== null && p.cf < 2" class="note doux">
+          {{ p.cf === 0 ? 'Étymologie douteuse ou débattue : à prendre comme une piste, pas comme un fait.'
+                        : 'Étymologie probable : les sources ne sont pas unanimes.' }}
+        </p>
         <p v-else-if="p.me" class="sens doux">« {{ p.me }} » <span class="mini">(source anglaise)</span></p>
 
         <div v-if="p.g.length" class="ligne" style="flex-wrap:wrap;gap:6px">

@@ -16,6 +16,8 @@ export interface Prenom {
   o: number; r: number; rv: boolean; q: boolean
   c: number; y: number; k: boolean; i: string; e: string
   g: string[]; m: string | null; me: string | null
+  /** Confiance dans le sens : 0 basse, 1 moyenne, 2 haute, null si aucun sens. */
+  cf: number | null
   ob: boolean; obn: string | null; dm: string[]
   sr: number[] | null
 }
@@ -96,7 +98,8 @@ export async function chargerCatalogue() {
         o: c.o[k], r: c.r[k], rv: !!c.rv[k], q: !!(c.q && c.q[k]),
         c: c.c[k], y: c.y[k], k: !!c.k[k], i: c.i[k], e: c.e[k],
         g: c.g[k].map((x: number) => d.origines[x]),
-        m: c.m[k], me: c.me[k], ob: !!c.ob[k], obn: c.obn[k], dm: c.dm[k],
+        m: c.m[k], me: c.me[k], cf: c.cf ? c.cf[k] ?? null : null,
+        ob: !!c.ob[k], obn: c.obn[k], dm: c.dm[k],
         sr: c.sr ? c.sr[k] : null
       }
     }

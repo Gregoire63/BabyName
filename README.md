@@ -28,16 +28,37 @@ l'INSEE. L'app les sort donc du swipe par défaut — 11 941 cartes de plus
 noieraient les 7 667 qui portent 94,6 % des naissances — et une case à cocher
 les fait entrer pour qui veut ratisser large.
 
-## Couverture actuelle (sources gratuites uniquement)
+## Couverture actuelle
 
-| | catalogue (19 608) | pile (7 667) | pondéré par les naissances |
+| | avant `enrich_claude` | après | pondéré par les naissances |
 |---|---|---|---|
-| origine | 4 606 (23 %) | 2 810 (37 %) | **79 % / 83 %** |
-| signification | 2 244 (11 %) | 1 484 (19 %) | **70 % / 73 %** |
+| origine | 4 606 (23 %) | **9 143 (47 %)** | 79 % → **93 %** |
+| signification | 2 244 (11 %) | **6 665 (34 %)** | 70 % → **85 %** |
 
-Les 15 002 prénoms sans origine sont massivement la longue traîne (graphies
-uniques, prénoms importés récents) : beaucoup de graphies, peu de naissances.
-C'est exactement pourquoi la pile et le catalogue ne sont pas la même chose.
+Le saut vient de `data/cache/enrich_claude.jsonl` : les 6 189 prénoms de la
+pile qui avaient un trou, traités par Claude en session, avec le prompt système
+d'`enrich_llm.py` — aucune clé API, aucun coût à l'appel.
+
+## La confiance, et pourquoi elle est affichée
+
+Chaque entrée porte une `confiance` (haute / moyenne / basse) qui qualifie **la
+signification**, pas le prénom. `merge_enrichissement.py` ne retient que celle
+de la source qui a effectivement fourni le sens affiché, et un prénom composé
+ne vaut pas mieux que sa partie la plus douteuse. `export_catalogue.py` la
+transporte dans la colonne `cf`, et l'app écrit « sens probable » sur la carte
+et une mise en garde sur la fiche dès qu'elle n'est pas haute.
+
+Ce n'est pas de la coquetterie. Une relecture adversariale de 110 entrées tirées
+au sort (`data/cache/enrich_claude_relecture.md`) a trouvé **4 fautes graves et
+12 moyennes** — sens faux, chaînes d'origines inversées, confiance trop
+généreuse — toutes corrigées depuis. Elle a aussi établi le point qui compte :
+**aucune étymologie n'avait été fabriquée** pour un prénom de pure invention.
+Le risque résiduel n'est donc pas l'invention mais l'approximation, et la bonne
+réponse à l'approximation est de la dire.
+
+Les prénoms sans origine restent massivement la longue traîne (graphies uniques,
+prénoms importés récents) : beaucoup de graphies, peu de naissances. C'est
+exactement pourquoi la pile et le catalogue ne sont pas la même chose.
 
 ## Les trois couches d'enrichissement
 
@@ -51,7 +72,12 @@ renseigne gagne :
    « from Hebrew », pas « from Latin ». C'est la source d'origine.
 3. **wiktionnaire-fr** — 3 573 entrées. Surtout utile pour les **significations
    en français**, que l'anglais ne peut pas fournir.
-4. **llm** — optionnel, payant, vide. Non utilisé.
+4. **claude** — `data/cache/enrich_claude.jsonl`, 6 189 prénoms écrits en
+   session par Claude, sans clé API. Placé **après** les deux wiktionnaires
+   exprès : le Wiktionnaire est mécanique et citable, Claude est un jugement.
+   Claude ne remplit donc que les trous et n'écrase aucune valeur sourcée.
+5. **llm** — optionnel, payant, vide. Non utilisé : `enrich_claude` fait le
+   même travail sans appel facturé.
 
 Chaque champ garde sa source dans `src_origines` / `src_signification` :
 on peut invalider une couche entière sans tout refaire.

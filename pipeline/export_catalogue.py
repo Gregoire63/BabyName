@@ -22,6 +22,7 @@ OUT = ROOT / "app" / "public" / "data" / "catalogue.json"
 OUT.parent.mkdir(parents=True, exist_ok=True)
 
 SEXE = ["f", "m", "fm"]
+CONF = ["basse", "moyenne", "haute"]
 
 
 def series_par_prenom() -> dict[str, list[float]]:
@@ -102,6 +103,10 @@ def main() -> None:
         # sens
         "g": [enc_org(x) for x in d["origines"].fillna("")],
         "m": [x if isinstance(x, str) else None for x in d["signification"]],
+        # Confiance dans le SENS affiche : 0 basse, 1 moyenne, 2 haute, null
+        # si aucun sens. Une etymologie probable montree comme un fait, c'est
+        # un mensonge poli : la fiche le dit.
+        "cf": [CONF.index(x) if x in CONF else None for x in d["confiance"]],
         "me": [x if isinstance(x, str) else None for x in d["signification_en"]],
         "ob": [int(bool(x)) for x in d["objet_marque"].fillna(False)],
         "obn": [x if isinstance(x, str) else None for x in d["objet_marque_note"]],
@@ -116,6 +121,7 @@ def main() -> None:
         "n": len(d),
         "origines": origines,
         "sexe": SEXE,
+        "confiance": CONF,
         "champs": {
             "l": "label", "s": "sexe", "u": "unisexe_ratio", "f": "freq_p10k",
             "n": "naissances_3ans", "t": "tendance_pct_an", "p": "pic_annee",
@@ -123,6 +129,7 @@ def main() -> None:
             "q": "rare",
             "c": "nb_car", "y": "nb_syllabes", "k": "compose", "i": "initiale",
             "e": "finale", "g": "origines", "m": "signification",
+            "cf": "confiance_sens",
             "me": "signification_en", "ob": "objet_marque",
             "obn": "objet_marque_note", "dm": "diminutifs", "sr": "serie_p10k",
         },
@@ -142,8 +149,11 @@ def main() -> None:
 
     avec_serie = sum(1 for x in cols["sr"] if x)
     rares = sum(cols["q"])
+    sens = sum(1 for x in cols["m"] if x)
+    sur = sum(1 for x in cols["cf"] if x == 2)
     print(f"{len(d):,} prenoms ({len(d)-rares:,} dans la pile, {rares:,} rares), "
           f"{len(origines)} origines, {avec_serie:,} courbes")
+    print(f"  {sens:,} avec un sens, dont {sur:,} en confiance haute")
     print(f"  brut : {len(txt)/1024:.0f} Ko  ({OUT.name})")
     print(f"  gzip : {gz.stat().st_size/1024:.0f} Ko  ({gz.name})  <- deploye")
 

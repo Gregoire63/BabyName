@@ -21,9 +21,13 @@ BUILD, CACHE = ROOT / "data" / "build", ROOT / "data" / "cache"
 # Ordre = priorite. Le wiktionnaire EN passe AVANT le FR pour les origines :
 # il classe par origine ultime (Gabriel = hebraique), la ou le FR donne la
 # langue d'emprunt (Gabriel = latin). Voir data/raw/PROVENANCE.md.
+# "claude" passe APRES les deux wiktionnaires, et c'est deliberé : le
+# Wiktionnaire est mecanique et citable, Claude est un jugement. Claude ne
+# remplit donc que les trous, il n'ecrase aucune valeur sourcee.
 SOURCES = [("manuel", "enrich_manuel.jsonl"),
            ("wiktionnaire-en", "enrich_wiktionary_en.jsonl"),
            ("wiktionnaire-fr", "enrich_wiktionary.jsonl"),
+           ("claude", "enrich_claude.jsonl"),
            ("llm", "enrich_llm.jsonl")]
 CHAMPS = ["origines", "signification", "signification_en", "objet_marque",
           "objet_marque_note", "diminutifs", "charge_epellation"]
@@ -44,6 +48,7 @@ def main() -> None:
 
     # {slug: {champ: (valeur, source)}}
     fusion: dict[str, dict] = {}
+    confiances: dict[tuple[str, str], str] = {}
     compte = {}
     for nom, fichier in SOURCES:
         f = CACHE / fichier
@@ -58,6 +63,11 @@ def main() -> None:
             sl = slugify(e["prenom"])
             cible = fusion.setdefault(sl, {})
             n += 1
+            # La confiance qualifie la SIGNIFICATION, pas le prenom : on la
+            # retient par source, et on ne gardera que celle de la source qui
+            # a fini par fournir le sens affiche.
+            if e.get("confiance"):
+                confiances[(sl, nom)] = e["confiance"]
             for c in CHAMPS:
                 if c in cible:            # deja renseigne par une source prioritaire
                     continue
@@ -74,20 +84,29 @@ def main() -> None:
             continue
         if not re.search(r"[- ]", lab):
             continue
-        org, sens = [], []
+        org, sens, conf = [], [], []
         for part in re.split(r"[- ]", lab):
-            e = fusion.get(slugify(part), {})
+            sp = slugify(part)
+            e = fusion.get(sp, {})
             for o in (e.get("origines", (None,))[0] or []):
                 if o not in org:
                     org.append(o)
             sg = e.get("signification")
             if sg and sg[0]:
                 sens.append(f"{part} : {sg[0]}")
+                conf.append(confiances.get((sp, sg[1])))
         if org:
             cible = fusion.setdefault(sl, {})
             cible["origines"] = (org[:3], "composé")
             if sens and "signification" not in cible:
                 cible["signification"] = (" + ".join(sens)[:120], "composé")
+                # Un compose ne vaut pas mieux que sa partie la plus douteuse.
+                rang = {"basse": 0, "moyenne": 1, "haute": 2}
+                connus = [c for c in conf if c in rang]
+                if connus and len(connus) == len(conf):
+                    confiances[(sl, "composé")] = min(connus, key=lambda c: rang[c])
+                else:
+                    confiances[(sl, "composé")] = "moyenne"
 
     def prendre(label, champ, defaut=None):
         e = fusion.get(slugify(label), {}).get(champ)
@@ -107,6 +126,15 @@ def main() -> None:
     d["src_origines"] = d["label"].map(lambda s: source(s, "origines"))
     d["src_signification"] = d["label"].map(lambda s: source(s, "signification"))
 
+    # Une etymologie probable affichee comme un fait, c'est un mensonge poli.
+    # On remonte donc jusqu'a la fiche la confiance de la source qui a donne
+    # le sens -- et l'app dira "sens probable" quand elle n'est pas haute.
+    def confiance(label):
+        sl = slugify(label)
+        src = source(label, "signification")
+        return confiances.get((sl, src)) if src else None
+    d["confiance"] = d["label"].map(confiance)
+
     out = BUILD / "prenoms_final.csv"
     d.to_csv(out, index=False, encoding="utf-8")
 
@@ -120,6 +148,8 @@ def main() -> None:
           f"   pondere naissances : {w[d['origines'] != ''].sum()/w.sum()*100:.1f} %")
     print(f"  avec signification: {asg:,} ({100*asg/n:.1f} %)"
           f"   pondere naissances : {w[d['signification'].notna()].sum()/w.sum()*100:.1f} %")
+    print("\nconfiance du sens affiche :")
+    print(d["confiance"].value_counts(dropna=False).to_string())
     print("\norigine par source :")
     print(d["src_origines"].value_counts(dropna=False).to_string())
     print("\ntop familles :")
