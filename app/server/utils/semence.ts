@@ -14,7 +14,9 @@ import type { Connexion } from './db'
  * qu'une base locale, jetable, qui n'existe pas en production (ce fichier
  * n'est appele que depuis la branche `import.meta.dev` de db.ts).
  */
-export const CLES_DEV = { greg: 'DEVG-REGX-2345', audrey: 'DEVA-DREY-2345' }
+export const CLES_DEV = {
+  greg: 'DEVG-REGX-2345', audrey: 'DEVA-DREY-2345', mamie: 'DEVM-AMIE-2345'
+}
 
 // Deux gouts differents, avec un recouvrement volontaire ET des desaccords
 // francs (Greg dit oui a Marius et Hector, Audrey dit non) : sans eux, le
@@ -34,6 +36,19 @@ const GOUTS_AUDREY = {
   // prenoms que Greg a deja tranches.
   non: ['Kevin', 'Marius', 'Hector', 'Brandon', 'Dylan', 'Jayden', 'Ferdinand']
 }
+/**
+ * Mamie observe.
+ *
+ * Elle dit NON a Louise, sur laquelle Greg et Audrey sont d'accord. C'est le
+ * seul cas qui prouve qu'un observateur ne casse rien : si Louise disparaissait
+ * des communs, le role ne servirait a rien et l'argument de vente serait faux.
+ */
+const GOUTS_MAMIE = {
+  oui: ['Jeanne', 'Suzanne', 'Colette'],
+  neutre: ['Iris'],
+  non: ['Louise', 'Anouk']
+}
+
 // Ecartes « d'un geste » : c'est ce qui remplit le bloc des familles dans
 // Parametres, et ce qui permet de verifier qu'un non individuel y survit.
 const BALAYAGE = { racine: 'kevi', prenoms: ['Kevin', 'Kevyn', 'Kevan'] }
@@ -42,9 +57,10 @@ export async function semerSiVide(c: Connexion) {
   const dejaLa = await c.query(`select count(*)::int as n from utilisateurs`)
   if ((dejaLa.rows[0]?.n ?? 0) > 0) return
 
-  const [greg, audrey] = await Promise.all([
+  const [greg, audrey, mamie] = await Promise.all([
     creerCompte(c, 'Greg', CLES_DEV.greg),
-    creerCompte(c, 'Audrey', CLES_DEV.audrey)
+    creerCompte(c, 'Audrey', CLES_DEV.audrey),
+    creerCompte(c, 'Mamie', CLES_DEV.mamie)
   ])
 
   // « Notre liste » est marquee payee : c'est elle que tous les essais
@@ -77,8 +93,16 @@ export async function semerSiVide(c: Connexion) {
       `insert into membres (groupe_id, user_id, role) values ($1, $2, $3)`, [gid, uid, role])
   }
 
+  // Le code des observateurs existe des le depart : sinon aucun ecran ne le
+  // montre avant qu'on ait clique dessus, et on ne verrait pas qu'il marche.
+  await c.query(`update groupes set code_observateur = 'ob5e0bad' where id = $1`, [gid])
+  await c.query(
+    `insert into membres (groupe_id, user_id, role) values ($1, $2, 'observateur')`,
+    [gid, mamie])
+
   await voter(c, gid, greg, GOUTS_GREG)
   await voter(c, gid, audrey, GOUTS_AUDREY)
+  await voter(c, gid, mamie, GOUTS_MAMIE)
 
   // Un balayage de famille cote Greg, en plus de ses non individuels.
   for (const p of BALAYAGE.prenoms) {
@@ -112,6 +136,7 @@ export async function semerSiVide(c: Connexion) {
     `  Liste « Notre liste », code d'invitation dec0de00.\n` +
     `  Cle de Greg   : ${CLES_DEV.greg}\n` +
     `  Cle d'Audrey  : ${CLES_DEV.audrey}\n` +
+    `  Cle de Mamie  : ${CLES_DEV.mamie} (observatrice, code ob5e0bad)\n` +
     '  Ouvrez-en une dans une fenetre privee pour voir le vote aveugle a deux.\n' +
     '  Pour repartir de zero : supprimez le dossier .data/\n')
 }

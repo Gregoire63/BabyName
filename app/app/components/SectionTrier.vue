@@ -83,8 +83,11 @@ const dispo = computed(() => {
   }
   const out: Prenom[] = []
   for (const p of chef.values()) {
-    const v = suite.get(p.gp)!
-    out.push(v.length ? { ...p, variantes: v } : p)
+    // On ECRASE toujours `variantes` : le catalogue y met toutes les graphies
+    // du groupe, or un vote ne doit porter que sur celles que les filtres ont
+    // laissees passer et qui restent a juger. Sans cet ecrasement, dire non a
+    // Elyo repondrait pour un Hélio que la liste avait exclu.
+    out.push({ ...p, variantes: suite.get(p.gp)! })
   }
   return out
 })
@@ -333,13 +336,24 @@ async function voter(valeur: 0 | 1 | 2) {
 
   // Le serveur ne renvoie les votes des autres QUE parce qu'on vient de voter
   // (regle du vote aveugle, cf. server/utils/votes.ts).
-  const tous = (r?.votes ?? []).filter((v: any) => v.valeur !== undefined && v.pseudo)
+  //
+  // Les observateurs ne comptent pas ici, des deux cotes : ni dans le nombre
+  // de voix qu'on attend, ni parmi celles qui doivent dire oui. Sans ce
+  // filtre, inviter sa mere supprimait purement et simplement l'ecran du
+  // match — elle n'avait pas juge, donc l'accord n'etait jamais « complet ».
+  const decideurs = (g.etat.value?.avancement ?? [])
+    .filter((m: any) => m.role !== 'observateur')
+  const estDecideur = new Set(decideurs.map((m: any) => m.user_id))
   const moiId = g.etat.value?.moi?.user_id
+  const visibles = (r?.votes ?? []).filter((v: any) =>
+    v.valeur !== undefined && v.pseudo && v.user_id !== moiId)
+  const tous = (r?.votes ?? []).filter((v: any) =>
+    v.valeur !== undefined && v.pseudo && estDecideur.has(v.user_id))
   const autres = tous.filter((v: any) => v.user_id !== moiId)
-  if (!autres.length) return
+  if (!visibles.length) return
 
   // Accord total : j'ai dit oui, et tous ceux qui ont vote ont dit oui aussi.
-  const nbMembres = g.etat.value?.avancement?.length ?? 2
+  const nbMembres = decideurs.length || 2
   const accord = valeur === 2 && autres.every((v: any) => v.valeur === 2)
                  && tous.length >= nbMembres
   if (accord) {
@@ -357,7 +371,11 @@ async function voter(valeur: 0 | 1 | 2) {
   // L'accord se dit, le refus ne se dit pas. Le desaccord a deja son endroit,
   // choisi et calme : le volet « A revoir » du classement, ou on y va quand on
   // veut, pas quand l'app le decide.
-  const daccord = autres.filter((v: any) => v.valeur === 2)
+  //
+  // Le bandeau, lui, compte les observateurs : « Mamie aussi », c'est
+  // exactement ce qu'on est venu chercher en l'invitant. Ils n'ont pas voix
+  // au chapitre, ils ont voix.
+  const daccord = visibles.filter((v: any) => v.valeur === 2)
   if (!daccord.length) return
   retour.value = { prenom: p.l, qui: daccord.map((v: any) => v.pseudo) }
   setTimeout(() => { if (retour.value?.prenom === p.l) retour.value = null }, 2600)
@@ -474,6 +492,7 @@ async function confirmerFamille() {
           Débloquer la liste la débloque pour tout le monde dedans — une liste
           de prénoms ne sert à rien si un seul des deux peut trier.
         </p>
+        <button class="btn btn-1" @click="g.ouvrirDebloquer()">Voir ce que ça ouvre</button>
       </div>
 
       <div v-else-if="!carte" class="vide">
@@ -563,6 +582,7 @@ async function confirmerFamille() {
     <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec"
                 @fermer="match = null"
                 @communs="match = null; g.allerA('communs')" />
+
 
     <div v-if="familleAEcarter" class="voile-confirme" @click.self="familleAEcarter = null">
       <div class="carte pile confirme">

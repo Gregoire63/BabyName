@@ -17,7 +17,8 @@ const { aRevoir } = useVerdicts()
 const occupe = ref('')
 const match = ref<{ prenom: string; avec: string[] } | null>(null)
 
-async function changer(prenom: string, valeur: 0 | 1 | 2, autres: { pseudo: string }[]) {
+async function changer(prenom: string, valeur: 0 | 1 | 2,
+                       autres: { pseudo: string; observateur: boolean }[]) {
   occupe.value = prenom
   const avant = new Set(g.communs.value.map((c: any) => c.prenom))
   try {
@@ -26,7 +27,8 @@ async function changer(prenom: string, valeur: 0 | 1 | 2, autres: { pseudo: stri
     // celui qui change d'avis qui la voit — l'autre l'a deja vue, ou la verra.
     const apres = new Set(g.communs.value.map((c: any) => c.prenom))
     if (!avant.has(prenom) && apres.has(prenom)) {
-      match.value = { prenom, avec: autres.map(a => a.pseudo) }
+      // « Vous etes d'accord avec… » ne nomme que ceux dont l'accord compte.
+      match.value = { prenom, avec: autres.filter(a => !a.observateur).map(a => a.pseudo) }
     }
   } finally { occupe.value = '' }
 }
@@ -56,8 +58,9 @@ async function changer(prenom: string, valeur: 0 | 1 | 2, autres: { pseudo: stri
         </div>
         <div class="ligne avis">
           <span class="puce" :class="`a${v.mien}`">Vous · {{ MOT[v.mien ?? 1] }}</span>
-          <span v-for="a in v.autres" :key="a.pseudo" class="puce" :class="`a${a.valeur}`">
-            {{ a.pseudo }} · {{ MOT[a.valeur] }}
+          <span v-for="a in v.autres" :key="a.pseudo" class="puce"
+                :class="[`a${a.valeur}`, { obs: a.observateur }]">
+            {{ a.pseudo }} · {{ MOT[a.valeur] }}<template v-if="a.observateur"> · avis</template>
           </span>
         </div>
       </article>
@@ -76,5 +79,7 @@ async function changer(prenom: string, valeur: 0 | 1 | 2, autres: { pseudo: stri
 .avis { flex-wrap: wrap; gap: 6px; }
 .avis .puce { font-size: .7rem; }
 .avis .a0 { background: color-mix(in srgb, var(--non) 22%, transparent); }
+/* Un observateur ne bloque rien : sa pastille ne doit pas avoir l'air d'un veto. */
+.avis .obs { background: none; border: 1px dashed var(--trait); opacity: .75; }
 .avis .a2 { background: color-mix(in srgb, var(--oui) 22%, transparent); }
 </style>

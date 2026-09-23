@@ -1,6 +1,10 @@
 export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
+  // Tout l'interet de l'observateur : il donne son avis sans pouvoir bloquer.
+  if (moi.role === 'observateur') {
+    throw createError({ statusCode: 403, statusMessage: 'observateur_sans_veto' })
+  }
   const { prenom, motif } = await readBody<{ prenom?: string; motif?: string }>(e) ?? {}
   if (!prenom) throw createError({ statusCode: 400, statusMessage: 'prenom_manquant' })
   try {

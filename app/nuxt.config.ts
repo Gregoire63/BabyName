@@ -36,7 +36,16 @@ export default defineNuxtConfig({
     databaseUrl: '',              // NUXT_DATABASE_URL (injecte par Neon sur Vercel)
     sessionSecret: '',            // NUXT_SESSION_SECRET
     migrationSecret: '',          // NUXT_MIGRATION_SECRET : à retirer une fois la migration faite
-    public: { siteUrl: '' }       // NUXT_PUBLIC_SITE_URL
+
+    // Stripe. Ces trois valeurs ne sont JAMAIS dans le dépôt : elles se posent
+    // dans les variables d'environnement Vercel, et la clé secrète ne quitte
+    // jamais le serveur. Le navigateur ne voit que l'URL de paiement que
+    // Stripe renvoie — aucune donnée de carte ne traverse l'app.
+    stripeSecretKey: '',          // NUXT_STRIPE_SECRET_KEY      (sk_live_… / sk_test_…)
+    stripeWebhookSecret: '',      // NUXT_STRIPE_WEBHOOK_SECRET  (whsec_…)
+    stripePriceId: '',            // NUXT_STRIPE_PRICE_ID        (price_…)
+
+    public: { siteUrl: '', prixListe: '6 €' }   // NUXT_PUBLIC_SITE_URL / NUXT_PUBLIC_PRIX_LISTE
   },
   nitro: { preset: 'vercel' },
 

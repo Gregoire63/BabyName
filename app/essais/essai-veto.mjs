@@ -1,0 +1,114 @@
+import { lancer } from './navigateur.mjs'
+const BASE = 'http://127.0.0.1:3100'
+const ok = [], ko = []
+const dit = (c, m) => { (c ? ok : ko).push(m); console.log((c ? '  OK   ' : '  ECHEC') + '  ' + m) }
+
+const nav = await lancer()
+const cacher = ctx => ctx.addInitScript(() => {
+  const c = () => { const s = document.createElement('style')
+    s.textContent = '#nuxt-devtools-container{display:none!important;pointer-events:none!important}'
+    document.head?.appendChild(s) }
+  document.head ? c() : document.addEventListener('DOMContentLoaded', c) })
+
+async function entrer(cle) {
+  const ctx = await nav.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })
+  await cacher(ctx)
+  const page = await ctx.newPage()
+  page.on('pageerror', e => console.log('   [err]', e.message))
+  await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
+  await page.locator('input.champ').fill(cle)
+  await page.getByRole('button', { name: 'Entrer' }).click()
+  await page.waitForSelector('.bento', { timeout: 20000 })
+  return { ctx, page }
+}
+
+const { page } = await entrer('DEVG-REGX-2345')
+
+// ---------- 1. le veto n'est plus public ----------------------------------
+const etat = await page.evaluate(() =>
+  fetch('/api/groupes/1').then(r => r.json()))
+dit(Array.isArray(etat.vetos) && etat.vetos.every(v => typeof v === 'string'),
+    `/api/groupes/1 ne renvoie que des prénoms vetos : ${JSON.stringify(etat.vetos)}`)
+dit(JSON.stringify(etat).indexOf('mon ex') === -1,
+    'le motif du veto d’Audrey ne sort pas du serveur')
+dit(etat.mes_vetos.length === 1 && etat.mes_vetos[0].prenom === 'Brandon',
+    `mes_vetos ne contient que les miens : ${JSON.stringify(etat.mes_vetos)}`)
+
+// ---------- 2. « La liste » : plus de gardés ni de vetos publics ---------
+await page.goto(`${BASE}/g/1/reglages`, { waitUntil: 'networkidle' })
+await page.waitForSelector('.pager > section:nth-child(3) h2', { timeout: 20000 })
+const sec = page.locator('.pager > section:nth-child(3)')
+const titres = await sec.locator('h2').allInnerTexts()
+console.log('   cartes de « La liste » :', titres.join(' · '))
+dit(!titres.includes('Mes gardés'), '« Mes gardés » a disparu des réglages')
+dit(!titres.includes('Vetos'), '« Vetos » a disparu des réglages')
+dit(titres.includes('Chercher un prénom'), 'la recherche est là')
+
+// ---------- 3. la recherche -----------------------------------------------
+await sec.locator('input.chercher').fill('bran')
+await page.waitForTimeout(400)
+const lignes = await sec.locator('.trouve').count()
+dit(lignes > 0, `« bran » trouve ${lignes} prénom(s)`)
+const brandon = sec.locator('.trouve').filter({ has: page.locator('.nom:text-is("Brandon")') })
+dit(await brandon.count() === 1, 'Brandon est dans les résultats')
+dit((await brandon.locator('.puce').innerText()).trim() === 'Veto',
+    `son état est affiché : ${(await brandon.locator('.puce').innerText()).trim()}`)
+await sec.locator('input.chercher').fill('jeanne')
+await page.waitForTimeout(400)
+const jeanne = sec.locator('.trouve').filter({ has: page.locator('.nom:text-is("Jeanne")') })
+dit((await jeanne.locator('.puce').innerText()).trim() === 'Oui', 'Jeanne est marquée « Oui »')
+await jeanne.locator('.trio .v0').click()
+await page.waitForTimeout(900)
+dit((await jeanne.locator('.puce').innerText()).trim() === 'Non',
+    'on peut changer son choix depuis la recherche')
+await page.screenshot({ path: '/tmp/v1-recherche.png' })
+await jeanne.locator('.trio .v2').click(); await page.waitForTimeout(700)
+
+// ---------- 4. Mes choix : gardés et vetos --------------------------------
+await page.goto(`${BASE}/g/1/classement`, { waitUntil: 'networkidle' })
+await page.waitForSelector('.segment button', { timeout: 20000 })
+const cl = page.locator('.pager > section:nth-child(2)')
+await cl.locator('.segment button', { hasText: 'Mes choix' }).click()
+await page.waitForTimeout(800)
+const blocs = (await cl.locator('.groupe .entete').allInnerTexts()).map(t => t.replace(/\s+/g, ' ').trim())
+console.log('   blocs de Mes choix :', blocs.join(' | '))
+dit(blocs.some(b => b.startsWith('Gardés')), 'le bloc « Gardés » est là')
+dit(blocs.some(b => b.startsWith('Mes vetos')), 'le bloc « Mes vetos » est là')
+await cl.locator('.groupe .entete', { hasText: 'Mes vetos' }).click()
+await page.waitForTimeout(400)
+const txtVetos = await cl.locator('.groupe').filter({ hasText: 'Mes vetos' }).innerText()
+dit(/Brandon/.test(txtVetos) && /non/.test(txtVetos), 'mon veto et son motif y sont')
+dit(!/Jayden/.test(txtVetos), 'celui d’Audrey n’y est pas')
+await page.screenshot({ path: '/tmp/v2-meschoix.png' })
+
+// ---------- 5. le veto depuis la carte de tri -----------------------------
+await page.goto(`${BASE}/g/1/swipe`, { waitUntil: 'networkidle' })
+await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 20000 })
+const cible = await page.locator('.carte.fiche:not(.derriere) .nom').first().innerText()
+// la carte du fond a elle aussi ses boutons (inertes) : on vise celle de devant
+const bVeto = page.locator('.carte.fiche:not(.derriere) .bas .rouge')
+dit(await bVeto.count() === 1, 'le bouton Veto est sur la carte')
+dit((await bVeto.evaluate(el => getComputedStyle(el).color)).includes('196')
+    || (await bVeto.evaluate(el => getComputedStyle(el).color)).includes('226'),
+    `il est rouge (${await bVeto.evaluate(el => getComputedStyle(el).color)})`)
+await bVeto.click()
+await page.waitForSelector('.feuille-corps', { timeout: 6000 })
+dit((await page.locator('.feuille-corps h2').first().innerText()) === 'Poser un veto',
+    'la confirmation s’ouvre')
+dit(await page.locator('.feuille-corps input.champ').count() === 1, 'avec un champ commentaire')
+await page.waitForTimeout(600)
+await page.screenshot({ path: '/tmp/v3-veto.png' })
+await page.locator('.feuille-corps input.champ').fill('trop connoté')
+await page.locator('.rouge-plein').click()
+await page.waitForTimeout(1600)
+dit(await page.locator('.feuille-corps').count() === 0, 'la feuille se referme')
+dit((await page.locator('.carte.fiche:not(.derriere) .nom').first().innerText()) !== cible,
+    `${cible} a quitté la pile`)
+const apres = await page.evaluate(() => fetch('/api/groupes/1').then(r => r.json()))
+const pose = apres.mes_vetos.find(v => v.prenom === cible)
+dit(!!pose && pose.motif === 'trop connoté', `le veto est en base avec son motif (${JSON.stringify(pose)})`)
+
+await nav.close()
+console.log(`\n${ko.length ? 'ECHEC' : 'TOUT PASSE'} — ${ok.length} ok, ${ko.length} echecs`)
+process.exit(ko.length ? 1 : 0)

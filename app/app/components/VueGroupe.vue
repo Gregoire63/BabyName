@@ -123,6 +123,15 @@ function ouvrirFiche(nom: string) {
 
 function ouvrirFiltres() { filtresOuverts.value = true }
 
+/**
+ * L'offre se voit depuis trois endroits (le tri, les reglages, la fiche) et
+ * ne doit exister qu'une fois. Ouvrir l'offre ferme la fiche : on quitte la
+ * question « ce prenom » pour la question « cette liste », et empiler deux
+ * feuilles ne laisse plus rien fermer au doigt.
+ */
+const debloquerOuvert = ref(false)
+function ouvrirDebloquer() { fiche.value = null; debloquerOuvert.value = true }
+
 /** Combien de prénoms passent les filtres en cours — affiché dans le panneau. */
 const nbFiltres = computed(() =>
   catalogue.value.length ? filtrer(catalogue.value, filtres.value).length : 0)
@@ -163,7 +172,7 @@ const partage: EtatGroupe = {
   gid, etat, catalogue, parNom, origines, filtres, dejaVotes, aimes, vetos,
   mesVetos, poserVeto, retirerVeto, favoris, basculerFavori,
   communs, rechargerCommuns, votes, rechargerVotes, voter,
-  pret, recharger, ouvrirFiche, ouvrirFiltres, allerA
+  pret, recharger, ouvrirFiche, ouvrirFiltres, allerA, ouvrirDebloquer
 }
 provide(CLE_GROUPE, partage)
 
@@ -220,7 +229,37 @@ onMounted(async () => {
   origines.value = c!.origines
   try { await recharger() } catch { return navigateTo('/') }
   pret.value = true
+  attendrePaiement()
 })
+
+/**
+ * Le retour de Stripe.
+ *
+ * Stripe renvoie le navigateur sur `?paye=1` ET appelle le webhook, dans cet
+ * ordre-la mais pas forcement dans ce delai : le webhook peut arriver une ou
+ * deux secondes apres. Sans cette attente, quelqu'un qui vient de payer
+ * retombe sur une liste bloquee et croit avoir paye pour rien.
+ *
+ * On n'ecrit RIEN ici — `?paye=1` ne prouve rien, il se tape dans la barre
+ * d'adresse. On se contente de recharger jusqu'a ce que le serveur, lui, dise
+ * que c'est paye.
+ */
+const confirmation = ref<'attente' | 'ok' | 'lent' | null>(null)
+
+async function attendrePaiement() {
+  const route = useRoute()
+  if (route.query.paye !== '1') return
+  history.replaceState(history.state, '', `/g/${gid}/${ONGLETS[index.value]!.id}`)
+  if (etat.value?.groupe?.paye) { confirmation.value = 'ok'; return }
+
+  confirmation.value = 'attente'
+  for (const pause of [900, 1200, 1800, 2500, 4000]) {
+    await new Promise(r => setTimeout(r, pause))
+    try { await recharger() } catch { /* on reessaie */ }
+    if (etat.value?.groupe?.paye) { confirmation.value = 'ok'; return }
+  }
+  confirmation.value = 'lent'
+}
 </script>
 
 <template>
@@ -274,11 +313,36 @@ onMounted(async () => {
 
     <FiltresPanneau v-if="filtresOuverts" v-model="filtres" :origines="origines"
                     :nb="nbFiltres" :nb-rares="nbRares" @fermer="fermerFiltres" />
+
+    <FeuilleDebloquer v-if="debloquerOuvert" @fermer="debloquerOuvert = false" />
+
+    <div v-if="confirmation" class="paiement" :class="confirmation"
+         role="status" @click="confirmation = null">
+      <template v-if="confirmation === 'attente'">
+        Paiement reçu — on débloque la liste…
+      </template>
+      <template v-else-if="confirmation === 'ok'">
+        C’est débloqué, pour vous et pour tout le monde sur cette liste.
+      </template>
+      <template v-else>
+        Le paiement est passé, mais la confirmation tarde. Rechargez la page
+        dans une minute ; si rien ne change, écrivez-nous, rien n’est perdu.
+      </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .cadre { height: 100%; }
+.paiement { position: fixed; left: 12px; right: 12px; bottom: 76px; z-index: 70;
+  padding: 13px 16px; border-radius: 15px; background: var(--carte);
+  border: 1px solid var(--trait); box-shadow: var(--ombre); font-size: .9rem;
+  animation: monte-paiement .22s cubic-bezier(.2,.8,.3,1); }
+.paiement.ok { background: color-mix(in srgb, var(--menthe) 45%, var(--carte));
+  color: var(--encre); }
+.paiement.lent { background: color-mix(in srgb, var(--peche) 45%, var(--carte));
+  color: var(--encre); }
+@keyframes monte-paiement { from { transform: translateY(10px); opacity: 0 } }
 .picto { position: relative; display: block; line-height: 0; }
 .pastille { position: absolute; top: -5px; left: 50%; margin-left: 4px;
   min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px;

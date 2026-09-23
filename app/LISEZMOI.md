@@ -18,6 +18,7 @@ une liste déjà entamée. Le terminal affiche alors :
   Liste « Notre liste », code d'invitation dec0de00.
   Cle de Greg   : DEVG-REGX-2345
   Cle d'Audrey  : DEVA-DREY-2345
+  Cle de Mamie  : DEVM-AMIE-2345 (observatrice, code ob5e0bad)
 ```
 
 Sur <http://localhost:3000/connexion>, choisissez « J'ai déjà une clé » et
@@ -32,12 +33,34 @@ aveugle se teste à deux, sur la même base.
 |---|---|
 | Greg | 27 votes, 2 gardés (Alma, Nine), une famille écartée d'un geste (`kevi`) et des non un par un |
 | Audrey | 19 votes, un veto sur Jayden, un commentaire sur Louise |
+| Mamie | **observatrice** : 6 votes, dont un **non à Louise**, qui reste un accord |
 | en commun | 9 prénoms, plus des désaccords francs (Marius, Hector : Greg oui, Audrey non) pour remplir « À revoir » |
-| écrans | Accueil · Swipe · Classement (Communs · À revoir · Mes choix) · La liste |
+| listes | « Notre liste » débloquée (code `dec0de00`), « Essai gratuit » et « Autre essai » au quota 3/jour pour taper dans le mur en trois swipes |
+| écrans | Accueil · Swipe · Classement (Communs · À revoir · Mes choix · Portrait) · La liste |
+
+Greg a exactement **12 oui**, soit le seuil du portrait de goûts, et Audrey
+n'en a que 5 de visibles pour lui : c'est ce qui permet de vérifier que le
+portrait parle d'un côté et **se tait** de l'autre au lieu d'inventer.
 
 `Kevin` est volontairement jugé « non » **avant** le balayage de sa famille :
 c'est le cas limite qui vérifie qu'un choix individuel survit à la remise en
 jeu d'une famille.
+
+## Les essais
+
+`essais/` contient dix-sept essais de bout en bout — vrai navigateur, vrai
+serveur, vraie base — soit 218 assertions. Ils ne testent pas des fonctions,
+ils testent des promesses : « le refus ne se dit jamais », « un observateur ne
+casse pas un accord », « aucun champ de carte bancaire dans l'app ».
+
+```bash
+npm i -D playwright && npx playwright install chromium
+sh essais/relance.sh essais/essai-paiement.mjs
+```
+
+`essais/LISEZMOI.md` dit ce que chacun garde, et pourquoi les chiffres de la
+semence (12 oui pour Greg, 5 visibles pour Audrey) ne se changent pas à la
+légère.
 
 ## Si le dev refuse de démarrer
 
@@ -131,6 +154,77 @@ Variables d'environnement en production : les `NEON_DATABASE_*` posées par
 l'intégration Neon, et `NUXT_SESSION_SECRET`. L'app ne cherche pas un nom
 précis : `server/utils/db.ts` prend la première variable qui finit par
 `DATABASE_URL` ou `POSTGRES_URL`, en préférant les poolées.
+
+## Le payant
+
+Une liste se débloque **une fois, pour tout le monde dessus**. Ce n'est pas un
+abonnement et ce n'est pas un compte : deux parents sur la même liste paient
+une fois à deux, et l'un des deux peut payer pour l'autre. Prix par défaut
+`6 €`, affiché depuis `NUXT_PUBLIC_PRIX_LISTE`.
+
+| Gratuit | Débloqué |
+|---|---|
+| les 19 608 prénoms, la recherche, les filtres | le tri sans plafond |
+| les accords, le classement, les vetos | l'essai avec le nom de famille |
+| origine, sens et courbe sur chaque fiche | la projection de classe complète |
+| le deuxième parent | le portrait de goûts et la divergence |
+| 20 swipes/jour, 600/mois (par personne) | les observateurs (grands-parents sans veto) |
+
+La projection de classe est le seul cas où le gratuit montre quand même un
+chiffre : celui d'un palmarès public — une graphie, l'an dernier — en disant
+ce qu'il rate. Cacher le chiffre ne convainc personne ; montrer l'écart, si.
+
+### Brancher Stripe
+
+Rien de tout ça ne marche sans quatre variables, à poser **soi-même** dans
+Vercel → babyname → Settings → Environment Variables (l'app lit les clés,
+elle ne les écrit jamais) :
+
+| Variable | Où la prendre |
+|---|---|
+| `NUXT_STRIPE_SECRET_KEY` | Stripe → Developers → API keys → clé secrète (`sk_live_…`) |
+| `NUXT_STRIPE_PRICE_ID` | Stripe → Products → un produit « babyNames — une liste », prix unique 6 € → `price_…` |
+| `NUXT_STRIPE_WEBHOOK_SECRET` | donné à la création du webhook ci-dessous (`whsec_…`) |
+| `NUXT_PUBLIC_SITE_URL` | `https://babyname-five.vercel.app` — sert aux URL de retour |
+
+Puis Stripe → Developers → Webhooks → **Add endpoint** :
+
+- URL : `https://babyname-five.vercel.app/api/paiement/webhook`
+- Événement : `checkout.session.completed` (celui-là seul suffit)
+
+Tant que `NUXT_STRIPE_SECRET_KEY` ou `NUXT_STRIPE_PRICE_ID` manque,
+`POST /api/groupes/:id/paiement` répond `503 paiement_non_configure` et
+l'écran d'achat l'annonce au lieu de planter. C'est l'état par défaut en
+développement, et `essai-paiement.mjs` le vérifie.
+
+### Ce qui débloque, et ce qui ne débloque pas
+
+`paye_le` n'est posé qu'à **un** endroit : `server/api/paiement/webhook.post.ts`,
+et seulement après vérification de la signature (HMAC-SHA256 du corps brut,
+horodatage de moins de cinq minutes, comparaison en temps constant). Sans
+cette signature, l'URL du webhook suffirait à tout débloquer gratuitement.
+
+Le retour du navigateur sur `?paye=1` ne prouve rien — il se tape dans la
+barre d'adresse. Il ne fait que déclencher une attente qui recharge l'état
+jusqu'à ce que le **serveur** dise « payé ».
+
+Aucun numéro de carte ne passe par l'application : on demande une session à
+Stripe, on envoie le navigateur sur *sa* page, c'est lui qui encaisse. Il n'y
+a aucun champ de paiement dans le code, et l'essai le vérifie.
+
+### Les observateurs
+
+Deuxième code d'invitation, stocké dans `groupes.code_observateur` et créé à
+la demande par `POST /api/groupes/:id/observateurs`. Le rôle vient du **code**,
+jamais du corps de la requête : sinon l'invité modifie son lien et s'élit
+parent, avec droit de veto sur des accords qui ne sont pas les siens.
+
+Un observateur juge et son avis se lit, mais `v_matchs` l'exclut des deux
+côtés — ses votes n'entrent pas dans le score, et le quorum ne l'attend pas.
+`POST /api/groupes/:id/veto` lui répond `403`. Le jeu d'essai contient Mamie,
+qui dit **non à Louise** : `essai-observateur.mjs` vérifie que Louise reste un
+accord. Si elle disparaissait, le rôle ne servirait à rien et l'argument de
+vente serait un mensonge que personne ne remarquerait avant d'avoir payé.
 
 ## Schéma
 

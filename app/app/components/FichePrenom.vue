@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { frequenceLisible, type Prenom } from '~/composables/useCatalogue'
+import { useGroupeSiPresent } from '~/composables/etatGroupe'
+import { projeter, ecart, CLASSE } from '~/composables/useProjectionClasse'
 const props = defineProps<{ p: Prenom }>()
 const emit = defineEmits<{ fermer: [] }>()
+const g = useGroupeSiPresent()
 
 const dedans = ref<HTMLElement>()
 const f = useFeuille(() => emit('fermer'), dedans)
@@ -16,6 +19,21 @@ const sommet = computed(() => {
   if (max <= 0) return null
   return { an: AN0 + s.indexOf(max), v: max }
 })
+
+/**
+ * « Combien dans sa classe ? »
+ *
+ * Gratuit : le calcul brut, une graphie au taux d'aujourd'hui — ce que
+ * n'importe quel palmares donne deja. Debloque : tout le groupe de
+ * prononciation, projete a l'annee de naissance. On montre le brut aux deux :
+ * un chiffre cache ne convainc personne, et c'est l'ECART qui se vend.
+ */
+// Hors liste (depuis l'accueil), il n'y a rien a debloquer : version brute,
+// sans bouton, plutot qu'une offre qui ne saurait pas quoi debloquer.
+const dansListe = computed(() => !!g)
+const paye = computed(() => !!(g?.etat.value?.groupe as any)?.paye)
+const classe = computed(() => projeter(props.p, paye.value))
+const manque = computed(() => paye.value ? null : ecart(props.p))
 
 const sexeTexte = computed(() =>
   props.p.sexe === 'fm' ? 'mixte' : props.p.sexe === 'f' ? 'fille' : 'garçon')
@@ -71,6 +89,35 @@ const lecture = computed(() => {
         </section>
 
         <p class="lecture">{{ lecture }}</p>
+
+        <section v-if="classe" class="classe" :class="{ vendu: paye }">
+          <h3>Dans une classe de {{ CLASSE }}</h3>
+          <p class="verdict">{{ classe.phrase }}</p>
+
+          <template v-if="paye">
+            <p class="mini doux" style="margin:0">
+              Calculé sur l'année de sa naissance<template v-if="p.ngp > 1">, toutes
+              graphies confondues — une classe entend le prénom, elle ne l'écrit
+              pas</template>.
+            </p>
+          </template>
+
+          <template v-else-if="manque">
+            <p class="mini" style="margin:0">
+              Ce chiffre est celui d'un palmarès : une seule graphie, l'année
+              dernière. Pour ce prénom il tombe à côté —
+              <template v-if="manque.evolution">{{ manque.evolution }}</template>
+              <template v-if="manque.evolution && manque.graphies"> et </template>
+              <template v-if="manque.graphies">{{ manque.graphies }}</template>.
+            </p>
+            <button v-if="dansListe" class="btn btn-1 mini" @click="g!.ouvrirDebloquer()">
+              Voir le vrai chiffre
+            </button>
+          </template>
+          <p v-else class="mini doux" style="margin:0">
+            Ni la mode ni l'orthographe ne changent la réponse pour celui-ci.
+          </p>
+        </section>
 
         <dl class="chiffres">
           <div><dt>Fréquence</dt><dd>{{ frequenceLisible(p.f) }}</dd></div>
@@ -132,6 +179,14 @@ const lecture = computed(() => {
 .bloc h3 { color: var(--doux); text-transform: uppercase; font-size: .7rem; letter-spacing: .06em; }
 .lecture { margin: 0; padding: 12px 14px; border-radius: 13px; background: var(--fond);
   border: 1px solid var(--trait); font-size: .92rem; }
+.classe { display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+  padding: 14px; border-radius: 15px; border: 1px solid var(--trait);
+  background: color-mix(in srgb, var(--menthe) 22%, var(--carte)); }
+.classe.vendu { background: color-mix(in srgb, var(--menthe) 34%, var(--carte)); }
+.classe h3 { color: var(--doux); text-transform: uppercase; font-size: .7rem;
+  letter-spacing: .06em; }
+.classe .verdict { margin: 0; font-size: 1.05rem; font-weight: 620; line-height: 1.32; }
+.classe .btn { align-self: stretch; }
 .chiffres { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin: 0; }
 .chiffres dt { font-size: .7rem; color: var(--doux); text-transform: uppercase; letter-spacing: .04em; }
 .chiffres dd { margin: 2px 0 0; font-weight: 640; font-variant-numeric: tabular-nums; }

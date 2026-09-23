@@ -1,0 +1,114 @@
+import { lancer } from './navigateur.mjs'
+const BASE = 'http://127.0.0.1:3100'
+const ok = [], ko = []
+const dit = (c, m) => { (c ? ok : ko).push(m); console.log((c ? '  OK   ' : '  ECHEC') + '  ' + m) }
+const lisible = t => t.trim().split('\n').pop().trim()
+
+// La base de dev est persistante : un essai qui change un vote le change pour
+// de bon. On repart donc d'une base neuve a chaque passage (voir relance.sh).
+const nav = await lancer()
+
+async function entrer(cle) {
+  const ctx = await nav.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })
+  // Le panneau Nuxt DevTools flotte au-dessus de la barre du bas et avale les
+  // clics. Il n'existe qu'en dev : on le masque plutot que de deplacer la barre.
+  await ctx.addInitScript(() => {
+    const cacher = () => {
+      const s = document.createElement('style')
+      s.textContent = '#nuxt-devtools-container{display:none!important;pointer-events:none!important}'
+      document.head?.appendChild(s)
+    }
+    if (document.head) cacher()
+    else document.addEventListener('DOMContentLoaded', cacher)
+  })
+  const page = await ctx.newPage()
+  page.on('pageerror', e => console.log('   [err]', e.message))
+  page.on('console', m => { if (m.type() === 'error' && !/TUNNEL|favicon|fonts/.test(m.text())) console.log('   [js]', m.text()) })
+  await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
+  await page.locator('input.champ').fill(cle)
+  await page.getByRole('button', { name: 'Entrer' }).click()
+  await page.waitForSelector('.bento', { timeout: 20000 })
+  return { ctx, page }
+}
+
+// ---------- 1. l'accueil n'explique plus le millesime ----------------------
+const { ctx: c1, page } = await entrer('DEVG-REGX-2345')
+dit(await page.locator('.note').count() === 0, 'le laïus sur le millésime INSEE a disparu')
+const sections = (await page.locator('.section').allInnerTexts()).map(t => t.trim())
+dit(sections.some(t => /naissances/i.test(t)),
+    `le titre de la section reste (${sections.join(' | ')})`)
+
+// ---------- 2. le segment a quatre volets ---------------------------------
+await page.locator('.bento .grande').first().click()
+await page.waitForSelector('.onglets button', { timeout: 20000 })
+await page.locator('.onglets button', { hasText: 'Classement' }).click()
+await page.waitForTimeout(900)
+const sec = page.locator('.pager > section:nth-child(2)')
+const volets = (await sec.locator('.segment button').allInnerTexts()).map(t => t.trim().split('\n')[0].trim())
+dit(JSON.stringify(volets) === JSON.stringify(['Communs', 'À revoir', 'Mes choix', 'Portrait']),
+    `volets : ${volets.join(' | ')}`)
+dit(await sec.locator('.segment button:has-text("Duels")').count() === 0, 'plus de Duels')
+
+// ---------- 4. Mes choix ---------------------------------------------------
+await sec.locator('.segment button', { hasText: 'Mes choix' }).click()
+await page.waitForTimeout(900)
+const entetes = await sec.locator('.groupe .entete').allInnerTexts()
+dit(entetes.length === 5, `cinq blocs : ${entetes.map(e => e.replace(/\s+/g,' ').trim()).join(' | ')}`)
+await sec.locator('.groupe .entete', { hasText: 'Non' }).click()
+await page.waitForTimeout(500)
+dit(await sec.locator('.famille').count() >= 1, 'les familles écartées sont dans « Non »')
+await page.waitForTimeout(400); await page.screenshot({ path: '/tmp/g4-choix.png' })
+
+// ---------- 5. A revoir, vu par Greg --------------------------------------
+await sec.locator('.segment button', { hasText: 'À revoir' }).click()
+await page.waitForTimeout(900)
+const noms = await sec.locator('.desaccord .nom').allInnerTexts()
+dit(noms.sort().join(',') === 'Hector,Marius', `désaccords vus par Greg : ${noms.join(', ')}`)
+const avis = await sec.locator('.desaccord').first().innerText()
+dit(/Vous · Oui/.test(avis) && /Audrey · Non/.test(avis), 'qui a dit quoi est affiché')
+await page.waitForTimeout(400); await page.screenshot({ path: '/tmp/g5-revoir.png' })
+
+// ---------- 6. Audrey change d'avis : le scenario de Greg -----------------
+const { page: p2 } = await entrer('DEVA-DREY-2345')
+await p2.locator('.bento .grande').first().click()
+await p2.waitForSelector('.onglets button', { timeout: 20000 })
+await p2.locator('.onglets button', { hasText: 'Classement' }).click()
+await p2.waitForTimeout(900)
+const s2 = p2.locator('.pager > section:nth-child(2)')
+await s2.locator('.segment button', { hasText: 'À revoir' }).click()
+await p2.waitForTimeout(900)
+const vus = await s2.locator('.desaccord .nom').allInnerTexts()
+dit(vus.sort().join(',') === 'Hector,Marius', `Audrey voit les mêmes : ${vus.join(', ')}`)
+
+const carte = s2.locator('.desaccord').filter({ has: p2.locator('.nom:text-is("Marius")') })
+await carte.locator('.trio .v2').click()          // « finalement oui »
+await p2.waitForSelector('.fete', { timeout: 8000 })
+dit(true, 'changer d’avis déclenche l’effet d’accord')
+await p2.waitForTimeout(500); await p2.screenshot({ path: '/tmp/g6-match.png' })
+// L'effet d'accord attend qu'on le ferme : c'est un moment, pas une
+// notification (cf. essai-social). On le referme comme un humain le ferait.
+await p2.locator('.fete .actions .btn').first().click()
+await p2.waitForTimeout(600)
+dit(await p2.locator('.fete').count() === 0, 'l’effet d’accord se ferme quand on le ferme')
+
+await s2.locator('.segment button', { hasText: 'Communs' }).click()
+await p2.waitForTimeout(900)
+const communs = await s2.locator('article h2').allInnerTexts()
+dit(communs.includes('Marius'), `Marius est passé dans les communs : ${communs.slice(0,5).join(', ')}`)
+await s2.locator('.segment button', { hasText: 'À revoir' }).click()
+await p2.waitForTimeout(700)
+const reste = await s2.locator('.desaccord .nom').allInnerTexts()
+dit(!reste.includes('Marius') && reste.includes('Hector'),
+    `il ne reste que le vrai désaccord : ${reste.join(', ')}`)
+
+// ---------- 7. l'ancienne adresse des duels -------------------------------
+const p3 = await c1.newPage()
+await p3.goto(`${BASE}/g/1/duels`, { waitUntil: 'networkidle' })
+await p3.waitForSelector('.segment button.on', { timeout: 20000 })
+dit((await p3.locator('.segment button.on').innerText()).trim().split('\n')[0].trim() === 'À revoir',
+    '/g/1/duels ouvre « À revoir »')
+
+await nav.close()
+console.log(`\n${ko.length ? 'ECHEC' : 'TOUT PASSE'} — ${ok.length} ok, ${ko.length} echecs`)
+process.exit(ko.length ? 1 : 0)

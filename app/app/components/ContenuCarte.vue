@@ -18,6 +18,10 @@ const props = withDefaults(defineProps<{ p: Prenom; interactif?: boolean }>(),
   { interactif: true })
 const emit = defineEmits<{ fiche: []; favori: []; famille: []; veto: [] }>()
 const g = useGroupeCourant()
+
+// Un observateur juge, il ne bloque pas : le bouton qui bloque n'existe pas
+// pour lui. Le serveur le refuse aussi — ici c'est pour ne pas le proposer.
+const peutBloquer = computed(() => g.etat.value?.moi?.role !== 'observateur')
 </script>
 
 <template>
@@ -74,8 +78,10 @@ const g = useGroupeCourant()
 
     <div class="bas">
       <button class="btn btn-0 mini" @click.stop="emit('fiche')">Plus d’informations</button>
-      <button class="btn btn-0 mini doux" @click.stop="emit('famille')">Écarter la famille</button>
-      <button class="btn btn-0 mini rouge" @click.stop="emit('veto')">Veto</button>
+      <button v-if="peutBloquer" class="btn btn-0 mini doux"
+              @click.stop="emit('famille')">Écarter la famille</button>
+      <button v-if="peutBloquer" class="btn btn-0 mini rouge"
+              @click.stop="emit('veto')">Veto</button>
     </div>
   </div>
 </template>

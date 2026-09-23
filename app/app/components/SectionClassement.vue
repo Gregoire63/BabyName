@@ -20,7 +20,8 @@ const { aRevoir } = useVerdicts()
 const VOLETS = [
   { id: 'communs', t: 'Communs' },
   { id: 'revoir', t: 'À revoir' },
-  { id: 'choix', t: 'Mes choix' }
+  { id: 'choix', t: 'Mes choix' },
+  { id: 'portrait', t: 'Portrait' }
 ]
 
 // Chaque volet ne se monte qu'une fois ouvert, et reste monte ensuite : on ne
@@ -36,6 +37,7 @@ const resume = computed(() => {
   switch (props.segment) {
     case 'communs': return `${n} prénom${n > 1 ? 's' : ''} en commun`
     case 'revoir': return d ? `${d} désaccord${d > 1 ? 's' : ''}` : 'aucun désaccord'
+    case 'portrait': return 'ce que vos oui disent de vous'
     default: return 'tout ce que vous avez jugé'
   }
 })
@@ -63,14 +65,17 @@ const resume = computed(() => {
                    :actif="ici('revoir')" />
     <PanneauMesChoix v-if="vus.has('choix')" v-show="segment === 'choix'"
                      :actif="ici('choix')" />
+    <PanneauPortrait v-if="vus.has('portrait')" v-show="segment === 'portrait'"
+                     :actif="ici('portrait')" />
   </div>
 </template>
 
 <style scoped>
 .segment { display: flex; gap: 2px; padding: 3px; border-radius: var(--pastille);
   background: color-mix(in srgb, var(--sable) 58%, transparent); }
+/* Quatre volets : on retrecit le texte plutot que de laisser deborder. */
 .segment button { flex: 1; min-width: 0; border: 0; border-radius: var(--pastille);
-  background: none; padding: 8px 4px; font: inherit; font-size: .72rem; font-weight: 700;
+  background: none; padding: 8px 3px; font: inherit; font-size: .68rem; font-weight: 700;
   color: var(--doux); cursor: pointer; white-space: nowrap;
   display: inline-flex; align-items: center; justify-content: center; gap: 4px;
   transition: background .16s, color .16s; }

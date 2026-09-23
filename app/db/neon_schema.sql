@@ -315,3 +315,52 @@ create table if not exists quota_jour (
   primary key (groupe_id, user_id, jour),
   foreign key (groupe_id, user_id) references membres(groupe_id, user_id) on delete cascade
 );
+
+-- ============================================================================
+--  Le nom de famille de l'enfant.
+--
+--  Il appartient à la LISTE, pas à la personne : les deux parents testent le
+--  même, et le saisir deux fois serait absurde. Facultatif — on ne le demande
+--  jamais pour s'inscrire, seulement quand on veut l'essai de sonorité.
+-- ============================================================================
+alter table groupes add column if not exists nom_famille text;
+
+-- ============================================================================
+--  Les observateurs.
+--
+--  « Montre à ta mère » est la première chose que font les gens, et jusqu'ici
+--  ça coûtait cher : un troisième membre remet TOUS les accords en attente et
+--  lui donne un veto sur chacun. Beaucoup de couples ne partagent donc pas,
+--  ou partagent et le regrettent.
+--
+--  Un observateur juge les prénoms et son avis se lit — mais il ne compte ni
+--  dans le quorum des accords, ni dans les vetos. Le couple garde la main,
+--  les grands-parents ont leur mot.
+--
+--  Le rôle est porté par un SECOND code d'invitation, pas par un paramètre
+--  d'URL : sinon l'invité change le lien et s'élit parent.
+-- ============================================================================
+alter table membres drop constraint if exists membres_role_check;
+alter table membres add constraint membres_role_check
+  check (role in ('parent', 'invite', 'observateur'));
+
+alter table groupes add column if not exists code_observateur text unique;
+
+-- Un accord se compte entre décideurs. Les deux côtés de la vue changent :
+-- les votes des observateurs n'entrent pas, et le quorum ne les attend pas.
+create or replace view v_matchs as
+select v.groupe_id, v.prenom,
+       count(*)                              as nb_votes,
+       sum(v.valeur * m.poids)               as score,
+       min(v.valeur)                         as pire_vote,
+       count(*) filter (where v.valeur = 2)  as nb_oui,
+       count(*) filter (where v.valeur = 1)  as nb_neutres
+from votes v
+join membres m on m.groupe_id = v.groupe_id and m.user_id = v.user_id
+where not exists (select 1 from vetos t where t.groupe_id = v.groupe_id and t.prenom = v.prenom)
+  and m.role <> 'observateur'
+group by v.groupe_id, v.prenom
+having count(*) = (select count(*) from membres mm
+                    where mm.groupe_id = v.groupe_id and mm.role <> 'observateur')
+   and min(v.valeur) > 0
+   and count(*) filter (where v.valeur = 2) >= 1;

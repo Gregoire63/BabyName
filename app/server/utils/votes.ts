@@ -36,15 +36,18 @@ export async function votesVisibles(
 }
 
 /** Combien de prénoms chaque membre a-t-il jugés ? Sert à l'indicateur
- *  « il manque 12 votes de Papy » sans rien révéler du contenu des votes. */
+ *  « il manque 12 votes de Papy » sans rien révéler du contenu des votes.
+ *
+ *  Le role sort avec : « les accords attendent Mamie » est faux si Mamie est
+ *  observatrice — les accords ne l'attendent pas, justement. */
 export async function avancement(groupeId: number) {
   return q(
-    `select m.user_id, u.pseudo, count(v.prenom)::int as votes
+    `select m.user_id, u.pseudo, m.role, count(v.prenom)::int as votes
        from membres m
        join utilisateurs u on u.id = m.user_id
        left join votes v on v.groupe_id = m.groupe_id and v.user_id = m.user_id
       where m.groupe_id = $1
-      group by m.user_id, u.pseudo
+      group by m.user_id, u.pseudo, m.role
       order by votes desc`,
     [groupeId]
   )

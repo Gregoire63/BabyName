@@ -2,7 +2,9 @@ export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
   const [groupe, membres, av, vetos, favoris] = await Promise.all([
-    q1(`select id, nom, code_invitation, nb_vetos_max, favoris_visibles, quota_swipe_jour, filtres
+    q1(`select id, nom, code_invitation, nb_vetos_max, favoris_visibles, quota_swipe_jour,
+               filtres, nom_famille, (paye_le is not null) as paye,
+               case when paye_le is not null then code_observateur end as code_observateur
           from groupes where id = $1`, [gid]),
     q(`select m.user_id, u.pseudo, m.role, m.poids from membres m
          join utilisateurs u on u.id = m.user_id where m.groupe_id = $1

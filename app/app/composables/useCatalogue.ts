@@ -14,9 +14,23 @@ export interface Prenom {
   l: string; slug: string; sexe: 'f' | 'm' | 'fm'
   /** Groupe de prononciation : Elyo, Élio et Hélio partagent le même. */
   gp: number
-  /** Les autres graphies du groupe, la plus fréquente en tête. Rempli au
-   *  chargement, seulement sur le représentant du groupe. */
+  /** Les AUTRES graphies du groupe, la plus fréquente en tête. Rempli au
+   *  chargement, sur chaque membre : la fiche d'une graphie minoritaire doit
+   *  pouvoir nommer les autres, pas seulement celle qui porte la carte. */
   variantes?: string[]
+  /**
+   * Fréquence du GROUPE entier, toutes graphies confondues (‰₀ comme `f`).
+   *
+   * Une classe n'entend pas l'orthographe. Trois Elyo, Élio et Hélio, ce sont
+   * trois enfants qui se retournent quand la maîtresse appelle. C'est ce
+   * chiffre-là qui dit ce qui va se passer dans la cour, pas `f`.
+   * Rempli au chargement, sur CHAQUE membre du groupe.
+   */
+  fgp: number
+  /** Nombre de graphies dans le groupe (1 = le prénom est seul). */
+  ngp: number
+  /** Tendance du groupe : moyenne des `t` pondérée par `f`. */
+  tgp: number
   u: number; f: number; n: number; t: number; p: number
   o: number; r: number; rv: boolean; q: boolean
   c: number; y: number; k: boolean; i: string; e: string
@@ -99,7 +113,7 @@ export async function chargerCatalogue() {
     for (let k = 0; k < d.n; k++) {
       liste[k] = {
         l: c.l[k], slug: sansAccent(c.l[k]).replace(/[^a-z]/g, ''),
-        gp: c.gp ? c.gp[k] : k,
+        gp: c.gp ? c.gp[k] : k, fgp: 0, ngp: 1, tgp: 0,
         sexe: d.sexe[c.s[k]], u: c.u[k], f: c.f[k], n: c.n[k], t: c.t[k], p: c.p[k],
         o: c.o[k], r: c.r[k], rv: !!c.rv[k], q: !!(c.q && c.q[k]),
         c: c.c[k], y: c.y[k], k: !!c.k[k], i: c.i[k], e: c.e[k],
@@ -109,13 +123,26 @@ export async function chargerCatalogue() {
         sr: c.sr ? c.sr[k] : null
       }
     }
-    // Le catalogue est trié par fréquence : le premier de chaque groupe est
-    // donc la graphie la plus répandue, et c'est elle qui portera la carte.
-    const par = new Map<number, Prenom>()
+    // Le catalogue est trie par frequence : le premier de chaque groupe est
+    // donc la graphie la plus repandue, c'est elle qui portera la carte, et
+    // `variantes` sort dans le meme ordre. On calcule au passage ce que la
+    // classe ENTEND (fgp) plutot que ce qu'elle ecrit (f).
+    const groupes = new Map<number, Prenom[]>()
     for (const p of liste) {
-      const chef = par.get(p.gp)
-      if (chef) (chef.variantes ??= []).push(p.l)
-      else par.set(p.gp, p)
+      const g = groupes.get(p.gp)
+      if (g) g.push(p); else groupes.set(p.gp, [p])
+    }
+    for (const membres of groupes.values()) {
+      let f = 0, ft = 0
+      for (const m of membres) { f += m.f; ft += m.f * m.t }
+      const fgp = Math.round(f * 100) / 100
+      // Une graphie confidentielle qui explose ne doit pas tirer tout le
+      // groupe : la tendance se pondere par le poids reel de chaque graphie.
+      const tgp = f > 0 ? Math.round((ft / f) * 10) / 10 : membres[0]!.t
+      for (const m of membres) {
+        m.fgp = fgp; m.ngp = membres.length; m.tgp = tgp
+        if (membres.length > 1) m.variantes = membres.filter(x => x !== m).map(x => x.l)
+      }
     }
     cache = { liste, origines: d.origines, annees: d.serie_annees ?? [1986, 2025] }
     return cache

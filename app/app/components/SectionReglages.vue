@@ -2,6 +2,7 @@
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { sansAccent, type Prenom } from '~/composables/useCatalogue'
 import { useVerdicts, MOT } from '~/composables/useVerdicts'
+import { tester, type Verdict } from '~/composables/useNomComplet'
 
 /**
  * Tout ce qui se regle : la liste d'abord, le compte ensuite. C'etait
@@ -90,15 +91,118 @@ async function partager() {
  * a deux. Il faut juste la dire AVANT le partage, pas la laisser decouvrir
  * par la disparition des accords.
  */
-const nbMembres = computed(() => g.etat.value?.avancement?.length ?? 1)
+/**
+ * Un observateur n'est pas un decideur.
+ *
+ * Toute la mecanique des accords (quorum, veto, mise en attente) ne parle que
+ * des decideurs. Compter les grands-parents dedans afficherait l'avertissement
+ * « vos accords passent en attente » alors que justement, non.
+ */
+const estObs = (m: any) => m?.role === 'observateur'
+const decideurs = computed(() =>
+  (g.etat.value?.avancement ?? []).filter((m: any) => !estObs(m)))
+const observateurs = computed(() =>
+  (g.etat.value?.avancement ?? []).filter((m: any) => estObs(m)))
+// `moi` vient de la garde du serveur : il porte deja le role, inutile de le
+// rechercher dans l'avancement.
+const jObserve = computed(() => estObs(g.etat.value?.moi))
+
+const nbMembres = computed(() => decideurs.value.length || 1)
 const nbCommuns = computed(() => g.communs.value?.length ?? 0)
 const retardataire = computed(() => {
-  const av = g.etat.value?.avancement ?? []
+  const av = decideurs.value
   if (av.length < 2) return null
   const tri = [...av].sort((a: any, b: any) => a.votes - b.votes)
   const dernier: any = tri[0]; const premier: any = tri[tri.length - 1]
   return premier.votes - dernier.votes >= 25 ? dernier : null
 })
+
+/**
+ * « Ca donne quoi avec notre nom ? »
+ *
+ * La question se pose a voix haute chez tout le monde et ne se teste nulle
+ * part. On a la cle de prononciation : on peut repondre. C'est le premier
+ * usage payant, et il est ici plutot que sur la fiche parce qu'on renseigne
+ * son nom une fois, pas a chaque prenom.
+ */
+const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
+const nomFamille = ref('')
+const enregistre = ref(false)
+
+watch(() => (g.etat.value?.groupe as any)?.nom_famille, (v) => {
+  if (typeof v === 'string' && v !== nomFamille.value) nomFamille.value = v
+}, { immediate: true })
+
+const nomChangeF = computed(() => {
+  const a = (nomFamille.value ?? '').trim()
+  const b = ((g.etat.value?.groupe as any)?.nom_famille ?? '').trim()
+  return a !== b
+})
+
+async function enregistrerNomFamille() {
+  const gid = g.etat.value?.groupe?.id
+  if (!gid) return
+  try {
+    await $fetch(`/api/groupes/${gid}/nom-famille`, {
+      method: 'PUT', body: { nom: nomFamille.value.trim() }
+    })
+    enregistre.value = true
+    setTimeout(() => { enregistre.value = false }, 1400)
+    await g.recharger()
+  } catch (err: any) {
+    if (err?.data?.data?.code === 'liste_non_debloquee') g.ouvrirDebloquer()
+  }
+}
+
+/**
+ * On teste les accords, pas le catalogue : c'est la liste courte qui compte,
+ * et 12 lignes tiennent a l'ecran sans faire defiler une page de verdicts.
+ */
+const essaisNom = computed<{ prenom: string; v: Verdict }[]>(() => {
+  const nf = nomFamille.value.trim()
+  if (!paye.value || nf.length < 2) return []
+  const out: { prenom: string; v: Verdict }[] = []
+  for (const c of (g.communs.value ?? []).slice(0, 12)) {
+    const nom = (c as any).prenom ?? (c as any).l
+    if (!nom) continue
+    const v = tester(nom, nf)
+    if (v) out.push({ prenom: nom, v })
+  }
+  // Ce qui accroche en premier : c'est la seule chose qu'on vient verifier.
+  return out.sort((a, b) => Number(b.v.accroche) - Number(a.v.accroche))
+})
+
+/**
+ * Le code des observateurs.
+ *
+ * Genere a la demande, et une seule fois : les liens deja envoyes doivent
+ * continuer de marcher.
+ */
+const codeObs = computed(() => (g.etat.value?.groupe as any)?.code_observateur ?? null)
+const demandeObs = ref(false)
+const copieObs = ref(false)
+
+async function creerCodeObs() {
+  if (demandeObs.value) return
+  demandeObs.value = true
+  try {
+    await $fetch(`/api/groupes/${g.gid}/observateurs`, { method: 'POST' })
+    await g.recharger()
+  } catch (err: any) {
+    if (err?.statusMessage === 'liste_non_debloquee') g.ouvrirDebloquer()
+  } finally { demandeObs.value = false }
+}
+
+async function partagerObs() {
+  if (!codeObs.value) return
+  const url = `${location.origin}/?code=${codeObs.value}`
+  const texte = `Viens donner ton avis sur nos prénoms (tu ne bloques rien) : ${url}`
+  try {
+    if (navigator.share) await navigator.share({ text: texte, url })
+    else { await navigator.clipboard.writeText(url); copieObs.value = true
+           setTimeout(() => { copieObs.value = false }, 1600) }
+  } catch { /* partage annule : rien a dire */ }
+}
 
 const filtresActifs = computed(() => {
   const f = g.filtres.value
@@ -144,7 +248,7 @@ const filtresActifs = computed(() => {
         </div>
       </section>
 
-      <section class="carte degrade invit">
+      <section v-if="!jObserve" class="carte degrade invit">
         <p class="mini" style="margin:0;opacity:.72">
           {{ nbMembres < 2 ? 'Code d’invitation' : 'Inviter quelqu’un de plus' }}
         </p>
@@ -159,7 +263,7 @@ const filtresActifs = computed(() => {
       </section>
 
       <!-- Dit avant le partage, pas découvert après. -->
-      <section v-if="nbMembres >= 2" class="carte pile avert">
+      <section v-if="nbMembres >= 2 && !jObserve" class="carte pile avert">
         <h2>Avant d’inviter une troisième personne</h2>
         <p class="mini" style="margin:0">
           Un prénom n’est « en commun » que si <strong>tout le monde</strong>
@@ -203,10 +307,107 @@ const filtresActifs = computed(() => {
         </div>
       </section>
 
+      <!-- La sortie de l'avertissement ci-dessus : montrer sans donner de veto. -->
+      <section v-if="!jObserve" class="carte pile">
+        <h2>Les observateurs</h2>
+
+        <template v-if="paye">
+          <p class="mini doux" style="margin:0">
+            Un observateur juge les prénoms et vous voyez son avis. Il ne
+            compte pas dans vos accords et ne peut pas poser de veto : vos
+            {{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }} ne bougent pas.
+          </p>
+
+          <template v-if="codeObs">
+            <div class="ligne">
+              <strong class="code petit" style="flex:1">{{ codeObs }}</strong>
+              <button class="btn mini" @click="partagerObs">
+                {{ copieObs ? 'Lien copié' : 'Partager' }}
+              </button>
+            </div>
+            <p v-if="observateurs.length" class="mini doux" style="margin:0">
+              {{ observateurs.map((o: any) => o.pseudo).join(', ') }}
+              {{ observateurs.length > 1 ? 'observent' : 'observe' }} cette liste.
+            </p>
+          </template>
+
+          <button v-else class="btn" :disabled="demandeObs" @click="creerCodeObs">
+            {{ demandeObs ? 'Un instant…' : 'Créer un lien d’observateur' }}
+          </button>
+        </template>
+
+        <template v-else>
+          <p class="mini doux" style="margin:0">
+            Montrer votre liste à vos parents sans qu'ils puissent rien
+            bloquer : ils jugent, vous voyez leur avis, vos accords restent
+            les vôtres.
+          </p>
+          <button class="btn btn-1" @click="g.ouvrirDebloquer()">
+            Voir ce que ça ouvre
+          </button>
+        </template>
+      </section>
+
+      <section class="carte pile">
+        <h2>Avec votre nom de famille</h2>
+
+        <template v-if="paye">
+          <p class="mini doux" style="margin:0">
+            On lit le prénom et le nom comme on les <em>dit</em>, pas comme on
+            les écrit : les voyelles qui se collent, les consonnes qui se
+            mangent, les initiales qu'on n'avait pas vues.
+          </p>
+          <div class="ligne">
+            <input v-model="nomFamille" class="champ" style="flex:1"
+                   placeholder="Votre nom" autocapitalize="words"
+                   autocorrect="off" spellcheck="false"
+                   @keyup.enter="enregistrerNomFamille">
+            <button class="btn mini" :disabled="!nomChangeF"
+                    @click="enregistrerNomFamille">
+              {{ enregistre ? 'Fait' : 'Tester' }}
+            </button>
+          </div>
+
+          <p v-if="nomFamille.trim().length >= 2 && !essaisNom.length"
+             class="mini doux" style="margin:0">
+            Rien à tester tant que vous n'avez pas d'accord : le test tourne
+            sur vos prénoms en commun.
+          </p>
+
+          <div v-for="e in essaisNom" :key="e.prenom" class="essai">
+            <button class="nom" @click="g.ouvrirFiche(e.prenom)">
+              {{ e.prenom }} {{ nomFamille.trim() }}
+            </button>
+            <span class="mini doux">{{ e.v.syllabes }} syll. · {{ e.v.initiales }}</span>
+            <p v-for="(r, i) in e.v.remarques" :key="i" class="mini" :class="r.gravite">
+              {{ r.texte }}
+            </p>
+            <p v-if="!e.v.remarques.length" class="mini bien">Rien à signaler.</p>
+          </div>
+        </template>
+
+        <template v-else>
+          <p class="mini doux" style="margin:0">
+            « Ça donne quoi avec notre nom ? » — la question que tout le monde
+            pose à voix haute. On sait y répondre : on a la prononciation de
+            chaque prénom, donc les accroches qui ne se voient pas à l'écrit.
+          </p>
+          <p class="mini" style="margin:0">
+            <span class="exemple">Léa Arnaud</span> accroche,
+            <span class="exemple">Léa Bernard</span> coule. Rien dans
+            l'orthographe ne le montre.
+          </p>
+          <button class="btn btn-1" @click="g.ouvrirDebloquer()">
+            Voir ce que ça ouvre
+          </button>
+        </template>
+      </section>
+
       <section class="carte pile">
         <h2>Qui en est</h2>
         <div v-for="m in g.etat.value.avancement" :key="m.user_id" class="ligne">
           <span style="flex:1">{{ m.pseudo }}</span>
+          <span v-if="m.role === 'observateur'" class="puce">observe</span>
           <span class="mini doux">{{ m.votes }} jugés</span>
         </div>
         <p v-if="retardataire" class="mini doux" style="margin:0">
@@ -239,9 +440,19 @@ const filtresActifs = computed(() => {
 </template>
 
 <style scoped>
+.essai { display: flex; flex-direction: column; gap: 3px;
+  padding: 9px 0; border-top: 1px solid var(--trait); }
+.essai .nom { background: none; border: 0; padding: 0; text-align: left;
+  font: inherit; font-weight: 650; color: var(--encre); cursor: pointer; }
+.essai .mini { margin: 0; }
+.essai .accroche { color: var(--non); }
+.essai .attention { opacity: .78; }
+.essai .bien { opacity: .55; }
+.exemple { font-weight: 650; }
 .invit { display: flex; flex-direction: column; align-items: center; gap: 10px;
   color: var(--encre); }
 .code { font-size: 1.7rem; letter-spacing: .16em; font-weight: 700; }
+.code.petit { font-size: 1.1rem; letter-spacing: .12em; }
 .invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
 .trouve { display: flex; align-items: center; gap: 8px; padding: 7px 0;
   border-top: 1px solid var(--trait); }

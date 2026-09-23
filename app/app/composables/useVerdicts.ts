@@ -4,7 +4,7 @@ export interface Verdict {
   prenom: string
   /** Mon vote : 0 non, 1 neutre, 2 oui. null si je n'ai pas juge. */
   mien: number | null
-  autres: { pseudo: string; valeur: number }[]
+  autres: { pseudo: string; valeur: number; observateur: boolean }[]
 }
 
 export const MOT = ['Non', 'Neutre', 'Oui'] as const
@@ -20,7 +20,22 @@ export const MOT = ['Non', 'Neutre', 'Oui'] as const
 export function useVerdicts() {
   const g = useGroupeCourant()
   const moiId = computed(() => g.etat.value?.moi?.user_id ?? null)
-  const nbMembres = computed(() => g.etat.value?.avancement?.length ?? 2)
+
+  /**
+   * Les DECIDEURS, pas les membres.
+   *
+   * Un observateur est un membre comme les autres pour l'avancement, et rien
+   * du tout pour le quorum : ni les accords ni les desaccords ne l'attendent.
+   * Compter tout le monde ici faisait disparaitre « A revoir » des qu'on
+   * invitait une grand-mere — un desaccord entre les deux parents cessait
+   * d'apparaitre parce qu'elle n'avait pas encore juge.
+   */
+  const observateurs = computed(() => new Set(
+    (g.etat.value?.avancement ?? [])
+      .filter((m: any) => m.role === 'observateur')
+      .map((m: any) => m.user_id)))
+  const nbMembres = computed(() =>
+    Math.max(1, (g.etat.value?.avancement?.length ?? 2) - observateurs.value.size))
 
   const parPrenom = computed(() => {
     const m = new Map<string, Verdict>()
@@ -28,7 +43,8 @@ export function useVerdicts() {
       let e = m.get(v.prenom)
       if (!e) { e = { prenom: v.prenom, mien: null, autres: [] }; m.set(v.prenom, e) }
       if (v.user_id === moiId.value) e.mien = v.valeur
-      else e.autres.push({ pseudo: v.pseudo, valeur: v.valeur })
+      else e.autres.push({ pseudo: v.pseudo, valeur: v.valeur,
+                           observateur: observateurs.value.has(v.user_id) })
     }
     return m
   })
@@ -50,10 +66,13 @@ export function useVerdicts() {
   const aRevoir = computed(() => tous.value.filter(v => {
     if (v.mien === null) return false
     if (g.vetos.value.has(v.prenom)) return false
-    if (v.autres.length < nbMembres.value - 1) return false
-    const toutes = [v.mien, ...v.autres.map(a => a.valeur)]
+    // L'avis d'un observateur s'affiche mais ne fait pas un desaccord : son
+    // non ne bloque rien, il n'y a donc rien a « revoir » a cause de lui.
+    const decisifs = v.autres.filter(a => !a.observateur)
+    if (decisifs.length < nbMembres.value - 1) return false
+    const toutes = [v.mien, ...decisifs.map(a => a.valeur)]
     return toutes.includes(2) && toutes.includes(0)
   }))
 
-  return { parPrenom, tous, miens, aRevoir, moiId, nbMembres }
+  return { parPrenom, tous, miens, aRevoir, moiId, nbMembres, observateurs }
 }

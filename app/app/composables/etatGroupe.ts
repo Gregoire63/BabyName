@@ -41,6 +41,9 @@ export interface EtatGroupe {
   recharger: () => Promise<void>
   ouvrirFiche: (nom: string) => void
   ouvrirFiltres: () => void
+  /** Ouvre la feuille « Debloquer » — appelee depuis le tri, les reglages
+   *  et la fiche, donc elle vit au-dessus d'eux. */
+  ouvrirDebloquer: () => void
   /** allerA('classement', 'revoir') : onglet, et volet si le tiroir en a. */
   allerA: (onglet: string, segment?: string) => void
 }
@@ -59,8 +62,19 @@ const CHAMPS = [
   'gid', 'etat', 'catalogue', 'parNom', 'origines', 'filtres', 'dejaVotes',
   'aimes', 'vetos', 'mesVetos', 'poserVeto', 'retirerVeto', 'favoris',
   'basculerFavori', 'communs', 'rechargerCommuns', 'votes', 'rechargerVotes',
-  'voter', 'pret', 'recharger', 'ouvrirFiche', 'ouvrirFiltres', 'allerA'
+  'voter', 'pret', 'recharger', 'ouvrirFiche', 'ouvrirFiltres', 'allerA',
+  'ouvrirDebloquer'
 ] as const
+
+/**
+ * Meme etat, mais tolere l'absence.
+ *
+ * La fiche d'un prenom s'ouvre depuis l'accueil, qui est HORS liste : elle
+ * doit pouvoir s'afficher sans groupe, en version publique.
+ */
+export function useGroupeSiPresent(): EtatGroupe | null {
+  return inject(CLE_GROUPE, null)
+}
 
 export function useGroupeCourant(): EtatGroupe {
   const g = inject(CLE_GROUPE)
