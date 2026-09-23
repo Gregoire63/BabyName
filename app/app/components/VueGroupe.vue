@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { chargerCatalogue, filtrer, filtresParDefaut, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
+import { marquerListeCourante } from '~/composables/useListeCourante'
 import { CLE_GROUPE, type EtatGroupe } from '~/composables/etatGroupe'
 
 const props = defineProps<{ depart?: string; segmentDepart?: string }>()
@@ -171,7 +172,12 @@ provide(CLE_GROUPE, partage)
 // le nombre deja vu ; la pastille ne parle que de ce qui est arrive depuis.
 const cleVus = `communs-vus:${gid}`
 const vus = ref(0)
-onMounted(() => { vus.value = Number(localStorage.getItem(cleVus) ?? 0) })
+onMounted(() => {
+  vus.value = Number(localStorage.getItem(cleVus) ?? 0)
+  // C'est cette liste qu'on trie : l'accueil doit la mettre en avant, pas la
+  // ranger parmi « mes autres listes ».
+  marquerListeCourante(gid)
+})
 const nouveaux = computed(() => Math.max(0, communs.value.length - vus.value))
 function marquerVus() {
   vus.value = communs.value.length

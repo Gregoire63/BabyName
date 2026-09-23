@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { chargerCatalogue, frequenceLisible, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
+import { listeCourante } from '~/composables/useListeCourante'
 
 /**
  * L'accueil, hors de toute liste. C'est le seul ecran sans barre du bas :
@@ -65,9 +66,58 @@ async function demarrer() {
   annee.value = cat!.annees[1]
 }
 
-// --- la liste principale, les autres en dessous ----------------------------
-const principale = computed(() => groupes.value[0] ?? null)
-const autres = computed(() => groupes.value.slice(1))
+// --- la liste en cours en grand, les autres en dessous ---------------------
+// Ce n'est pas la premiere creee qui va en haut, c'est celle qu'on trie en ce
+// moment : sinon la liste qu'on vient de quitter reapparait sous « Mes autres
+// listes », ce qui est exactement le contraire de ce qu'on cherche.
+const courante = ref<string | null>(null)
+onMounted(() => { courante.value = listeCourante() })
+const principale = computed(() =>
+  groupes.value.find(g => g.id === courante.value) ?? groupes.value[0] ?? null)
+const autres = computed(() =>
+  groupes.value.filter(g => g.id !== principale.value?.id))
+
+/**
+ * Retour dans la liste en cours par le bord droit.
+ *
+ * L'accueil est une sortie, pas une destination : on y passe pour changer de
+ * liste ou regarder les chiffres de l'annee, et on veut revenir la ou on
+ * triait. La tirette dit qu'il y a quelque chose a droite ; on peut la tirer
+ * ou simplement la toucher, parce qu'un geste que personne ne devine n'existe
+ * pas.
+ */
+const BORD = 32          // largeur de la zone sensible, en px
+const SEUIL_BORD = 56    // de combien il faut tirer
+let bx = 0, by = 0, auBord = false
+const tire = ref(0)
+
+function entrerListe() {
+  if (principale.value) navigateTo(`/g/${principale.value.id}/swipe`)
+}
+function bordDebut(e: PointerEvent) {
+  auBord = !!principale.value && e.clientX > window.innerWidth - BORD
+  if (!auBord) return
+  bx = e.clientX; by = e.clientY; tire.value = 0
+  // Sans capture, des que le doigt quitte la tirette (c'est-a-dire tout de
+  // suite, puisqu'on tire vers la gauche) les pointermove et le pointerup
+  // partent ailleurs : le geste ne se terminait jamais.
+  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+}
+function bordBouge(e: PointerEvent) {
+  if (!auBord) return
+  const ax = bx - e.clientX
+  tire.value = Math.max(0, Math.min(SEUIL_BORD, ax))
+}
+function bordFin(e: PointerEvent) {
+  if (!auBord) return
+  auBord = false
+  const el = e.currentTarget as HTMLElement
+  if (el?.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId)
+  const ax = bx - e.clientX
+  const dy = Math.abs(e.clientY - by)
+  tire.value = 0
+  if (ax > SEUIL_BORD && dy < ax) entrerListe()
+}
 
 const quandDernier = (d: string | null) => {
   if (!d) return 'pas encore commencée'
@@ -292,6 +342,14 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
       </div>
     </div>
 
+    <button v-if="principale" class="tirette" :style="{ transform: `translateX(${-tire}px)` }"
+            :aria-label="`Revenir dans ${principale.nom}`"
+            @pointerdown="bordDebut" @pointermove="bordBouge"
+            @pointerup="bordFin" @pointercancel="bordFin" @click="entrerListe">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" /></svg>
+      <span>{{ principale.nom }}</span>
+    </button>
+
     <AssistantFiltres v-if="assistant" @fermer="assistant = false" @valider="creer" />
     <FeuilleRejoindre v-if="rejoindreOuvert" @fermer="rejoindreOuvert = false" />
     <FeuilleCompte v-if="compteOuvert" @fermer="compteOuvert = false" />
@@ -301,6 +359,19 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
 <style scoped>
 .ecran.page { height: 100%; }
+/* La tirette du bord droit : assez visible pour qu'on la trouve, assez
+   discrete pour ne pas manger l'ecran. Elle se tire ou se touche. */
+.tirette { position: fixed; right: 0; top: 50%; translate: 0 -50%; z-index: 30;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 7px 14px 6px; border: 1px solid var(--trait); border-right: 0;
+  border-radius: 14px 0 0 14px; background: var(--carte); color: var(--doux);
+  font: inherit; font-size: .68rem; font-weight: 700; cursor: pointer;
+  box-shadow: -4px 0 14px rgba(26,35,78,.07); touch-action: pan-y;
+  transition: transform .18s cubic-bezier(.32,.72,0,1); }
+.tirette svg { width: 15px; height: 15px; fill: none; stroke: currentColor;
+  stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+.tirette span { writing-mode: vertical-rl; max-height: 128px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; letter-spacing: .02em; }
 .defile.page { height: 100%; overflow-y: auto; overscroll-behavior-y: contain;
   padding: max(16px, env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom)); }
 .tete { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }

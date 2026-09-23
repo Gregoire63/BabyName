@@ -6,6 +6,25 @@ defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
 
 const quota = computed(() => g.etat.value?.groupe?.quota_swipe_jour ?? 40)
+/**
+ * Le squelette n'apparait qu'au bout d'un court delai. Mesure : a la deuxieme
+ * ouverture d'une liste le catalogue est deja en memoire et la premiere carte
+ * arrive en ~136 ms — le squelette ne s'affichait que 50 ms, le temps de
+ * clignoter. Un squelette qui clignote est pire que pas de squelette.
+ */
+const attente = ref(false)
+let minuteur: any = null
+watch(() => g.pret.value, (pret) => {
+  clearTimeout(minuteur)
+  if (pret) { attente.value = false; return }
+  minuteur = setTimeout(() => { attente.value = true }, 140)
+}, { immediate: true })
+onUnmounted(() => clearTimeout(minuteur))
+
+// Le bonus vivait dans un ref nu : il repartait a zero a chaque rechargement
+// et le quota se refermait aussitot. Il est du meme jour que le compteur, il
+// se garde au meme endroit.
+const PAS_BONUS = 40
 const bonus = ref(0)
 const faits = ref(0)
 const match = ref<{ prenom: string; avec: string[] } | null>(null)
@@ -121,14 +140,39 @@ const contexte = computed(() => g.pret.value
   ? `${faits.value}/${plafond.value} jugés · ${pioche.value.length.toLocaleString('fr-FR')} possibles`
   : '…')
 
-onMounted(() => { faits.value = Number(localStorage.getItem(cleJour) ?? 0) })
+onMounted(() => {
+  faits.value = Number(localStorage.getItem(cleJour) ?? 0)
+  bonus.value = Number(localStorage.getItem(`${cleJour}_bonus`) ?? 0)
+})
+
+/** « Encore 40 » doit tenir jusqu'a demain, pas jusqu'au prochain F5. */
+function encore() {
+  bonus.value += PAS_BONUS
+  localStorage.setItem(`${cleJour}_bonus`, String(bonus.value))
+}
 
 // --- geste ----------------------------------------------------------------
 const dx = ref(0), dy = ref(0), glisse = ref(false)
 const envol = ref(false)
 let x0 = 0, y0 = 0, axe: 'x' | 'y' | null = null
-const SEUIL = 88
+// UN SEUL seuil, et c'est voulu : le bandeau « Oui » est une promesse, pas un
+// avertissement. Tant qu'il n'apparaissait qu'a la moitie du seuil de
+// validation, il fallait pousser deux fois plus loin que ce que l'ecran
+// annoncait. Il s'affiche desormais exactement quand relacher suffit.
+const SEUIL = 52
+// Un geste vif vaut un geste long : au-dela de cette vitesse on valide meme
+// sans atteindre le seuil, sinon un « flick » ne fait rien. Le seuil est haut
+// exprES : a 0,55 px/ms un glisse pose de 28 px passait pour un flick et
+// votait tout seul. Un vrai flick depasse le millier de pixels par seconde.
+const VITESSE = 1.1    // px/ms
 
+// Vitesse du doigt : on garde les positions des ~110 dernieres ms et on
+// mesure dessus. Une moyenne glissante exponentielle partait de zero et
+// n'avait pas le temps de monter sur un flick de deux trames — elle plafonnait
+// a 0,45 px/ms la ou le doigt allait a 2. Une fenetre dit la verite tout de
+// suite.
+const FENETRE = 110
+let trace: { x: number, t: number }[] = []
 function debut(e: PointerEvent) {
   if (quotaAtteint.value) return
   // Un geste qui commence sur un bouton appartient au bouton. Sans ce
@@ -137,6 +181,7 @@ function debut(e: PointerEvent) {
   // « Écarter la famille » etaient inertes.
   if ((e.target as HTMLElement)?.closest?.('button')) return
   glisse.value = true; axe = null; x0 = e.clientX; y0 = e.clientY
+  trace = [{ x: e.clientX, t: performance.now() }]
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 }
 function bouge(e: PointerEvent) {
@@ -145,20 +190,30 @@ function bouge(e: PointerEvent) {
   if (!axe && Math.hypot(ax, ay) > 8) axe = Math.abs(ax) > Math.abs(ay) ? 'x' : 'y'
   dx.value = axe === 'y' ? 0 : ax
   dy.value = axe === 'x' ? 0 : Math.min(0, ay)
+  const t = performance.now()
+  trace.push({ x: e.clientX, t })
+  while (trace.length > 2 && t - trace[0]!.t > FENETRE) trace.shift()
 }
 function fin() {
   if (!glisse.value) return
   glisse.value = false; axe = null
+  const a = trace[0], b = trace[trace.length - 1]
+  const vx = a && b && b.t > a.t ? (b.x - a.x) / (b.t - a.t) : 0
+  // Un doigt qui s'arrete avant de se lever n'a pas « lance » la carte : sans
+  // ce garde-fou, la derniere vitesse connue resterait vraie indefiniment,
+  // puisque plus aucun pointermove n'arrive.
+  const arrete = !b || performance.now() - b.t > 90
+  const vif = !arrete && Math.abs(vx) > VITESSE && Math.abs(dx.value) > SEUIL / 2
   if (dy.value < -SEUIL && Math.abs(dx.value) < SEUIL) voter(1)
-  else if (dx.value > SEUIL) voter(2)
-  else if (dx.value < -SEUIL) voter(0)
+  else if (dx.value > SEUIL || (vif && vx > 0)) voter(2)
+  else if (dx.value < -SEUIL || (vif && vx < 0)) voter(0)
   else { dx.value = 0; dy.value = 0 }
 }
 
 const intention = computed(() => {
-  if (dy.value < -SEUIL / 2 && Math.abs(dx.value) < SEUIL) return 'neutre'
-  if (dx.value > SEUIL / 2) return 'oui'
-  if (dx.value < -SEUIL / 2) return 'non'
+  if (dy.value < -SEUIL && Math.abs(dx.value) < SEUIL) return 'neutre'
+  if (dx.value > SEUIL) return 'oui'
+  if (dx.value < -SEUIL) return 'non'
   return null
 })
 const style = computed(() => glisse.value || dx.value || dy.value
@@ -280,7 +335,7 @@ async function confirmerFamille() {
     <!-- La forme de l'ecran est connue d'avance : on la dessine tout de suite
          plutot que d'ecrire « Chargement… » au milieu du vide. Rien ne saute
          quand la premiere carte arrive. -->
-    <div v-if="!g.pret.value" class="zone" aria-busy="true">
+    <div v-if="!g.pret.value && attente" class="zone" aria-busy="true">
       <div class="cartes">
         <article class="carte fiche fantome">
           <div class="ligne" style="justify-content:space-between">
@@ -308,13 +363,15 @@ async function confirmerFamille() {
       </div>
     </div>
 
+    <div v-else-if="!g.pret.value" class="zone" />
+
     <template v-else>
       <div v-if="quotaAtteint" class="vide">
         <Etincelles :taille="34" couleur="var(--peche)" />
         <h2>C’est assez pour aujourd’hui</h2>
         <p>{{ plafond }} prénoms jugés. Trier à la chaîne abîme le jugement :
            les vingt derniers ne valent pas les vingt premiers.</p>
-        <button class="btn" @click="bonus += 20">Encore 20 quand même</button>
+        <button class="btn" @click="encore">Encore {{ PAS_BONUS }} quand même</button>
       </div>
 
       <div v-else-if="!carte" class="vide">
@@ -325,13 +382,14 @@ async function confirmerFamille() {
 
       <div v-else class="zone">
         <div class="cartes">
-        <!-- mode out-in : la carte du fond est REMPLACEE, jamais renommee sur
-             place. Pendant le vol elle est montee a taille reelle ; y changer
-             le texte affichait le prenom d'encore derriere, en grand, a la
-             place de celui qu'on regardait. -->
-        <Transition name="fond" mode="out-in">
+        <!-- La carte du fond est REMPLACEE, jamais renommee sur place : c'est
+             la cle qui s'en charge. Le mode out-in a ete retire : mesure image
+             par image, il creait un trou de ~90 ms sans aucune carte derriere,
+             suivi d'un fondu de 340 ms. On voyait une carte se materialiser la
+             ou elle aurait du etre deja posee. -->
+        <Transition name="fond">
           <article v-if="suivante" :key="suivante.l" class="carte fiche derriere"
-                   :class="{ monte: envol }">
+                   :class="{ monte: envol, sec: echange }">
             <ContenuCarte :p="suivante" :interactif="false" />
           </article>
         </Transition>
@@ -462,6 +520,12 @@ async function confirmerFamille() {
    la carte de devant occupe deja exactement sa place */
 .fiche.derriere.fond-enter-from { opacity: 0; }
 .fiche.derriere.fond-leave-active { opacity: 0; transition: none; }
+/* Au moment d'un vote, la carte promue prend la place de devant et la suivante
+   etait DEJA dans la pile : elle ne se materialise pas, elle est la. Un fondu
+   ici se lit comme un chargement. Il garde tout son sens quand la pile change
+   pour une autre raison : un filtre, un prenom remis en jeu. */
+.fiche.derriere.sec { transition: none; }
+.fiche.derriere.sec.fond-enter-from { opacity: .4; }
 
 
 .verdict { position: absolute; top: 14px; left: 50%; translate: -50% 0; padding: 7px 20px;
