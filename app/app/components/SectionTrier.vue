@@ -53,7 +53,7 @@ const PAS_BONUS = 40
 const bonus = ref(0)
 const faits = ref(0)
 const match = ref<{ prenom: string; avec: string[] } | null>(null)
-const retour = ref<{ prenom: string; votes: any[] } | null>(null)
+const retour = ref<{ prenom: string; qui: string[] } | null>(null)
 const familleAEcarter = ref<Prenom[] | null>(null)
 const cleJour = `pr_${g.gid}_${new Date().toISOString().slice(0, 10)}`
 
@@ -346,8 +346,20 @@ async function voter(valeur: 0 | 1 | 2) {
     match.value = { prenom: p.l, avec: autres.map((v: any) => v.pseudo) }
     return
   }
-  // Le reste : on dit ce qui s'est dit, sans en faire un evenement.
-  retour.value = { prenom: p.l, votes: autres }
+  // ON NE DIT JAMAIS QU'ON VOUS A REFUSE UN PRENOM.
+  //
+  // Le bandeau annoncait « Audrey : non » juste apres votre oui. C'est une
+  // mauvaise nouvelle servie au pire moment, sur un prenom que vous veniez
+  // d'aimer, et ca punit celui qui swipe le plus. Au bout de trois, on trie
+  // en se demandant ce que l'autre va en penser — c'est exactement ce que le
+  // vote aveugle est cense empecher.
+  //
+  // L'accord se dit, le refus ne se dit pas. Le desaccord a deja son endroit,
+  // choisi et calme : le volet « A revoir » du classement, ou on y va quand on
+  // veut, pas quand l'app le decide.
+  const daccord = autres.filter((v: any) => v.valeur === 2)
+  if (!daccord.length) return
+  retour.value = { prenom: p.l, qui: daccord.map((v: any) => v.pseudo) }
   setTimeout(() => { if (retour.value?.prenom === p.l) retour.value = null }, 2600)
 }
 
@@ -514,9 +526,10 @@ async function confirmerFamille() {
 
     <Transition name="fondu">
       <div v-if="retour" class="retour carte">
+        <Etincelles :taille="16" couleur="var(--peche)" une />
         <strong>{{ retour.prenom }}</strong>
-        <span v-for="v in retour.votes" :key="v.user_id" class="mini doux">
-          {{ v.pseudo }} : {{ v.valeur === 2 ? 'oui' : v.valeur === 1 ? 'neutre' : 'non' }}
+        <span class="mini doux">
+          {{ retour.qui.join(', ') }} aussi
         </span>
       </div>
     </Transition>
@@ -548,7 +561,8 @@ async function confirmerFamille() {
     </Feuille>
 
     <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec"
-                @fermer="match = null" />
+                @fermer="match = null"
+                @communs="match = null; g.allerA('communs')" />
 
     <div v-if="familleAEcarter" class="voile-confirme" @click.self="familleAEcarter = null">
       <div class="carte pile confirme">

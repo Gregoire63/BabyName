@@ -77,6 +77,29 @@ async function partager() {
   copie.value = true; setTimeout(() => copie.value = false, 1800)
 }
 
+/**
+ * Un membre de plus n'est pas un spectateur de plus.
+ *
+ * « Commun » veut dire que TOUT LE MONDE a juge le prenom et que personne n'a
+ * dit non (voir la vue v_matchs : `having count(*) = nombre de membres` et
+ * `min(valeur) > 0`). Inviter une troisieme personne vide donc les accords
+ * jusqu'a ce qu'elle ait rattrape les memes prenoms, et lui donne un droit de
+ * veto de fait sur chacun.
+ *
+ * Ce n'est pas un defaut a cacher : c'est la regle du jeu, et elle est bonne
+ * a deux. Il faut juste la dire AVANT le partage, pas la laisser decouvrir
+ * par la disparition des accords.
+ */
+const nbMembres = computed(() => g.etat.value?.avancement?.length ?? 1)
+const nbCommuns = computed(() => g.communs.value?.length ?? 0)
+const retardataire = computed(() => {
+  const av = g.etat.value?.avancement ?? []
+  if (av.length < 2) return null
+  const tri = [...av].sort((a: any, b: any) => a.votes - b.votes)
+  const dernier: any = tri[0]; const premier: any = tri[tri.length - 1]
+  return premier.votes - dernier.votes >= 25 ? dernier : null
+})
+
 const filtresActifs = computed(() => {
   const f = g.filtres.value
   const out: string[] = []
@@ -122,11 +145,36 @@ const filtresActifs = computed(() => {
       </section>
 
       <section class="carte degrade invit">
-        <p class="mini" style="margin:0;opacity:.72">Code d’invitation</p>
+        <p class="mini" style="margin:0;opacity:.72">
+          {{ nbMembres < 2 ? 'Code d’invitation' : 'Inviter quelqu’un de plus' }}
+        </p>
         <strong class="code">{{ g.etat.value.groupe.code_invitation }}</strong>
         <button class="btn" @click="partager">
           {{ copie ? 'Lien copié' : 'Partager le lien' }}
         </button>
+        <p v-if="nbMembres < 2" class="mini" style="margin:0;opacity:.72;text-align:center">
+          La personne que vous invitez jugera les mêmes prénoms de son côté,
+          sans voir vos réponses.
+        </p>
+      </section>
+
+      <!-- Dit avant le partage, pas découvert après. -->
+      <section v-if="nbMembres >= 2" class="carte pile avert">
+        <h2>Avant d’inviter une troisième personne</h2>
+        <p class="mini" style="margin:0">
+          Un prénom n’est « en commun » que si <strong>tout le monde</strong>
+          l’a jugé et que <strong>personne</strong> n’a dit non.
+        </p>
+        <p class="mini" style="margin:0">
+          En ajouter une troisième remet donc vos
+          <strong>{{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }}</strong>
+          en attente jusqu’à ce qu’elle ait jugé les mêmes prénoms — et lui
+          donne un droit de veto sur chacun.
+        </p>
+        <p class="mini doux" style="margin:0">
+          Pour un avis extérieur sans conséquence, montrez-lui plutôt vos
+          accords : ils ne bougeront pas.
+        </p>
       </section>
 
       <section class="carte pile">
@@ -161,6 +209,10 @@ const filtresActifs = computed(() => {
           <span style="flex:1">{{ m.pseudo }}</span>
           <span class="mini doux">{{ m.votes }} jugés</span>
         </div>
+        <p v-if="retardataire" class="mini doux" style="margin:0">
+          Les accords attendent {{ retardataire.pseudo }} : un prénom
+          n’apparaît qu’une fois jugé par tout le monde.
+        </p>
       </section>
 
       <section class="carte pile">
@@ -203,4 +255,6 @@ const filtresActifs = computed(() => {
 /* Un prenom trouve par la recherche mais absent du swipe : sans ce marqueur
    on croit a un bug de la pile. */
 .trouve .rare { background: none; border: 1px dashed var(--trait); color: var(--doux); }
+.avert { border-color: color-mix(in srgb, var(--peche) 55%, var(--trait)); }
+.avert h2 { color: var(--encre); }
 </style>

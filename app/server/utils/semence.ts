@@ -28,7 +28,11 @@ const GOUTS_GREG = {
 const GOUTS_AUDREY = {
   oui: ['Louise', 'Jeanne', 'Iris', 'Adèle', 'Margot', 'Gaspard', 'Basile', 'Anouk'],
   neutre: ['Alma', 'Nine', 'Colette', 'Victor', 'Suzanne'],
-  non: ['Kevin', 'Marius', 'Hector', 'Brandon', 'Dylan', 'Jayden']
+  // Ferdinand : refuse par Audrey et JAMAIS juge par Greg. C'est le seul cas
+  // qui permet de verifier que l'app ne dit pas « Audrey : non » quand Greg
+  // vient de dire oui — tous les autres refus d'Audrey portent sur des
+  // prenoms que Greg a deja tranches.
+  non: ['Kevin', 'Marius', 'Hector', 'Brandon', 'Dylan', 'Jayden', 'Ferdinand']
 }
 // Ecartes « d'un geste » : c'est ce qui remplit le bloc des familles dans
 // Parametres, et ce qui permet de verifier qu'un non individuel y survit.
