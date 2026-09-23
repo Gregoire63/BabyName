@@ -271,3 +271,47 @@ create unique index if not exists idx_utilisateurs_cle
 alter table votes add column if not exists balayage text;
 create index if not exists idx_votes_balayage
   on votes (groupe_id, user_id, balayage) where balayage is not null;
+
+-- ============================================================================
+--  Ce qui est vendu, c'est la LISTE, pas le compte.
+--
+--  Une liste de prénoms n'a de sens qu'à deux. Limiter un seul membre la rend
+--  inutilisable pour les deux : personne n'achète, et le produit ne sert plus
+--  à rien entre-temps. La liste se débloque donc d'un coup, pour tous ses
+--  membres, payée par celui qui craque le premier.
+--
+--  paye_le est la date d'encaissement ; paye_par dit qui, pour pouvoir
+--  répondre à un litige sans fouiller chez le prestataire de paiement.
+-- ============================================================================
+alter table groupes add column if not exists paye_le  timestamptz;
+alter table groupes add column if not exists paye_par uuid references utilisateurs(id);
+alter table groupes add column if not exists quota_swipe_mois integer not null default 600;
+
+-- Le quota journalier change de metier : il etait de l'hygiene (on juge mal
+-- apres quarante prenoms), il devient la limite de la version gratuite. 20 par
+-- jour, et 600 par mois — c'est-a-dire trente jours pleins. Le mois ne sert
+-- qu'a rattraper celui qui multiplierait les appareils : une limite mensuelle
+-- qui mord vraiment enferme l'utilisateur assidu trois semaines sans rien a
+-- faire, et un utilisateur bloque trois semaines ne paie pas, il part.
+-- L'hygiene reste, cote client, pour les listes debloquees.
+alter table groupes alter column quota_swipe_jour set default 20;
+
+-- ============================================================================
+--  Compteur de gestes, par liste, par membre, par jour.
+--
+--  On ne compte PAS les lignes de `votes` : depuis le regroupement par
+--  prononciation, un seul swipe en écrit jusqu'à seize (Elio + ses quinze
+--  graphies). Le quota porte sur les décisions, pas sur les lignes.
+--
+--  On ne compte pas non plus côté navigateur, où il vivait : un localStorage
+--  se vide, et un quota qu'on contourne en vidant son cache n'est pas un
+--  quota.
+-- ============================================================================
+create table if not exists quota_jour (
+  groupe_id bigint  not null,
+  user_id   uuid    not null,
+  jour      date    not null default current_date,
+  n         integer not null default 0,
+  primary key (groupe_id, user_id, jour),
+  foreign key (groupe_id, user_id) references membres(groupe_id, user_id) on delete cascade
+);

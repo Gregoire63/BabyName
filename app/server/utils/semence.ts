@@ -43,10 +43,22 @@ export async function semerSiVide(c: Connexion) {
     creerCompte(c, 'Audrey', CLES_DEV.audrey)
   ])
 
+  // « Notre liste » est marquee payee : c'est elle que tous les essais
+  // utilisent, et on ne veut pas qu'ils butent sur le quota au 21e swipe.
   const g = await c.query(
-    `insert into groupes (nom, code_invitation, cree_par, quota_swipe_jour, nb_vetos_max)
-     values ('Notre liste', 'dec0de00', $1, 40, 3) returning id`, [greg])
+    `insert into groupes (nom, code_invitation, cree_par, quota_swipe_jour,
+                          quota_swipe_mois, nb_vetos_max, paye_le, paye_par)
+     values ('Notre liste', 'dec0de00', $1, 20, 600, 3, now(), $1) returning id`, [greg])
   const gid = g.rows[0].id
+
+  // Une seconde liste, gratuite et au quota minuscule, pour pouvoir taper
+  // dans le mur en quelques swipes plutot qu'en vingt.
+  const g2 = await c.query(
+    `insert into groupes (nom, code_invitation, cree_par, quota_swipe_jour,
+                          quota_swipe_mois, nb_vetos_max)
+     values ('Essai gratuit', 'dec0de01', $1, 3, 8, 2) returning id`, [greg])
+  await c.query(`insert into membres (groupe_id, user_id, role) values ($1, $2, 'parent')`,
+    [g2.rows[0].id, greg])
 
   for (const [uid, role] of [[greg, 'parent'], [audrey, 'parent']] as const) {
     await c.query(

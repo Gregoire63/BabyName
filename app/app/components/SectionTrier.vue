@@ -5,7 +5,32 @@ import { useGroupeCourant } from '~/composables/etatGroupe'
 defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
 
-const quota = computed(() => g.etat.value?.groupe?.quota_swipe_jour ?? 40)
+/**
+ * Deux quotas, et ils ne disent pas la meme chose.
+ *
+ * Celui du SERVEUR separe le gratuit du payant : il est en base, il compte les
+ * gestes, et on ne le contourne pas en vidant son cache. Voir
+ * server/utils/quota.ts.
+ *
+ * Celui d'ICI est de l'hygiene : apres quarante prenoms d'affilee on juge mal.
+ * Il ne s'applique donc qu'aux listes debloquees — pour les autres, le mur du
+ * serveur fait deja le travail, et deux murs valent moins qu'un.
+ */
+// L'etat du groupe donne le quota au chargement ; chaque vote en renvoie la
+// version a jour. On garde donc l'objet ENTIER et vivant : n'en recopier que
+// le reste laissait l'ecran de blocage lire un reste_jour perime et annoncer
+// « c'est tout pour ce mois-ci » a quelqu'un qui avait juste fini sa journee.
+const quotaVif = ref<any>(null)
+watch(() => g.etat.value?.quota, (q) => { if (q) quotaVif.value = q }, { immediate: true })
+const quotaServeur = computed<any>(() => quotaVif.value)
+const paye = computed(() => !!quotaServeur.value?.paye)
+const reste = computed<number | null>(() =>
+  !quotaVif.value || quotaVif.value.paye ? null : quotaVif.value.reste)
+// L'hygiene est une constante du produit, pas un reglage de liste : la
+// colonne quota_swipe_jour ne dit plus que la limite de la version gratuite,
+// et elle ne veut rien dire sur une liste debloquee. Les confondre faisait
+// tomber le mur d'hygiene au 20e swipe sur une liste payee.
+const HYGIENE = 40
 /**
  * Le squelette n'apparait qu'au bout d'un court delai. Mesure : a la deuxieme
  * ouverture d'une liste le catalogue est deja en memoire et la premiere carte
@@ -112,8 +137,9 @@ const pioche = computed(() => {
   const vus = new Set(tete.value.map(p => p.l))
   return [...tete.value, ...suite.value.filter(p => !vus.has(p.l))]
 })
-const plafond = computed(() => quota.value + bonus.value)
-const quotaAtteint = computed(() => faits.value >= plafond.value)
+const plafond = computed(() => HYGIENE + bonus.value)
+const quotaAtteint = computed(() =>
+  paye.value ? faits.value >= plafond.value : (reste.value !== null && reste.value <= 0))
 
 /**
  * Vrai le temps qu'un vote remplace la carte de devant.
@@ -163,7 +189,9 @@ async function confirmerVeto(fermer: () => void) {
 
 /** La ligne de contexte sous le nom de la liste : ou j'en suis, ce qui reste. */
 const contexte = computed(() => g.pret.value
-  ? `${faits.value}/${plafond.value} jugés · ${pioche.value.length.toLocaleString('fr-FR')} possibles`
+  ? (paye.value
+      ? `${faits.value}/${plafond.value} jugés · ${pioche.value.length.toLocaleString('fr-FR')} possibles`
+      : `${reste.value ?? '…'} swipes restants · ${pioche.value.length.toLocaleString('fr-FR')} possibles`)
   : '…')
 
 onMounted(() => {
@@ -286,7 +314,22 @@ async function voter(valeur: 0 | 1 | 2) {
   // apres que l'arrivee sans animation a ete mise en place
   setTimeout(() => { echange.value = false }, 60)
   const r = await $fetch<any>(`/api/groupes/${g.gid}/vote`,
-    { method: 'POST', body: { prenom: p.l, valeur, variantes } }).catch(() => null)
+    { method: 'POST', body: { prenom: p.l, valeur, variantes } })
+    .catch((err: any) => {
+      // 402 : le serveur a dit non. On remet le prenom dans la pile plutot que
+      // de laisser croire qu'il a ete juge.
+      if (err?.statusCode === 402 || err?.response?.status === 402) {
+        const d = err?.data?.data?.quota ?? err?.data?.quota
+        if (d) quotaVif.value = d
+        const s = new Set(g.dejaVotes.value)
+        s.delete(p.l); for (const v of variantes) s.delete(v)
+        g.dejaVotes.value = s
+        if (valeur === 2) g.aimes.value = g.aimes.value.filter(x => x.l !== p.l)
+        faits.value = Math.max(0, faits.value - 1)
+      }
+      return null
+    })
+  if (r?.quota) quotaVif.value = r.quota
 
   // Le serveur ne renvoie les votes des autres QUE parce qu'on vient de voter
   // (regle du vote aveugle, cf. server/utils/votes.ts).
@@ -395,12 +438,30 @@ async function confirmerFamille() {
     <div v-else-if="!g.pret.value" class="zone" />
 
     <template v-else>
-      <div v-if="quotaAtteint" class="vide">
+      <div v-if="quotaAtteint && paye" class="vide">
         <Etincelles :taille="34" couleur="var(--peche)" />
         <h2>C’est assez pour aujourd’hui</h2>
         <p>{{ plafond }} prénoms jugés. Trier à la chaîne abîme le jugement :
            les vingt derniers ne valent pas les vingt premiers.</p>
         <button class="btn" @click="encore">Encore {{ PAS_BONUS }} quand même</button>
+      </div>
+
+      <div v-else-if="quotaAtteint" class="vide">
+        <Etincelles :taille="34" couleur="var(--peche)" />
+        <h2>{{ quotaServeur?.reste_jour === 0 ? 'C’est tout pour aujourd’hui'
+                                              : 'C’est tout pour ce mois-ci' }}</h2>
+        <p v-if="quotaServeur?.reste_jour === 0">
+          {{ quotaServeur?.limite_jour }} prénoms par jour, {{ quotaServeur?.fait_mois }}
+          sur {{ quotaServeur?.limite_mois }} ce mois-ci. Ça revient demain matin.
+        </p>
+        <p v-else>
+          {{ quotaServeur?.limite_mois }} prénoms par mois dans la version
+          gratuite, et vous y êtes.
+        </p>
+        <p class="mini doux" style="margin:0">
+          Débloquer la liste la débloque pour tout le monde dedans — une liste
+          de prénoms ne sert à rien si un seul des deux peut trier.
+        </p>
       </div>
 
       <div v-else-if="!carte" class="vide">

@@ -7,6 +7,18 @@ export default defineEventHandler(async (e) => {
     throw createError({ statusCode: 400, statusMessage: 'vote_invalide' })
   }
 
+  // Le quota d'abord : on ne consomme un geste que si on va vraiment écrire,
+  // et on n'écrit rien si le geste n'a pas pu être consommé. Le compteur est
+  // en base, pas dans le navigateur — voir server/utils/quota.ts.
+  const quota = await consommerGeste(gid, moi.user_id)
+  if (!quota) {
+    const etat = await quotaEtat(gid, moi.user_id)
+    throw createError({
+      statusCode: 402, statusMessage: 'quota_atteint',
+      data: { quota: etat }
+    })
+  }
+
   // balayage : racine commune quand le non vient d'un « écarter la famille ».
   // Renseigné seulement pour un non — écarter est le seul geste collectif qui
   // porte sur des prénoms qu'on n'a pas regardés.
@@ -50,5 +62,5 @@ export default defineEventHandler(async (e) => {
   }
 
   // On renvoie les votes des autres sur CE prénom : légitime, on vient de voter.
-  return { ok: true, votes: await votesVisibles(gid, moi.user_id, [prenom]) }
+  return { ok: true, quota, votes: await votesVisibles(gid, moi.user_id, [prenom]) }
 })

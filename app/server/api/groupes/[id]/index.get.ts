@@ -24,6 +24,7 @@ export default defineEventHandler(async (e) => {
    */
   return {
     groupe, membres, avancement: av, moi,
+    quota: await quotaEtat(gid, moi.user_id),
     vetos: vetos.map(v => v.prenom),
     mes_vetos: vetos.filter(v => v.user_id === moi.user_id)
                     .map(v => ({ prenom: v.prenom, motif: v.motif })),
