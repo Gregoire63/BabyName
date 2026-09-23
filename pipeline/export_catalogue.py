@@ -61,6 +61,13 @@ def main() -> None:
     d = pd.read_csv(SRC)
     d = d.sort_values("births_recent", ascending=False).reset_index(drop=True)
 
+    # Groupes de prononciation : une carte pour Nelya + Nelia + Nelya. Le
+    # groupe est (prononciation, sexe) — Maël et Maëlle se disent pareil mais
+    # ne sont pas le meme prenom. On exporte un index, pas la cle : 19 608
+    # chaines valent 120 Ko de plus pour rien.
+    cles = list(dict.fromkeys(zip(d["prononciation"].fillna(""), d["sexe"])))
+    gidx = {k: i for i, k in enumerate(cles)}
+
     # dictionnaire des origines -> index
     origines = sorted({o for s in d["origines"].fillna("") for o in s.split("|") if o})
     oidx = {o: i for i, o in enumerate(origines)}
@@ -81,6 +88,7 @@ def main() -> None:
     cols = {
         # identite
         "l": d["label"].tolist(),
+        "gp": [gidx[(p, s)] for p, s in zip(d["prononciation"].fillna(""), d["sexe"])],
         "s": [SEXE.index(x) for x in d["sexe"]],
         "u": [round(float(x), 2) for x in d["unisexe_ratio"].fillna(0)],
         # frequence
@@ -128,7 +136,8 @@ def main() -> None:
             "o": "originalite", "r": "risque_surprise", "rv": "revival_emergent",
             "q": "rare",
             "c": "nb_car", "y": "nb_syllabes", "k": "compose", "i": "initiale",
-            "e": "finale", "g": "origines", "m": "signification",
+            "e": "finale", "gp": "groupe_prononciation",
+            "g": "origines", "m": "signification",
             "cf": "confiance_sens",
             "me": "signification_en", "ob": "objet_marque",
             "obn": "objet_marque_note", "dm": "diminutifs", "sr": "serie_p10k",
@@ -149,10 +158,13 @@ def main() -> None:
 
     avec_serie = sum(1 for x in cols["sr"] if x)
     rares = sum(cols["q"])
+    groupes = len(set(cols["gp"]))
     sens = sum(1 for x in cols["m"] if x)
     sur = sum(1 for x in cols["cf"] if x == 2)
     print(f"{len(d):,} prenoms ({len(d)-rares:,} dans la pile, {rares:,} rares), "
           f"{len(origines)} origines, {avec_serie:,} courbes")
+    print(f"  {groupes:,} groupes de prononciation "
+          f"({len(d)-groupes:,} cartes en moins, -{(1-groupes/len(d))*100:.0f} %)")
     print(f"  {sens:,} avec un sens, dont {sur:,} en confiance haute")
     print(f"  brut : {len(txt)/1024:.0f} Ko  ({OUT.name})")
     print(f"  gzip : {gz.stat().st_size/1024:.0f} Ko  ({gz.name})  <- deploye")

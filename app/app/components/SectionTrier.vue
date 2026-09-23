@@ -32,10 +32,36 @@ const retour = ref<{ prenom: string; votes: any[] } | null>(null)
 const familleAEcarter = ref<Prenom[] | null>(null)
 const cleJour = `pr_${g.gid}_${new Date().toISOString().slice(0, 10)}`
 
-const dispo = computed(() => {
+/** Tout ce qui reste a juger, graphie par graphie. Sert au balayage de
+ *  famille, qui doit voir les graphies une a une. */
+const dispoBrut = computed(() => {
   if (!g.pret.value) return []
   return filtrer(g.catalogue.value, g.filtres.value)
     .filter(p => !g.dejaVotes.value.has(p.l) && !g.vetos.value.has(p.l))
+})
+
+/**
+ * Une carte par PRONONCIATION.
+ *
+ * Nelya, Nélya, Nélia, Nelia, Nëlya : cinq cartes pour une seule decision.
+ * Le catalogue est trie par frequence, donc le premier survivant d'un groupe
+ * est la graphie la plus repandue encore a juger — c'est elle qui porte la
+ * carte, et les autres sont annoncees dessus. On collapse APRES le filtrage :
+ * si une graphie a deja ete jugee seule, c'est la suivante qui prend la carte.
+ */
+const dispo = computed(() => {
+  const chef = new Map<number, Prenom>()
+  const suite = new Map<number, string[]>()
+  for (const p of dispoBrut.value) {
+    if (chef.has(p.gp)) suite.get(p.gp)!.push(p.l)
+    else { chef.set(p.gp, p); suite.set(p.gp, []) }
+  }
+  const out: Prenom[] = []
+  for (const p of chef.values()) {
+    const v = suite.get(p.gp)!
+    out.push(v.length ? { ...p, variantes: v } : p)
+  }
+  return out
 })
 
 /** L'ordre courant. Il change a chaque « oui » : ordonner() remonte ce qui
@@ -249,7 +275,10 @@ async function voter(valeur: 0 | 1 | 2) {
   await new Promise(r => setTimeout(r, 330))
 
   echange.value = true
-  g.dejaVotes.value = new Set([...g.dejaVotes.value, p.l])
+  // Les autres graphies du meme son quittent la pile avec la carte : sans ca
+  // elles reviendraient une par une, ce qui est exactement ce qu'on evite.
+  const variantes = p.variantes ?? []
+  g.dejaVotes.value = new Set([...g.dejaVotes.value, p.l, ...variantes])
   if (valeur === 2) g.aimes.value = [...g.aimes.value, p]
   faits.value++
   localStorage.setItem(cleJour, String(faits.value))
@@ -257,7 +286,7 @@ async function voter(valeur: 0 | 1 | 2) {
   // apres que l'arrivee sans animation a ete mise en place
   setTimeout(() => { echange.value = false }, 60)
   const r = await $fetch<any>(`/api/groupes/${g.gid}/vote`,
-    { method: 'POST', body: { prenom: p.l, valeur } }).catch(() => null)
+    { method: 'POST', body: { prenom: p.l, valeur, variantes } }).catch(() => null)
 
   // Le serveur ne renvoie les votes des autres QUE parce qu'on vient de voter
   // (regle du vote aveugle, cf. server/utils/votes.ts).
@@ -293,7 +322,7 @@ function racineDe(p: Prenom): string {
 /** Ce que « écarter la famille » va réellement balayer. */
 function familleDe(p: Prenom): Prenom[] {
   const racine = racineDe(p)
-  return pioche.value.filter(x => x.slug.startsWith(racine)).slice(0, 25)
+  return dispoBrut.value.filter(x => x.slug.startsWith(racine)).slice(0, 25)
 }
 
 function demanderFamille() {

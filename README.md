@@ -9,6 +9,7 @@ python3 pipeline/enrich_wiktionary.py      # Wiktionnaire FR : sens        GRATU
 python3 pipeline/enrich_wiktionary_en.py   # Wiktionnaire EN : origine     GRATUIT
 python3 pipeline/merge_enrichissement.py   # -> data/build/prenoms_final.csv
 python3 pipeline/test_syllabes.py          # 59/59 attendus
+python3 pipeline/test_phonetique.py        # 47/47 attendus
 ```
 
 Tout ce qui précède est **gratuit** : aucune clé, aucun service payant.
@@ -38,6 +39,34 @@ les fait entrer pour qui veut ratisser large.
 Le saut vient de `data/cache/enrich_claude.jsonl` : les 6 189 prénoms de la
 pile qui avaient un trou, traités par Claude en session, avec le prompt système
 d'`enrich_llm.py` — aucune clé API, aucun coût à l'appel.
+
+## Une carte par prononciation
+
+Nelya, Nélya, Nélia, Nelia, Nëlya : cinq cartes pour une seule décision.
+`pipeline/phonetique.py` donne à chaque prénom une clé de prononciation, et le
+groupe de swipe est le couple **(clé, sexe)** — Maël et Maëlle se disent pareil
+mais ne sont pas le même prénom. Résultat : **19 608 prénoms pour 11 498
+prononciations**, et la pile passe de 7 667 à 4 935 cartes (−36 %).
+
+Le biais est assumé et il est écrit en haut du module : **sous-regrouper
+plutôt que sur-regrouper**. Fusionner deux prénoms qui sonnent différemment
+supprime un choix réel ; les laisser séparés ne fait que conserver l'existant.
+
+Conséquence sur la méthode : on ne fait pas de transcription phonétique
+complète, on neutralise seulement ce qui ne s'entend pas — accents, h, lettres
+doublées, y/i, k/c/qu, ph/f, tréma, e muet final. Une première version
+réinterprétait les digrammes (« ai » → è, « en » → nasale) et ses plus gros
+groupes étaient **faux** : Ella avec Ayla, Eden avec Ayden, Eden avec Edem. La
+règle « ai se dit è » est vraie en français et fausse pour Ayla, Kayla, Layna —
+c'est-à-dire précisément la longue traîne qu'on voulait ranger.
+
+Deux exceptions valent d'être connues : les consonnes finales sont **toutes
+gardées** (Lucas se dit /lykas/ mais Thomas /tɔma/, aucune règle ne les
+sépare), et le e final après n ou m ne se tait pas, il **dénasalise** — Manon
+n'est pas Manone, Jean n'est pas Jeanne.
+
+`pipeline/test_phonetique.py` tient les deux listes : ce qui doit être
+regroupé, et ce qui ne doit surtout pas l'être. La seconde compte davantage.
 
 ## La confiance, et pourquoi elle est affichée
 

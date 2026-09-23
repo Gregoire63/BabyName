@@ -12,6 +12,11 @@
  */
 export interface Prenom {
   l: string; slug: string; sexe: 'f' | 'm' | 'fm'
+  /** Groupe de prononciation : Elyo, Élio et Hélio partagent le même. */
+  gp: number
+  /** Les autres graphies du groupe, la plus fréquente en tête. Rempli au
+   *  chargement, seulement sur le représentant du groupe. */
+  variantes?: string[]
   u: number; f: number; n: number; t: number; p: number
   o: number; r: number; rv: boolean; q: boolean
   c: number; y: number; k: boolean; i: string; e: string
@@ -94,6 +99,7 @@ export async function chargerCatalogue() {
     for (let k = 0; k < d.n; k++) {
       liste[k] = {
         l: c.l[k], slug: sansAccent(c.l[k]).replace(/[^a-z]/g, ''),
+        gp: c.gp ? c.gp[k] : k,
         sexe: d.sexe[c.s[k]], u: c.u[k], f: c.f[k], n: c.n[k], t: c.t[k], p: c.p[k],
         o: c.o[k], r: c.r[k], rv: !!c.rv[k], q: !!(c.q && c.q[k]),
         c: c.c[k], y: c.y[k], k: !!c.k[k], i: c.i[k], e: c.e[k],
@@ -102,6 +108,14 @@ export async function chargerCatalogue() {
         ob: !!c.ob[k], obn: c.obn[k], dm: c.dm[k],
         sr: c.sr ? c.sr[k] : null
       }
+    }
+    // Le catalogue est trié par fréquence : le premier de chaque groupe est
+    // donc la graphie la plus répandue, et c'est elle qui portera la carte.
+    const par = new Map<number, Prenom>()
+    for (const p of liste) {
+      const chef = par.get(p.gp)
+      if (chef) (chef.variantes ??= []).push(p.l)
+      else par.set(p.gp, p)
     }
     cache = { liste, origines: d.origines, annees: d.serie_annees ?? [1986, 2025] }
     return cache

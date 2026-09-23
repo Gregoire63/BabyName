@@ -34,6 +34,14 @@ const g = useGroupeCourant()
     </div>
 
     <h2 class="nom">{{ p.l }}</h2>
+    <!-- Les graphies qui se disent pareil tiennent sur une carte : les juger
+         une par une, c'est cinq swipes pour une seule decision. Le vote les
+         emporte toutes, et on le dit plutot que de le faire en douce. -->
+    <p v-if="p.variantes?.length" class="graphies">
+      aussi écrit {{ p.variantes.slice(0, 4).join(', ')
+        }}<template v-if="p.variantes.length > 4"> et {{ p.variantes.length - 4 }} autres</template>
+      <span class="doux"> — le vote vaut pour {{ p.variantes.length + 1 }} graphies</span>
+    </p>
     <p v-if="p.m" class="sens">« {{ p.m }} »<span v-if="p.cf !== null && p.cf < 2" class="doute"> · sens probable</span></p>
     <p v-else-if="p.me" class="sens doux">« {{ p.me }} »</p>
 
@@ -79,6 +87,8 @@ const g = useGroupeCourant()
 
 .nom { font-size: 2.4rem; letter-spacing: -.035em; margin: 2px 0 0; }
 .sens { margin: 0; font-size: 1rem; font-style: italic; }
+.graphies { margin: -4px 0 0; font-size: .74rem; color: var(--texte); opacity: .8;
+  line-height: 1.35; }
 /* Une etymologie discutee ne doit pas se lire comme un fait. */
 .doute { font-style: normal; font-size: .74rem; color: var(--doux); }
 .resume { gap: 16px; font-size: .84rem; font-variant-numeric: tabular-nums;

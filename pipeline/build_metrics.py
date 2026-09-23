@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
 BUILD = ROOT / "data" / "build"
 BUILD.mkdir(parents=True, exist_ok=True)
+sys.path.insert(0, str(Path(__file__).parent))
+from phonetique import prononciation
 
 RECENT_WINDOW = 3     # annees pour la frequence "actuelle"
 SEUIL_PILE = 20       # en dessous : prenom marque "rare", hors pile de swipe
@@ -252,6 +254,10 @@ def main() -> None:
     m["nb_syllabes"] = m["label"].map(syllables_fr)
     m["compose"] = m["prenom"].str.contains(r"[- ]", regex=True)
     m["initiale"] = m["slug"].str[0].str.upper()
+    # Cle de prononciation : Nelya, Nelia et Nelya se disent pareil et ne
+    # valent qu'une carte dans la pile. Voir pipeline/phonetique.py pour le
+    # biais assume (sous-regrouper plutot que sur-regrouper).
+    m["prononciation"] = m["label"].map(prononciation)
     m["finale"] = m["slug"].str[-1]
 
     # scores derives ------------------------------------------------------
@@ -285,7 +291,7 @@ def main() -> None:
             "births_recent", "births_total", "freq_recent_p10k", "trend_pct_an",
             "peak_year", "peak_freq_p10k", "is_revival", "revival_emergent", "originalite",
             "risque_surprise", "nb_car", "nb_syllabes", "compose", "initiale",
-            "finale", "first_year", "last_year", "rare"]
+            "finale", "first_year", "last_year", "rare", "prononciation"]
     m = m[cols].sort_values("freq_recent_p10k", ascending=False)
     for c in ("freq_recent_p10k", "trend_pct_an", "peak_freq_p10k", "unisexe_ratio"):
         m[c] = m[c].round(3)
