@@ -55,6 +55,18 @@ export interface VoteVisible {
 
 const moyenne = (xs: number[]) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0
 
+/**
+ * Un nombre ecrit en francais.
+ *
+ * `toFixed` rend « 1.8 » et « 3.0 » : un point anglais et un zero inutile, au
+ * milieu de phrases qu'on lit comme une conversation. Une virgule, et rien
+ * apres l'entier quand il n'y a rien a dire.
+ */
+const nb = (x: number, d = 1) => {
+  const s = x.toFixed(d)
+  return (s.endsWith('.0') ? s.slice(0, -2) : s).replace('.', ',')
+}
+
 /** Finale entendue : une voyelle ou une consonne — l'oreille trie la-dessus. */
 function finaleVocalique(nom: string): boolean {
   const f = bords(nom).fin
@@ -97,8 +109,8 @@ function traitsDe(oui: Prenom[], juges: Prenom[]): Trait[] {
     out.push({
       axe: 'longueur', poids: Math.abs(syOui - syVu) * 2,
       texte: court
-        ? `Vous dites oui plus court : ${syOui.toFixed(1)} syllabes en moyenne, contre ${syVu.toFixed(1)} pour ce que vous avez vu.`
-        : `Vous dites oui plus long : ${syOui.toFixed(1)} syllabes en moyenne, contre ${syVu.toFixed(1)} pour ce que vous avez vu.`
+        ? `Vous dites oui plus court : ${nb(syOui)} syllabes en moyenne, contre ${nb(syVu)} pour ce que vous avez vu.`
+        : `Vous dites oui plus long : ${nb(syOui)} syllabes en moyenne, contre ${nb(syVu)} pour ce que vous avez vu.`
     })
   }
 
@@ -109,8 +121,8 @@ function traitsDe(oui: Prenom[], juges: Prenom[]): Trait[] {
     out.push({
       axe: 'rarete', poids: Math.abs(oOui - oVu) / 10,
       texte: rare
-        ? `Vous allez vers ce qui s'entend peu (originalité ${oOui.toFixed(0)} contre ${oVu.toFixed(0)} en moyenne vue).`
-        : `Vous allez vers ce qui se porte (originalité ${oOui.toFixed(0)} contre ${oVu.toFixed(0)} en moyenne vue).`
+        ? `Vous allez vers ce qui s'entend peu (originalité ${nb(oOui, 0)} contre ${nb(oVu, 0)} en moyenne vue).`
+        : `Vous allez vers ce qui se porte (originalité ${nb(oOui, 0)} contre ${nb(oVu, 0)} en moyenne vue).`
     })
   }
 
@@ -201,9 +213,9 @@ export function divergence(
 
   const axes: { nom: string; va: number; vb: number; unite: (x: number) => string; seuil: number }[] = [
     { nom: 'la longueur', va: moyenne(a.oui.map(p => p.y)), vb: moyenne(b.oui.map(p => p.y)),
-      unite: x => `${x.toFixed(1)} syllabes`, seuil: 0.35 },
+      unite: x => `${nb(x)} syllabes`, seuil: 0.35 },
     { nom: 'la rareté', va: moyenne(a.oui.map(p => p.o)), vb: moyenne(b.oui.map(p => p.o)),
-      unite: x => `${x.toFixed(0)}/100 d'originalité`, seuil: 9 },
+      unite: x => `${nb(x, 0)}/100 d'originalité`, seuil: 9 },
     { nom: "l'époque", va: moyenne(a.oui.map(p => p.p).filter(x => x >= 1900)),
       vb: moyenne(b.oui.map(p => p.p).filter(x => x >= 1900)),
       unite: x => `un sommet vers ${Math.round(x)}`, seuil: 8 }
@@ -214,6 +226,110 @@ export function divergence(
   const d = pires[0]
   if (!d) return null
   return `Vous divergez surtout sur ${d.nom} : ${a.pseudo} à ${d.unite(d.va)}, ${b.pseudo} à ${d.unite(d.vb)}.`
+}
+
+/**
+ * Pourquoi ce prenom-la coince.
+ *
+ * « A revoir » disait qui avait dit quoi, jamais pourquoi. Or la reponse est
+ * dans les votes : si quelqu'un dit non a Marius et oui a des prenoms qui font
+ * 2,1 syllabes en moyenne, ce n'est pas Marius qu'il refuse, c'est trois
+ * syllabes. Le dire desamorce la discussion — on arrete de defendre un prenom
+ * pour parler de ce qu'on aime.
+ *
+ * Trois garde-fous, et ils comptent plus que la fonction :
+ *
+ * 1. On n'explique que le NON. Expliquer un oui ne sert a rien, et pointer ce
+ *    que l'autre aime ressemblerait vite a un argumentaire contre lui.
+ * 2. Il faut MIN_OUI oui visibles chez la personne qui refuse. En dessous, la
+ *    moyenne est du bruit et l'explication serait une invention credible —
+ *    le pire cas, parce qu'elle serait crue.
+ * 3. Il faut un ECART NET : au moins 1,2 ecart-type, sur un axe ou la personne
+ *    est reellement constante. Un prenom moyen sur tous les axes n'a pas
+ *    d'explication, et on se tait.
+ */
+const ECART_MIN = 1.2
+
+function ecartType(xs: number[]): number {
+  if (xs.length < 3) return 0
+  const m = moyenne(xs)
+  return Math.sqrt(moyenne(xs.map(x => (x - m) ** 2)))
+}
+
+export interface Explication {
+  /** Qui refuse — la phrase est ecrite de son point de vue. */
+  pseudo: string
+  texte: string
+}
+
+interface Axe {
+  nom: string
+  valeur: (p: Prenom) => number | null
+  dire: (x: number) => string
+}
+
+const AXES: Axe[] = [
+  { nom: 'la longueur', valeur: p => p.y, dire: x => `${nb(x)} syllabes` },
+  { nom: 'la rareté', valeur: p => p.o, dire: x => `${nb(x, 0)}/100 d'originalité` },
+  { nom: "l'époque", valeur: p => (p.p >= 1900 ? p.p : null), dire: x => `un sommet vers ${Math.round(x)}` }
+]
+
+export function expliquerDesaccord(
+  prenom: string,
+  votes: VoteVisible[],
+  parNom: Map<string, Prenom>,
+  moiId: string
+): Explication | null {
+  const p = parNom.get(prenom)
+  if (!p) return null
+
+  // Qui a dit non a CE prenom, en dehors de moi.
+  const refus = votes.find(v => v.prenom === prenom && v.valeur === 0 && v.user_id !== moiId)
+  if (!refus) return null
+
+  const sesOui: Prenom[] = []
+  for (const v of votes) {
+    if (v.user_id !== refus.user_id || v.valeur !== 2) continue
+    const q = parNom.get(v.prenom)
+    if (q) sesOui.push(q)
+  }
+  if (sesOui.length < MIN_OUI) return null
+
+  let meilleur: { axe: Axe; m: number; x: number; ecarts: number } | null = null
+  for (const axe of AXES) {
+    const xs = sesOui.map(axe.valeur).filter((x): x is number => x !== null)
+    if (xs.length < MIN_OUI) continue
+    const x = axe.valeur(p)
+    if (x === null) continue
+    const sd = ecartType(xs)
+    if (sd <= 0) continue
+    const m = moyenne(xs)
+    const ecarts = Math.abs(x - m) / sd
+    if (ecarts >= ECART_MIN && (!meilleur || ecarts > meilleur.ecarts)) {
+      meilleur = { axe, m, x, ecarts }
+    }
+  }
+  if (!meilleur) return null
+
+  const { axe, m, x } = meilleur
+  return {
+    pseudo: refus.pseudo,
+    texte: `Ce n'est peut-être pas ${p.l} : c'est ${axe.nom}. ${refus.pseudo} garde des prénoms à ${axe.dire(m)} en moyenne, ${p.l} est à ${axe.dire(x)}.`
+  }
+}
+
+/** Assez de matière pour expliquer un refus ? Sert à dire pourquoi on se tait. */
+export function quiPeutEtreExplique(
+  votes: VoteVisible[], moiId: string
+): { pseudo: string; oui: number }[] {
+  const par = new Map<string, { pseudo: string; oui: number }>()
+  for (const v of votes) {
+    if (v.user_id === moiId) continue
+    let e = par.get(v.user_id)
+    if (!e) { e = { pseudo: v.pseudo, oui: 0 }; par.set(v.user_id, e) }
+    if (v.valeur === 2) e.oui++
+  }
+  return [...par.values()]
 }
 
 export { MIN_OUI }

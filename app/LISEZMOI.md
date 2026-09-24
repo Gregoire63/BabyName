@@ -168,6 +168,7 @@ une fois à deux, et l'un des deux peut payer pour l'autre. Prix par défaut
 | les accords, le classement, les vetos | l'essai avec le nom de famille |
 | origine, sens et courbe sur chaque fiche | la projection de classe complète |
 | le deuxième parent | le portrait de goûts et la divergence |
+| le volet « À revoir » | ce qui cause chaque désaccord |
 | 20 swipes/jour, 600/mois (par personne) | les observateurs (grands-parents sans veto) |
 
 La projection de classe est le seul cas où le gratuit montre quand même un
@@ -211,6 +212,22 @@ jusqu'à ce que le **serveur** dise « payé ».
 Aucun numéro de carte ne passe par l'application : on demande une session à
 Stripe, on envoie le navigateur sur *sa* page, c'est lui qui encaisse. Il n'y
 a aucun champ de paiement dans le code, et l'essai le vérifie.
+
+### Le désaccord expliqué
+
+« Ce n'est peut-être pas Marius, c'est la longueur. » L'écran « À revoir »
+disait qui avait dit quoi, jamais pourquoi — et la réponse était dans les
+votes : quelqu'un qui dit non à Marius et oui à des prénoms de 1,8 syllabe
+en moyenne ne refuse pas Marius, il refuse trois syllabes.
+
+Rien de nouveau n'est révélé : c'est la même matière que `À revoir` affichait
+déjà, lue autrement. Trois garde-fous, et ils comptent plus que la fonction :
+on n'explique que le **non** (pointer ce que l'autre aime serait un
+argumentaire contre lui) ; il faut **12 oui visibles** chez celui qui refuse ;
+il faut **1,2 écart-type** sur un axe où il est réellement constant. Sinon
+l'écran se tait — et dit une fois pourquoi, sans quoi la fonction a l'air
+cassée. Une explication calculée sur cinq prénoms serait crédible et fausse,
+le seul type d'erreur que personne ne remarque.
 
 ### Les observateurs
 

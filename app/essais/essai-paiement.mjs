@@ -42,10 +42,14 @@ const gidLibre = page.url().split('/')[4]
 
 // --- la feuille d'achat ---------------------------------------------------
 // On l'atteint par le mur du quota : c'est le chemin reel.
+// Le quota est de 3 : au 4e tour le mur remplace la pile pendant qu'on
+// compte, et le bouton dont `count()` vient de dire 1 n'existe deja plus.
+// On borne donc le clic au lieu d'attendre trente secondes un bouton parti.
 for (let i = 0; i < 4; i++) {
   const b = page.getByRole('button', { name: 'Oui' })
   if (!await b.count()) break
-  await b.first().click(); await page.waitForTimeout(700)
+  try { await b.first().click({ timeout: 4000 }) } catch { break }
+  await page.waitForTimeout(700)
 }
 const versOffre = page.getByRole('button', { name: /Voir ce que ça ouvre|Débloquer/ })
 dit(await versOffre.count() > 0, 'le mur du quota mène à l’offre')

@@ -39,6 +39,10 @@ const INCLUS = [
     texte: 'Les origines qui reviennent, la longueur que vous préférez, le degré de rareté — pour chacun de vous, et là où vous divergez.'
   },
   {
+    titre: 'Pourquoi vous n’êtes pas d’accord',
+    texte: 'Sur chaque désaccord, ce qui le cause vraiment : « ce n’est peut-être pas Marius, c’est la longueur ». Calculé sur vos votes, et tu par honnêteté quand il n’y a pas encore de quoi le dire.'
+  },
+  {
     titre: 'Les observateurs',
     texte: 'Inviter les grands-parents pour qu’ils voient et commentent, sans qu’ils bloquent vos accords ni posent de veto.'
   }
