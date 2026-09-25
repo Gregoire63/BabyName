@@ -103,6 +103,32 @@ let enCours: Promise<typeof cache> | null = null
 export const sansAccent = (s: string) =>
   s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
+/**
+ * Retrouve un pr\u00e9nom \u00e9crit dans une adresse : `?prenom=louise`,
+ * `jean-baptiste`, `Chlo\u00e9`\u2026
+ *
+ * Les fiches publiques (scripts/seo.mjs) \u00e9crivent leur slug avec des tirets,
+ * le catalogue colle tout. On cherche d'abord l'\u00e9criture exacte de la fiche,
+ * puis la forme coll\u00e9e : \u00ab jean-baptiste \u00bb doit donner Jean-Baptiste, pas un
+ * Jeanbaptiste plus rare. \u00c0 \u00e9criture \u00e9gale (Ma\u00ebl et Mael font \u00ab mael \u00bb), le
+ * plus donn\u00e9 gagne \u2014 c'est aussi lui que la fiche pr\u00e9sente.
+ */
+export function trouverPrenom(liste: Prenom[], brut: string): Prenom | null {
+  const s = sansAccent(String(brut ?? '').trim())
+  const colle = s.replace(/[^a-z]/g, '')
+  if (!colle) return null
+  const tirets = s.replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '')
+  let exact: Prenom | null = null
+  let proche: Prenom | null = null
+  for (const p of liste) {
+    if (p.slug !== colle) continue
+    if (!proche || p.n > proche.n) proche = p
+    const t = sansAccent(p.l).replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '')
+    if (t === tirets && (!exact || p.n > exact.n)) exact = p
+  }
+  return exact ?? proche
+}
+
 export async function chargerCatalogue() {
   if (cache) return cache
   if (enCours) return enCours

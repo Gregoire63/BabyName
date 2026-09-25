@@ -157,7 +157,7 @@ const c = CONSERVATION
     <p>babyNames ne dépose <strong>aucun cookie publicitaire ni de mesure d’audience</strong>. Ce qu’il garde sur votre appareil sert uniquement à faire marcher l’app, ce qui le dispense de votre consentement (art. 82 de la loi Informatique et Libertés) :</p>
     <ul>
       <li><strong>pr_session</strong> (cookie) : vous garde connecté(e) {{ c.sessionJours }} jours. Illisible par les scripts de la page, envoyé uniquement en HTTPS.</li>
-      <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour. Ces informations restent sur votre appareil et sont effacées à la déconnexion.</li>
+      <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour, et le prénom choisi depuis une fiche tant qu’il n’est pas jugé. Ces informations restent sur votre appareil et sont effacées à la déconnexion.</li>
       <li><strong>Cache hors ligne</strong> : les fichiers de l’application et le catalogue des prénoms, pour que l’app s’ouvre vite. Aucune donnée personnelle.</li>
     </ul>
     <p>La police de caractères est servie par babyNames lui-même : ouvrir l’app n’envoie rien à Google ni à aucun autre tiers.</p>

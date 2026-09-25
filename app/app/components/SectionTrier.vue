@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { filtrer, ordonner, type Prenom } from '~/composables/useCatalogue'
+import { filtrer, ordonner, trouverPrenom, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 
 const props = defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
+const route = useRoute()
 
 /**
  * Deux quotas, et ils ne disent pas la meme chose.
@@ -133,8 +134,116 @@ watch(suite, (liste) => {
   tete.value = garde
 }, { immediate: true })
 
-const carte = computed(() => tete.value[0] ?? null)
-const suivante = computed(() => tete.value[1] ?? null)
+/**
+ * UN PRÉNOM DEMANDÉ PAR L'ADRESSE PASSE DEVANT TOUT.
+ *
+ * Le bouton d'une fiche publique (scripts/seo.mjs) mène ici avec
+ * `?prenom=louise`, au besoin à travers la connexion et la création de la
+ * liste. La connexion a promis « votre liste commencera par Louise » : c'est
+ * donc la première carte, même si les filtres l'écartent — on est venu pour
+ * elle. Comme toute carte, elle emporte les autres graphies du même son encore
+ * à juger ; c'est simplement celle qu'on a demandée qui fait face.
+ *
+ * L'épingle se pose AU-DESSUS de la tête figée, sans la toucher : dès qu'elle
+ * est jugée (ou reçoit un veto), elle se lâche, et la carte qu'on voyait
+ * derrière est bien celle qui arrive.
+ */
+const epingle = ref<Prenom | null>(null)
+const couverts = computed(() => new Set(epingle.value
+  ? [epingle.value.l, ...(epingle.value.variantes ?? [])] : []))
+
+const carte = computed(() => epingle.value ?? tete.value[0] ?? null)
+const suivante = computed(() => epingle.value
+  ? tete.value.find(p => !couverts.value.has(p.l)) ?? null
+  : tete.value[1] ?? null)
+
+/**
+ * L'épingle survit à un rechargement et au mur du jour : quelqu'un qui arrive
+ * d'une fiche avec ses prénoms du jour déjà jugés retrouve Louise demain, en
+ * premier, comme promis. Elle se lâche au jugement, pas avant.
+ */
+const cleEpingle = `pr_epingle_${g.gid}`
+function retenirEpingle(nom: string | null) {
+  try {
+    if (nom) localStorage.setItem(cleEpingle, nom)
+    else localStorage.removeItem(cleEpingle)
+  } catch { /* navigation privee : l'epingle vit le temps de la page */ }
+}
+
+watch([() => g.dejaVotes.value, () => g.vetos.value], ([votes, vetos]) => {
+  const e = epingle.value
+  if (e && (votes.has(e.l) || vetos.has(e.l))) {
+    epingle.value = null
+    retenirEpingle(null)
+  }
+})
+
+/** Un message court, qui passe par-dessus sans rien bloquer. */
+const info = ref('')
+let minuteurInfo: any = null
+function dire(texte: string) {
+  info.value = texte
+  clearTimeout(minuteurInfo)
+  minuteurInfo = setTimeout(() => { info.value = '' }, 5000)
+}
+onUnmounted(() => clearTimeout(minuteurInfo))
+
+const DEJA_DIT = ['dit non à', 'voté neutre pour', 'dit oui à'] as const
+
+/**
+ * Déjà jugé, déjà en accord, sous veto : on ne le remet pas en jeu — on le
+ * dit. Un veto se dit sans son auteur, comme partout ailleurs dans l'app.
+ */
+function epingler(demande: string, depuisAdresse: boolean) {
+  const p = trouverPrenom(g.catalogue.value, demande)
+  const jugeOuVeto = !!p && (g.dejaVotes.value.has(p.l) || g.vetos.value.has(p.l))
+  if (!p || jugeOuVeto) retenirEpingle(null)
+  if (!p) return
+  if (jugeOuVeto) {
+    // Retrouvée après un rechargement, elle a pu être jugée entre-temps
+    // (« La liste », un autre appareil) : on la lâche sans rien dire.
+    if (!depuisAdresse) return
+    const moi = g.etat.value?.moi?.user_id
+    const v = g.votes.value.find((x: any) => x.user_id === moi && x.prenom === p.l)?.valeur
+    dire(g.communs.value.some((c: any) => c.prenom === p.l)
+      ? `${p.l} est déjà dans vos accords.`
+      : g.vetos.value.has(p.l)
+        ? `${p.l} a un veto dans cette liste.`
+        : v === 0 || v === 1 || v === 2
+          ? `Vous avez déjà ${DEJA_DIT[v]} ${p.l} dans cette liste.`
+          : `Vous avez déjà jugé ${p.l} dans cette liste.`)
+    return
+  }
+  const groupe = dispo.value.find(c => c.gp === p.gp)
+  const autres = groupe
+    ? [groupe.l, ...(groupe.variantes ?? [])].filter(l => l !== p.l)
+    : []
+  epingle.value = { ...p, variantes: autres }
+  retenirEpingle(p.l)
+}
+
+/**
+ * Lue une fois, quand la liste est prête : la demande de l'adresse d'abord,
+ * sinon celle qu'on avait retenue.
+ */
+let demandeLue = false
+watch(() => g.pret.value, (pret) => {
+  if (!pret || demandeLue) return
+  demandeLue = true
+  const d = route.query.prenom
+  if (typeof d === 'string' && d.trim()) {
+    epingler(d.slice(0, 60), true)
+    // L'adresse redevient celle de la liste : recharger ne rejoue pas le message.
+    const u = new URL(location.href)
+    u.searchParams.delete('prenom')
+    u.searchParams.delete('ref')
+    history.replaceState(history.state, '', u.pathname + u.search + u.hash)
+    return
+  }
+  let retenue: string | null = null
+  try { retenue = localStorage.getItem(cleEpingle) } catch { /* stockage bloque */ }
+  if (retenue) epingler(retenue, false)
+}, { immediate: true })
 
 /** La pile entiere : la tete figee, puis le reste dans l'ordre courant.
  *  Sert au decompte affiche et a « ecarter la famille ». */
@@ -358,6 +467,7 @@ watch(carte, (c, avant) => {
 async function voter(valeur: 0 | 1 | 2) {
   const p = carte.value
   if (!p || quotaAtteint.value || envol.value) return
+  const etaitEpingle = epingle.value === p
 
   // On laisse la carte partir AVANT de toucher a la pile : si on retire le
   // prenom tout de suite, le noeud est remplace et il n'y a plus rien a
@@ -389,6 +499,8 @@ async function voter(valeur: 0 | 1 | 2) {
         g.dejaVotes.value = s
         if (valeur === 2) g.aimes.value = g.aimes.value.filter(x => x.l !== p.l)
         faits.value = Math.max(0, faits.value - 1)
+        // Le prénom demandé n'a pas été jugé : il reprend sa place devant.
+        if (etaitEpingle) { epingle.value = p; retenirEpingle(p.l) }
       }
       return null
     })
@@ -461,7 +573,10 @@ function familleDe(p: Prenom): Prenom[] {
 function demanderFamille() {
   const p = carte.value; if (!p) return
   racineBalayage = racineDe(p)
-  familleAEcarter.value = familleDe(p)
+  const famille = familleDe(p)
+  // Un prénom épinglé hors des filtres n'est pas dans la pile : sans cet ajout,
+  // on écartait toute sa famille sauf lui, et il restait affiché.
+  familleAEcarter.value = famille.some(x => x.l === p.l) ? famille : [p, ...famille].slice(0, 25)
 }
 let racineBalayage = ''
 
@@ -628,6 +743,12 @@ async function confirmerFamille() {
           Départ terminé : {{ quotaServeur?.limite_jour }} prénoms par jour désormais,
           ou sans limite en débloquant la liste.
         </span>
+      </div>
+    </Transition>
+
+    <Transition name="fondu">
+      <div v-if="info" class="retour carte" role="status">
+        <span class="mini">{{ info }}</span>
       </div>
     </Transition>
 

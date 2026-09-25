@@ -72,6 +72,11 @@ await page.keyboard.press('Enter')
 const surContenu = await page.evaluate(() => document.activeElement?.id)
 dit(surContenu === 'contenu', 'Entrée sur le lien d’évitement : le focus passe au contenu principal')
 
+// Arrivée depuis une fiche publique et un lien d'invitation : deux encadrés de plus.
+await page.goto(`${BASE}/connexion?prenom=louise&code=dec0de01`, { waitUntil: 'networkidle' })
+await page.locator('.attend', { hasText: 'Louise' }).waitFor({ timeout: 20000 }).catch(() => null)
+await auditer('Connexion depuis une fiche et une invitation')
+
 for (const [chemin, nom] of [['/confidentialite', 'Confidentialité'], ['/conditions', 'Conditions'],
                              ['/mentions-legales', 'Mentions légales'], ['/accessibilite', 'Accessibilité']]) {
   await page.goto(`${BASE}${chemin}`, { waitUntil: 'networkidle' })

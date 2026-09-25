@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { chargerCatalogue, frequenceLisible, type Prenom, type Filtres }
+import { chargerCatalogue, frequenceLisible, trouverPrenom, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
 import { listeCourante } from '~/composables/useListeCourante'
 
@@ -44,25 +44,68 @@ async function charger() {
   } finally { chargement.value = false }
 }
 
+/**
+ * Un prénom demandé par l'adresse : `/?prenom=louise`, le bouton des fiches
+ * publiques (scripts/seo.mjs). Il sera la première carte de la liste où l'on
+ * entre — celle en cours, ou celle qu'on va créer (SectionTrier le lit).
+ */
+const premier = ref('')
+const premierNom = computed(() =>
+  premier.value ? trouverPrenom(catalogue.value, premier.value)?.l ?? '' : '')
+
 async function creer(filtres: Filtres) {
   const g = await $fetch<any>('/api/groupes', { method: 'POST', body: { filtres } })
-  await navigateTo(`/g/${g.id}/swipe`)
+  const query = premier.value ? { prenom: premier.value } : undefined
+  premier.value = ''
+  await navigateTo({ path: `/g/${g.id}/swipe`, query })
 }
 
+/**
+ * Les liens qui arrivent de dehors : invitation (`?code=`) et prénom
+ * (`?prenom=`).
+ *
+ * Tous deux traversent la connexion. C'est justement quelqu'un qui n'a pas
+ * encore de compte qui les suit : le code se perdait en route, et la personne
+ * invitée arrivait sur un accueil vide, sans la liste qu'on venait de lui
+ * partager.
+ *
+ * Les redirections REMPLACENT l'entrée d'historique : avec un simple ajout, le
+ * bouton retour ramenait sur `/?code=…`, qui renvoyait aussitôt dans la
+ * liste — on ne pouvait plus en sortir.
+ */
 onMounted(async () => {
-  if (!(await rafraichirMoi())) return navigateTo('/connexion')
-  // Lien d'invitation : on entre directement, sans faire retaper le code.
-  const c = String(useRoute().query.code ?? '').trim().toLowerCase()
-  if (/^[0-9a-f]{8}$/.test(c)) {
-    const g = await $fetch<any>('/api/groupes/rejoindre', { method: 'POST', body: { code: c } })
-      .catch(() => null)
-    if (g) return navigateTo(`/g/${g.id}/swipe`)
+  const q = useRoute().query
+  const brut = typeof q.code === 'string' ? q.code.trim().toLowerCase() : ''
+  const code = /^[0-9a-f]{8}$/.test(brut) ? brut : ''
+  const prenom = typeof q.prenom === 'string' ? q.prenom.trim().slice(0, 60) : ''
+  const avecPrenom = prenom ? { prenom } : {}
+
+  if (!(await rafraichirMoi())) {
+    return navigateTo({ path: '/connexion', query: { ...(code ? { code } : {}), ...avecPrenom } },
+      { replace: true })
   }
-  await demarrer()
+  // Lien d'invitation : on entre directement, sans faire retaper le code.
+  if (code) {
+    const g = await $fetch<any>('/api/groupes/rejoindre', { method: 'POST', body: { code } })
+      .catch(() => null)
+    if (g) return navigateTo({ path: `/g/${g.id}/swipe`, query: avecPrenom }, { replace: true })
+  }
+  if (prenom) {
+    // L'adresse redevient celle de l'accueil : recharger ne rejoue pas la demande.
+    history.replaceState(history.state, '', '/')
+    await charger()
+    if (principale.value) {
+      return navigateTo({ path: `/g/${principale.value.id}/swipe`, query: avecPrenom },
+        { replace: true })
+    }
+    // Pas encore de liste : on la crée, et le prénom l'attend dedans.
+    if (!panne.value) { premier.value = prenom; assistant.value = true }
+  }
+  await demarrer(!prenom)
 })
 
-async function demarrer() {
-  charger()
+async function demarrer(listes = true) {
+  if (listes) charger()
   const cat = await chargerCatalogue()
   catalogue.value = cat!.liste
   annee.value = cat!.annees[1]
@@ -356,7 +399,8 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
       <span>{{ principale.nom }}</span>
     </button>
 
-    <AssistantFiltres v-if="assistant" @fermer="assistant = false" @valider="creer" />
+    <AssistantFiltres v-if="assistant" :premier="premierNom"
+                      @fermer="assistant = false" @valider="creer" />
     <FeuilleRejoindre v-if="rejoindreOuvert" @fermer="rejoindreOuvert = false" />
     <FeuilleCompte v-if="compteOuvert" @fermer="compteOuvert = false" />
     <FichePrenom v-if="fiche" :p="fiche" @fermer="fiche = null" />

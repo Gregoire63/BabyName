@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { chargerCatalogue, trouverPrenom } from '~/composables/useCatalogue'
+
 const route = useRoute()
 const pseudo = ref('')
 const cle = ref('')
@@ -17,12 +19,27 @@ useHead({ title: 'Connexion' })
 const compteSupprime = computed(() => route.query.compte === 'supprime')
 
 const invitation = computed(() => {
-  const c = route.query.code
-  return typeof c === 'string' && c.trim().length === 8 ? c.trim() : ''
+  const c = typeof route.query.code === 'string' ? route.query.code.trim().toLowerCase() : ''
+  return /^[0-9a-f]{8}$/.test(c) ? c : ''
 })
 
+/**
+ * Le prénom venu d'une fiche publique (`?prenom=louise`). On le nomme ici,
+ * avec ses accents — c'est la promesse que le bouton de la fiche a faite, et
+ * elle se tient : il sera la première carte (voir SectionTrier).
+ */
+const prenomDemande = computed(() => {
+  const p = route.query.prenom
+  return typeof p === 'string' ? p.trim().slice(0, 60) : ''
+})
+const prenomVu = ref('')
+
+/** Invitation et prénom suivent jusqu'à l'accueil, qui en fait l'entrée. */
 function suite() {
-  return navigateTo(invitation.value ? `/?code=${invitation.value}` : '/')
+  const query: Record<string, string> = {}
+  if (invitation.value) query.code = invitation.value
+  if (prenomDemande.value) query.prenom = prenomDemande.value
+  return navigateTo({ path: '/', query }, { replace: true })
 }
 
 async function creer() {
@@ -60,7 +77,13 @@ async function copier() {
   setTimeout(() => copie.value = false, 1800)
 }
 
-onMounted(async () => { if (await rafraichirMoi()) await suite() })
+onMounted(async () => {
+  if (await rafraichirMoi()) return suite()
+  if (!prenomDemande.value) return
+  // Le catalogue servira de toute facon juste apres : autant le charger ici.
+  const cat = await chargerCatalogue().catch(() => null)
+  prenomVu.value = cat ? trouverPrenom(cat.liste, prenomDemande.value)?.l ?? '' : ''
+})
 </script>
 
 <template>
@@ -128,6 +151,12 @@ onMounted(async () => { if (await rafraichirMoi()) await suite() })
       </div>
 
       <div class="carte pile">
+        <p v-if="prenomVu" class="attend">
+          Votre liste commencera par <strong>{{ prenomVu }}</strong>.
+        </p>
+        <p v-if="invitation" class="attend">
+          Une liste vous a été partagée : vous y entrez juste après.
+        </p>
         <label class="pile" style="gap:6px">
           <span class="mini doux">Votre prénom, pour que l’autre vous reconnaisse</span>
           <input v-model="pseudo" class="champ" placeholder="Greg" autocomplete="nickname"
@@ -178,4 +207,6 @@ onMounted(async () => { if (await rafraichirMoi()) await suite() })
 .cle:active { transform: scale(.99); }
 .accueil:focus { outline: none; }
 .supprime { margin: 0; padding: 12px 16px; text-align: center; }
+.attend { margin: 0; padding: 10px 14px; border-radius: var(--r-s); font-size: .92rem;
+  background: color-mix(in srgb, var(--menthe) 45%, var(--carte)); color: var(--texte); }
 </style>

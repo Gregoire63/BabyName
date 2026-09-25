@@ -51,6 +51,7 @@ d'achat le dit.
 | `essai-accessibilite` | axe-core (WCAG 2.0/2.1 A et AA) sur chaque écran et chaque dialogue, clair et sombre ; lien d'évitement, focus piégé dans les dialogues, Échap, focus rendu, tri aux flèches, onglets au clavier, mouvement réduit, aucun tiers contacté |
 | `essai-desaccord` | « ce n'est peut-être pas Marius, c'est la longueur » — et le silence tant qu'il n'y a pas de quoi le dire |
 | `essai-observateur` | le non de Mamie ne retire pas Louise des accords, et elle ne peut pas poser de veto |
+| `essai-prenom` | le prénom d'une fiche publique (`?prenom=`) traverse la connexion et la création de liste, et arrive **en première carte, même hors des filtres** ; épinglé jusqu'au jugement ; déjà jugé, en accord ou sous veto, on le dit sans le rejouer ; **le code d'invitation traverse la connexion** ; le bouton retour ne boucle pas |
 | `essai-portrait` | le portrait parle sur 12 oui et **se tait** sur 5 |
 | `essai-classement` | les désaccords, et le changement d'avis qui fait passer un prénom en commun |
 | `essai-veto` `essai-carte` `essai-nav` `essai-fond` `essai-glisse` `essai-chargement` `essai-sw` | vetos, carte, navigation, transitions, squelettes, service worker |

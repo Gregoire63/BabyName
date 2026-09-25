@@ -3,6 +3,10 @@ import { chargerCatalogue, filtrer, filtresParDefaut, type Prenom, type Filtres 
   from '~/composables/useCatalogue'
 
 const emit = defineEmits<{ fermer: []; valider: [f: Filtres] }>()
+/** Le prénom demandé depuis une fiche (`?prenom=`) : il ouvrira la liste,
+ *  et les choix qui suivent ne l'écartent pas — on le dit avant qu'ils le
+ *  fassent craindre. */
+defineProps<{ premier?: string }>()
 
 const f = ref<Filtres>(filtresParDefaut())
 const catalogue = ref<Prenom[]>([])
@@ -77,6 +81,9 @@ const selection = computed(() => {
       <template v-if="etape === 0">
         <h1>Vous cherchez un prénom pour…</h1>
         <p class="doux">On peut tout changer plus tard, rien n’est figé.</p>
+        <p v-if="premier" class="premier">
+          <strong>{{ premier }}</strong> sera votre première carte, quels que soient vos choix.
+        </p>
         <div class="choix">
           <button class="carte opt" @click="sexe('f')"><strong>Une fille</strong></button>
           <button class="carte opt" @click="sexe('m')"><strong>Un garçon</strong></button>
@@ -173,6 +180,8 @@ const selection = computed(() => {
 .corps h1 { font-size: 1.55rem; }
 .corps > p { margin: 0 0 6px; font-size: .92rem; }
 .choix { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.corps > .premier { margin: 0 0 4px; padding: 10px 14px; border-radius: var(--r-s);
+  background: color-mix(in srgb, var(--menthe) 45%, var(--carte)); color: var(--texte); }
 .opt { display: flex; flex-direction: column; gap: 3px; text-align: left; cursor: pointer;
   padding: 16px 18px; }
 .opt:active { transform: scale(.985); }

@@ -499,6 +499,28 @@ qui dit **non à Louise** : `essai-observateur.mjs` vérifie que Louise reste un
 accord. Si elle disparaissait, le rôle ne servirait à rien et l'argument de
 vente serait un mensonge que personne ne remarquerait avant d'avoir payé.
 
+### Les liens entrants
+
+Deux paramètres d'adresse ouvrent l'app ailleurs que sur l'accueil :
+
+| Lien | Fabriqué par | Effet |
+|---|---|---|
+| `/?code=xxxxxxxx` | le partage d'une liste (réglages) | rejoint la liste et y entre |
+| `/?prenom=louise` | le bouton des fiches publiques (`scripts/seo.mjs`) | ce prénom devient la première carte de la liste où l'on entre (celle en cours, ou celle qu'on crée) |
+
+Les deux traversent la connexion (`/connexion?code=…&prenom=…`) : c'est
+justement quelqu'un qui n'a pas encore de compte qui les suit. Le slug se
+résout par `trouverPrenom()` (`useCatalogue.ts`) : l'écriture exacte de la
+fiche (`jean-baptiste`), sinon la forme collée, le plus donné à égalité.
+
+Le prénom passe devant **même hors des filtres** — la connexion l'a promis —
+et reste épinglé (stockage local, par liste) jusqu'à son jugement, rechargement
+et mur du jour compris. Déjà jugé, en accord ou sous veto : un message, pas de
+nouvelle carte. `ref=seo` n'est lu par rien : l'app ne mesure pas d'audience.
+
+Les redirections **remplacent** l'entrée d'historique : sinon le bouton retour
+ramène sur le lien, qui renvoie aussitôt dans la liste.
+
 ## Données personnelles (RGPD)
 
 Tout ce que la loi demande, fait dans l'app plutôt que promis dans un texte :
