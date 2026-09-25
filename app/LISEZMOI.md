@@ -48,13 +48,15 @@ jeu d'une famille.
 
 ## Les essais
 
-`essais/` contient dix-sept essais de bout en bout — vrai navigateur, vrai
-serveur, vraie base — soit 218 assertions. Ils ne testent pas des fonctions,
-ils testent des promesses : « le refus ne se dit jamais », « un observateur ne
-casse pas un accord », « aucun champ de carte bancaire dans l'app ».
+`essais/` contient vingt et un essais de bout en bout — vrai navigateur, vrai
+serveur, vraie base — soit environ 360 assertions. Ils ne testent pas des
+fonctions, ils testent des promesses : « le refus ne se dit jamais », « un
+observateur ne casse pas un accord », « aucun champ de carte bancaire dans
+l'app », « effacer son compte n'efface pas celui de l'autre », « chaque écran
+passe les critères WCAG AA ».
 
 ```bash
-npm i -D playwright && npx playwright install chromium
+npm i -D playwright axe-core && npx playwright install chromium
 sh essais/relance.sh essais/essai-paiement.mjs
 ```
 
@@ -198,7 +200,11 @@ la place du vendeur. Celui qui décrit l'app, vérifié dans l'API :
 `txcd_10701411`, « information services », qui exclut explicitement ce
 qu'on consulte à travers un logiciel en ligne.)
 
-À poser **soi-même** dans Vercel → babyname → Settings → Environment Variables :
+Variables d'environnement Vercel (babyname → Settings → Environment Variables).
+État relevé le 25 septembre 2026 : les quatre premières sont posées ;
+`CRON_SECRET` manque ; `NUXT_MIGRATION_SECRET` et `NUXT_MAGIC_LINK_DEBUG`
+traînent encore et sont à **supprimer** (la première rouvre une route de
+migration, la seconde ne sert plus à rien).
 
 | Variable | Valeur |
 |---|---|
@@ -206,6 +212,8 @@ qu'on consulte à travers un logiciel en ligne.)
 | `NUXT_STRIPE_PRICE_ID` | `price_1UJWn1GaKiRYW6iYRjRPV7xn` |
 | `NUXT_STRIPE_WEBHOOK_SECRET` | le `whsec_…` affiché à la création du webhook ci-dessous |
 | `NUXT_PUBLIC_SITE_URL` | `https://babyname-five.vercel.app` |
+| `CRON_SECRET` | une longue chaîne aléatoire (`openssl rand -hex 32`). **Sans préfixe** : c'est Vercel qui la lit et l'envoie au cron de purge RGPD. Sans elle, la purge n'existe pas (404). |
+| `NUXT_STRIPE_TAX_RATE_ID` | **seulement si assujetti à la TVA** — voir « TVA » plus bas. |
 
 **Toujours le domaine de production**, jamais une URL de déploiement
 (`babyname-xxxx-gregoire63s-projects.vercel.app`) : celles-là sont des photos
@@ -213,34 +221,96 @@ figées d'une version passée. Un webhook pointé dessus parle à un code qui n'
 peut-être même pas la route de paiement — chaque paiement serait encaissé et
 rien ne se débloquerait.
 
-Puis Developers → Webhooks → **Add destination** :
+Le webhook existe : `we_1UJWzGGaKiRYW6iY3GrUaM1e`, URL de production, version
+`2026-08-26.dahlia` (la même que celle épinglée dans `server/utils/stripe.ts`).
+Il écoute **quatre** événements :
 
-- URL : `https://babyname-five.vercel.app/api/paiement/webhook`
-- Version de l'API : `2026-08-26.dahlia`, la même que celle épinglée dans
-  `server/utils/stripe.ts` — le code attend les objets sous cette forme ;
-- Événements : `checkout.session.completed` **et**
-  `checkout.session.async_payment_succeeded` — le second est celui des
-  prélèvements (SEPA…), qui ne sont pas encaissés quand la page se ferme.
-  Sans lui, on encaisse sans débloquer.
+| Événement | Effet |
+|---|---|
+| `checkout.session.completed` | débloque (carte, Apple Pay…) |
+| `checkout.session.async_payment_succeeded` | débloque un paiement différé (prélèvement) — sans lui, on encaisse sans débloquer |
+| `charge.refunded` | **re-verrouille** si le remboursement est **total** ; un remboursement partiel ne touche à rien |
+| `charge.dispute.closed` | **re-verrouille** si le litige est **perdu** ; gagné, rien ne bouge |
 
-Et dans Settings → Public details / Customer emails :
+Le lien entre un paiement et sa liste est `groupes.paiement_ref` (le `pi_…`),
+noté au déblocage. Les votes ne bougent jamais : on retire le déblocage, pas
+les données.
 
-- **Libellé de relevé** : `BABYNAMES`. Un débit qu'on ne reconnaît pas sur
-  son relevé devient une contestation — 20 € de frais pour une vente de 6 €.
-- Email de support, et les URL des CGV et de la politique de confidentialité
-  (Stripe les affiche sur la page de paiement, et en a besoin pour activer le
-  compte en live).
-- **Reçus automatiques** pour les paiements réussis : gratuits, et suffisants
-  pour une vente de 6 € à un particulier. Pas besoin de Stripe Invoicing.
+**Ce que l'API ne permet pas de régler — à faire dans le Dashboard, une fois :**
+
+1. **Settings → Business → Public details**
+   - Nom public : `babyNames` ; **libellé de relevé** : `BABYNAMES`. Un débit
+     qu'on ne reconnaît pas devient une contestation — 20 € de frais pour
+     une vente de 6 €.
+   - E-mail **et adresse** de support : Stripe les exige sur chaque reçu.
+   - Site : `https://babyname-five.vercel.app` ; **politique de
+     confidentialité** : `…/confidentialite` ; **conditions** : `…/conditions`.
+2. **Settings → Business → Customer emails** : **Successful payments** et
+   **Refunds** activés, langue par défaut français. *Indispensable* : c'est
+   ce qui envoie la facture — et la facture est le « support durable » qui
+   rend valable la renonciation au droit de rétractation (voir plus bas).
+3. **Settings → Branding** : l'icône (le logo, 128 px minimum) et les
+   couleurs `#1a234e` / `#ecbbb6`. La page de paiement reçoit déjà les
+   couleurs par l'API (`branding_settings`) ; les reçus et factures, eux,
+   ne lisent que ce réglage.
+4. **Settings → Payment methods** : carte, Apple Pay, Google Pay et Link
+   suffisent pour 6 €. Klarna, Amazon Pay et les moyens locaux étrangers
+   peuvent être coupés (frais plus élevés, aucun gain pour un achat à 6 €) —
+   facultatif.
+5. **Sécurité** : double authentification sur le compte Stripe.
+
+### La facture, et pourquoi elle compte
+
+Chaque session demande une facture après paiement (`invoice_creation`,
+0,4 % du montant chez Stripe : 2,4 centimes par liste). Elle part par e-mail
+avec le reçu, et son pied porte :
+
+- l'identité du vendeur (nom, SIRET, adresse, depuis `shared/utils/editeur.ts`) ;
+- « TVA non applicable, art. 293 B du CGI » en franchise ;
+- la confirmation **datée** que l'acheteur a demandé l'accès immédiat et
+  renoncé à son droit de rétractation (art. L221-28 13°) ;
+- la version des conditions acceptées, et le médiateur de la consommation.
+
+Sans cette confirmation sur un support durable (art. L221-13), la
+renonciation ne vaut rien : l'acheteur garde quatorze jours pour se faire
+rembourser une liste déjà utilisée. Les reçus seuls ne la portent pas.
+
+L'accord lui-même est recueilli **avant** le paiement : une case jamais
+pré-cochée dans l'écran d'achat, que le serveur exige aussi (sans elle,
+`400 consentement_requis`, et Stripe n'est même pas appelé). Il est gravé dans
+les métadonnées de la session et du paiement (`conditions_version`,
+`consentement_le`, `execution_immediate`) : en cas de litige, la preuve est
+dans le Dashboard.
+
+### TVA
+
+`shared/utils/editeur.ts` → `tva: 'franchise'` par défaut (micro-entreprise
+sous le seuil, mention de l'art. 293 B). **À vérifier sur une facture Tiime.**
+Si l'entreprise est assujettie :
+
+1. `tva: 'assujetti'` et `numeroTva: 'FR…'` dans `editeur.ts` ;
+2. Stripe → Products → Tax rates → nouveau taux : « TVA », 20 %,
+   **inclusive**, France ;
+3. son id (`txr_…`) dans `NUXT_STRIPE_TAX_RATE_ID`.
+
+Le prix reste 6 € TTC ; la facture affiche alors 1 € de TVA incluse.
 
 ### Tester sans sandbox
 
 Le compte n'a que le mode live. Le trajet se vérifie quand même sans rien
-payer : un coupon à 100 % et son code promo (Products → Coupons), puis un
-passage par la caisse avec ce code — session réelle, webhook réel,
-`no_payment_required`, liste débloquée et marquée offerte. Ensuite **un** vrai
-paiement de 6 € avec sa propre carte, remboursé depuis le Dashboard (les frais
-Stripe, eux, ne reviennent pas : environ 0,34 €).
+payer — tout est prêt dans Stripe :
+
+- coupon `liste-offerte` : 100 %, limité au produit babyNames ;
+- code promo **`ESSAI-3HACXZ`** : deux utilisations, valable jusqu'au
+  25 octobre 2026.
+
+Passer par la caisse avec ce code : session réelle, webhook réel,
+`no_payment_required`, liste débloquée et marquée offerte, facture à 0 € par
+e-mail (qui doit montrer le pied de page légal). Ensuite, si l'on veut voir
+une vraie carte passer : **un** paiement de 6 €, puis un remboursement
+**total** depuis le Dashboard — la liste doit alors se **re-verrouiller**
+(c'est le webhook `charge.refunded`). Les frais Stripe, eux, ne reviennent
+pas : environ 0,34 €.
 
 `essai-caisse.mjs` fait le même trajet hors ligne, contre un faux Stripe.
 
@@ -252,8 +322,11 @@ Pour 3,5 % de plus, et en collectant la TVA sur chaque vente.
 
 | Par liste à 6 € (carte UE) | Checkout direct | Managed Payments |
 |---|---|---|
-| Franchise en base de TVA (art. 293 B) | **≈ 5,66 €** nets | ≈ 4,45 € (1 € de TVA collectée par Stripe) |
-| Assujetti à la TVA | ≈ 4,66 € + tes déclarations | **≈ 4,45 €**, zéro déclaration |
+| Franchise en base de TVA (art. 293 B) | **≈ 5,64 €** nets | ≈ 4,45 € (1 € de TVA collectée par Stripe) |
+| Assujetti à la TVA | ≈ 4,64 € + tes déclarations | **≈ 4,45 €**, zéro déclaration |
+
+(Checkout direct : 1,5 % + 0,25 € par carte européenne, plus 0,4 % pour la
+facture — voir « La facture ».)
 
 Tant que la micro-entreprise est en franchise, Checkout direct garde un euro
 de plus par vente. Le jour où elle en sort, ou où les ventes à des
@@ -264,8 +337,18 @@ Payments devient le bon choix. Le basculer :
 2. donner au produit un code fiscal éligible (le Dashboard les étiquette) ;
 3. `NUXT_STRIPE_MANAGED_PAYMENTS=1` dans Vercel.
 
-Le code n'envoie déjà aucun des paramètres que Managed Payments refuse ;
+En Managed Payments, le code n'envoie ni facture, ni texte personnalisé, ni
+habillage (Stripe les refuse, et émet lui-même reçus et factures en son nom) ;
 `essai-caisse.mjs` passe dans les deux positions.
+
+**Attention, constaté le 25/09/2026 contre l'API live** : le compte a Managed
+Payments **activé par défaut** (Dashboard → Settings → Managed Payments). Une
+session qui ne précise rien part donc en Managed Payments — et Stripe refuse
+alors la facture et le texte personnalisé : plus aucune vente possible. Le code
+envoie désormais `managed_payments[enabled]` **explicitement**, `false` sans la
+variable, `true` avec : le réglage du Dashboard ne décide plus à notre place.
+Autant le remettre sur « désactivé » par défaut dans le Dashboard pour que le
+comportement affiché corresponde au comportement réel.
 
 ### Ce qui débloque, et ce qui ne débloque pas
 
@@ -274,8 +357,9 @@ Tout — le quota, le nom de famille, la projection, le portrait, les
 observateurs, le désaccord expliqué — lit ce seul champ, pour tout le monde
 sur la liste.
 
-Il n'est posé que par `livrer()` (`server/utils/stripe.ts`), et `livrer()`
-n'a que deux appelants :
+Il n'est posé que par `livrer()` (`server/utils/stripe.ts`) et n'est retiré
+que par `reprendrePaiement()` — webhook signé, remboursement total ou litige
+perdu. `livrer()` n'a que deux appelants :
 
 - **le webhook**, après vérification de la signature (HMAC-SHA256 du corps
   brut, moins de cinq minutes, temps constant, n'importe laquelle des
@@ -291,9 +375,11 @@ n'a que deux appelants :
 0 € que Stripe termine avec `no_payment_required`. Tout ce qui n'est pas
 `unpaid` se livre ; les listes à 0 € sont marquées `offert`.
 
-`essai-caisse.mjs` fait tout ce trajet contre un faux Stripe : 22 assertions,
+`essai-caisse.mjs` fait tout ce trajet contre un faux Stripe : 45 assertions,
 dont les trois défauts qu'il a trouvés en naissant (code à 100 % ignoré,
-prélèvement jamais débloqué, rotation du secret qui rejetait tout).
+prélèvement jamais débloqué, rotation du secret qui rejetait tout), l'accord
+exigé avant paiement, la facture, et les re-verrouillages (remboursement
+total, litige perdu — mais pas un remboursement partiel ni un litige gagné).
 
 ### Offrir une liste
 
@@ -322,10 +408,20 @@ Le nouveau schéma est purement additif, et l'**ancien** code tourne dessus
 identiques, rejouable). Donc on migre **avant** de pousser, jamais après :
 
 1. Console Neon → SQL Editor → coller tout `server/assets/schema.sql` → Run.
+   Il contient désormais le bloc RGPD (clés étrangères sans cascade,
+   `paiement_ref`, e-mails vestiges effacés) ; l'ancien code tourne dessus.
 2. Offrir les listes qui ne doivent pas prendre le mur (ci-dessus). Sans ça,
    toute liste existante passe en gratuit au déploiement : 40 gestes par jour.
-3. Pousser. Vercel construit depuis `app/`.
-4. Retirer `NUXT_MIGRATION_SECRET` de Vercel s'il y est encore.
+3. Remplir `shared/utils/editeur.ts` (SIRET, adresse, téléphone, médiateur).
+   **Tant que SIRET, adresse ou téléphone manquent, le paiement reste fermé
+   en production** (`503 vente_fermee`, « le paiement ouvre très bientôt » à
+   l'écran) — l'app gratuite, elle, marche. Le médiateur ne ferme pas la
+   caisse (une adhésion prend quelques jours, et il faut pouvoir tester avec
+   le code promo), mais il est obligatoire avant la première vente réelle.
+   `GET /api/sante` → `legal.bloquants` et `legal.manquants`.
+4. Poser `CRON_SECRET` dans Vercel.
+5. Pousser. Vercel construit depuis `app/`.
+6. Retirer `NUXT_MIGRATION_SECRET` et `NUXT_MAGIC_LINK_DEBUG` de Vercel.
 
 Dans l'autre ordre, le nouveau code arrive sur l'ancienne base et chaque page
 tombe en erreur jusqu'à la migration.
@@ -364,6 +460,87 @@ qui dit **non à Louise** : `essai-observateur.mjs` vérifie que Louise reste un
 accord. Si elle disparaissait, le rôle ne servirait à rien et l'argument de
 vente serait un mensonge que personne ne remarquerait avant d'avoir payé.
 
+## Données personnelles (RGPD)
+
+Tout ce que la loi demande, fait dans l'app plutôt que promis dans un texte :
+
+| Droit / obligation | Où |
+|---|---|
+| Information (art. 13) | `/confidentialite`, et deux lignes au moment de créer le compte |
+| Accès, portabilité (art. 15, 20) | *Mon compte → Télécharger mes données* : `GET /api/moi/donnees`, un JSON lisible — tout ce qui concerne la personne, rien des autres |
+| Rectification (art. 16) | *Mon compte → Nom affiché* ; le reste se modifie dans l'app |
+| Effacement (art. 17) | *Mon compte → Supprimer mon compte* : `POST /api/moi/supprimer` (mot `SUPPRIMER` exigé), immédiat |
+| Conservation limitée (art. 5.1.e) | purge chaque nuit : `GET /api/admin/purger`, cron Vercel (`vercel.json`), protégée par `CRON_SECRET` |
+| Minimisation | pas d'e-mail ; les e-mails du temps du lien magique sont effacés ; police servie par l'app (plus d'IP envoyée à Google) |
+| Registre (art. 30) | `docs/registre-des-traitements.md` |
+| Traceurs (art. 82 loi I&L) | un cookie de session et du stockage local strictement nécessaires : **pas de bandeau**, et il ne doit jamais en falloir un. Ajouter une mesure d'audience ou un pixel changerait ça — et le registre. |
+
+**Effacer un compte ne doit pas effacer celui des autres.** Avant le bloc RGPD
+du schéma, `groupes.cree_par` était en cascade : effacer le créateur d'une
+liste effaçait la liste — donc les votes de l'autre parent — et effacer
+l'acheteur échouait (`paye_par` sans règle). Les deux passent à `NULL`. Une
+liste où il ne reste personne part, payée ou non ; une liste partagée reste,
+débloquée, à ceux qui y sont.
+
+**Les durées** vivent dans `shared/utils/editeur.ts` (`CONSERVATION`) : 24 mois
+sans ouvrir l'app, 62 jours pour les compteurs, 120 jours de cookie. La purge
+et la page `/confidentialite` lisent la même constante. L'activité se note au
+plus une fois par jour et par personne (`NOTER_ACTIVITE`, dans la garde des
+routes) : c'est elle qui fait courir les 24 mois.
+
+**Une session sur un autre appareil** survit dans le navigateur, pas dans la
+base : la garde vérifie que le compte existe encore et répond `401` (cookie
+retiré) au lieu de laisser une clé étrangère lever une `500`.
+
+`essai-rgpd.mjs` exerce tout ça comme un utilisateur (37 assertions), avec
+« Fantome », un compte semé inactif depuis 25 mois.
+
+## Mentions légales et vente à des particuliers
+
+`shared/utils/editeur.ts` est la **seule** source de l'identité du vendeur :
+mentions légales, conditions, confidentialité, pied de facture Stripe et
+`/api/sante` la lisent. Chaque champ obligatoire vide s'affiche en rouge
+« à compléter » sur les pages publiques. À remplir avant de vendre :
+
+- **SIRET, adresse professionnelle, téléphone** (LCEN, art. 6 III : le
+  téléphone est exigé pour une personne physique) ;
+- **médiateur de la consommation** — obligatoire pour vendre à des
+  particuliers, même 6 € (art. L612-1 ; amende jusqu'à 3 000 € pour une
+  personne physique). Adhérer à un médiateur agréé (liste sur
+  economie.gouv.fr/mediation-conso), puis `mediateur: { nom, adresse, site }` ;
+- **régime de TVA** (voir « TVA »).
+
+La plateforme européenne de règlement en ligne des litiges (RLL/ODR) a fermé
+le 20 juillet 2025 : son lien n'a plus à figurer nulle part.
+
+Pages publiques, lisibles sans compte : `/mentions-legales`, `/confidentialite`,
+`/conditions` (utilisation **et** vente), `/accessibilite`. Changer le texte des
+conditions, c'est changer `VERSIONS_TEXTES.conditions` : la version acceptée
+est gravée dans chaque paiement.
+
+## Accessibilité
+
+Visée : RGAA 4.1.2 (WCAG 2.1 AA). Déclaration volontaire publiée sur
+`/accessibilite` — une microentreprise n'y est pas obligée, mais elle dit ce
+qui marche et à qui écrire.
+
+- Contrastes AA partout, thème sombre compris (`--doux`, `--oui`, `--non`,
+  `--neutre` redescendus d'un cran).
+- Clavier : focus visible, lien d'évitement, **tri aux flèches** (← non,
+  → oui, ↓ neutre), volets du classement en vrais onglets (flèches, Début,
+  Fin).
+- Dialogues (`useDialogue`) : focus dedans, fond `inert`, Tab qui boucle,
+  Échap qui ferme, focus rendu à la fermeture — feuilles, fiche, fête d'un
+  accord, confirmation « écarter la famille ».
+- Lecteurs d'écran : titre par écran annoncé (`NuxtRouteAnnouncer`), prénom
+  suivant annoncé dans le tri, courbes décrites, états des filtres dits.
+- Mouvement réduit : tout s'arrête. L'app n'est plus bloquée en portrait.
+
+`essai-accessibilite.mjs` passe axe-core (WCAG 2.0/2.1 A et AA) sur chaque
+écran et chaque dialogue, en clair et en sombre, et vérifie au clavier ce
+qu'aucun outil ne voit. Il lui faut axe-core : `npm i -D axe-core` (ou
+`ESSAI_AXE=/chemin/axe.min.js`).
+
 ## Schéma
 
 `server/assets/schema.sql` fait foi, et il est idempotent
@@ -377,8 +554,15 @@ passée, sinon la route reste ouverte.
 `GET /api/sante` dit ce qui est branché sans révéler aucune valeur :
 
 ```json
-{ "presence": { "base": false, "secret_session": false },
-  "base": { "joignable": true, "moteur": "embarque", "tables": 14 } }
+{ "presence": { "base": false, "secret_session": false, "paiement": true,
+                "paiement_webhook": true, "purge_quotidienne": true },
+  "legal": { "complet": false, "manquants": ["siret", "mediateur"],
+             "bloquants": ["siret"], "vente_ouverte": false },
+  "base": { "joignable": true, "moteur": "embarque", "tables": 15,
+            "migrations": { "rgpd.effacement_sans_cascade": true, "groupes.paiement_ref": true } } }
 ```
+
+`legal.vente_ouverte: false` en production = le paiement est fermé tant que
+`bloquants` n'est pas vide.
 
 `"moteur": "embarque"` en local, `"postgres"` sur Vercel.

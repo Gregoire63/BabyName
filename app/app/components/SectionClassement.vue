@@ -31,6 +31,26 @@ watch(() => props.segment, s => { vus.value = new Set([...vus.value, s]) })
 
 const ici = (id: string) => props.actif && props.segment === id
 
+/**
+ * Les volets sont de vrais onglets (motif ARIA « tabs ») : un seul arret de
+ * tabulation pour la rangee, les fleches pour passer de l'un a l'autre,
+ * Debut et Fin pour les extremites. Le volet suit la selection.
+ */
+const rangee = ref<HTMLElement>()
+function auClavierOnglets(e: KeyboardEvent) {
+  const i = VOLETS.findIndex(v => v.id === props.segment)
+  let j = -1
+  if (e.key === 'ArrowRight') j = (i + 1) % VOLETS.length
+  else if (e.key === 'ArrowLeft') j = (i - 1 + VOLETS.length) % VOLETS.length
+  else if (e.key === 'Home') j = 0
+  else if (e.key === 'End') j = VOLETS.length - 1
+  if (j < 0) return
+  e.preventDefault()
+  e.stopPropagation()
+  emit('segment', VOLETS[j]!.id)
+  nextTick(() => rangee.value?.querySelector<HTMLElement>(`#onglet-${VOLETS[j]!.id}`)?.focus())
+}
+
 const resume = computed(() => {
   const n = g.communs.value.length
   const d = aRevoir.value.length
@@ -47,9 +67,11 @@ const resume = computed(() => {
   <div class="pile">
     <TeteListe onglet="Classement" :info="resume" />
 
-    <div class="segment" role="tablist">
-      <button v-for="v in VOLETS" :key="v.id" role="tab"
-              :aria-selected="segment === v.id" :class="{ on: segment === v.id }"
+    <div ref="rangee" class="segment" role="tablist" aria-label="Volets du classement"
+         @keydown="auClavierOnglets">
+      <button v-for="v in VOLETS" :id="`onglet-${v.id}`" :key="v.id" type="button" role="tab"
+              :aria-selected="segment === v.id" :aria-controls="`volet-${v.id}`"
+              :tabindex="segment === v.id ? 0 : -1" :class="{ on: segment === v.id }"
               @click="emit('segment', v.id)">
         {{ v.t }}
         <i v-if="v.id === 'communs' && g.communs.value.length" class="nb">
@@ -59,14 +81,22 @@ const resume = computed(() => {
       </button>
     </div>
 
-    <PanneauCommuns v-if="vus.has('communs')" v-show="segment === 'communs'"
-                    :actif="ici('communs')" />
-    <PanneauRevoir v-if="vus.has('revoir')" v-show="segment === 'revoir'"
-                   :actif="ici('revoir')" />
-    <PanneauMesChoix v-if="vus.has('choix')" v-show="segment === 'choix'"
-                     :actif="ici('choix')" />
-    <PanneauPortrait v-if="vus.has('portrait')" v-show="segment === 'portrait'"
-                     :actif="ici('portrait')" />
+    <div id="volet-communs" v-show="segment === 'communs'" role="tabpanel"
+         aria-labelledby="onglet-communs">
+      <PanneauCommuns v-if="vus.has('communs')" :actif="ici('communs')" />
+    </div>
+    <div id="volet-revoir" v-show="segment === 'revoir'" role="tabpanel"
+         aria-labelledby="onglet-revoir">
+      <PanneauRevoir v-if="vus.has('revoir')" :actif="ici('revoir')" />
+    </div>
+    <div id="volet-choix" v-show="segment === 'choix'" role="tabpanel"
+         aria-labelledby="onglet-choix">
+      <PanneauMesChoix v-if="vus.has('choix')" :actif="ici('choix')" />
+    </div>
+    <div id="volet-portrait" v-show="segment === 'portrait'" role="tabpanel"
+         aria-labelledby="onglet-portrait">
+      <PanneauPortrait v-if="vus.has('portrait')" :actif="ici('portrait')" />
+    </div>
   </div>
 </template>
 

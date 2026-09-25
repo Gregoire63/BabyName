@@ -1,0 +1,186 @@
+<script setup lang="ts">
+/**
+ * Politique de confidentialite — RGPD art. 12 a 14, loi Informatique et
+ * Libertes, art. 82 pour les traceurs.
+ *
+ * Les durees viennent de CONSERVATION et les prestataires de DESTINATAIRES
+ * (shared/utils/editeur.ts) : ce sont les memes constantes que la purge
+ * nocturne applique. Une duree promise ici et oubliee la-bas n'est pas
+ * possible.
+ */
+const e = EDITEUR
+const c = CONSERVATION
+</script>
+
+<template>
+  <PageLegale titre="Confidentialité" :version="VERSIONS_TEXTES.confidentialite">
+    <div class="encadre">
+      <p><strong>L’essentiel.</strong></p>
+      <ul>
+        <li>On vous demande un prénom ou un pseudo. Pas d’e-mail, pas de mot de passe, pas de numéro.</li>
+        <li>Aucune publicité, aucune mesure d’audience, aucun cookie tiers. Rien n’est vendu ni loué.</li>
+        <li>Votre compte s’efface quand vous le décidez, en un geste depuis l’app — et tout seul après {{ c.inactiviteMois }} mois sans l’ouvrir.</li>
+        <li>Vous pouvez télécharger toutes vos données à tout moment : <em>Mon compte → Télécharger mes données</em>.</li>
+      </ul>
+    </div>
+
+    <h2>Qui est responsable</h2>
+    <p>
+      Le responsable du traitement est {{ e.nom }}, {{ e.forme.toLowerCase() }}, éditeur de
+      babyNames (coordonnées complètes dans les <NuxtLink to="/mentions-legales">mentions légales</NuxtLink>).
+      Pour toute question sur vos données : <a :href="`mailto:${e.email}`">{{ e.email }}</a>.
+    </p>
+
+    <h2>Ce que nous traitons, pourquoi, et sur quelle base</h2>
+
+    <h3>Votre compte</h3>
+    <dl>
+      <dt>Données</dt>
+      <dd>Le nom affiché que vous choisissez ; l’empreinte de votre clé d’accès (la clé elle-même n’est jamais enregistrée) ; les dates de création et de dernière ouverture de l’app.</dd>
+      <dt>Pourquoi</dt>
+      <dd>Vous reconnaître, et vous permettre de retrouver votre compte sur un autre appareil.</dd>
+      <dt>Base légale</dt>
+      <dd>L’exécution du contrat que sont les <NuxtLink to="/conditions">conditions d’utilisation</NuxtLink> (art. 6.1.b du RGPD).</dd>
+    </dl>
+
+    <h3>Vos listes</h3>
+    <dl>
+      <dt>Données</dt>
+      <dd>Le nom des listes et, si vous le saisissez, le nom de famille de l’enfant ; vos filtres de recherche ; vos votes (oui, neutre, non), vetos et leur motif, favoris, classements, duels et commentaires ; les membres et observateurs de chaque liste.</dd>
+      <dt>Pourquoi</dt>
+      <dd>C’est le service lui-même : trier des prénoms à plusieurs et trouver ceux sur lesquels vous êtes d’accord.</dd>
+      <dt>Base légale</dt>
+      <dd>L’exécution du contrat (art. 6.1.b).</dd>
+    </dl>
+
+    <h3>Les compteurs de la version gratuite</h3>
+    <dl>
+      <dt>Données</dt>
+      <dd>Le nombre de prénoms jugés par jour, sur chaque liste gratuite.</dd>
+      <dt>Pourquoi</dt>
+      <dd>Appliquer la limite quotidienne et mensuelle de la version gratuite.</dd>
+      <dt>Base légale</dt>
+      <dd>L’exécution du contrat (art. 6.1.b).</dd>
+    </dl>
+
+    <h3>Le déblocage d’une liste (achat)</h3>
+    <dl>
+      <dt>Données</dt>
+      <dd>
+        Chez babyNames : la date du déblocage, le compte qui l’a payé, la référence du paiement chez
+        Stripe, la version des conditions acceptées et l’heure de votre accord.
+        Chez Stripe, qui encaisse : votre e-mail, votre moyen de paiement, votre pays et des informations
+        techniques utiles à la lutte contre la fraude. <strong>babyNames ne voit jamais votre carte.</strong>
+      </dd>
+      <dt>Pourquoi</dt>
+      <dd>Vendre, facturer, prouver votre accord à l’exécution immédiate, traiter un remboursement ou une contestation.</dd>
+      <dt>Base légale</dt>
+      <dd>L’exécution du contrat (art. 6.1.b) et nos obligations comptables et fiscales (art. 6.1.c). Stripe traite aussi ces données pour son propre compte, notamment contre la fraude.</dd>
+    </dl>
+
+    <h3>Les journaux techniques</h3>
+    <dl>
+      <dt>Données</dt>
+      <dd>Adresse IP, date, adresse de la page demandée et type de navigateur, enregistrés par notre hébergeur à chaque requête.</dd>
+      <dt>Pourquoi</dt>
+      <dd>Faire fonctionner et sécuriser le service, diagnostiquer une panne.</dd>
+      <dt>Base légale</dt>
+      <dd>Notre intérêt légitime à assurer la sécurité du service (art. 6.1.f).</dd>
+    </dl>
+
+    <p>
+      Nous ne faisons <strong>aucun profilage publicitaire</strong> et aucune décision automatisée ne produit
+      d’effet sur vous au sens de l’article 22 du RGPD. Le « portrait » de vos goûts n’est qu’un calcul sur vos
+      propres votes, affiché à vous et aux membres de la liste.
+    </p>
+
+    <h2>Qui voit quoi</h2>
+    <ul>
+      <li>
+        <strong>Les membres d’une liste</strong> voient votre nom affiché, vos commentaires, le nombre de prénoms
+        que vous avez jugés et les accords auxquels vous avez pris part. Votre vote sur un prénom ne leur est
+        montré qu’une fois qu’ils ont voté sur ce même prénom : c’est le vote à l’aveugle. Personne ne voit qui
+        a posé un veto.
+      </li>
+      <li><strong>L’éditeur</strong> a un accès technique à la base, pour la maintenance et l’assistance. Il ne le consulte pas en dehors de ces besoins.</li>
+      <li><strong>Nos prestataires</strong>, uniquement pour ce qu’ils font pour nous :</li>
+    </ul>
+    <ul class="prestataires">
+      <li v-for="d in DESTINATAIRES" :key="d.nom">
+        <strong>{{ d.nom }}</strong> — {{ d.role }}. {{ d.pays }}. Garanties : {{ d.garantie }}.
+        <a :href="d.lien" rel="noopener">Sa politique</a>.
+      </li>
+    </ul>
+
+    <h2>Transferts hors de l’Union européenne</h2>
+    <p>
+      Vercel et Neon sont des sociétés américaines : vos données peuvent être traitées aux États-Unis
+      <template v-if="e.regionDonnees">(la base elle-même est hébergée à {{ e.regionDonnees }})</template>.
+      Ces transferts reposent sur la décision d’adéquation de la Commission européenne pour les entreprises
+      certifiées Data Privacy Framework, et sur les clauses contractuelles types de la Commission.
+      Stripe Payments Europe est établie en Irlande ; certaines données peuvent être traitées par Stripe, Inc.
+      aux États-Unis, sous les mêmes garanties.
+    </p>
+
+    <h2>Combien de temps</h2>
+    <ul>
+      <li><strong>Compte et listes</strong> : tant que vous vous en servez. Effacés immédiatement si vous supprimez votre compte ; effacés automatiquement après <strong>{{ c.inactiviteMois }} mois</strong> sans ouvrir l’app.</li>
+      <li><strong>Une liste</strong> dont il ne reste plus aucun membre est effacée, qu’elle ait été débloquée ou non.</li>
+      <li><strong>Compteurs de la version gratuite</strong> : {{ c.quotaJours }} jours.</li>
+      <li><strong>Cookie de connexion</strong> : {{ c.sessionJours }} jours, renouvelés à chaque connexion.</li>
+      <li><strong>Pièces liées à un paiement</strong> (facture, paiement) : {{ c.comptabiliteAns }} ans, durée imposée par le Code de commerce (art. L123-22). Elles sont conservées par Stripe et dans notre comptabilité, pas dans l’app.</li>
+      <li><strong>Journaux techniques</strong> : quelques jours au plus, chez l’hébergeur.</li>
+      <li><strong>Sauvegardes</strong> : la base garde un historique de restauration de quelques jours ; une donnée effacée en disparaît à l’issue de ce délai.</li>
+    </ul>
+
+    <h2>Vos droits</h2>
+    <p>Vous disposez des droits suivants sur vos données :</p>
+    <ul>
+      <li><strong>Accès et portabilité</strong> : <em>Mon compte → Télécharger mes données</em> vous donne tout, dans un fichier lisible et réutilisable (JSON).</li>
+      <li><strong>Rectification</strong> : votre nom affiché se change dans <em>Mon compte</em> ; le reste (votes, commentaires, listes) se modifie dans l’app.</li>
+      <li><strong>Effacement</strong> : <em>Mon compte → Supprimer mon compte</em>, immédiat et définitif. Les listes que vous partagez restent à leurs autres membres ; celles où vous étiez seul(e) sont effacées.</li>
+      <li><strong>Limitation et opposition</strong> : pour les traitements fondés sur notre intérêt légitime (les journaux techniques), vous pouvez vous y opposer pour des raisons tenant à votre situation.</li>
+      <li><strong>Directives après votre décès</strong> : vous pouvez nous indiquer ce que vous souhaitez voir faire de vos données (art. 85 de la loi Informatique et Libertés).</li>
+    </ul>
+    <p>
+      Pour toute demande qui ne se fait pas depuis l’app, écrivez à
+      <a :href="`mailto:${e.email}`">{{ e.email }}</a>. Nous répondons dans un délai d’un mois. Comme aucun
+      e-mail n’est lié à votre compte, nous vous demanderons de quoi vérifier qu’il est bien le vôtre —
+      jamais votre clé d’accès.
+    </p>
+    <p>
+      Si vous estimez que vos droits ne sont pas respectés, vous pouvez saisir la CNIL
+      ({{ CNIL.adresse }} — <a :href="CNIL.plainte" rel="noopener">cnil.fr/plaintes</a>).
+    </p>
+
+    <h2>Cookies et stockage sur votre appareil</h2>
+    <p>babyNames ne dépose <strong>aucun cookie publicitaire ni de mesure d’audience</strong>. Ce qu’il garde sur votre appareil sert uniquement à faire marcher l’app, ce qui le dispense de votre consentement (art. 82 de la loi Informatique et Libertés) :</p>
+    <ul>
+      <li><strong>pr_session</strong> (cookie) : vous garde connecté(e) {{ c.sessionJours }} jours. Illisible par les scripts de la page, envoyé uniquement en HTTPS.</li>
+      <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour. Ces informations restent sur votre appareil et sont effacées à la déconnexion.</li>
+      <li><strong>Cache hors ligne</strong> : les fichiers de l’application et le catalogue des prénoms, pour que l’app s’ouvre vite. Aucune donnée personnelle.</li>
+    </ul>
+    <p>La police de caractères est servie par babyNames lui-même : ouvrir l’app n’envoie rien à Google ni à aucun autre tiers.</p>
+
+    <h2>Sécurité</h2>
+    <p>
+      Connexions chiffrées (HTTPS) ; clé d’accès conservée sous forme d’empreinte, jamais en clair ; cookie
+      inaccessible aux scripts ; secrets et base de données accessibles au seul serveur ; paiement confié à
+      Stripe, certifié PCI-DSS. En cas de violation de données présentant un risque pour vous, la CNIL et,
+      si nécessaire, les personnes concernées seront prévenues dans les délais prévus par le RGPD.
+    </p>
+
+    <h2>Mineurs</h2>
+    <p>babyNames s’adresse aux personnes majeures qui choisissent un prénom pour leur enfant.</p>
+
+    <h2>Modifications</h2>
+    <p>
+      Cette politique peut évoluer ; la date en tête de page indique sa version. En cas de changement important
+      (nouvel usage, nouveau prestataire), nous vous prévenons dans l’app avant qu’il ne s’applique.
+    </p>
+  </PageLegale>
+</template>
+
+<style scoped>
+.prestataires { margin-top: -4px; }
+</style>

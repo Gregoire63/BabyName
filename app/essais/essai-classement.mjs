@@ -35,6 +35,9 @@ async function entrer(cle) {
 // ---------- 1. l'accueil n'explique plus le millesime ----------------------
 const { ctx: c1, page } = await entrer('DEVG-REGX-2345')
 dit(await page.locator('.note').count() === 0, 'le laïus sur le millésime INSEE a disparu')
+// Les statistiques arrivent avec le catalogue, apres la liste des listes :
+// on attend la section plutot que de lire l'ecran a mi-chargement.
+await page.waitForSelector('.section:has-text("naissances")', { timeout: 15000 }).catch(() => null)
 const sections = (await page.locator('.section').allInnerTexts()).map(t => t.trim())
 dit(sections.some(t => /naissances/i.test(t)),
     `le titre de la section reste (${sections.join(' | ')})`)

@@ -43,9 +43,10 @@ async function entrer() {
       les paramètres de sa liste.
     </p>
     <input ref="champ" :value="code" class="champ code" placeholder="8 caractères"
+           aria-label="Code d’invitation, 8 caractères"
            maxlength="8" autocapitalize="off" autocorrect="off" spellcheck="false"
            inputmode="latin" @input="saisir" @keyup.enter="entrer">
-    <p v-if="erreur" class="mini" style="color:var(--non);margin:10px 0 0">{{ erreur }}</p>
+    <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:10px 0 0">{{ erreur }}</p>
 
     <template #pied>
       <button class="btn btn-1" :disabled="!pret || envoi" @click="entrer">

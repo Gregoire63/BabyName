@@ -18,9 +18,28 @@ export default defineEventHandler(async (e) => {
   if (!paiementPret()) {
     throw createError({ statusCode: 503, statusMessage: 'paiement_non_configure' })
   }
+  if (!venteOuverte()) {
+    throw createError({ statusCode: 503, statusMessage: 'vente_fermee' })
+  }
+
+  /**
+   * Le consentement, exige ICI et pas seulement par la case de l'ecran.
+   *
+   * Un contenu numerique livre tout de suite ne se retracte pas — mais
+   * seulement si l'acheteur l'a demande expressement ET a reconnu perdre son
+   * droit de retractation (art. L221-28 13°). Une case que le serveur ne
+   * verifie pas se contourne d'un appel direct : sans elle, l'acheteur garde
+   * ses quatorze jours sur une liste deja utilisee.
+   */
+  const corps = await readBody<{ consentement?: boolean }>(e).catch(() => null)
+  if (corps?.consentement !== true) {
+    throw createError({ statusCode: 400, statusMessage: 'consentement_requis' })
+  }
 
   const c = useRuntimeConfig()
   const siteUrl = (c.public.siteUrl as string) || getRequestURL(e).origin
-  const session = await creerSession({ gid, uid: moi.user_id, siteUrl })
+  const session = await creerSession({
+    gid, uid: moi.user_id, siteUrl, consentementLe: new Date().toISOString()
+  })
   return { ok: true, url: session.url as string }
 })

@@ -89,9 +89,17 @@ const cible = await page.locator('.carte.fiche:not(.derriere) .nom').first().inn
 // la carte du fond a elle aussi ses boutons (inertes) : on vise celle de devant
 const bVeto = page.locator('.carte.fiche:not(.derriere) .bas .rouge')
 dit(await bVeto.count() === 1, 'le bouton Veto est sur la carte')
-dit((await bVeto.evaluate(el => getComputedStyle(el).color)).includes('196')
-    || (await bVeto.evaluate(el => getComputedStyle(el).color)).includes('226'),
-    `il est rouge (${await bVeto.evaluate(el => getComputedStyle(el).color)})`)
+// Rouge = la couleur « non » de la charte, quelle que soit sa valeur exacte
+// (elle a fonce pour passer le contraste AA : un essai qui figeait 196,86,79
+// aurait interdit de corriger l'accessibilite).
+const [couleur, rouge] = await bVeto.evaluate(el => {
+  const t = document.createElement('span')
+  t.style.color = 'var(--non)'; document.body.appendChild(t)
+  const r = getComputedStyle(t).color; t.remove()
+  return [getComputedStyle(el).color, r]
+})
+const [cr, cg, cb] = couleur.match(/\d+/g).map(Number)
+dit(couleur === rouge && cr > cg + 60 && cr > cb + 60, `il est rouge, la couleur « non » de la charte (${couleur})`)
 await bVeto.click()
 await page.waitForSelector('.feuille-corps', { timeout: 6000 })
 dit((await page.locator('.feuille-corps h2').first().innerText()) === 'Poser un veto',

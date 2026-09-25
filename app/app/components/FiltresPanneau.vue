@@ -37,13 +37,14 @@ function cycler(o: string) {
 
     <div class="pile">
         <input v-model="modele.recherche" class="champ" placeholder="Chercher un prénom"
-               autocapitalize="off">
+               aria-label="Chercher un prénom" type="search" autocapitalize="off">
 
         <div>
           <p class="titre">Sexe</p>
           <div class="nuage">
-            <button v-for="s in (['f','m','fm'] as const)" :key="s" class="jeton"
+            <button v-for="s in (['f','m','fm'] as const)" :key="s" type="button" class="jeton"
                     :class="{ in: modele.sexe.includes(s) }"
+                    :aria-pressed="modele.sexe.includes(s)"
                     @click="bascule(modele.sexe as string[], s)">
               {{ s === 'f' ? 'fille' : s === 'm' ? 'garçon' : 'mixte' }}
             </button>
@@ -53,8 +54,13 @@ function cycler(o: string) {
         <div>
           <p class="titre">Origine — 1 clic inclut, 2 excluent</p>
           <div class="nuage">
-            <button v-for="o in props.origines" :key="o" class="jeton"
-                    :class="etatOrigine(o)" @click="cycler(o)">{{ o }}</button>
+            <!-- Trois etats (rien, incluse, exclue) : la couleur seule ne les
+                 dit pas a un lecteur d'ecran, le texte cache si. -->
+            <button v-for="o in props.origines" :key="o" type="button" class="jeton"
+                    :class="etatOrigine(o)" @click="cycler(o)">
+              {{ o }}<span class="sr-only">{{ etatOrigine(o) === 'in' ? ' : incluse'
+                : etatOrigine(o) === 'out' ? ' : exclue' : ' : indifférente' }}</span>
+            </button>
           </div>
           <p class="mini doux" style="margin:7px 0 0">
             Beaucoup de prénoms n’ont aucune origine documentée : inclure une origine les écarte tous.
@@ -68,12 +74,14 @@ function cycler(o: string) {
           <p class="titre">Longueur du prénom · en lettres</p>
           <label class="borne">
             <span>au moins</span>
-            <input v-model.number="modele.car[0]" type="range" min="2" :max="modele.car[1]">
+            <input v-model.number="modele.car[0]" type="range" min="2" :max="modele.car[1]"
+                   aria-label="Longueur minimale, en lettres">
             <b>{{ modele.car[0] }}</b>
           </label>
           <label class="borne">
             <span>au plus</span>
-            <input v-model.number="modele.car[1]" type="range" :min="modele.car[0]" max="14">
+            <input v-model.number="modele.car[1]" type="range" :min="modele.car[0]" max="14"
+                   aria-label="Longueur maximale, en lettres">
             <b>{{ modele.car[1] }}</b>
           </label>
         </div>
@@ -82,12 +90,14 @@ function cycler(o: string) {
           <p class="titre">Nombre de syllabes</p>
           <label class="borne">
             <span>au moins</span>
-            <input v-model.number="modele.syllabes[0]" type="range" min="1" :max="modele.syllabes[1]">
+            <input v-model.number="modele.syllabes[0]" type="range" min="1" :max="modele.syllabes[1]"
+                   aria-label="Nombre minimal de syllabes">
             <b>{{ modele.syllabes[0] }}</b>
           </label>
           <label class="borne">
             <span>au plus</span>
-            <input v-model.number="modele.syllabes[1]" type="range" :min="modele.syllabes[0]" max="6">
+            <input v-model.number="modele.syllabes[1]" type="range" :min="modele.syllabes[0]" max="6"
+                   aria-label="Nombre maximal de syllabes">
             <b>{{ modele.syllabes[1] }}</b>
           </label>
         </div>
@@ -133,8 +143,10 @@ function cycler(o: string) {
           <div>
             <p class="titre">Initiales à éviter</p>
             <div class="nuage">
-              <button v-for="l in LETTRES" :key="l" class="jeton petit"
+              <button v-for="l in LETTRES" :key="l" type="button" class="jeton petit"
                       :class="{ out: modele.initiales_out.includes(l) }"
+                      :aria-pressed="modele.initiales_out.includes(l)"
+                      :aria-label="`Éviter l’initiale ${l}`"
                       @click="bascule(modele.initiales_out, l)">{{ l }}</button>
             </div>
           </div>

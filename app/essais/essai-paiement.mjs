@@ -70,8 +70,20 @@ dit(!/carte bancaire|numéro de carte|cvv|expiration/i.test(feuille),
 dit(await page.locator('.feuille-corps input[type="tel"], .feuille-corps input[name*="card"], .feuille-corps input[autocomplete*="cc-"]').count() === 0,
     'et aucun champ de saisie de paiement, même caché')
 
+// --- l'accord avant paiement (art. L221-28 13°) ------------------------------
+const payer = page.getByRole('button', { name: /Débloquer pour/ })
+dit(await page.locator('.feuille-corps input[type="checkbox"]:checked').count() === 0,
+    'la case d’accord n’est jamais pré-cochée')
+dit(await payer.isDisabled(), 'sans elle, le bouton de paiement reste inactif')
+dit(/accès immédiat/.test(feuille) && /rétractation/.test(feuille) && /L221-28/.test(feuille),
+    'elle dit ce qu’on accepte : l’exécution immédiate, donc la fin du droit de rétractation')
+dit(/conditions générales de vente/.test(feuille), 'avec un lien vers les conditions de vente')
+dit(/TTC/.test(feuille) && /TVA/.test(feuille), 'le prix est annoncé TTC, avec sa mention de TVA')
+await page.getByRole('checkbox', { name: /conditions générales de vente/ }).check()
+dit(!await payer.isDisabled(), 'case cochée : le paiement peut partir')
+
 // --- le paiement n'est pas configuré ici : on doit le DIRE, pas planter ---
-await page.getByRole('button', { name: /Débloquer pour/ }).click()
+await payer.click()
 await page.waitForTimeout(1200)
 const apres = await plat('.feuille-corps')
 const phrase = (apres.match(/Le paiement n[’']est pas encore ouvert[^.]*\.|Le paiement est momentanément indisponible[^.]*\./i) ?? [''])[0]

@@ -241,7 +241,8 @@ const filtresActifs = computed(() => {
       <section class="carte pile">
         <h2>Nom</h2>
         <div class="ligne">
-          <input v-model="nouveauNom" class="champ" style="flex:1" @keyup.enter="renommer">
+          <input v-model="nouveauNom" class="champ" style="flex:1" aria-label="Nom de la liste"
+                 @keyup.enter="renommer">
           <button class="btn mini" :disabled="!nomChange" @click="renommer">
             {{ renomme ? 'Fait' : 'Renommer' }}
           </button>
@@ -249,14 +250,14 @@ const filtresActifs = computed(() => {
       </section>
 
       <section v-if="!jObserve" class="carte degrade invit">
-        <p class="mini" style="margin:0;opacity:.72">
+        <p class="mini" style="margin:0;opacity:.85">
           {{ nbMembres < 2 ? 'Code d’invitation' : 'Inviter quelqu’un de plus' }}
         </p>
         <strong class="code">{{ g.etat.value.groupe.code_invitation }}</strong>
         <button class="btn" @click="partager">
           {{ copie ? 'Lien copié' : 'Partager le lien' }}
         </button>
-        <p v-if="nbMembres < 2" class="mini" style="margin:0;opacity:.72;text-align:center">
+        <p v-if="nbMembres < 2" class="mini" style="margin:0;opacity:.85;text-align:center">
           La personne que vous invitez jugera les mêmes prénoms de son côté,
           sans voir vos réponses.
         </p>
@@ -288,6 +289,7 @@ const filtresActifs = computed(() => {
           que vous en avez déjà dit, et vous pouvez le changer ici.
         </p>
         <input v-model="recherche" class="champ chercher" placeholder="Louise, Gabriel…"
+               aria-label="Chercher un prénom dans le catalogue"
                autocapitalize="off" autocorrect="off" spellcheck="false">
 
         <p v-if="recherche.trim().length >= 2 && !trouves.length" class="mini doux"
@@ -358,7 +360,7 @@ const filtresActifs = computed(() => {
             mangent, les initiales qu'on n'avait pas vues.
           </p>
           <div class="ligne">
-            <input v-model="nomFamille" class="champ" style="flex:1"
+            <input v-model="nomFamille" class="champ" style="flex:1" aria-label="Nom de famille"
                    placeholder="Votre nom" autocapitalize="words"
                    autocorrect="off" spellcheck="false"
                    @keyup.enter="enregistrerNomFamille">

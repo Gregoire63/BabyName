@@ -11,7 +11,18 @@ export default defineEventHandler(async () => {
     // du webhook a part — sans lui la caisse s'ouvre, mais seul le retour du
     // navigateur debloque, ce qui rate ceux qui ferment l'onglet trop tot.
     paiement: !!(c.stripeSecretKey && c.stripePriceId),
-    paiement_webhook: !!c.stripeWebhookSecret
+    paiement_webhook: !!c.stripeWebhookSecret,
+    // La purge RGPD ne tourne que si Vercel a un CRON_SECRET a lui envoyer.
+    purge_quotidienne: !!(process.env.CRON_SECRET || c.cronSecret)
+  }
+  // Ce qui manque pour VENDRE, pas pour tourner. `bloquants` (identite du
+  // vendeur) ferme le paiement en production ; le reste (mediateur) est une
+  // obligation a remplir avant la premiere vente reelle. Des noms de champs,
+  // jamais leurs valeurs.
+  const manquants = mentionsManquantes()
+  const legal = {
+    complet: manquants.length === 0, manquants,
+    bloquants: mentionsBloquantes(), vente_ouverte: venteOuverte()
   }
   // Sans URL, il reste la base embarquee du developpement : on interroge
   // quand meme, sinon /api/sante annonce « pas de base » alors que l'app marche.
@@ -30,7 +41,13 @@ export default defineEventHandler(async () => {
                                             ('groupes','paye_le'),
                                             ('groupes','offert'),
                                             ('groupes','code_observateur'),
+                                            ('groupes','paiement_ref'),
                                             ('quota_jour','n'))`)
+    // Le bloc RGPD du schema : sans lui, effacer un compte efface aussi les
+    // listes qu'il a creees — donc les votes de l'autre parent.
+    const rgpd = await q1<{ facultatif: boolean }>(
+      `select is_nullable = 'YES' as facultatif from information_schema.columns
+        where table_schema = 'public' and table_name = 'groupes' and column_name = 'cree_par'`)
     const a = (t: string, c: string) => cols.some(x => x.t === t && x.c === c)
     infos = {
       joignable: true, moteur: (await base()).moteur, tables: r?.n ?? 0,
@@ -42,7 +59,9 @@ export default defineEventHandler(async () => {
         'groupes.paye_le': a('groupes', 'paye_le'),
         'groupes.offert': a('groupes', 'offert'),
         'groupes.code_observateur': a('groupes', 'code_observateur'),
-        'quota_jour': a('quota_jour', 'n')
+        'quota_jour': a('quota_jour', 'n'),
+        'groupes.paiement_ref': a('groupes', 'paiement_ref'),
+        'rgpd.effacement_sans_cascade': !!rgpd?.facultatif
       }
       // Pas de compte des listes vendues ici : cette route est publique, et
       // le nombre de clients n'a pas a l'etre. Il se lit dans la console Neon.
@@ -50,5 +69,5 @@ export default defineEventHandler(async () => {
   } catch (err: any) {
     infos = { joignable: false, erreur: String(err?.message ?? err).slice(0, 120) }
   }
-  return { presence, base: infos }
+  return { presence, legal, base: infos }
 })

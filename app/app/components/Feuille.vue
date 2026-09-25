@@ -30,6 +30,8 @@ const emit = defineEmits<{ fermer: [] }>()
 
 const visible = ref(false)
 const dedans = ref<HTMLElement>()
+const corps = ref<HTMLElement>()
+const idTitre = useId()
 
 // Monte puis s'affiche : sans ce temps mort, l'etat initial de la transition
 // n'est jamais peint et la feuille apparait deja en place.
@@ -37,6 +39,9 @@ onMounted(() => requestAnimationFrame(() => { visible.value = true }))
 
 function fermer() { visible.value = false }
 const geste = useFeuille(fermer, dedans)
+// Clavier et lecteur d'ecran : focus dedans, fond inerte, Echap, retour du
+// focus a la fermeture. Voir useDialogue.
+useDialogue(corps, fermer)
 
 defineExpose({ fermer })
 </script>
@@ -44,14 +49,19 @@ defineExpose({ fermer })
 <template>
   <Transition name="feuille" @after-leave="emit('fermer')">
     <div v-if="visible" class="feuille-voile" @click.self="fermer">
-      <section class="feuille-corps" :class="{ plein: props.plein }" :style="geste.style.value">
+      <section ref="corps" class="feuille-corps" :class="{ plein: props.plein }" :style="geste.style.value"
+               role="dialog" aria-modal="true" tabindex="-1"
+               :aria-labelledby="props.titre ? idTitre : undefined"
+               :aria-label="props.titre ? undefined : 'Fenêtre'">
         <div class="feuille-prise" @pointerdown="geste.debut" @pointermove="geste.bouge"
              @pointerup="geste.fin" @pointercancel="geste.fin">
           <div class="feuille-poignee" />
           <div v-if="props.titre || $slots.action" class="ligne feuille-tete">
-            <h2 style="flex:1;min-width:0">{{ props.titre }}</h2>
+            <h2 :id="idTitre" style="flex:1;min-width:0">{{ props.titre }}</h2>
             <slot name="action" :fermer="fermer" />
-            <button class="feuille-x" aria-label="Fermer" @click="fermer">✕</button>
+            <button type="button" class="feuille-x" aria-label="Fermer" @click="fermer">
+              <span aria-hidden="true">✕</span>
+            </button>
           </div>
         </div>
 
@@ -73,6 +83,9 @@ defineExpose({ fermer })
 .feuille-corps { width: 100%; max-width: 560px; max-height: 92%; background: var(--carte);
   border-radius: 22px 22px 0 0; display: flex; flex-direction: column; min-height: 0; }
 .feuille-corps.plein { max-height: 100%; height: 100%; border-radius: 0; max-width: none; }
+/* Le conteneur recoit le focus a l'ouverture (pour que le titre soit lu) :
+   il n'a pas a s'encadrer, ce n'est pas une commande. */
+.feuille-corps:focus { outline: none; }
 
 /* la prise seule capte le geste : dans le corps, le doigt doit pouvoir defiler */
 .feuille-prise { touch-action: none; flex: none; }

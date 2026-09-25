@@ -22,28 +22,34 @@ async function installer() {
 </script>
 
 <template>
-  <div v-if="visible" class="tuile carte degrade" @click="installer">
+  <!-- Un vrai bouton (et non une div cliquable) : atteignable au clavier et
+       annonce comme tel. Contenu en <span> : un bouton n'accepte pas de <p>. -->
+  <button v-if="visible" type="button" class="tuile carte degrade"
+          :aria-expanded="ios && !invite ? aide : undefined" @click="installer">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14" />
     </svg>
-    <div>
+    <span class="textes">
       <strong>Installer l’application</strong>
-      <p class="mini" style="margin:2px 0 0;opacity:.72">
+      <span class="mini ligne-2">
         {{ ios ? 'Sur l’écran d’accueil, comme une vraie app' : 'Plein écran, hors ligne, sans navigateur' }}
-      </p>
-      <p v-if="aide" class="mini aide">
+      </span>
+      <span v-if="aide" class="mini aide">
         Touchez <strong>Partager</strong> en bas de Safari, puis
         <strong>Sur l’écran d’accueil</strong>.
-      </p>
-    </div>
-  </div>
+      </span>
+    </span>
+  </button>
 </template>
 
 <style scoped>
 .tuile { display: flex; align-items: center; gap: 13px; cursor: pointer; color: var(--encre);
+  width: 100%; text-align: left; font: inherit; border: 0;
   padding: 16px 18px; position: relative; overflow: hidden; }
 .tuile:active { transform: scale(.99); }
 svg { width: 26px; height: 26px; flex: none; stroke: currentColor; fill: none;
   stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.aide { margin-top: 7px; opacity: 1; line-height: 1.45; }
+.textes { display: flex; flex-direction: column; }
+.ligne-2 { margin: 2px 0 0; opacity: .85; }
+.aide { display: block; margin-top: 7px; opacity: 1; line-height: 1.45; }
 </style>

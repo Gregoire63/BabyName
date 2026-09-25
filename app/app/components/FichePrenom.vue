@@ -8,6 +8,9 @@ const g = useGroupeSiPresent()
 
 const dedans = ref<HTMLElement>()
 const f = useFeuille(() => emit('fermer'), dedans)
+const boite = ref<HTMLElement>()
+const idNom = useId()
+useDialogue(boite, () => emit('fermer'))
 
 const AN0 = 1986, AN1 = 2025
 
@@ -52,19 +55,22 @@ const lecture = computed(() => {
 
 <template>
   <div class="voile" @click.self="emit('fermer')">
-    <div class="feuille" :style="f.style.value"
+    <div ref="boite" class="feuille" :style="f.style.value"
+         role="dialog" aria-modal="true" :aria-labelledby="idNom" tabindex="-1"
          @pointerdown="f.debut" @pointermove="f.bouge"
          @pointerup="f.fin" @pointercancel="f.fin">
       <div class="poignee" />
       <div ref="dedans" class="dedans">
         <header class="tete">
           <div>
-            <h2 class="nom">{{ p.l }}</h2>
+            <h2 :id="idNom" class="nom">{{ p.l }}</h2>
             <p class="mini doux" style="margin:4px 0 0">
               {{ sexeTexte }} · {{ p.y }} syllabe{{ p.y > 1 ? 's' : '' }} · {{ p.c }} lettres
             </p>
           </div>
-          <button class="btn btn-0 rond" aria-label="Fermer" @click="emit('fermer')">✕</button>
+          <button type="button" class="btn btn-0 rond" aria-label="Fermer la fiche" @click="emit('fermer')">
+            <span aria-hidden="true">✕</span>
+          </button>
         </header>
 
         <p v-if="p.m" class="sens">« {{ p.m }} »</p>
@@ -156,6 +162,7 @@ const lecture = computed(() => {
 </template>
 
 <style scoped>
+.feuille:focus { outline: none; }
 .voile { position: fixed; inset: 0; z-index: 60; background: rgba(26,35,78,.42);
   backdrop-filter: blur(3px); display: flex; align-items: flex-end; justify-content: center;
   animation: fondu .18s ease; }

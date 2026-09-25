@@ -2,7 +2,7 @@
 import { filtrer, ordonner, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 
-defineProps<{ actif: boolean }>()
+const props = defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
 
 /**
@@ -55,6 +55,8 @@ const faits = ref(0)
 const match = ref<{ prenom: string; avec: string[] } | null>(null)
 const retour = ref<{ prenom: string; qui: string[] } | null>(null)
 const familleAEcarter = ref<Prenom[] | null>(null)
+const boiteFamille = ref<HTMLElement>()
+useDialogue(boiteFamille, () => { familleAEcarter.value = null })
 const cleJour = `pr_${g.gid}_${new Date().toISOString().slice(0, 10)}`
 
 /** Tout ce qui reste a juger, graphie par graphie. Sert au balayage de
@@ -294,6 +296,43 @@ function envoler(valeur: 0 | 1 | 2) {
   envol.value = true
 }
 
+// --- clavier et lecteur d'ecran -------------------------------------------
+/**
+ * Trier sans le doigt (WCAG 2.1.1, RGAA 7.3).
+ *
+ * Le glissement n'est qu'un raccourci : les trois boutons font la meme chose,
+ * et au clavier les fleches aussi — gauche non, droite oui, bas neutre, dans
+ * le sens ou la carte part. Rien quand on ecrit dans un champ, quand un
+ * dialogue est ouvert ou quand cet onglet n'est pas celui qu'on regarde.
+ */
+function auClavier(e: KeyboardEvent) {
+  if (!props.actif || e.altKey || e.ctrlKey || e.metaKey || e.repeat) return
+  if (document.querySelector('[aria-modal="true"]')) return
+  const cible = e.target as HTMLElement | null
+  if (cible?.closest('input, textarea, select, [contenteditable="true"]')) return
+  const v = e.key === 'ArrowLeft' ? 0 : e.key === 'ArrowRight' ? 2 : e.key === 'ArrowDown' ? 1 : null
+  if (v === null) return
+  e.preventDefault()
+  voter(v)
+}
+onMounted(() => window.addEventListener('keydown', auClavier))
+onUnmounted(() => window.removeEventListener('keydown', auClavier))
+
+/**
+ * Ce qu'un lecteur d'ecran doit entendre quand la carte change. Le focus
+ * reste sur le bouton qu'on vient d'utiliser : sans cette annonce, on vote
+ * « oui » et rien ne dit quel prenom vient d'arriver.
+ */
+const annonce = ref('')
+watch(carte, (c, avant) => {
+  if (!c) { annonce.value = ''; return }
+  if (avant && avant.l === c.l) return
+  const n = c.variantes?.length ?? 0
+  annonce.value = n
+    ? `${c.l}, et ${n} autre${n > 1 ? 's' : ''} graphie${n > 1 ? 's' : ''}`
+    : c.l
+})
+
 // --- actions --------------------------------------------------------------
 async function voter(valeur: 0 | 1 | 2) {
   const p = carte.value
@@ -531,10 +570,18 @@ async function confirmerFamille() {
         </Transition>
         </div>
 
+        <p class="sr-only" aria-live="polite" aria-atomic="true">{{ annonce }}</p>
         <div class="boutons">
-          <button class="rond non" aria-label="Non" @click="voter(0)">✕</button>
-          <button class="rond neutre" aria-label="Neutre" @click="voter(1)">~</button>
-          <button class="rond oui" aria-label="Oui" @click="voter(2)">
+          <button type="button" class="rond non" :aria-label="`Non à ${carte.l}`"
+                  aria-keyshortcuts="ArrowLeft" @click="voter(0)">
+            <span aria-hidden="true">✕</span>
+          </button>
+          <button type="button" class="rond neutre" :aria-label="`Neutre pour ${carte.l}`"
+                  aria-keyshortcuts="ArrowDown" @click="voter(1)">
+            <span aria-hidden="true">~</span>
+          </button>
+          <button type="button" class="rond oui" :aria-label="`Oui à ${carte.l}`"
+                  aria-keyshortcuts="ArrowRight" @click="voter(2)">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 21.2s-8.4-5-8.4-11A5 5 0 0 1 12 7.1a5 5 0 0 1 8.4 3.1c0 6-8.4 11-8.4 11Z" />
             </svg>
@@ -544,7 +591,7 @@ async function confirmerFamille() {
     </template>
 
     <Transition name="fondu">
-      <div v-if="retour" class="retour carte">
+      <div v-if="retour" class="retour carte" role="status">
         <Etincelles :taille="16" couleur="var(--peche)" une />
         <strong>{{ retour.prenom }}</strong>
         <span class="mini doux">
@@ -563,11 +610,12 @@ async function confirmerFamille() {
         verra que c’est vous qui l’avez posé.
       </p>
       <input v-model="motifVeto" class="champ" maxlength="200"
+             aria-label="Motif du veto (facultatif, visible de vous seul)"
              placeholder="Pourquoi ? (pour vous, facultatif)">
       <p class="mini doux" style="margin:10px 0 0">
         Il vous en reste <strong>{{ vetosRestants }}</strong> sur {{ vetosMax }}.
       </p>
-      <p v-if="erreurVeto" class="mini" style="color:var(--non);margin:8px 0 0">
+      <p v-if="erreurVeto" class="mini" role="alert" style="color:var(--non);margin:8px 0 0">
         {{ erreurVeto }}
       </p>
 
@@ -585,9 +633,10 @@ async function confirmerFamille() {
 
 
     <div v-if="familleAEcarter" class="voile-confirme" @click.self="familleAEcarter = null">
-      <div class="carte pile confirme">
-        <h2>Écarter toute la famille ?</h2>
-        <p class="mini doux" style="margin:0">
+      <div ref="boiteFamille" class="carte pile confirme" role="alertdialog" aria-modal="true"
+           aria-labelledby="titre-famille" aria-describedby="texte-famille" tabindex="-1">
+        <h2 id="titre-famille">Écarter toute la famille ?</h2>
+        <p id="texte-famille" class="mini doux" style="margin:0">
           {{ familleAEcarter.length }} prénom{{ familleAEcarter.length > 1 ? 's' : '' }}
           {{ familleAEcarter.length > 1 ? 'passeront' : 'passera' }} en « non » d’un coup.
           C’est définitif : ils ne réapparaîtront plus dans votre tri.
@@ -607,6 +656,7 @@ async function confirmerFamille() {
 </template>
 
 <style scoped>
+.confirme:focus { outline: none; }
 .ecran { display: flex; flex-direction: column; gap: 12px; height: 100%; min-height: 340px; }
 .haut { display: flex; align-items: center; gap: 8px; }
 .haut .titre { flex: 1; min-width: 0; }

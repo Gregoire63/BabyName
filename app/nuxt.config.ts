@@ -20,13 +20,8 @@ export default defineNuxtConfig({
       ],
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },
-        // Apple a deja SF Pro Rounded (ui-rounded) : Nunito n'est la que pour
-        // les autres. Chargee sans bloquer le rendu, la fonte systeme sert
-        // en attendant.
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'stylesheet', media: 'print', onload: "this.media='all'",
-          href: 'https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;800&display=swap' },
+        // Nunito est servie par l'app (app/assets/fonts, @font-face dans
+        // app.vue) : plus aucune requete vers Google a l'ouverture.
         { rel: 'icon', href: '/logo.png', type: 'image/png' },
         { rel: 'apple-touch-icon', href: '/logo.png' }
       ]
@@ -54,6 +49,13 @@ export default defineNuxtConfig({
     // et avoir donne un code fiscal eligible au produit — sinon Stripe refuse
     // la session et l'ecran d'achat affiche « momentanement indisponible ».
     stripeManagedPayments: '',    // NUXT_STRIPE_MANAGED_PAYMENTS=1
+    // Seulement si l'on est assujetti a la TVA (voir shared/utils/editeur.ts) :
+    // l'id du taux « TVA FR 20 % » inclusive cree dans le Dashboard (txr_…).
+    stripeTaxRateId: '',          // NUXT_STRIPE_TAX_RATE_ID
+
+    // La purge quotidienne (RGPD). Vercel lit CRON_SECRET directement et
+    // l'envoie au cron : c'est CE nom-la qu'il faut poser, sans prefixe.
+    cronSecret: '',               // CRON_SECRET (lu aussi tel quel)
 
     public: { siteUrl: '', prixListe: '6 €' }   // NUXT_PUBLIC_SITE_URL / NUXT_PUBLIC_PRIX_LISTE
   },

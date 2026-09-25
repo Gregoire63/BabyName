@@ -19,6 +19,18 @@ const prix = (config.public.prixListe as string) || '6 €'
 const envoi = ref(false)
 const erreur = ref('')
 
+/**
+ * L'accord avant paiement.
+ *
+ * Un contenu numerique livre sur-le-champ ne se retracte pas — a condition
+ * que l'acheteur l'ait demande expressement et ait reconnu perdre son droit de
+ * retractation (art. L221-28 13°). Une case jamais pre-cochee, que le serveur
+ * exige aussi (sinon un appel direct la contournerait), et que la facture
+ * confirme ensuite par e-mail.
+ */
+const accord = ref(false)
+const tva = mentionTva()
+
 const membres = computed(() => g.etat.value?.avancement?.length ?? 1)
 
 const INCLUS = [
@@ -57,17 +69,21 @@ const GRATUIT = [
 ]
 
 async function payer() {
-  if (envoi.value) return
+  if (envoi.value || !accord.value) return
   envoi.value = true; erreur.value = ''
   try {
-    const r = await $fetch<any>(`/api/groupes/${g.gid}/paiement`, { method: 'POST' })
+    const r = await $fetch<any>(`/api/groupes/${g.gid}/paiement`,
+      { method: 'POST', body: { consentement: true } })
     if (r?.deja) { await g.recharger(); emit('fermer'); return }
     if (r?.url) { window.location.href = r.url; return }
     erreur.value = 'Le paiement n’a pas pu s’ouvrir.'
   } catch (e: any) {
-    erreur.value = e?.statusMessage === 'paiement_non_configure'
-      ? 'Le paiement n’est pas encore ouvert sur cette instance.'
-      : 'Le paiement est momentanément indisponible. Réessayez dans un instant.'
+    const code = e?.statusMessage ?? e?.data?.statusMessage
+    erreur.value = code === 'paiement_non_configure' || code === 'vente_fermee'
+      ? 'Le paiement n’est pas encore ouvert. Il le sera très bientôt.'
+      : code === 'consentement_requis'
+        ? 'Cochez la case d’accord pour continuer.'
+        : 'Le paiement est momentanément indisponible. Réessayez dans un instant.'
   } finally {
     envoi.value = false
   }
@@ -77,35 +93,62 @@ async function payer() {
 <template>
   <Feuille titre="Débloquer cette liste" @fermer="emit('fermer')">
     <p style="margin:0 0 4px">
-      <strong style="font-size:1.3rem">{{ prix }}</strong>
+      <strong style="font-size:1.3rem">{{ prix }} TTC</strong>
       <span class="doux"> une fois, pas d’abonnement</span>
     </p>
+    <p class="mini doux" style="margin:0 0 6px">{{ tva }}.</p>
     <p class="mini doux" style="margin:0 0 16px">
       C’est la <strong>liste</strong> qui se débloque, pas votre compte :
       {{ membres > 1 ? 'vous êtes ' + membres + ' dessus, tout le monde en profite'
                      : 'la personne que vous inviterez en profitera aussi' }}.
     </p>
 
-    <div v-for="i in INCLUS" :key="i.titre" class="item">
-      <Etincelles :taille="15" couleur="var(--peche)" une />
-      <div>
-        <strong>{{ i.titre }}</strong>
-        <p class="mini doux" style="margin:2px 0 0">{{ i.texte }}</p>
-      </div>
-    </div>
+    <h3 class="titre-bloc">Ce que ça débloque</h3>
+    <ul class="inclus">
+      <li v-for="i in INCLUS" :key="i.titre" class="item">
+        <Etincelles :taille="15" couleur="var(--peche)" une aria-hidden="true" />
+        <div>
+          <strong>{{ i.titre }}</strong>
+          <p class="mini doux" style="margin:2px 0 0">{{ i.texte }}</p>
+        </div>
+      </li>
+    </ul>
 
-    <p class="titre-bloc">Ce qui reste gratuit, avec ou sans</p>
+    <h3 class="titre-bloc">Ce qui reste gratuit, avec ou sans</h3>
     <ul class="gratuit">
       <li v-for="t in GRATUIT" :key="t" class="mini doux">{{ t }}</li>
     </ul>
 
-    <p v-if="erreur" class="mini" style="color:var(--non);margin:12px 0 0">{{ erreur }}</p>
+    <h3 class="titre-bloc">Comment ça se passe</h3>
+    <p class="mini doux" style="margin:0">
+      Paiement sur la page sécurisée de Stripe : babyNames ne voit jamais votre carte.
+      La liste se débloque aussitôt, et la facture arrive par e-mail.
+    </p>
+
+    <label class="accord">
+      <input v-model="accord" type="checkbox" aria-describedby="accord-detail">
+      <span>
+        J’accepte les
+        <a href="/conditions" target="_blank" rel="noopener" class="lien">conditions générales de vente</a>
+        et je demande l’accès immédiat à la liste débloquée.
+        <span id="accord-detail" class="doux">
+          Je renonce ainsi à mon droit de rétractation de 14 jours
+          (art. L221-28 13° du Code de la consommation).
+        </span>
+      </span>
+    </label>
+
+    <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:12px 0 0">{{ erreur }}</p>
 
     <template #pied="{ fermer }">
-      <button class="btn btn-1" style="width:100%" :disabled="envoi" @click="payer">
+      <button type="button" class="btn btn-1" style="width:100%" :disabled="envoi || !accord"
+              :aria-describedby="accord ? undefined : 'accord-requis'" @click="payer">
         {{ envoi ? 'Ouverture…' : `Débloquer pour ${prix}` }}
       </button>
-      <button class="btn btn-0 mini doux" style="width:100%;margin-top:8px" @click="fermer">
+      <p v-if="!accord" id="accord-requis" class="mini doux" style="margin:0;text-align:center">
+        Cochez la case d’accord pour continuer.
+      </p>
+      <button type="button" class="btn btn-0 mini doux" style="width:100%" @click="fermer">
         Plus tard
       </button>
     </template>
@@ -113,10 +156,15 @@ async function payer() {
 </template>
 
 <style scoped>
+.inclus { list-style: none; margin: 0; padding: 0; }
 .item { display: flex; gap: 10px; align-items: flex-start; padding: 11px 0;
   border-top: 1px solid var(--trait); }
+.accord { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0 0;
+  padding: 12px 14px; border-radius: var(--r-s); border: 1px solid var(--trait);
+  background: var(--fond); font-size: .84rem; line-height: 1.45; cursor: pointer; }
+.accord input { width: 20px; height: 20px; flex: none; margin: 1px 0 0; accent-color: var(--encre); }
 .item strong { font-size: .94rem; }
 .titre-bloc { margin: 18px 0 6px; font-size: .72rem; text-transform: uppercase;
-  letter-spacing: .05em; color: var(--doux); font-weight: 650; }
+  letter-spacing: .05em; color: var(--doux); font-weight: 700; }
 .gratuit { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
 </style>

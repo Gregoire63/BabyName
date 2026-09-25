@@ -9,7 +9,11 @@
  *   - un code promo a 100 % debloque (et marque la liste offerte) ;
  *   - la rotation du secret ne rejette pas les paiements ;
  *   - le retour du navigateur debloque meme SANS webhook, et jamais la
- *     liste d'un autre.
+ *     liste d'un autre ;
+ *   - pas de session sans l'accord a l'execution immediate, et cet accord
+ *     part chez Stripe (metadonnees, facture) ;
+ *   - un remboursement TOTAL ou un litige PERDU re-verrouille la liste ; un
+ *     remboursement partiel ou un litige gagne, non.
  *
  * Le serveur est lance avec essai-caisse.env (cles bidon, API sur 3199).
  */
@@ -89,9 +93,20 @@ const api = (chemin, init) => page.evaluate(async ([c, i]) => {
 const nouvelleListe = async nom => (await api('/api/groupes', { method: 'POST', body: JSON.stringify({ nom }) })).j
 const etat = async gid => (await api(`/api/groupes/${gid}`)).j?.groupe
 
-// ============ 1. La session demandée à Stripe ============================
+const ouvrir = (gid, corps = { consentement: true }) =>
+  api(`/api/groupes/${gid}/paiement`, { method: 'POST', body: JSON.stringify(corps) })
+
+// ============ 0. Pas de caisse sans accord ================================
 const A = await nouvelleListe('Caisse A')
-const ouv = await api(`/api/groupes/${A.id}/paiement`, { method: 'POST' })
+const avantRefus = recus.length
+let refus = await ouvrir(A.id, {})
+dit(refus.status === 400 && refus.j?.statusMessage === 'consentement_requis' && recus.length === avantRefus,
+    `sans l’accord à l’exécution immédiate : refusé, et Stripe n’est même pas appelé (HTTP ${refus.status})`)
+refus = await ouvrir(A.id, { consentement: 'oui' })
+dit(refus.status === 400, 'un accord qui n’est pas exactement « true » ne compte pas')
+
+// ============ 1. La session demandée à Stripe ============================
+const ouv = await ouvrir(A.id)
 dit(ouv.status === 200 && /\/payer\/cs_test_essai/.test(ouv.j?.url ?? ''),
     `la caisse renvoie l’URL de la page de paiement de Stripe (${ouv.j?.url})`)
 const f = recus.at(-1)?.f
@@ -110,13 +125,42 @@ dit(/^\d{4}-\d{2}-\d{2}\.[a-z]+$/.test(recus.at(-1)?.version ?? ''),
 dit(f?.get('payment_intent_data[metadata][groupe_id]') === String(A.id),
     'le paiement lui-même porte la liste — c’est ce que le Dashboard affiche au support')
 const mp = f?.get('managed_payments[enabled]')
-dit(process.env.NUXT_STRIPE_MANAGED_PAYMENTS ? mp === 'true' : mp === null,
+// Explicite dans les deux sens : le compte live a Managed Payments « activé
+// par défaut ». Une session muette partait en MP — et, avec la facture, Stripe
+// la refusait (constaté contre l'API live le 25/09/2026).
+dit(process.env.NUXT_STRIPE_MANAGED_PAYMENTS ? mp === 'true' : mp === 'false',
     process.env.NUXT_STRIPE_MANAGED_PAYMENTS
       ? 'Managed Payments allumé par la variable : Stripe devient vendeur officiel'
-      : 'Managed Payments éteint par défaut : rien n’est envoyé')
+      : 'Managed Payments explicitement éteint : le réglage par défaut du compte ne décide pas à notre place')
+
+// L'accord, grave dans la session ET dans le paiement : c'est la preuve en
+// cas de litige, lisible dans le Dashboard.
+dit(/^\d{4}-\d{2}-\d{2}$/.test(f?.get('metadata[conditions_version]') ?? '')
+    && !isNaN(Date.parse(f?.get('metadata[consentement_le]') ?? ''))
+    && f?.get('metadata[execution_immediate]') === 'demandee'
+    && f?.get('payment_intent_data[metadata][consentement_le]') === f?.get('metadata[consentement_le]'),
+    `l’accord part chez Stripe, daté, avec la version des conditions (${f?.get('metadata[conditions_version]')})`)
+dit(f?.get('locale') === 'fr', 'la page de paiement est en français, quel que soit le navigateur')
+if (process.env.NUXT_STRIPE_MANAGED_PAYMENTS) {
+  dit(f?.get('invoice_creation[enabled]') === null && f?.get('custom_text[submit][message]') === null
+      && f?.get('branding_settings[display_name]') === null,
+      'Managed Payments : ni facture, ni texte, ni habillage — il les refuse et envoie les siens')
+} else {
+  const pied = f?.get('invoice_creation[invoice_data][footer]') ?? ''
+  dit(f?.get('invoice_creation[enabled]') === 'true', 'une facture est émise et envoyée par Stripe')
+  dit(/L221-28 13°/.test(pied) && /renoncé/.test(pied),
+      'la facture confirme la renonciation au droit de rétractation (support durable, art. L221-13)')
+  dit(/293 B du CGI/.test(pied), 'et porte la mention de franchise de TVA (régime par défaut)')
+  dit(/\/conditions/.test(pied), 'et renvoie aux conditions acceptées')
+  dit(/rétractation/.test(f?.get('custom_text[submit][message]') ?? ''),
+      'la page de paiement le rappelle au-dessus du bouton')
+  dit(f?.get('branding_settings[display_name]') === 'babyNames', 'la page de paiement porte le nom de l’app')
+  dit(f?.get('line_items[0][tax_rates][0]') === null, 'aucun taux de TVA appliqué en franchise')
+}
 
 // ============ 2. Le webhook ne croit que ce qui est signé =================
 const sessA = { object: 'checkout.session', status: 'complete', payment_status: 'paid', amount_total: 600,
+                payment_intent: 'pi_essai_A',
                 client_reference_id: String(A.id), metadata: { groupe_id: String(A.id), user_id: null } }
 let r = await webhook(evenement('checkout.session.completed', sessA), { signature: false })
 dit(r.status === 400, `sans signature : refusé (HTTP ${r.status})`)
@@ -149,14 +193,37 @@ dit(eB?.offert === true, 'et marque la liste comme offerte, pour ne pas fausser 
 // ============ 5. La rotation du secret ====================================
 const C = await nouvelleListe('Caisse C')
 r = await webhook(evenement('checkout.session.completed', { ...sessA, client_reference_id: String(C.id),
-  metadata: { groupe_id: String(C.id) } }),
+  payment_intent: 'pi_essai_C', metadata: { groupe_id: String(C.id) } }),
   { entete: (t, v1) => `t=${t},v1=${v1},v1=${'0'.repeat(64)}` })
 dit(r.status === 200 && (await etat(C.id))?.paye === true,
     'deux signatures pendant une rotation, la bonne en premier : accepté')
 
+// ============ 5 bis. Remboursements et litiges ===========================
+const charge = (pi, champs) => ({ object: 'charge', payment_intent: pi, ...champs })
+r = await webhook(evenement('charge.refunded', charge('pi_essai_A', { refunded: false, amount_refunded: 200 })))
+dit(r.status === 200 && (await etat(A.id))?.paye === true,
+    'un remboursement PARTIEL (geste commercial) laisse la liste débloquée')
+r = await webhook(evenement('charge.refunded', charge('pi_essai_A', { refunded: true, amount_refunded: 600 })))
+dit(r.status === 200 && (await etat(A.id))?.paye === false,
+    'un remboursement TOTAL annule la vente : la liste re-verrouillée')
+r = await webhook(evenement('checkout.session.completed', sessA))
+dit((await etat(A.id))?.paye === true, 'un nouveau paiement la redébloque ensuite, normalement')
+
+r = await webhook(evenement('charge.dispute.closed', { object: 'dispute', payment_intent: 'pi_essai_C', status: 'won' }))
+dit((await etat(C.id))?.paye === true, 'un litige GAGNÉ ne reprend rien')
+r = await webhook(evenement('charge.dispute.closed', { object: 'dispute', payment_intent: 'pi_essai_C', status: 'lost' }))
+dit(r.status === 200 && (await etat(C.id))?.paye === false, 'un litige PERDU re-verrouille la liste')
+r = await webhook(evenement('charge.refunded', charge('pi_inconnu', { refunded: true })))
+dit(r.status === 200 && (await etat(B.id))?.paye === true,
+    'le remboursement d’un paiement inconnu ne touche à rien (et répond 200 : Stripe ne rejoue pas)')
+r = await webhook(evenement('charge.refunded', { object: 'charge', refunded: true }), { signature: false })
+dit(r.status === 400, 'un remboursement non signé est refusé comme le reste')
+r = await webhook(evenement('customer.created', { object: 'customer' }))
+dit(r.status === 200, 'un événement sans rapport : 200, ignoré')
+
 // ============ 6. Le retour du navigateur, sans webhook ===================
 const D = await nouvelleListe('Caisse D'), E = await nouvelleListe('Caisse E')
-const oD = await api(`/api/groupes/${D.id}/paiement`, { method: 'POST' })
+const oD = await ouvrir(D.id)
 const idD = oD.j.url.split('/').pop()
 Object.assign(sessions.get(idD), { status: 'complete', payment_status: 'paid' })
 

@@ -69,9 +69,14 @@ const enRetard = computed(() => {
     </div>
 
     <article v-for="c in communs" :key="c.prenom" class="carte" style="padding:14px 16px">
-      <div class="ligne" style="cursor:pointer" @click="ouvrir(c.prenom)">
+      <!-- Le bouton porte le prenom et s'etend sur tout l'en-tete (::after) :
+           au doigt rien ne change, au clavier l'en-tete devient atteignable. -->
+      <div class="ligne entete">
         <div style="flex:1;min-width:0">
-          <h2>{{ c.prenom }}</h2>
+          <h2>
+            <button type="button" class="deplier" :aria-expanded="ouvert === c.prenom"
+                    @click="ouvrir(c.prenom)">{{ c.prenom }}</button>
+          </h2>
           <p class="mini doux" style="margin:3px 0 0">
             {{ c.nb_oui }} oui<span v-if="c.nb_neutres"> · {{ c.nb_neutres }} neutre</span>
             <template v-if="g.parNom.value.get(c.prenom)?.m">
@@ -87,6 +92,7 @@ const enRetard = computed(() => {
         <p v-if="!commentaires.length" class="mini doux" style="margin:0">Aucun commentaire.</p>
         <div class="ligne">
           <input v-model="brouillon" class="champ mini" placeholder="Votre avis…"
+                 :aria-label="`Votre avis sur ${c.prenom}`"
                  @keyup.enter="commenter">
           <button class="btn mini" @click="commenter">Dire</button>
         </div>
@@ -102,6 +108,11 @@ const enRetard = computed(() => {
 </template>
 
 <style scoped>
+.entete { position: relative; }
+.deplier { all: unset; cursor: pointer; }
+.deplier::after { content: ''; position: absolute; inset: 0; }
+.deplier:focus-visible { outline: none; }
+.entete:has(.deplier:focus-visible) { outline: 3px solid var(--focus); outline-offset: 4px; border-radius: 10px; }
 .rappel { margin: 0; padding: 10px 13px; border-radius: 12px;
   background: color-mix(in srgb, var(--peche) 42%, transparent); }
 </style>

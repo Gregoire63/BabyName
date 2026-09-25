@@ -30,9 +30,9 @@ const peutBloquer = computed(() => g.etat.value?.moi?.role !== 'observateur')
       <span class="puce">
         {{ p.sexe === 'fm' ? 'mixte' : p.sexe === 'f' ? 'fille' : 'garçon' }}
       </span>
-      <button class="etoile" :class="{ on: g.favoris.value.has(p.l) }"
-              @click.stop="emit('favori')">
-        <Etincelles :taille="20" />
+      <button type="button" class="etoile" :class="{ on: g.favoris.value.has(p.l) }"
+              :aria-pressed="g.favoris.value.has(p.l)" @click.stop="emit('favori')">
+        <Etincelles :taille="20" aria-hidden="true" />
         <span>{{ g.favoris.value.has(p.l) ? 'Dans les favoris' : 'Favoris' }}</span>
       </button>
     </div>
@@ -73,7 +73,7 @@ const peutBloquer = computed(() => g.etat.value?.moi?.role !== 'observateur')
 
     <div v-if="p.sr" class="graphe">
       <CourbePrenom :serie="p.sr" :hauteur="78" />
-      <span class="mini doux">1986 → 2025</span>
+      <span class="mini doux" aria-hidden="true">1986 → 2025</span>
     </div>
 
     <div class="bas">
@@ -93,7 +93,7 @@ const peutBloquer = computed(() => g.etat.value?.moi?.role !== 'observateur')
 
 .nom { font-size: 2.4rem; letter-spacing: -.035em; margin: 2px 0 0; }
 .sens { margin: 0; font-size: 1rem; font-style: italic; }
-.graphies { margin: -4px 0 0; font-size: .74rem; color: var(--texte); opacity: .8;
+.graphies { margin: -4px 0 0; font-size: .74rem; color: var(--texte);
   line-height: 1.35; }
 /* Une etymologie discutee ne doit pas se lire comme un fait. */
 .doute { font-style: normal; font-size: .74rem; color: var(--doux); }

@@ -23,11 +23,25 @@ const d = computed(() => {
   }
 })
 defineExpose({ d })
+
+/**
+ * Ce que la courbe dit, en mots (RGAA 1.3) : elle etait masquee aux lecteurs
+ * d'ecran, qui perdaient la seule information qu'elle porte — la forme de la
+ * mode. On en donne le sens, pas les quarante valeurs.
+ */
+const resume = computed(() => {
+  const s = props.serie
+  if (!d.value || !s) return ''
+  const debut = s.slice(0, 5).reduce((a, b) => a + b, 0) / 5
+  const fin = s.slice(-5).reduce((a, b) => a + b, 0) / 5
+  const sens = fin > debut * 1.3 ? 'en hausse' : fin < debut * 0.7 ? 'en baisse' : 'plutôt stable'
+  return `Naissances de ${AN0} à ${AN0 + s.length - 1} : ${sens}, au plus haut en ${d.value.pic.an}.`
+})
 </script>
 
 <template>
   <svg v-if="d" class="courbe" :viewBox="`0 0 ${L} ${d.H}`" preserveAspectRatio="none"
-       :style="{ height: d.H + 'px' }" aria-hidden="true">
+       :style="{ height: d.H + 'px' }" role="img" :aria-label="resume">
     <defs>
       <linearGradient :id="`g${d.H}`" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="var(--menthe)" stop-opacity=".9" />

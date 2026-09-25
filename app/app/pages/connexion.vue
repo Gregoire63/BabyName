@@ -10,6 +10,12 @@ const erreur = ref('')
 const cleNeuve = ref('')
 const copie = ref(false)
 
+useHead({ title: 'Connexion' })
+
+// Retour d'une suppression de compte : on le dit, plutot que de laisser
+// croire a une simple deconnexion.
+const compteSupprime = computed(() => route.query.compte === 'supprime')
+
 const invitation = computed(() => {
   const c = route.query.code
   return typeof c === 'string' && c.trim().length === 8 ? c.trim() : ''
@@ -58,7 +64,11 @@ onMounted(async () => { if (await rafraichirMoi()) await suite() })
 </script>
 
 <template>
-  <main class="accueil">
+  <main id="contenu" class="accueil" tabindex="-1">
+    <p v-if="compteSupprime && !cleNeuve" class="carte mini supprime" role="status">
+      Votre compte et vos données ont été supprimés.
+    </p>
+
     <!-- 1. la clé vient d'être créée : elle ne sera plus jamais affichée -->
     <template v-if="cleNeuve">
       <div class="haut">
@@ -76,11 +86,13 @@ onMounted(async () => { if (await rafraichirMoi()) await suite() })
           qu’une fois, et elle seule permet de retrouver votre compte sur un
           autre téléphone.
         </p>
-        <button class="cle" @click="copier">{{ cleNeuve }}</button>
-        <p class="mini" :class="copie ? '' : 'doux'" style="margin:0;text-align:center">
+        <button type="button" class="cle" @click="copier">
+          <span class="sr-only">Votre clé d’accès, touchez pour la copier : </span>{{ cleNeuve }}
+        </button>
+        <p class="mini" :class="copie ? '' : 'doux'" aria-live="polite" style="margin:0;text-align:center">
           {{ copie ? 'Copiée' : 'Touchez pour copier' }}
         </p>
-        <button class="btn btn-1" @click="suite">C’est noté, on y va</button>
+        <button type="button" class="btn btn-1" @click="suite">C’est noté, on y va</button>
         <p class="mini doux" style="margin:0">
           Vous restez connecté sur cet appareil pendant plusieurs mois. La clé
           ne sert qu’en cas de changement de téléphone.
@@ -96,13 +108,14 @@ onMounted(async () => { if (await rafraichirMoi()) await suite() })
       </div>
       <div class="carte pile">
         <input v-model="cle" class="champ grand" placeholder="XXXX-XXXX-XXXX"
+               aria-label="Votre clé d’accès, 12 caractères"
                autocapitalize="characters" autocomplete="off" spellcheck="false"
                @keyup.enter="reprendre">
-        <button class="btn btn-1" :disabled="envoi" @click="reprendre">
+        <button type="button" class="btn btn-1" :disabled="envoi" @click="reprendre">
           {{ envoi ? 'Vérification…' : 'Entrer' }}
         </button>
-        <p v-if="erreur" class="mini" style="color:var(--non);margin:0">{{ erreur }}</p>
-        <button class="btn btn-0 doux" @click="mode = 'choix'; erreur = ''">Retour</button>
+        <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
+        <button type="button" class="btn btn-0 doux" @click="mode = 'choix'; erreur = ''">Retour</button>
       </div>
     </template>
 
@@ -120,20 +133,31 @@ onMounted(async () => { if (await rafraichirMoi()) await suite() })
           <input v-model="pseudo" class="champ" placeholder="Greg" autocomplete="nickname"
                  @keyup.enter="creer">
         </label>
-        <button class="btn btn-1" :disabled="envoi" @click="creer">
+        <button type="button" class="btn btn-1" :disabled="envoi" @click="creer">
           {{ envoi ? 'Création…' : 'Commencer' }}
         </button>
-        <p v-if="erreur" class="mini" style="color:var(--non);margin:0">{{ erreur }}</p>
+        <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
         <p class="mini doux" style="margin:0">
           Pas d’adresse e-mail, pas de mot de passe. On vous donne une clé à noter,
           utile seulement si vous changez de téléphone.
         </p>
+        <!-- L'information au moment de la collecte (RGPD, art. 13) : courte
+             ici, complete derriere le lien. -->
+        <p class="mini doux" style="margin:0">
+          En commençant, vous acceptez les
+          <NuxtLink to="/conditions" class="lien">conditions d’utilisation</NuxtLink>.
+          Seul ce prénom est demandé ; vos listes et vos votes servent à faire marcher
+          l’app, jamais à de la publicité —
+          <NuxtLink to="/confidentialite" class="lien">ce qu’on garde et pourquoi</NuxtLink>.
+        </p>
       </div>
 
-      <button class="btn btn-0 doux" @click="mode = 'cle'; erreur = ''">
+      <button type="button" class="btn btn-0 doux" @click="mode = 'cle'; erreur = ''">
         J’ai déjà une clé
       </button>
     </template>
+
+    <PiedLegal compact />
   </main>
 </template>
 
@@ -152,4 +176,6 @@ onMounted(async () => { if (await rafraichirMoi()) await suite() })
   font: inherit; font-size: 1.35rem; font-weight: 700; letter-spacing: .08em;
   text-align: center; color: var(--texte); }
 .cle:active { transform: scale(.99); }
+.accueil:focus { outline: none; }
+.supprime { margin: 0; padding: 12px 16px; text-align: center; }
 </style>

@@ -168,6 +168,32 @@ function allerA(onglet: string, seg?: string) {
   if (i >= 0) glisserVers(i)
 }
 
+/**
+ * Le titre de la page suit l'onglet (RGAA 8.6). Nuxt l'annonce a chaque
+ * changement (NuxtRouteAnnouncer, dans app.vue) : c'est ce qui dit a un
+ * lecteur d'ecran qu'on est passe de « Swipe » a « Classement », puisque le
+ * glissement entre onglets ne change pas de route.
+ */
+useHead({
+  title: computed(() => {
+    const nom = etat.value?.groupe?.nom
+    const onglet = ONGLETS[index.value]?.t ?? ''
+    return nom ? `${onglet} — ${nom}` : onglet
+  })
+})
+
+/**
+ * Les fleches ne doivent pas faire defiler le pager d'un onglet a l'autre :
+ * au clavier, les onglets se choisissent dans la barre du bas, et sur l'onglet
+ * de tri les fleches votent. Dans un champ, elles restent au champ.
+ */
+function flechesPager(e: KeyboardEvent) {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  const cible = e.target as HTMLElement | null
+  if (cible?.closest('input, textarea, select, [contenteditable="true"]')) return
+  e.preventDefault()
+}
+
 const partage: EtatGroupe = {
   gid, etat, catalogue, parNom, origines, filtres, dejaVotes, aimes, vetos,
   mesVetos, poserVeto, retirerVeto, favoris, basculerFavori,
@@ -197,8 +223,26 @@ watch([index, segment, communs], ([i, s]) => {
 })
 
 // --- navigation -----------------------------------------------------------
+/**
+ * Un onglet choisi l'est tout de suite, pas a la fin du glissement.
+ *
+ * L'index suivait le defilement : pendant les 300 ms de l'animation, le volet
+ * vise restait inerte (voir le gabarit), l'onglet n'etait pas encore marque
+ * courant et le titre annonce etait l'ancien. Un champ touche juste apres
+ * l'onglet ne recevait rien. On pose donc l'index au clic, et on ignore les
+ * positions intermediaires du glissement jusqu'a l'arrivee.
+ */
+let cibleGlisse: number | null = null
+let finGlisse: any = null
 function glisserVers(i: number) {
   vues.value = new Set([...vues.value, i])
+  index.value = i
+  cibleGlisse = i
+  clearTimeout(finGlisse)
+  // Filet : un doigt qui reprend la main pendant l'animation ne doit pas
+  // laisser l'index fige sur une cible jamais atteinte.
+  finGlisse = setTimeout(() => { cibleGlisse = null }, 900)
+  history.replaceState(history.state, '', `/g/${gid}/${ONGLETS[i]!.id}`)
   const el = pager.value
   if (!el) return
   el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
@@ -209,6 +253,10 @@ function auDefilement() {
   const el = pager.value
   if (!el || !el.clientWidth) return
   const i = Math.round(el.scrollLeft / el.clientWidth)
+  if (cibleGlisse !== null) {
+    if (i !== cibleGlisse) return
+    cibleGlisse = null
+  }
   if (i === index.value) return
   index.value = i
   vues.value = new Set([...vues.value, i])
@@ -274,16 +322,24 @@ async function attendrePaiement() {
 
 <template>
   <div class="cadre">
-    <div ref="pager" class="pager" @scroll.passive="auDefilement">
-      <section><SectionTrier v-if="vues.has(0)" :actif="index === 0" /></section>
-      <section>
+    <!-- Les trois volets sont dans le DOM en meme temps (on glisse de l'un a
+         l'autre) : ceux qu'on ne regarde pas sont inertes, sinon un lecteur
+         d'ecran les lit a la suite et la tabulation s'y perd. -->
+    <main id="contenu" ref="pager" class="pager" tabindex="-1"
+          @scroll.passive="auDefilement" @keydown="flechesPager">
+      <section :aria-label="ONGLETS[0]!.t" :inert="index !== 0 || undefined">
+        <SectionTrier v-if="vues.has(0)" :actif="index === 0" />
+      </section>
+      <section :aria-label="ONGLETS[1]!.t" :inert="index !== 1 || undefined">
         <SectionClassement v-if="vues.has(1)" :actif="index === 1"
                            :segment="segment" @segment="segment = $event" />
       </section>
-      <section><SectionReglages v-if="vues.has(2)" :actif="index === 2" /></section>
-    </div>
+      <section :aria-label="ONGLETS[2]!.t" :inert="index !== 2 || undefined">
+        <SectionReglages v-if="vues.has(2)" :actif="index === 2" />
+      </section>
+    </main>
 
-    <nav class="onglets">
+    <nav class="onglets" aria-label="Navigation dans la liste">
       <!-- la sortie, pas un onglet : elle quitte la liste -->
       <NuxtLink to="/" class="sortie">
         <span class="picto">
@@ -294,7 +350,13 @@ async function attendrePaiement() {
         Accueil
       </NuxtLink>
 
-      <button v-for="(o, i) in ONGLETS" :key="o.id" :class="{ on: index === i }"
+      <!-- La pastille des nouveaux accords est un dessin : son sens passe dans
+           le nom accessible, qui commence par le libelle visible (WCAG 2.5.3). -->
+      <button v-for="(o, i) in ONGLETS" :key="o.id" type="button" :class="{ on: index === i }"
+              :aria-current="index === i ? 'page' : undefined"
+              :aria-label="o.id === 'classement' && nouveaux
+                ? `${o.t}, ${nouveaux > 1 ? `${nouveaux} nouveaux accords` : '1 nouvel accord'}`
+                : undefined"
               @click="glisserVers(i)">
         <span class="picto">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -313,7 +375,7 @@ async function attendrePaiement() {
               <circle cx="8" cy="17" r="2" />
             </template>
           </svg>
-          <i v-if="o.id === 'classement' && nouveaux" class="pastille">{{ nouveaux }}</i>
+          <i v-if="o.id === 'classement' && nouveaux" class="pastille" aria-hidden="true">{{ nouveaux }}</i>
         </span>
         {{ o.t }}
       </button>
@@ -327,7 +389,7 @@ async function attendrePaiement() {
     <FeuilleDebloquer v-if="debloquerOuvert" @fermer="debloquerOuvert = false" />
 
     <div v-if="confirmation" class="paiement" :class="confirmation"
-         role="status" @click="confirmation = null">
+         role="status" aria-live="polite" @click="confirmation = null">
       <template v-if="confirmation === 'attente'">
         Paiement reçu — on débloque la liste…
       </template>
@@ -343,6 +405,7 @@ async function attendrePaiement() {
 </template>
 
 <style scoped>
+.pager:focus { outline: none; }
 .cadre { height: 100%; }
 .paiement { position: fixed; left: 12px; right: 12px; bottom: 76px; z-index: 70;
   padding: 13px 16px; border-radius: 15px; background: var(--carte);

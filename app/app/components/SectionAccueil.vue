@@ -9,6 +9,8 @@ import { listeCourante } from '~/composables/useListeCourante'
  * qu'on y est. Ce qui touche au compte vit ici, pas dans les reglages d'une
  * liste — un pseudo et une cle d'acces n'appartiennent a aucune liste.
  */
+useHead({ title: 'Accueil' })
+
 const compteOuvert = ref(false)
 const rejoindreOuvert = ref(false)
 
@@ -171,11 +173,14 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
 <template>
   <div class="ecran page">
-    <div class="defile page">
+    <main id="contenu" class="defile page" tabindex="-1">
       <header class="tete">
         <img src="/logo.png" alt="" width="34" height="34">
         <h1 style="flex:1">babyNames</h1>
-        <button class="qui" @click="compteOuvert = true">
+        <!-- Le nom visible est dans le nom accessible (WCAG 2.5.3) : « Mon
+             compte : Greg » se dit et se commande a la voix par « Greg ». -->
+        <button type="button" class="qui" :aria-label="`Mon compte : ${moi?.pseudo ?? ''}`"
+                @click="compteOuvert = true">
           <span>{{ moi?.pseudo ?? '…' }}</span>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="8.6" r="3.4" /><path d="M5 19.4a7 7 0 0 1 14 0" />
@@ -230,7 +235,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
             <span><strong>{{ principale.nb_communs }}</strong> en commun</span>
             <span><strong>{{ principale.nb_membres }}</strong> {{ principale.nb_membres > 1 ? 'membres' : 'membre' }}</span>
           </div>
-          <p class="mini" style="margin:0;opacity:.66">
+          <p class="mini" style="margin:0;opacity:.85">
             Dernier vote {{ quandDernier(principale.derniere_activite) }}
           </p>
         </NuxtLink>
@@ -238,7 +243,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <div v-else class="carte degrade grande accueil">
           <Etincelles class="deco" :taille="30" />
           <h2 class="titre">Commencez ici</h2>
-          <p class="mini" style="margin:0;opacity:.75">
+          <p class="mini" style="margin:0;opacity:.85">
             Quelques questions, et vous triez des prénoms à deux sans jamais voir
             le vote de l’autre avant d’avoir donné le vôtre.
           </p>
@@ -335,12 +340,13 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <p class="mini doux credit">
           {{ stats?.total.toLocaleString('fr-FR') ?? '—' }} prénoms · fichier INSEE des prénoms,
           millésime 2025<br>
-          <button class="version" @click="vider">
+          <button type="button" class="version" @click="vider">
             version {{ version }}{{ purge ? ' — rechargement…' : ' · toucher pour recharger à neuf' }}
           </button>
         </p>
+        <PiedLegal class="credit" />
       </div>
-    </div>
+    </main>
 
     <button v-if="principale" class="tirette" :style="{ transform: `translateX(${-tire}px)` }"
             :aria-label="`Revenir dans ${principale.nom}`"
@@ -372,6 +378,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
   stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
 .tirette span { writing-mode: vertical-rl; max-height: 128px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; letter-spacing: .02em; }
+.defile.page:focus { outline: none; }
 .defile.page { height: 100%; overflow-y: auto; overscroll-behavior-y: contain;
   padding: max(16px, env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom)); }
 .tete { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
@@ -398,7 +405,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .titre { font-size: 1.5rem; letter-spacing: -.03em; }
 .etiquette { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em;
   font-weight: 700; color: var(--doux); margin: 0; }
-.grande .etiquette { color: inherit; opacity: .6; }
+.grande .etiquette { color: inherit; opacity: .8; }
 .chiffres { gap: 16px; font-size: .78rem; flex-wrap: wrap; }
 .chiffres strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; display: block; }
 .accueil { gap: 9px; }
@@ -426,6 +433,6 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .panne { border-color: var(--non); }
 .fantome { display: flex; flex-direction: column; gap: 9px; justify-content: center; }
 .grande.fantome { background: var(--carte); }
-.version { background: none; border: 0; color: inherit; font: inherit; opacity: .65;
+.version { background: none; border: 0; color: inherit; font: inherit;
   padding: 7px 4px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 </style>

@@ -1,5 +1,5 @@
 /**
- * Le seul endroit qui débloque une liste.
+ * Le seul endroit qui débloque une liste — et qui la re-verrouille.
  *
  * Stripe appelle cette route après un paiement réussi. Rien d'autre ne pose
  * `paye_le` : ni le retour du navigateur sur `?paye=1`, ni un appel de l'app.
@@ -30,7 +30,23 @@ export default defineEventHandler(async (e) => {
    * que le premier, c'etait encaisser les prelevements sans jamais debloquer.
    */
   const DEBLOQUANTS = ['checkout.session.completed', 'checkout.session.async_payment_succeeded']
-  if (!DEBLOQUANTS.includes(ev?.type)) return { ok: true, ignore: ev?.type }
-  const r = await livrer(ev.data?.object)
-  return r.livre ? { ok: true, groupe: r.groupe, offert: r.offert } : { ok: true, ignore: r.raison }
+  if (DEBLOQUANTS.includes(ev?.type)) {
+    const r = await livrer(ev.data?.object)
+    return r.livre ? { ok: true, groupe: r.groupe, offert: r.offert } : { ok: true, ignore: r.raison }
+  }
+
+  /**
+   * Et deux qui re-verrouillent : remboursement total, litige perdu. Sans
+   * eux, rembourser quelqu'un lui laissait la liste payante — et un litige
+   * perdu la laissait a celui qui avait conteste le paiement.
+   */
+  const REPRENANTS = ['charge.refunded', 'charge.dispute.closed']
+  if (REPRENANTS.includes(ev?.type)) {
+    const r = await reprendrePaiement(ev)
+    if (r.repris) console.info('[stripe] liste re-verrouillee', r.groupe, ev.type)
+    return r.repris ? { ok: true, reprise: r.groupe } : { ok: true, ignore: r.raison }
+  }
+
+  // Tout autre evenement : 200, sinon Stripe le renverrait pendant trois jours.
+  return { ok: true, ignore: ev?.type }
 })

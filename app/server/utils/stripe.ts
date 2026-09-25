@@ -30,6 +30,10 @@ function cles() {
     secret: c.stripeSecretKey as string,
     webhook: c.stripeWebhookSecret as string,
     price: c.stripePriceId as string,
+    // Seulement si l'on est assujetti a la TVA : le taux « TVA FR 20 % »
+    // (inclusive) cree dans le Dashboard. Vide en franchise : la facture porte
+    // alors la mention de l'article 293 B, et aucun taux.
+    taxRate: String(c.stripeTaxRateId ?? ''),
     api: ((c.stripeApiBase as string) || 'https://api.stripe.com/v1').replace(/\/$/, ''),
     managed: ['1', 'true', 'oui'].includes(String(c.stripeManagedPayments ?? '').toLowerCase())
   }
@@ -39,6 +43,21 @@ function cles() {
 export function paiementPret(): boolean {
   const k = cles()
   return !!(k.secret && k.price)
+}
+
+/**
+ * Peut-on vendre ? Pas tant que l'identite du vendeur est vide.
+ *
+ * Vendre a un particulier sans SIRET, sans adresse ni telephone, c'est vendre
+ * en infraction — et la facture comme les conditions acceptees a l'achat
+ * seraient trouees la ou elles doivent dire qui vend. Le paiement reste donc
+ * ferme en production tant que shared/utils/editeur.ts n'a pas ces champs ;
+ * /api/sante dit ce qui manque (le mediateur y figure aussi, sans bloquer :
+ * voir mentionsBloquantes). En developpement, on laisse passer : les essais
+ * doivent pouvoir parcourir le chemin du paiement.
+ */
+export function venteOuverte(): boolean {
+  return import.meta.dev || mentionsBloquantes().length === 0
 }
 
 /** Stripe n'accepte que du form-urlencoded, y compris pour les objets imbriqués. */
@@ -77,19 +96,66 @@ async function appel(chemin: string, corps: Record<string, any>) {
 }
 
 /**
+ * Ce que dit la facture, en pied de page.
+ *
+ * Elle est le « support durable » que le Code de la consommation exige
+ * (art. L221-13) : l'acheteur doit recevoir, par e-mail, la confirmation qu'il
+ * a demande l'execution immediate et renonce a la retractation. Sans cette
+ * confirmation, la renonciation ne vaut rien — et il garde quatorze jours pour
+ * se faire rembourser une liste deja utilisee. Stripe envoie la facture ; on
+ * lui donne le texte.
+ */
+function piedFacture(siteUrl: string, consentementLe: string): string {
+  const e = EDITEUR
+  const qui = [
+    `${e.marque} — ${e.nom}, ${e.forme.toLowerCase()}`,
+    e.siret ? `SIRET ${e.siret}` : '',
+    e.adresse
+  ].filter(Boolean).join(' · ')
+  const jour = new Date(consentementLe).toLocaleDateString('fr-FR',
+    { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' })
+  return [
+    qui,
+    mentionTva() + '.',
+    `Contenu numérique fourni dès le paiement. Le ${jour}, vous avez demandé l’accès immédiat et renoncé à votre droit de rétractation (art. L221-28 13° du Code de la consommation).`,
+    `Conditions générales, version du ${VERSIONS_TEXTES.conditions} : ${siteUrl}/conditions`,
+    e.mediateur.nom ? `Médiateur de la consommation : ${e.mediateur.nom} — ${e.mediateur.site}` : ''
+  ].filter(Boolean).join('\n')
+}
+
+/**
  * Une session de paiement pour UNE liste. `client_reference_id` porte l'id de
  * la liste et `metadata.user_id` celui de l'acheteur : c'est ce que le webhook
  * relira. On ne fait jamais confiance à ce que le navigateur renverra ensuite.
+ *
+ * Le consentement (conditions acceptees, execution immediate demandee) part
+ * dans les metadonnees de la session ET du paiement : en cas de litige, c'est
+ * la preuve, lisible dans le Dashboard, de ce qui a ete accepte et quand.
  */
 export async function creerSession(opts: {
-  gid: number, uid: string, siteUrl: string, email?: string | null
+  gid: number, uid: string, siteUrl: string, email?: string | null, consentementLe: string
 }) {
   const k = cles()
+  const direct = !k.managed
+  const meta = {
+    groupe_id: String(opts.gid),
+    user_id: opts.uid,
+    conditions_version: VERSIONS_TEXTES.conditions,
+    execution_immediate: 'demandee',
+    retractation: 'renonciation art. L221-28 13 C. conso',
+    consentement_le: opts.consentementLe
+  }
   return appel('checkout/sessions', {
     mode: 'payment',
-    line_items: [{ price: k.price, quantity: 1 }],
+    line_items: [{
+      price: k.price, quantity: 1,
+      tax_rates: direct && k.taxRate ? [k.taxRate] : undefined
+    }],
+    // L'app n'existe qu'en francais : une page de paiement en anglais, parce
+    // que le navigateur l'est, casserait le parcours au pire moment.
+    locale: 'fr',
     client_reference_id: String(opts.gid),
-    metadata: { groupe_id: String(opts.gid), user_id: opts.uid },
+    metadata: meta,
     // `{CHECKOUT_SESSION_ID}` est remplace par Stripe : au retour, l'app peut
     // demander elle-meme si c'est paye, sans attendre le webhook.
     success_url: `${opts.siteUrl}/g/${opts.gid}/swipe?paye=1&session_id={CHECKOUT_SESSION_ID}`,
@@ -102,13 +168,58 @@ export async function creerSession(opts: {
     // (Sans effet pour un code a 100 % : aucun paiement n'est alors cree.)
     payment_intent_data: {
       description: `babyNames — liste ${opts.gid}`,
-      metadata: { groupe_id: String(opts.gid) }
+      metadata: meta
     },
-    // Rien d'autre ne change en passant a Managed Payments : on n'envoie aucun
-    // des parametres qu'il refuse (custom_text, invoice_creation,
-    // payment_method_types, statement_descriptor…). Le basculement tient donc
-    // dans une variable d'environnement.
-    managed_payments: k.managed ? { enabled: true } : undefined
+    // Managed Payments refuse custom_text (verifie en live), et envoie lui-meme
+    // recus et factures, en son nom : facture, texte et habillage ne partent
+    // qu'en vente directe. Le basculement tient toujours dans une variable.
+    ...(direct ? {
+      custom_text: {
+        submit: {
+          message: 'Accès immédiat : la liste est débloquée dès le paiement, pour tous ses membres. ' +
+            'Vous avez demandé cette exécution immédiate et renoncé à votre droit de rétractation ' +
+            '(art. L221-28 13° du Code de la consommation).'
+        },
+        after_submit: {
+          message: 'Paiement traité par Stripe : babyNames ne voit jamais votre carte. ' +
+            'La facture vous est envoyée par e-mail.'
+        }
+      },
+      // La facture : preuve d'achat pour l'acheteur, piece comptable pour le
+      // vendeur, et support durable de la renonciation (voir piedFacture).
+      // 0,4 % du montant chez Stripe, soit 2,4 centimes par liste.
+      invoice_creation: {
+        enabled: true,
+        invoice_data: {
+          description: `Déblocage de la liste n° ${opts.gid} sur babyNames — accès immédiat, sans abonnement.`,
+          footer: piedFacture(opts.siteUrl, opts.consentementLe),
+          custom_fields: [
+            { name: 'Liste', value: `n° ${opts.gid}` },
+            { name: 'Conditions générales', value: `version du ${VERSIONS_TEXTES.conditions}` }
+          ],
+          metadata: { groupe_id: String(opts.gid) },
+          rendering_options: k.taxRate ? { amount_tax_display: 'include_inclusive_tax' } : undefined
+        }
+      },
+      // Les couleurs de l'app sur la page de Stripe : un acheteur qui ne
+      // reconnait pas l'endroit ou il paie abandonne, ou conteste ensuite.
+      // Le logo, lui, se pose dans le Dashboard (Parametres → Image de marque) :
+      // il sert aussi aux recus et aux factures.
+      branding_settings: {
+        display_name: 'babyNames',
+        font_family: 'nunito',
+        border_style: 'pill',
+        button_color: '#1a234e',
+        background_color: '#fbfaf9'
+      }
+    } : {}),
+    // TOUJOURS explicite, dans les deux sens. Le compte a Managed Payments
+    // « active par defaut » : une session qui ne dit rien part en Managed
+    // Payments (3,5 % de plus, Stripe vendeur) — et, avec la facture ou le
+    // texte personnalise ci-dessus, Stripe la REFUSE : plus aucune vente.
+    // Verifie contre l'API live le 25/09/2026. Comme la version de l'API,
+    // ce choix ne doit pas dependre d'un reglage du Dashboard.
+    managed_payments: { enabled: k.managed }
   })
 }
 
@@ -150,11 +261,49 @@ export async function livrer(session: any): Promise<{ livre: boolean; raison?: s
   // Un code à 100 % marque la liste comme offerte, pas comme vendue : c'est ce
   // qui permet plus tard de compter les ventes sans compter les cadeaux.
   const offert = session.payment_status === 'no_payment_required' || session.amount_total === 0
+  // La reference du paiement : c'est par elle qu'un remboursement retrouvera
+  // la liste. Absente pour un code a 100 % — il n'y a rien a rembourser.
+  const ref = typeof session.payment_intent === 'string' ? session.payment_intent
+    : typeof session.payment_intent?.id === 'string' ? session.payment_intent.id : null
   // `where paye_le is null` : un second passage ne réécrit ni la date ni
-  // l'acheteur.
-  await q(`update groupes set paye_le = now(), paye_par = $2, offert = $3
-            where id = $1 and paye_le is null`, [gid, uid, offert])
+  // l'acheteur. L'acheteur peut avoir efface son compte entre-temps : la
+  // cle etrangere refuserait son id, on ne le note alors pas.
+  await q(`update groupes set paye_le = now(),
+                  paye_par = (select id from utilisateurs where id = $2::uuid),
+                  offert = $3, paiement_ref = $4
+            where id = $1 and paye_le is null`, [gid, uid, offert, ref])
   return { livre: true, groupe: gid, offert }
+}
+
+/**
+ * Reprendre une liste dont le paiement est defait.
+ *
+ * Deux cas, et deux seulement :
+ *  - remboursement TOTAL (`charge.refunded` avec `refunded: true`) : c'est
+ *    l'annulation de la vente. Un remboursement partiel — un geste
+ *    commercial — laisse la liste ouverte.
+ *  - litige PERDU (`charge.dispute.closed`, statut `lost`) : l'argent est
+ *    reparti. Un litige ouvert ne reprend rien : on peut encore le gagner, et
+ *    punir un acheteur de bonne foi pendant l'instruction serait pire que
+ *    perdre six euros.
+ *
+ * Les votes, eux, ne bougent pas : on retire le deblocage, pas les donnees.
+ */
+export async function reprendrePaiement(ev: any): Promise<{ repris: boolean; raison?: string; groupe?: number }> {
+  const o = ev?.data?.object
+  if (ev?.type === 'charge.refunded') {
+    if (!o?.refunded) return { repris: false, raison: 'remboursement_partiel' }
+  } else if (ev?.type === 'charge.dispute.closed') {
+    if (o?.status !== 'lost') return { repris: false, raison: `litige_${o?.status ?? 'inconnu'}` }
+  } else {
+    return { repris: false, raison: 'evenement_ignore' }
+  }
+  const pi = typeof o?.payment_intent === 'string' ? o.payment_intent : o?.payment_intent?.id
+  if (typeof pi !== 'string' || !pi.startsWith('pi_')) return { repris: false, raison: 'sans_paiement' }
+  const r = await q<{ id: number }>(
+    `update groupes set paye_le = null, paye_par = null, offert = false
+      where paiement_ref = $1 and paye_le is not null returning id`, [pi])
+  return r.length ? { repris: true, groupe: Number(r[0]!.id) } : { repris: false, raison: 'liste_inconnue' }
 }
 
 /**

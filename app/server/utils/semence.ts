@@ -131,6 +131,30 @@ export async function semerSiVide(c: Connexion) {
      values ($1, $2, 'Louise', 'Un peu partout en ce moment, non ?')`,
     [gid, audrey]).catch(() => null)
 
+  // Un compte oublie depuis plus de deux ans : c'est ce que la purge RGPD doit
+  // effacer (essai-rgpd.mjs), avec sa liste ou il etait seul. Il porte aussi
+  // un reste du temps du lien magique (e-mail, jeton) que la purge nettoie.
+  const fantome = await creerCompte(c, 'Fantome', 'DEVF-ANTM-2345')
+  await c.query(
+    `update utilisateurs set cree_le = now() - interval '26 months',
+            vu_le = now() - interval '25 months', email = 'fantome@exemple.invalid'
+      where id = $1`, [fantome])
+  const gf = await c.query(
+    `insert into groupes (nom, code_invitation, cree_par, cree_le)
+     values ('Liste oubliee', 'dec0de0f', $1, now() - interval '26 months') returning id`, [fantome])
+  await c.query(`insert into membres (groupe_id, user_id, role) values ($1, $2, 'parent')`,
+    [gf.rows[0].id, fantome])
+  await c.query(`insert into votes (groupe_id, user_id, prenom, valeur) values ($1, $2, 'Louise', 2)`,
+    [gf.rows[0].id, fantome])
+  await c.query(
+    `insert into jetons_magiques (jeton, email, expire_le)
+     values ('jeton-du-temps-du-lien-magique', 'fantome@exemple.invalid', now() - interval '2 years')`)
+  // Un compteur de gestes de plus de deux mois cote Greg : la purge le retire,
+  // et le quota du mois en cours ne le voit pas.
+  await c.query(
+    `insert into quota_jour (groupe_id, user_id, jour, n) values ($1, $2, current_date - 70, 3)`,
+    [g3.rows[0].id, greg])
+
   console.log(
     '\n  Base de developpement semee (Postgres embarque, dossier .data/).\n' +
     `  Liste « Notre liste », code d'invitation dec0de00.\n` +

@@ -28,6 +28,10 @@ const pluie = Array.from({ length: 14 }, (_, i) => ({
  * au rang d'information. On attend un geste.
  */
 const entre = ref(false)
+const boite = ref<HTMLElement>()
+const idTitre = useId()
+const idNom = useId()
+useDialogue(boite, () => emit('fermer'))
 onMounted(() => {
   // Un match se sent avant de se lire. Deux coups brefs, pas une sonnerie.
   try { navigator.vibrate?.([18, 60, 26]) } catch { /* pas de vibreur */ }
@@ -43,16 +47,17 @@ const qui = computed(() => {
 </script>
 
 <template>
-  <div class="fete" :class="{ entre }" @click.self="emit('fermer')">
-    <i v-for="(e, i) in pluie" :key="i" class="goutte"
+  <div ref="boite" class="fete" :class="{ entre }" role="dialog" aria-modal="true"
+       :aria-labelledby="`${idTitre} ${idNom}`" tabindex="-1" @click.self="emit('fermer')">
+    <i v-for="(e, i) in pluie" :key="i" class="goutte" aria-hidden="true"
        :style="{ left: e.g + '%', animationDelay: e.retard + 's', animationDuration: e.duree + 's' }">
       <Etincelles :taille="e.taille" couleur="var(--peche)" une />
     </i>
 
     <div class="coeur">
-      <Etincelles :taille="42" couleur="var(--peche)" />
-      <p class="titre">Vous êtes d’accord</p>
-      <h2 class="nom">{{ prenom }}</h2>
+      <Etincelles :taille="42" couleur="var(--peche)" aria-hidden="true" />
+      <p :id="idTitre" class="titre">Vous êtes d’accord</p>
+      <h2 :id="idNom" class="nom">{{ prenom }}</h2>
       <p class="qui">{{ qui }}</p>
 
       <div class="actions">
@@ -64,6 +69,7 @@ const qui = computed(() => {
 </template>
 
 <style scoped>
+.fete:focus { outline: none; }
 .fete { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center;
   background: color-mix(in srgb, var(--fond) 93%, transparent);
   backdrop-filter: blur(10px); overflow: hidden; animation: entrer .2s ease; }
@@ -89,7 +95,7 @@ const qui = computed(() => {
 @keyframes monter { from { transform: translateY(10px); opacity: 0 } }
 .actions .btn { width: 100%; }
 .qui { margin: 2px 0 0; font-size: 1.05rem; color: var(--doux); }
-.indice { margin-top: 18px; color: var(--doux); opacity: .65; }
+.indice { margin-top: 18px; color: var(--doux); }
 
 .goutte { position: absolute; top: -8%; animation-name: tomber;
   animation-timing-function: ease-in; animation-iteration-count: 1; opacity: 0; }

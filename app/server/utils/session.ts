@@ -2,7 +2,9 @@ import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto'
 import type { H3Event } from 'h3'
 
 const COOKIE = 'pr_session'
-const DUREE = 60 * 60 * 24 * 120          // 120 jours
+// 120 jours : la valeur est dans CONSERVATION (shared/utils/editeur.ts), que
+// la politique de confidentialite affiche. Un seul chiffre, deux lecteurs.
+const DUREE = 60 * 60 * 24 * CONSERVATION.sessionJours
 
 const b64 = (b: Buffer) => b.toString('base64url')
 

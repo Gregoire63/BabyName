@@ -1,8 +1,30 @@
 <script setup lang="ts">
 onMounted(() => { rafraichirMoi() })
+
+// Chaque page donne son titre ; le nom de l'app suit (RGAA 8.6).
+useHead({
+  titleTemplate: (t?: string) => (t && t !== 'babyNames' ? `${t} · babyNames` : 'babyNames')
+})
+
+/**
+ * Lien d'evitement (RGAA 12.7). Un <a href="#contenu"> ordinaire changerait
+ * le hash, donc la route : le routeur rejouerait la transition de page. On
+ * deplace simplement le focus sur le contenu principal de la page affichee.
+ */
+function allerAuContenu() {
+  const el = document.getElementById('contenu')
+  if (!el) return
+  if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1')
+  el.focus()
+}
 </script>
 
 <template>
+  <a href="#contenu" class="evitement" @click.prevent="allerAuContenu">Aller au contenu</a>
+  <!-- Annonce le titre de chaque nouvelle page aux lecteurs d'ecran : dans
+       une application d'une seule page, rien d'autre ne leur dit qu'on a
+       change d'ecran. -->
+  <NuxtRouteAnnouncer />
   <NuxtPage />
 </template>
 
@@ -19,6 +41,36 @@ onMounted(() => { rafraichirMoi() })
    degrade, et l'etincelle comme unique ornement — reservee aux moments ou il
    se passe quelque chose de bien.
 --------------------------------------------------------------------------- */
+
+/* Nunito, servie par l'app elle-meme. Elle venait de Google Fonts : chaque
+   ouverture envoyait l'adresse IP du visiteur a Google, un transfert que rien
+   ne justifiait (CNIL ; LG Munchen, 2022). Deux sous-ensembles par graisse,
+   charges seulement si un caractere de la page en a besoin (unicode-range). */
+@font-face { font-family: 'Nunito'; font-style: normal; font-weight: 500; font-display: swap;
+  src: url('~/assets/fonts/nunito-latin-500-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'Nunito'; font-style: normal; font-weight: 600; font-display: swap;
+  src: url('~/assets/fonts/nunito-latin-600-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'Nunito'; font-style: normal; font-weight: 700; font-display: swap;
+  src: url('~/assets/fonts/nunito-latin-700-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'Nunito'; font-style: normal; font-weight: 800; font-display: swap;
+  src: url('~/assets/fonts/nunito-latin-800-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'Nunito'; font-style: normal; font-weight: 500; font-display: swap;
+  src: url('~/assets/fonts/nunito-latin-ext-500-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'Nunito'; font-style: normal; font-weight: 600; font-display: swap;
+  src: url('~/assets/fonts/nunito-latin-ext-600-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'Nunito'; font-style: normal; font-weight: 700; font-display: swap;
+  src: url('~/assets/fonts/nunito-latin-ext-700-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'Nunito'; font-style: normal; font-weight: 800; font-display: swap;
+  src: url('~/assets/fonts/nunito-latin-ext-800-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+
 :root {
   --encre:   #1a234e;
   --menthe:  #cae1d9;
@@ -29,11 +81,16 @@ onMounted(() => { rafraichirMoi() })
   --carte:   #ffffff;
   --trait:   #ece7e3;
   --texte:   #1a234e;
-  --doux:    #767b93;
+  /* Contraste AA (4,5:1) sur la carte ET sur le fond (RGAA 3.2) : l'ancien
+     gris-bleu tombait a 4,0:1, le vert et le rouge a 4,2 et 4,4. La teinte
+     reste la meme, seule la valeur descend. */
+  --doux:    #5f6480;
 
-  --oui:     #2e8b6b;
-  --non:     #c4564f;
-  --neutre:  #9a9aa8;
+  --oui:     #237458;
+  --non:     #a8443e;
+  --neutre:  #6e6e82;
+  /* L'anneau de focus : visible sur tout ce qui peut le porter (3:1 mini). */
+  --focus:   #1a234e;
 
   /* Le logo arrondit son carre a ~23 % du cote : on en garde l'esprit. */
   --r:       22px;   /* cartes */
@@ -53,7 +110,7 @@ onMounted(() => { rafraichirMoi() })
     --fond: #101321; --carte: #191d2e; --trait: #2a2f45;
     --texte: #eef0f7; --doux: #9298b2; --encre: #eef0f7;
     --menthe: #2c4a44; --peche: #4d3330; --sable: #33313c;
-    --oui: #4fc095; --non: #e2726b;
+    --oui: #4fc095; --non: #e2726b; --neutre: #a4a4b6; --focus: #eef0f7;
     --ombre: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px -14px rgba(0,0,0,.65);
     --lueur: rgba(255,255,255,.075);
     --lavis: radial-gradient(120% 55% at 12% -8%, rgba(44,74,68,.55) 0%, transparent 62%),
@@ -62,6 +119,36 @@ onMounted(() => { rafraichirMoi() })
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+/* ------------------------------------------------------- accessibilite */
+/* Le focus se voit, partout, des qu'on navigue au clavier (RGAA 10.7). Pas au
+   doigt ni a la souris : :focus-visible fait le tri. */
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.btn:focus-visible, .puce:focus-visible { outline-offset: 3px; }
+
+/* Lu par les lecteurs d'ecran, invisible a l'ecran. */
+.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* Lien d'evitement : hors champ, il apparait au premier Tab. */
+.evitement { position: absolute; left: 12px; top: -80px; z-index: 200; padding: 10px 18px;
+  border-radius: var(--pastille); background: var(--encre); color: var(--fond);
+  font-weight: 800; text-decoration: none; }
+.evitement:focus { top: max(12px, env(safe-area-inset-top)); }
+
+/* Un lien dans un texte se distingue autrement que par la couleur (RGAA 10.6). */
+.lien { color: inherit; text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-thickness: 1px; }
+
+/* Mouvement reduit : on coupe tout, pas seulement les transitions de page.
+   L'envol d'une carte, la pluie d'etincelles, les squelettes qui respirent
+   sont des decors — personne ne doit en avoir la nausee (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+}
 html, body, #__nuxt { height: 100%; }
 /* les deux pages se superposent pendant le glissement */
 #__nuxt { position: relative; overflow: hidden; }

@@ -17,14 +17,16 @@ create extension if not exists pgcrypto;
 -- ---------------------------------------------------------------- comptes
 create table if not exists utilisateurs (
   id         uuid primary key default gen_random_uuid(),
-  email      text unique,                  -- vestige : plus utilise
+  email      text unique,                  -- vestige : plus utilise, remis a NULL (bloc RGPD)
   pseudo     text not null,
   cree_le    timestamptz not null default now(),
   vu_le      timestamptz not null default now()
 );
 
--- Table morte depuis l'abandon du lien magique. Conservee telle quelle :
--- la supprimer ferait perdre l'historique sans rien apporter.
+-- Table morte depuis l'abandon du lien magique. Elle reste declaree tant
+-- qu'un deploiement ancien pourrait encore la nommer, mais elle est VIDEE
+-- (bloc RGPD en fin de fichier) : des e-mails gardes sans usage, c'est
+-- exactement ce que la minimisation interdit.
 create table if not exists jetons_magiques (
   jeton      text primary key,              -- aléatoire, 32 octets base64url
   email      text not null,
@@ -382,3 +384,72 @@ having count(*) = (select count(*) from membres mm
 --    returning nom;
 -- ============================================================================
 alter table groupes add column if not exists offert boolean not null default false;
+
+-- ============================================================================
+--  RGPD : ce que supprimer un compte doit faire — et ne pas faire.
+--
+--  Le droit a l'effacement (art. 17) butait sur deux cles etrangeres :
+--
+--  * groupes.cree_par etait en `on delete cascade` : effacer le compte de
+--    celui qui avait cree la liste effacait la LISTE, donc les votes de
+--    l'autre parent. Effacer SES donnees ne doit pas effacer celles des
+--    autres. La colonne n'est lue nulle part : elle devient facultative et
+--    passe a NULL.
+--  * groupes.paye_par n'avait aucune regle : effacer l'acheteur echouait.
+--    Il passe a NULL ; la liste reste debloquee pour ceux qui y restent —
+--    ils l'ont eue en commun, elle ne se reprend pas. La preuve du paiement
+--    vit chez Stripe, qui la garde au titre des obligations comptables.
+--
+--  On cherche les contraintes par colonne et non par nom : une base creee
+--  par une version plus ancienne du schema a pu les nommer autrement, et un
+--  `drop constraint if exists <nom devine>` qui ne trouve rien laisserait la
+--  cascade en place — en silence. Celles deja en `set null` ne sont pas
+--  touchees : rejouer le fichier ne revalide rien.
+-- ============================================================================
+alter table groupes alter column cree_par drop not null;
+
+do $$
+declare c record;
+begin
+  for c in
+    select con.conname
+      from pg_constraint con
+      join pg_attribute a on a.attrelid = con.conrelid and a.attnum = any (con.conkey)
+     where con.conrelid = 'groupes'::regclass
+       and con.contype = 'f'
+       and a.attname in ('cree_par', 'paye_par')
+       and con.confdeltype <> 'n'
+  loop
+    execute format('alter table groupes drop constraint %I', c.conname);
+  end loop;
+
+  if not exists (select 1 from pg_constraint
+                  where conrelid = 'groupes'::regclass and conname = 'groupes_cree_par_fkey') then
+    alter table groupes add constraint groupes_cree_par_fkey
+      foreign key (cree_par) references utilisateurs(id) on delete set null;
+  end if;
+  if not exists (select 1 from pg_constraint
+                  where conrelid = 'groupes'::regclass and conname = 'groupes_paye_par_fkey') then
+    alter table groupes add constraint groupes_paye_par_fkey
+      foreign key (paye_par) references utilisateurs(id) on delete set null;
+  end if;
+end $$;
+
+-- La reference du paiement chez Stripe (pi_…). C'est elle qui permet de
+-- re-verrouiller la liste quand ce paiement est rembourse en entier, ou perdu
+-- en litige : sans elle, un remboursement laissait la liste ouverte.
+-- NULL pour une liste offerte ou debloquee par un code a 100 % : aucun
+-- paiement n'existe alors.
+alter table groupes add column if not exists paiement_ref text;
+create index if not exists idx_groupes_paiement_ref
+  on groupes (paiement_ref) where paiement_ref is not null;
+
+-- La purge quotidienne (server/utils/conservation.ts) cherche les comptes
+-- sans activite depuis 24 mois : sans index, elle lirait toute la table.
+create index if not exists idx_utilisateurs_vu_le on utilisateurs (vu_le);
+
+-- Minimisation (art. 5.1.c) : les e-mails du temps du lien magique n'ont plus
+-- aucun usage. On les efface. Colonne et table restent, vides, tant qu'un
+-- deploiement plus ancien pourrait encore les nommer.
+update utilisateurs set email = null where email is not null;
+delete from jetons_magiques;
