@@ -1,7 +1,11 @@
 <script setup lang="ts">
 /** Courbe 1986-2025 en pour 10 000 naissances, normalisee sur son propre max.
  *  Partagee par la carte de tri (compacte) et la fiche complete. */
-const props = defineProps<{ serie: number[] | null; hauteur?: number; pic?: boolean }>()
+const props = defineProps<{ serie: number[] | null; hauteur?: number; pic?: boolean
+  /** Prendre toute la hauteur du parent plutot qu'une hauteur fixe : la carte
+   *  de tri lui donne la place qui reste. Le trait garde son epaisseur
+   *  (vector-effect), seul le dessin s'etire. */
+  remplir?: boolean }>()
 
 const AN0 = 1986
 const L = 300
@@ -41,7 +45,7 @@ const resume = computed(() => {
 
 <template>
   <svg v-if="d" class="courbe" :viewBox="`0 0 ${L} ${d.H}`" preserveAspectRatio="none"
-       :style="{ height: d.H + 'px' }" role="img" :aria-label="resume">
+       :style="{ height: props.remplir ? '100%' : d.H + 'px' }" role="img" :aria-label="resume">
     <defs>
       <linearGradient :id="`g${d.H}`" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="var(--menthe)" stop-opacity=".9" />

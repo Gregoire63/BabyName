@@ -192,21 +192,21 @@ await page.keyboard.press('Escape')
 await page.waitForTimeout(600)
 dit(await page.locator('[role="dialog"]').count() === 0, 'Échap referme la recherche')
 
-const veto = page.locator('.carte.fiche:not(.derriere)').getByRole('button', { name: 'Veto', exact: true })
+const veto = page.locator('.carte.fiche:not(.derriere)').getByRole('button', { name: /^Bloquer / })
 if (await veto.count()) {
   await veto.first().click()
   await page.waitForSelector('[role="dialog"]')
-  await auditer('Poser un veto')
+  await auditer('Bloquer un prénom')
   await page.keyboard.press('Escape')
   await page.waitForTimeout(600)
 }
-const famille = page.locator('.carte.fiche:not(.derriere)').getByRole('button', { name: 'Écarter la famille' })
+const famille = page.locator('.carte.fiche:not(.derriere)').getByRole('button', { name: /^Non aux / })
 if (await famille.count()) {
   await famille.first().click()
   await page.waitForTimeout(400)
   if (await page.locator('[role="alertdialog"]').count()) {
-    dit(await dansDialogue(), 'la confirmation « écarter la famille » prend le focus')
-    await auditer('Écarter la famille')
+    dit(await dansDialogue(), 'la confirmation « Non aux… » prend le focus')
+    await auditer('Non à tous les prénoms d’un même début')
     await page.keyboard.press('Escape')
     await page.waitForTimeout(400)
     dit(await page.locator('[role="alertdialog"]').count() === 0, 'Échap l’annule')
@@ -240,6 +240,9 @@ await auditer('La liste (réglages)')
 await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
 await page.locator('a', { hasText: 'Essai gratuit' }).first().click()
 await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 25000 })
+// Pendant le glissement, l'accueil et la liste sont tous deux dans la page :
+// on attend qu'il ne reste que la liste.
+await page.waitForFunction(() => document.querySelectorAll('main#contenu').length === 1, null, { timeout: 5000 })
 await page.locator('main#contenu').focus()
 const mur = page.getByRole('button', { name: 'Voir ce que ça ouvre' })
 for (let i = 0; i < 9 && !(await mur.count()); i++) {

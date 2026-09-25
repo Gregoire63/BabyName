@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { filtrer, ordonner, trouverPrenom, type Prenom } from '~/composables/useCatalogue'
+import { filtrer, ordonner, trouverPrenom, sansAccent, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 
 const props = defineProps<{ actif: boolean }>()
@@ -209,7 +209,7 @@ function epingler(demande: string, depuisAdresse: boolean) {
     dire(g.communs.value.some((c: any) => c.prenom === p.l)
       ? `${p.l} est déjà dans vos accords.`
       : g.vetos.value.has(p.l)
-        ? `${p.l} a un veto dans cette liste.`
+        ? `${p.l} : prénom bloqué dans cette liste.`
         : v === 0 || v === 1 || v === 2
           ? `Vous avez déjà ${DEJA_DIT[v]} ${p.l} dans cette liste.`
           : `Vous avez déjà jugé ${p.l} dans cette liste.`)
@@ -316,10 +316,10 @@ async function confirmerVeto(fermer: () => void) {
     fermer()
   } catch (e: any) {
     erreurVeto.value = e?.data?.statusMessage === 'quota_veto_atteint'
-      ? 'Vos vetos sont épuisés. Un veto, ça se dépense.'
+      ? `Vos ${vetosMax.value} blocages sont utilisés : retirez-en un dans Classement › Mes choix pour en poser un autre.`
       : e?.data?.statusMessage === 'deja_veto'
-        ? 'Ce prénom a déjà un veto.'
-        : 'Le veto n’a pas pu être posé.'
+        ? 'Ce prénom est déjà bloqué.'
+        : 'Le blocage n’a pas pu être posé.'
   } finally { envoiVeto.value = false }
 }
 
@@ -345,6 +345,9 @@ function encore() {
 const dx = ref(0), dy = ref(0), glisse = ref(false)
 const envol = ref(false)
 let x0 = 0, y0 = 0, axe: 'x' | 'y' | null = null
+let tDebut = 0
+/** Au-dela, un appui n'est plus un toucher : on tient la carte, on hesite. */
+const TOUCHER_MS = 400
 // UN SEUL seuil, et c'est voulu : le bandeau « Oui » est une promesse, pas un
 // avertissement. Tant qu'il n'apparaissait qu'a la moitie du seuil de
 // validation, il fallait pousser deux fois plus loin que ce que l'ecran
@@ -371,7 +374,8 @@ function debut(e: PointerEvent) {
   // « Écarter la famille » etaient inertes.
   if ((e.target as HTMLElement)?.closest?.('button')) return
   glisse.value = true; axe = null; x0 = e.clientX; y0 = e.clientY
-  trace = [{ x: e.clientX, t: performance.now() }]
+  tDebut = performance.now()
+  trace = [{ x: e.clientX, t: tDebut }]
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 }
 function bouge(e: PointerEvent) {
@@ -384,9 +388,23 @@ function bouge(e: PointerEvent) {
   trace.push({ x: e.clientX, t })
   while (trace.length > 2 && t - trace[0]!.t > FENETRE) trace.shift()
 }
-function fin() {
+/**
+ * TOUCHER LA CARTE OUVRE LA FICHE.
+ *
+ * Un toucher, c'est un appui bref qui n'a pas bouge (l'axe ne s'est jamais
+ * decide : moins de 8 px). Tout le reste est un glissement. Un pointercancel
+ * — le navigateur reprend la main — n'ouvre jamais rien.
+ */
+function fin(e?: PointerEvent) {
   if (!glisse.value) return
+  const touche = e?.type === 'pointerup' && axe === null
+    && performance.now() - tDebut < TOUCHER_MS
   glisse.value = false; axe = null
+  if (touche) {
+    dx.value = 0; dy.value = 0
+    if (carte.value) g.ouvrirFiche(carte.value.l)
+    return
+  }
   const a = trace[0], b = trace[trace.length - 1]
   const vx = a && b && b.t > a.t ? (b.x - a.x) / (b.t - a.t) : 0
   // Un doigt qui s'arrete avant de se lever n'a pas « lance » la carte : sans
@@ -571,9 +589,36 @@ function familleDe(p: Prenom): Prenom[] {
   return dispoBrut.value.filter(x => x.slug.startsWith(racine)).slice(0, 25)
 }
 
+/** Le debut de prenom tel qu'il s'ecrit : « Maël » plutot que « mael ». */
+function prefixeAffiche(p: Prenom, racine: string): string {
+  let n = 0, i = 0
+  for (; i < p.l.length && n < racine.length; i++) {
+    if (/[a-z]/.test(sansAccent(p.l[i]!))) n++
+  }
+  return p.l.slice(0, i)
+}
+
+/**
+ * Ce que la carte annonce sur son bouton « Non aux Maël… » : le debut de
+ * prenom, et combien il en balaierait. Rien (null) quand il n'y a rien de plus
+ * que ce prenom et ses graphies : un simple non suffit, le bouton disparait.
+ */
+function familleInfo(p: Prenom | null) {
+  if (!p) return null
+  const f = familleDe(p)
+  const meme = new Set([p.l, ...(p.variantes ?? [])])
+  if (!f.some(x => !meme.has(x.l))) return null
+  const n = f.some(x => x.l === p.l) ? f.length : Math.min(25, f.length + 1)
+  return { prefixe: prefixeAffiche(p, racineDe(p)), n }
+}
+const familleCarte = computed(() => familleInfo(carte.value))
+const familleSuivante = computed(() => familleInfo(suivante.value))
+const prefixeBalayage = ref('')
+
 function demanderFamille() {
   const p = carte.value; if (!p) return
   racineBalayage = racineDe(p)
+  prefixeBalayage.value = prefixeAffiche(p, racineBalayage)
   const famille = familleDe(p)
   // Un prénom épinglé hors des filtres n'est pas dans la pile : sans cet ajout,
   // on écartait toute sa famille sauf lui, et il restait affiché.
@@ -706,7 +751,7 @@ async function confirmerFamille() {
         <Transition name="fond">
           <article v-if="suivante" :key="suivante.l" class="carte fiche derriere"
                    :class="{ monte: envol, sec: echange }">
-            <ContenuCarte :p="suivante" :interactif="false" />
+            <ContenuCarte :p="suivante" :interactif="false" :famille="familleSuivante" />
           </article>
         </Transition>
 
@@ -719,7 +764,7 @@ async function confirmerFamille() {
             {{ intention === 'oui' ? 'Oui' : intention === 'non' ? 'Non' : 'Neutre' }}
           </div>
 
-          <ContenuCarte :p="carte" @fiche="g.ouvrirFiche(carte.l)"
+          <ContenuCarte :p="carte" :famille="familleCarte" @fiche="g.ouvrirFiche(carte.l)"
                         @favori="basculerFavori" @famille="demanderFamille"
                         @veto="demanderVeto" />
         </article>
@@ -771,20 +816,24 @@ async function confirmerFamille() {
       </div>
     </Transition>
 
-    <Feuille v-if="vetoPour" titre="Poser un veto" @fermer="vetoPour = null">
+    <!-- « Veto » ne se comprenait pas : on BLOQUE un prénom. Le mot technique
+         reste dans le code et l'API (vetos, poserVeto) ; l'écran dit ce qui
+         arrive. -->
+    <Feuille v-if="vetoPour" titre="Bloquer ce prénom" @fermer="vetoPour = null">
       <p style="margin:0 0 4px">
         <strong style="font-size:1.35rem">{{ vetoPour.l }}</strong>
       </p>
       <p class="mini doux" style="margin:0 0 12px">
-        Un veto est <strong>définitif</strong> : ce prénom ne pourra plus jamais
-        apparaître dans vos communs, quoi que vote l’autre. Personne d’autre ne
-        verra que c’est vous qui l’avez posé.
+        Un prénom bloqué ne sera <strong>jamais</strong> dans vos accords, quoi que
+        votent les autres. Personne d’autre ne saura que c’est vous, et vous seul
+        pourrez retirer ce blocage (Classement › Mes choix).
       </p>
       <input v-model="motifVeto" class="champ" maxlength="200"
-             aria-label="Motif du veto (facultatif, visible de vous seul)"
+             aria-label="Pourquoi le bloquer ? (facultatif, visible de vous seul)"
              placeholder="Pourquoi ? (pour vous, facultatif)">
       <p class="mini doux" style="margin:10px 0 0">
-        Il vous en reste <strong>{{ vetosRestants }}</strong> sur {{ vetosMax }}.
+        Il vous reste <strong>{{ vetosRestants }}</strong>
+        blocage{{ vetosRestants > 1 ? 's' : '' }} sur {{ vetosMax }}.
       </p>
       <p v-if="erreurVeto" class="mini" role="alert" style="color:var(--non);margin:8px 0 0">
         {{ erreurVeto }}
@@ -793,7 +842,7 @@ async function confirmerFamille() {
       <template #pied="{ fermer }">
         <button class="btn btn-1 rouge-plein" :disabled="envoiVeto || !vetosRestants"
                 @click="confirmerVeto(fermer)">
-          {{ envoiVeto ? 'Un instant…' : `Poser mon veto sur ${vetoPour.l}` }}
+          {{ envoiVeto ? 'Un instant…' : `Bloquer ${vetoPour.l}` }}
         </button>
       </template>
     </Feuille>
@@ -809,18 +858,19 @@ async function confirmerFamille() {
     <div v-if="familleAEcarter" class="voile-confirme" @click.self="familleAEcarter = null">
       <div ref="boiteFamille" class="carte pile confirme" role="alertdialog" aria-modal="true"
            aria-labelledby="titre-famille" aria-describedby="texte-famille" tabindex="-1">
-        <h2 id="titre-famille">Écarter toute la famille ?</h2>
+        <h2 id="titre-famille">Non à tous les « {{ prefixeBalayage }}… » ?</h2>
         <p id="texte-famille" class="mini doux" style="margin:0">
-          {{ familleAEcarter.length }} prénom{{ familleAEcarter.length > 1 ? 's' : '' }}
-          {{ familleAEcarter.length > 1 ? 'passeront' : 'passera' }} en « non » d’un coup.
-          C’est définitif : ils ne réapparaîtront plus dans votre tri.
+          Les {{ familleAEcarter.length }} prénoms qui commencent par
+          « {{ prefixeBalayage }} » passent en « non » d’un coup : vous ne les verrez
+          plus défiler un par un. Vous pourrez les remettre en jeu dans
+          Classement › Mes choix.
         </p>
         <div class="ligne noms">
           <span v-for="f in familleAEcarter" :key="f.l" class="puce">{{ f.l }}</span>
         </div>
         <div class="ligne" style="gap:8px">
           <button class="btn btn-1" style="flex:1" @click="confirmerFamille">
-            Écarter {{ familleAEcarter.length }}
+            Non aux {{ familleAEcarter.length }}
           </button>
           <button class="btn btn-0 doux" @click="familleAEcarter = null">Annuler</button>
         </div>

@@ -46,7 +46,7 @@ const c = CONSERVATION
     <h3>Vos listes</h3>
     <dl>
       <dt>Données</dt>
-      <dd>Le nom des listes et, si vous le saisissez, le nom de famille de l’enfant ; vos filtres de recherche ; vos votes (oui, neutre, non), vetos et leur motif, favoris, classements, duels et commentaires ; les membres et observateurs de chaque liste.</dd>
+      <dd>Le nom des listes et, si vous le saisissez, le nom de famille de l’enfant ; vos filtres de recherche ; vos votes (oui, neutre, non), prénoms bloqués (vetos) et leur motif, favoris, classements, duels et commentaires ; les membres et observateurs de chaque liste.</dd>
       <dt>Pourquoi</dt>
       <dd>C’est le service lui-même : trier des prénoms à plusieurs et trouver ceux sur lesquels vous êtes d’accord.</dd>
       <dt>Base légale</dt>
@@ -100,7 +100,7 @@ const c = CONSERVATION
         <strong>Les membres d’une liste</strong> voient votre nom affiché, vos commentaires, le nombre de prénoms
         que vous avez jugés et les accords auxquels vous avez pris part. Votre vote sur un prénom ne leur est
         montré qu’une fois qu’ils ont voté sur ce même prénom : c’est le vote à l’aveugle. Personne ne voit qui
-        a posé un veto.
+        a bloqué un prénom.
       </li>
       <li><strong>L’éditeur</strong> a un accès technique à la base, pour la maintenance et l’assistance. Il ne le consulte pas en dehors de ces besoins.</li>
       <li><strong>Nos prestataires</strong>, uniquement pour ce qu’ils font pour nous :</li>

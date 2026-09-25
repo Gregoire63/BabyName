@@ -236,7 +236,7 @@ const filtresActifs = computed(() => {
           En ajouter une troisième remet donc vos
           <strong>{{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }}</strong>
           en attente jusqu’à ce qu’elle ait jugé les mêmes prénoms — et lui
-          donne un droit de veto sur chacun.
+          donne le pouvoir de bloquer chacun d’eux.
         </p>
         <p class="mini doux" style="margin:0">
           Pour un avis extérieur sans conséquence, montrez-lui plutôt vos
@@ -251,7 +251,7 @@ const filtresActifs = computed(() => {
         <template v-if="paye">
           <p class="mini doux" style="margin:0">
             Un observateur juge les prénoms et vous voyez son avis. Il ne
-            compte pas dans vos accords et ne peut pas poser de veto : vos
+            compte pas dans vos accords et ne peut bloquer aucun prénom : vos
             {{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }} ne bougent pas.
           </p>
 
@@ -368,7 +368,7 @@ const filtresActifs = computed(() => {
       </section>
 
       <p class="mini doux" style="text-align:center;margin:6px 0 0">
-        Vos choix, vos gardés, vos écartés et vos vetos sont dans
+        Vos choix, vos gardés, vos écartés et vos prénoms bloqués sont dans
         Classement · Mes choix. Votre nom et votre clé d’accès sont sur
         l’accueil, sous votre nom.
       </p>

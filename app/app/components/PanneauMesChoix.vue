@@ -108,7 +108,7 @@ async function remettre(prenoms: string[]) {
         </button>
 
         <template v-if="grp.v === 0 && familles.length">
-          <p class="etiquette">Familles écartées d’un geste</p>
+          <p class="etiquette">Écartés en groupe (même début de prénom)</p>
           <div v-for="f in familles" :key="f.racine" class="famille">
             <div class="ligne" style="flex-wrap:wrap;gap:6px;flex:1">
               <span v-for="n in f.prenoms" :key="n" class="puce">{{ n }}</span>
@@ -146,17 +146,18 @@ async function remettre(prenoms: string[]) {
     <section class="carte pile groupe">
       <button class="entete" @click="bascule(-2)">
         <span class="pastille veto" />
-        <strong style="flex:1;text-align:left">Mes vetos</strong>
+        <strong style="flex:1;text-align:left">Prénoms bloqués</strong>
         <span class="puce">{{ vetos.length }}</span>
         <span class="doux">{{ ouvert === -2 ? '−' : '+' }}</span>
       </button>
       <template v-if="ouvert === -2">
         <p class="mini doux" style="margin:0">
-          Définitifs : ces prénoms ne peuvent plus devenir communs. Personne
-          d’autre ne voit que c’est vous qui les avez posés.
+          Ils ne deviendront jamais communs, quoi que votent les autres. Personne
+          d’autre ne voit que c’est vous qui les avez bloqués, et vous pouvez
+          retirer un blocage à tout moment.
         </p>
         <p v-if="!vetos.length" class="mini doux" style="margin:0">
-          Aucun veto posé.
+          Aucun prénom bloqué.
         </p>
         <div v-for="v in vetos" :key="v.prenom" class="rangee">
           <button class="nom" @click="g.ouvrirFiche(v.prenom)">
@@ -165,7 +166,7 @@ async function remettre(prenoms: string[]) {
           </button>
           <button class="btn btn-0 mini doux" :disabled="retrait === v.prenom"
                   @click="retirerVeto(v.prenom)">
-            {{ retrait === v.prenom ? '…' : 'Lever' }}
+            {{ retrait === v.prenom ? '…' : 'Retirer' }}
           </button>
         </div>
       </template>

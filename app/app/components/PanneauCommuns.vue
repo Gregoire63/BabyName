@@ -37,8 +37,8 @@ async function veto(prenom: string) {
     await g.recharger()
   } catch (e: any) {
     erreur.value = e?.data?.statusMessage === 'quota_veto_atteint'
-      ? 'Vos vetos sont épuisés. Un veto, ça se dépense.'
-      : 'Impossible de poser ce veto.'
+      ? 'Vos blocages sont tous utilisés : retirez-en un dans Mes choix pour en poser un autre.'
+      : 'Impossible de bloquer ce prénom.'
   }
 }
 
@@ -99,7 +99,7 @@ const enRetard = computed(() => {
         <div class="ligne" style="justify-content:space-between">
           <button class="btn btn-0 mini" @click="g.ouvrirFiche(c.prenom)">Plus d’informations</button>
           <button class="btn btn-0 mini" style="color:var(--non)" @click="veto(c.prenom)">
-            Poser mon veto
+            Bloquer
           </button>
         </div>
       </div>

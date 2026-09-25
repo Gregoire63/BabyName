@@ -52,6 +52,13 @@ const favAvant = await page.evaluate(() =>
   fetch('/api/groupes/1').then(r => r.json()).then(d => d.mes_favoris.length))
 await fond.locator('.etoile').click({ force: true }).catch(() => {})
 await page.waitForTimeout(700)
+// Le clic tombe sur la carte de DEVANT (celle du fond est dessous) : la
+// toucher ouvre sa fiche. On la referme — ce qui compte ici, c'est que le
+// favori du fond n'ait pas bougé.
+if (await page.locator('.voile').count()) {
+  await page.getByRole('button', { name: 'Fermer la fiche' }).click()
+  await page.waitForTimeout(600)
+}
 const favApres = await page.evaluate(() =>
   fetch('/api/groupes/1').then(r => r.json()).then(d => d.mes_favoris.length))
 dit(favAvant === favApres, `cliquer le Favoris du fond ne fait rien (${favAvant} → ${favApres})`)

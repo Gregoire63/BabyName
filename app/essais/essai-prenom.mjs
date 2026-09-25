@@ -128,7 +128,7 @@ const message = p => p.locator('.retour[role="status"]')
   const cas = [
     ['louise', 'Louise est déjà dans vos accords.'],
     ['camille', 'Vous avez déjà voté neutre pour Camille dans cette liste.'],
-    ['Jayden', 'Jayden a un veto dans cette liste.']
+    ['Jayden', 'Jayden : prénom bloqué dans cette liste.']
   ]
   for (const [slug, attendu] of cas) {
     await page.goto(`${BASE}/?prenom=${slug}`, { waitUntil: 'networkidle' })

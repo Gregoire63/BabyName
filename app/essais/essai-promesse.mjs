@@ -40,7 +40,9 @@ for (let i = 0; i < votes.length; i++) {
   const avantD = (await devant()).trim()
   const promis = (await derriere()).trim()
   const v = votes[i]
-  await page.getByRole('button', { name: v === 2 ? 'Oui' : v === 0 ? 'Non' : 'Neutre' }).click()
+  // Les boutons de vote se nomment « Oui à X », « Non à X » : « Non » seul
+  // attrape aussi « Non aux Elin… » de la carte.
+  await page.getByRole('button', { name: v === 2 ? /^Oui à / : v === 0 ? /^Non à / : /^Neutre pour / }).click()
   await page.waitForFunction(n => {
     const e = document.querySelector('.carte.fiche:not(.derriere) .nom')
     return e && e.textContent.trim() !== n

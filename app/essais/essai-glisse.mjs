@@ -114,8 +114,8 @@ await page.screenshot({ path: '/tmp/t3-swipe.png' })
 await page.waitForTimeout(900)
 dit((await page.locator('.carte.fiche:not(.derriere) .nom').first().innerText()) !== nomAvant,
     'la carte a bien changé')
-dit(await page.getByRole('button', { name: 'Plus d’informations' }).count() >= 1,
-    '« Plus d’informations » a remplacé « Tout voir »')
+dit(await page.getByRole('button', { name: /^Infos sur / }).count() >= 1,
+    'le bouton « Infos » est sur la carte')
 
 await nav.close()
 console.log(`\n${ko.length ? 'ECHEC' : 'TOUT PASSE'} — ${ok.length} ok, ${ko.length} echecs`)

@@ -58,7 +58,7 @@ const lignes = await sec.locator('.trouve').count()
 dit(lignes > 0, `« bran » trouve ${lignes} prénom(s)`)
 const brandon = sec.locator('.trouve').filter({ has: page.locator('.nom:text-is("Brandon")') })
 dit(await brandon.count() === 1, 'Brandon est dans les résultats')
-dit((await brandon.locator('.puce').innerText()).trim() === 'Veto',
+dit((await brandon.locator('.puce').innerText()).trim() === 'Bloqué',
     `son état est affiché : ${(await brandon.locator('.puce').innerText()).trim()}`)
 await sec.locator('input.chercher').fill('jeanne')
 await page.waitForTimeout(400)
@@ -81,10 +81,10 @@ await page.waitForTimeout(800)
 const blocs = (await cl.locator('.groupe .entete').allInnerTexts()).map(t => t.replace(/\s+/g, ' ').trim())
 console.log('   blocs de Mes choix :', blocs.join(' | '))
 dit(blocs.some(b => b.startsWith('Gardés')), 'le bloc « Gardés » est là')
-dit(blocs.some(b => b.startsWith('Mes vetos')), 'le bloc « Mes vetos » est là')
-await cl.locator('.groupe .entete', { hasText: 'Mes vetos' }).click()
+dit(blocs.some(b => b.startsWith('Prénoms bloqués')), 'le bloc « Prénoms bloqués » est là')
+await cl.locator('.groupe .entete', { hasText: 'Prénoms bloqués' }).click()
 await page.waitForTimeout(400)
-const txtVetos = await cl.locator('.groupe').filter({ hasText: 'Mes vetos' }).innerText()
+const txtVetos = await cl.locator('.groupe').filter({ hasText: 'Prénoms bloqués' }).innerText()
 dit(/Brandon/.test(txtVetos) && /non/.test(txtVetos), 'mon veto et son motif y sont')
 dit(!/Jayden/.test(txtVetos), 'celui d’Audrey n’y est pas')
 await page.screenshot({ path: '/tmp/v2-meschoix.png' })
@@ -95,7 +95,8 @@ await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 20000 
 const cible = await page.locator('.carte.fiche:not(.derriere) .nom').first().innerText()
 // la carte du fond a elle aussi ses boutons (inertes) : on vise celle de devant
 const bVeto = page.locator('.carte.fiche:not(.derriere) .bas .rouge')
-dit(await bVeto.count() === 1, 'le bouton Veto est sur la carte')
+dit(await bVeto.count() === 1 && /Bloquer/.test(await bVeto.innerText()),
+    'le bouton « Bloquer » est sur la carte, avec son icône')
 // Rouge = la couleur « non » de la charte, quelle que soit sa valeur exacte
 // (elle a fonce pour passer le contraste AA : un essai qui figeait 196,86,79
 // aurait interdit de corriger l'accessibilite).
@@ -109,7 +110,7 @@ const [cr, cg, cb] = couleur.match(/\d+/g).map(Number)
 dit(couleur === rouge && cr > cg + 60 && cr > cb + 60, `il est rouge, la couleur « non » de la charte (${couleur})`)
 await bVeto.click()
 await page.waitForSelector('.feuille-corps', { timeout: 6000 })
-dit((await page.locator('.feuille-corps h2').first().innerText()) === 'Poser un veto',
+dit((await page.locator('.feuille-corps h2').first().innerText()) === 'Bloquer ce prénom',
     'la confirmation s’ouvre')
 dit(await page.locator('.feuille-corps input.champ').count() === 1, 'avec un champ commentaire')
 await page.waitForTimeout(600)

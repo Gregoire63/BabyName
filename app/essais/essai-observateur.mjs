@@ -83,10 +83,10 @@ await ouvrirListe(mamie, 'Notre liste')
 await mamie.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 25000 })
 await mamie.waitForTimeout(800)
 
-dit(await mamie.getByRole('button', { name: 'Veto' }).count() === 0,
-    'aucun bouton Veto ne lui est proposé')
-dit(await mamie.getByRole('button', { name: 'Écarter la famille' }).count() === 0,
-    'ni le balayage de famille, qui est un refus collectif')
+dit(await mamie.getByRole('button', { name: /^Bloquer/ }).count() === 0,
+    'aucun bouton « Bloquer » ne lui est proposé')
+dit(await mamie.getByRole('button', { name: /^Non aux/ }).count() === 0,
+    'ni « Non aux… », qui est un refus collectif')
 
 const refus = await mamie.evaluate(g => fetch(`/api/groupes/${g}/veto`,
   { method: 'POST', headers: { 'content-type': 'application/json' },

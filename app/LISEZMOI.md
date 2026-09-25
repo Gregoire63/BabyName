@@ -71,8 +71,8 @@ jeu d'une famille.
 
 ## Les essais
 
-`essais/` contient vingt-cinq essais de bout en bout — vrai navigateur, vrai
-serveur, vraie base — soit environ 470 assertions. Ils ne testent pas des
+`essais/` contient vingt-sept essais de bout en bout — vrai navigateur, vrai
+serveur, vraie base — soit près de 500 assertions. Ils ne testent pas des
 fonctions, ils testent des promesses : « le refus ne se dit jamais », « un
 observateur ne casse pas un accord », « aucun champ de carte bancaire dans
 l'app », « effacer son compte n'efface pas celui de l'autre », « chaque écran
@@ -179,6 +179,61 @@ Variables d'environnement en production : les `NEON_DATABASE_*` posées par
 l'intégration Neon, et `NUXT_SESSION_SECRET`. L'app ne cherche pas un nom
 précis : `server/utils/db.ts` prend la première variable qui finit par
 `DATABASE_URL` ou `POSTGRES_URL`, en préférant les poolées.
+
+## Référencement : moteurs et IA
+
+`npm run build` lance `scripts/seo.mjs` **avant** `nuxt build`. Il écrit dans
+`public/` (ignoré par git, régénéré à chaque déploiement) :
+
+| Sortie | Rôle |
+|---|---|
+| `prenom/<slug>/` | une fiche statique par prénom : sens (avec sa certitude), origine, courbe INSEE, graphies, proches — 7 438 pages, dont les 857 sans sens ni origine en `noindex` et hors sitemap (constante `mince`) |
+| `prenoms/…` | le portail, les listes (tendances, rares, populaires, origines, lettres) |
+| `choisir-un-prenom-a-deux/` | **la page de l'application** : fonctionnement, gratuit / payant, données, FAQ ; `WebApplication` + `FAQPage` en JSON-LD |
+| `sitemap.xml`, `robots.txt`, `llms.txt` | pour les robots |
+
+Pourquoi une page de l'application à part : `/` est l'app, une coquille
+JavaScript. Google l'exécute ; la plupart des robots d'IA (GPTBot, ClaudeBot,
+PerplexityBot) non — ils n'y voyaient rien. La coquille porte maintenant une
+description et un `<noscript>` qui renvoie vers cette page.
+
+Règles tenues par le script, et vérifiées par `essai-seo` :
+
+- **Domaine** : `NUXT_PUBLIC_SITE_URL`, sinon celui de production que Vercel
+  injecte au build. Canoniques, sitemap et llms.txt en dépendent.
+- **robots.txt** ferme `/?…` : les boutons des fiches mènent à l'app avec
+  `?prenom=` — 7 000 variantes de la même coquille, en `nofollow` aussi. Aucun
+  robot d'IA n'est écarté.
+- **lastmod** du sitemap = la constante `MAJ`, pas la date du build : un
+  lastmod qui change à chaque push est vite ignoré. À monter quand les données
+  ou les gabarits changent.
+- **Limites du gratuit** lues dans `schema.sql`, prix dans
+  `NUXT_PUBLIC_PRIX_LISTE` : la page de l'app et llms.txt ne peuvent pas
+  annoncer autre chose que ce que fait l'app.
+- **llms.txt** (llmstxt.org) : un résumé Markdown pour les assistants qui le
+  cherchent. Aucun grand moteur ne s'engage à le lire ; ce qui compte pour
+  être cité par une IA, c'est une page lisible sans JavaScript, des robots
+  non bloqués, l'index de Bing (qui nourrit ChatGPT et Copilot), et des
+  mentions de l'app ailleurs sur le web.
+
+`npm run seo` régénère en local ; `SEO_SORTIE=/tmp/seo npm run seo` écrit
+ailleurs, pour relire sans toucher `public/`.
+
+Après le premier déploiement :
+
+1. **Google Search Console** : propriété « préfixe d'URL »
+   `https://babyname-five.vercel.app/` (une propriété « domaine » est
+   impossible sur `vercel.app`), vérification par balise HTML, puis soumettre
+   `/sitemap.xml`.
+2. **Bing Webmaster Tools** : importer depuis Search Console. C'est l'index
+   de ChatGPT (recherche) et de Copilot.
+3. **Vercel → Firewall → Bot Management** : vérifier que « AI Bots » n'est
+   pas en blocage.
+
+Un domaine à soi, si un jour : le poser **avant** de soumettre à Search
+Console. Après, il faut des 301 depuis `vercel.app`, un « changement
+d'adresse » dans Search Console, `NUXT_PUBLIC_SITE_URL`, et l'URL du webhook
+et des pages légales chez Stripe.
 
 ## Le payant
 

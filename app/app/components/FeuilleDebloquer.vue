@@ -57,7 +57,7 @@ const INCLUS = [
   },
   {
     titre: 'Les observateurs',
-    texte: 'Inviter les grands-parents pour qu’ils voient et commentent, sans qu’ils bloquent vos accords ni posent de veto.'
+    texte: 'Inviter les grands-parents pour qu’ils voient et commentent, sans qu’ils puissent bloquer un prénom ni retarder vos accords.'
   }
 ]
 
@@ -69,7 +69,7 @@ const GRATUIT = computed(() => [
   'Les 19 608 prénoms et la recherche complète',
   'Les accords et le classement',
   'L’origine, la signification et la courbe sur chaque fiche',
-  'Les vetos',
+  'Bloquer un prénom',
   'Le deuxième parent'
 ])
 

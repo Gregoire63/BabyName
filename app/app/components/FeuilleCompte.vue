@@ -165,7 +165,7 @@ async function supprimerCompte() {
       <div v-else class="pile suppression" role="group" aria-labelledby="titre-suppression">
         <p id="titre-suppression" class="mini" style="margin:0">
           <strong>Suppression définitive et immédiate</strong> de votre compte, de vos votes,
-          vetos, favoris et commentaires, dans toutes vos listes. Les listes où vous êtes
+          blocages, favoris et commentaires, dans toutes vos listes. Les listes où vous êtes
           seul(e) disparaissent aussi, même débloquées. Les autres membres gardent leurs
           listes et leurs votes.
         </p>

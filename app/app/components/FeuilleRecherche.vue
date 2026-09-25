@@ -51,7 +51,7 @@ const vetosMax = computed(() => g.etat.value?.groupe?.nb_vetos_max ?? 3)
 const vetosRestants = computed(() => Math.max(0, vetosMax.value - g.mesVetos.value.length))
 
 const etat = (nom: string) => {
-  if (g.vetos.value.has(nom)) return { t: 'Veto', c: 'veto' }
+  if (g.vetos.value.has(nom)) return { t: 'Bloqué', c: 'veto' }
   const v = parPrenom.value.get(nom)?.mien
   if (v === undefined || v === null) return null
   return { t: MOT[v], c: `v${v}` }
@@ -94,14 +94,14 @@ async function poserVeto() {
   } catch (e: any) {
     const m = e?.data?.statusMessage
     erreurVeto.value = m === 'quota_veto_atteint'
-      ? 'Vos vetos sont épuisés. Un veto, ça se dépense.'
-      : m === 'deja_veto' ? 'Ce prénom a déjà un veto.' : 'Le veto n’a pas pu être posé.'
+      ? `Vos ${vetosMax.value} blocages sont utilisés : retirez-en un pour en poser un autre.`
+      : m === 'deja_veto' ? 'Ce prénom est déjà bloqué.' : 'Le blocage n’a pas pu être posé.'
   } finally { envoiVeto.value = false }
 }
 
 async function leverVeto(nom: string) {
   occupe.value = nom
-  try { await g.retirerVeto(nom) } catch { erreur.value = 'Le veto n’a pas pu être levé.' }
+  try { await g.retirerVeto(nom) } catch { erreur.value = 'Le blocage n’a pas pu être retiré.' }
   finally { occupe.value = '' }
 }
 </script>
@@ -136,13 +136,13 @@ async function leverVeto(nom: string) {
                           :occupe="occupe === p.l" @choisir="choisir(p.l, $event)" />
           <template v-if="!observe">
             <button v-if="mesVetos.has(p.l)" type="button" class="btn btn-0 mini lever"
-                    :disabled="occupe === p.l" :aria-label="`Lever mon veto sur ${p.l}`"
+                    :disabled="occupe === p.l" :aria-label="`Retirer le blocage de ${p.l}`"
                     @click="leverVeto(p.l)">
-              Lever
+              Retirer
             </button>
             <button v-else-if="!g.vetos.value.has(p.l)" type="button" class="veto"
                     :class="{ on: vetoPour === p.l }" :aria-expanded="vetoPour === p.l"
-                    :aria-label="`Veto sur ${p.l}`" @click="demanderVeto(p.l)">
+                    :aria-label="`Bloquer ${p.l}…`" @click="demanderVeto(p.l)">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="12" cy="12" r="8.2" /><path d="m6.4 6.4 11.2 11.2" />
               </svg>
@@ -153,16 +153,18 @@ async function leverVeto(nom: string) {
         <!-- La confirmation se déplie sous la ligne : pas de seconde feuille
              par-dessus celle-ci, qu'on ne saurait plus fermer au doigt. -->
         <div v-if="vetoPour === p.l" class="confirme-veto" role="group"
-             :aria-label="`Poser un veto sur ${p.l}`">
+             :aria-label="`Bloquer ${p.l}`">
           <p class="mini" style="margin:0">
-            Un veto est <strong>définitif</strong> : {{ p.l }} ne pourra plus jamais être
-            dans vos accords, quoi que votent les autres. Personne ne verra que c’est vous.
+            Un prénom bloqué ne sera <strong>jamais</strong> dans vos accords, quoi que
+            votent les autres. Personne ne verra que c’est vous, et vous seul pourrez
+            retirer ce blocage.
           </p>
           <input v-model="motif" class="champ" maxlength="200"
-                 aria-label="Motif du veto (facultatif, visible de vous seul)"
+                 aria-label="Pourquoi le bloquer ? (facultatif, visible de vous seul)"
                  placeholder="Pourquoi ? (pour vous, facultatif)" @keyup.enter="poserVeto">
           <p class="mini doux" style="margin:0">
-            Il vous en reste <strong>{{ vetosRestants }}</strong> sur {{ vetosMax }}.
+            Il vous reste <strong>{{ vetosRestants }}</strong>
+            blocage{{ vetosRestants > 1 ? 's' : '' }} sur {{ vetosMax }}.
           </p>
           <p v-if="erreurVeto" class="mini" role="alert" style="color:var(--non);margin:0">
             {{ erreurVeto }}
@@ -170,7 +172,7 @@ async function leverVeto(nom: string) {
           <div class="ligne" style="gap:8px">
             <button type="button" class="btn mini rouge-plein" :disabled="envoiVeto || !vetosRestants"
                     @click="poserVeto">
-              {{ envoiVeto ? 'Un instant…' : `Poser mon veto sur ${p.l}` }}
+              {{ envoiVeto ? 'Un instant…' : `Bloquer ${p.l}` }}
             </button>
             <button type="button" class="btn btn-0 mini doux" @click="vetoPour = null">Annuler</button>
           </div>

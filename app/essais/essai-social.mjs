@@ -82,7 +82,7 @@ await page.waitForSelector('text=Qui en est', { timeout: 10000 })
 const avert = await page.locator('section.avert').innerText().catch(() => '')
 dit(/tout le monde/i.test(avert) && /personne/i.test(avert),
     `la règle est dite avant d’inviter : « ${avert.replace(/\s+/g, ' ').slice(0, 100)} »`)
-dit(/veto/i.test(avert), 'et le droit de veto de fait est nommé')
+dit(/bloquer/i.test(avert), 'et le pouvoir de bloquer chaque prénom est nommé')
 dit(/accord/i.test(avert), 'et le nombre d’accords mis en attente est chiffré')
 
 dit(erreurs.length === 0, `aucune erreur JS (${erreurs.length})`)
