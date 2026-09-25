@@ -104,7 +104,10 @@ async function recharger() {
   ])
   etat.value = e
   if (e.groupe.filtres && Object.keys(e.groupe.filtres).length) {
-    filtres.value = { ...filtresParDefaut(), ...e.groupe.filtres }
+    // `recherche` n'est plus un filtre qu'on peut voir ni changer (la loupe
+    // l'a remplace) : un mot reste enregistre viderait la pile sans qu'on
+    // sache pourquoi. On l'oublie.
+    filtres.value = { ...filtresParDefaut(), ...e.groupe.filtres, recherche: '' }
   }
   vetos.value = new Set(e.vetos)
   mesVetos.value = e.mes_vetos ?? []

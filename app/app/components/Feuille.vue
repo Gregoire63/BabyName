@@ -39,6 +39,24 @@ onMounted(() => requestAnimationFrame(() => { visible.value = true }))
 
 function fermer() { visible.value = false }
 const geste = useFeuille(fermer, dedans)
+
+/**
+ * Au-dessus du clavier. Quand il sort (iPhone surtout), la feuille remonte de
+ * la hauteur cachee et se borne a ce qui reste visible : le champ ou l'on tape
+ * et les resultats restent sous les yeux. Voir useClavier.
+ */
+const clavier = useClavier()
+const styleVoile = computed(() => clavier.bas.value
+  ? { paddingBottom: `${clavier.bas.value}px` } : {})
+const styleCorps = computed(() => {
+  const s: Record<string, string> = { ...(geste.style.value as Record<string, string>) }
+  if (clavier.bas.value) {
+    const h = `${Math.max(160, clavier.visible.value - (props.plein ? 0 : 12))}px`
+    s.maxHeight = h
+    if (props.plein) s.height = h
+  }
+  return s
+})
 // Clavier et lecteur d'ecran : focus dedans, fond inerte, Echap, retour du
 // focus a la fermeture. Voir useDialogue.
 useDialogue(corps, fermer)
@@ -48,8 +66,8 @@ defineExpose({ fermer })
 
 <template>
   <Transition name="feuille" @after-leave="emit('fermer')">
-    <div v-if="visible" class="feuille-voile" @click.self="fermer">
-      <section ref="corps" class="feuille-corps" :class="{ plein: props.plein }" :style="geste.style.value"
+    <div v-if="visible" class="feuille-voile" :style="styleVoile" @click.self="fermer">
+      <section ref="corps" class="feuille-corps" :class="{ plein: props.plein }" :style="styleCorps"
                role="dialog" aria-modal="true" tabindex="-1"
                :aria-labelledby="props.titre ? idTitre : undefined"
                :aria-label="props.titre ? undefined : 'Fenêtre'">

@@ -29,23 +29,21 @@ await page.locator('.bento .grande').first().click()
 await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 25000 })
 await page.waitForTimeout(600)
 
-// Filtrer la pile sur un prénom précis rend l'essai deterministe : la
-// semence dit qui a vote quoi, on n'a pas a swiper au hasard en esperant
-// tomber dessus.
-async function pileSur(motif) {
-  await page.locator('button', { hasText: 'Filtres' }).first().click()
-  await page.waitForSelector('.feuille-voile input.champ', { timeout: 10000 })
-  const champ = page.locator('.feuille-voile input.champ').first()
-  await champ.fill(''); await champ.fill(motif)
-  await page.waitForTimeout(300)
-  await page.locator('button.btn-1', { hasText: 'prénoms — voir' }).click()
-  await page.waitForTimeout(700)
+// Mettre un prénom précis en première carte, par la loupe : la semence dit
+// qui a voté quoi, on n'a pas à swiper au hasard en espérant tomber dessus.
+async function pileSur(nom) {
+  await page.getByRole('button', { name: 'Chercher un prénom' }).click()
+  await page.waitForSelector('.feuille-corps input.chercher', { timeout: 10000 })
+  await page.locator('input.chercher').fill(nom)
+  await page.waitForTimeout(400)
+  await page.locator('.trouve').filter({ has: page.locator(`.nom:text-is("${nom}")`) }).click()
+  await page.waitForTimeout(800)
 }
 
 // ---------- 1. aucun refus n'est jamais annoncé -------------------------
 // Audrey a dit NON a Marius dans la semence. L'ancien bandeau annoncait
 // « Audrey : non » juste apres le oui de Greg.
-await pileSur('ferdinand')
+await pileSur('Ferdinand')
 const nom1 = await page.locator('.carte.fiche:not(.derriere) .nom').first().innerText().catch(() => '')
 await page.getByRole('button', { name: 'Oui' }).first().click()
 await page.waitForTimeout(1600)
@@ -58,7 +56,7 @@ dit(bandeau.trim() === '', 'et rien du tout ne s’affiche, pas même un neutre'
 
 // ---------- 2. le match est un moment -----------------------------------
 // Audrey a dit OUI a Adele, Greg ne l'a pas encore jugee.
-await pileSur('adele')
+await pileSur('Adèle')
 await page.getByRole('button', { name: 'Oui' }).first().click()
 await page.waitForSelector('.fete', { timeout: 12000 })
 const fete = (await page.locator('.fete').innerText()).replace(/\s+/g, ' ')
@@ -79,7 +77,7 @@ dit(await page.locator('.fete').count() === 0 && await page.locator('.volets, .o
 // ---------- 3. inviter une 3e personne est expliqué ---------------------
 await page.locator('.onglets button', { hasText: 'La liste' }).click()
 await page.waitForSelector('text=Qui en est', { timeout: 10000 })
-const avert = await page.locator('section.avert').innerText().catch(() => '')
+const avert = await page.locator('.avert').first().innerText().catch(() => '')
 dit(/tout le monde/i.test(avert) && /personne/i.test(avert),
     `la règle est dite avant d’inviter : « ${avert.replace(/\s+/g, ' ').slice(0, 100)} »`)
 dit(/bloquer/i.test(avert), 'et le pouvoir de bloquer chaque prénom est nommé')

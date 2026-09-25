@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
-import { tester, type VerdictNom } from '~/composables/useNomComplet'
 
 /**
  * Tout ce qui se regle : la liste d'abord, le compte ensuite. C'etait
@@ -82,10 +81,9 @@ const retardataire = computed(() => {
 /**
  * « Ca donne quoi avec notre nom ? »
  *
- * La question se pose a voix haute chez tout le monde et ne se teste nulle
- * part. On a la cle de prononciation : on peut repondre. C'est le premier
- * usage payant, et il est ici plutot que sur la fiche parce qu'on renseigne
- * son nom une fois, pas a chaque prenom.
+ * Ici, on ne fait que SAISIR le nom, une fois pour la liste. La reponse est
+ * sur chaque carte du tri (ContenuCarte), au moment ou l'on juge le prenom :
+ * une liste de verdicts ici faisait doublon, et arrivait apres coup.
  */
 const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
 const nomFamille = ref('')
@@ -117,29 +115,17 @@ async function enregistrerNomFamille() {
 }
 
 /**
- * On teste les accords, pas le catalogue : c'est la liste courte qui compte,
- * et 12 lignes tiennent a l'ecran sans faire defiler une page de verdicts.
- */
-const essaisNom = computed<{ prenom: string; v: VerdictNom }[]>(() => {
-  const nf = nomFamille.value.trim()
-  if (!paye.value || nf.length < 2) return []
-  const out: { prenom: string; v: VerdictNom }[] = []
-  for (const c of (g.communs.value ?? []).slice(0, 12)) {
-    const nom = (c as any).prenom ?? (c as any).l
-    if (!nom) continue
-    const v = tester(nom, nf)
-    if (v) out.push({ prenom: nom, v })
-  }
-  // Ce qui accroche en premier : c'est la seule chose qu'on vient verifier.
-  return out.sort((a, b) => Number(b.v.accroche) - Number(a.v.accroche))
-})
-
-/**
- * Le code des observateurs.
+ * UNE invitation, deux facons.
  *
- * Genere a la demande, et une seule fois : les liens deja envoyes doivent
- * continuer de marcher.
+ * « Inviter quelqu'un » et « Les observateurs » etaient deux blocs ; c'est
+ * pourtant le meme geste — envoyer un lien — avec un seul choix a faire :
+ * la personne decide-t-elle avec vous, ou regarde-t-elle en lecture seule
+ * (elle donne son avis, qui ne compte pas dans les accords et ne bloque rien) ?
+ *
+ * Le code des observateurs se genere a la demande, et une seule fois : les
+ * liens deja envoyes doivent continuer de marcher.
  */
+const typeInvit = ref<'membre' | 'lecture'>('membre')
 const codeObs = computed(() => (g.etat.value?.groupe as any)?.code_observateur ?? null)
 const demandeObs = ref(false)
 const copieObs = ref(false)
@@ -211,78 +197,85 @@ const filtresActifs = computed(() => {
         </div>
       </section>
 
-      <section v-if="!jObserve" class="carte degrade invit">
-        <p class="mini" style="margin:0;opacity:.85">
-          {{ nbMembres < 2 ? 'Code d’invitation' : 'Inviter quelqu’un de plus' }}
-        </p>
-        <strong class="code">{{ g.etat.value.groupe.code_invitation }}</strong>
-        <button class="btn" @click="partager">
-          {{ copie ? 'Lien copié' : 'Partager le lien' }}
-        </button>
-        <p v-if="nbMembres < 2" class="mini" style="margin:0;opacity:.85;text-align:center">
-          La personne que vous invitez jugera les mêmes prénoms de son côté,
-          sans voir vos réponses.
-        </p>
-      </section>
+      <section v-if="!jObserve" class="carte pile invit" aria-labelledby="titre-invit">
+        <h2 id="titre-invit">Inviter quelqu’un</h2>
+        <div class="deux-facons" role="group" aria-label="Type d’invitation">
+          <button type="button" class="facon" :aria-pressed="typeInvit === 'membre'"
+                  @click="typeInvit = 'membre'">
+            <strong>Pour choisir avec vous</strong>
+            <span>juge les prénoms, compte dans les accords</span>
+          </button>
+          <button type="button" class="facon" :aria-pressed="typeInvit === 'lecture'"
+                  @click="typeInvit = 'lecture'">
+            <strong>En lecture seule</strong>
+            <span>donne son avis ; ne compte pas dans vos accords, ne bloque rien</span>
+          </button>
+        </div>
 
-      <!-- Dit avant le partage, pas découvert après. -->
-      <section v-if="nbMembres >= 2 && !jObserve" class="carte pile avert">
-        <h2>Avant d’inviter une troisième personne</h2>
-        <p class="mini" style="margin:0">
-          Un prénom n’est « en commun » que si <strong>tout le monde</strong>
-          l’a jugé et que <strong>personne</strong> n’a dit non.
-        </p>
-        <p class="mini" style="margin:0">
-          En ajouter une troisième remet donc vos
-          <strong>{{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }}</strong>
-          en attente jusqu’à ce qu’elle ait jugé les mêmes prénoms — et lui
-          donne le pouvoir de bloquer chacun d’eux.
-        </p>
-        <p class="mini doux" style="margin:0">
-          Pour un avis extérieur sans conséquence, montrez-lui plutôt vos
-          accords : ils ne bougeront pas.
-        </p>
-      </section>
-
-      <!-- La sortie de l'avertissement ci-dessus : montrer sans donner de veto. -->
-      <section v-if="!jObserve" class="carte pile">
-        <h2>Les observateurs</h2>
-
-        <template v-if="paye">
-          <p class="mini doux" style="margin:0">
-            Un observateur juge les prénoms et vous voyez son avis. Il ne
-            compte pas dans vos accords et ne peut bloquer aucun prénom : vos
-            {{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }} ne bougent pas.
+        <!-- Pour choisir avec vous : le code de la liste. -->
+        <template v-if="typeInvit === 'membre'">
+          <div class="lien-invit degrade">
+            <strong class="code">{{ g.etat.value.groupe.code_invitation }}</strong>
+            <button class="btn" @click="partager">
+              {{ copie ? 'Lien copié' : 'Partager le lien' }}
+            </button>
+          </div>
+          <p v-if="nbMembres < 2" class="mini doux" style="margin:0">
+            La personne que vous invitez jugera les mêmes prénoms de son côté,
+            sans voir vos réponses.
           </p>
+          <!-- Dit avant le partage, pas découvert après. -->
+          <div v-else class="avert pile">
+            <p class="mini" style="margin:0">
+              <strong>Une troisième personne compterait dans les accords.</strong>
+              Un prénom n’est « en commun » que si <strong>tout le monde</strong>
+              l’a jugé et que <strong>personne</strong> n’a dit non : vos
+              <strong>{{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }}</strong>
+              passeraient en attente jusqu’à ce qu’elle ait jugé les mêmes prénoms,
+              et elle aurait le pouvoir de bloquer chacun d’eux.
+            </p>
+            <button type="button" class="btn btn-0 mini" style="align-self:flex-start;padding-left:0"
+                    @click="typeInvit = 'lecture'">
+              Pour un simple avis : l’inviter en lecture seule
+            </button>
+          </div>
+        </template>
 
-          <template v-if="codeObs">
-            <div class="ligne">
-              <strong class="code petit" style="flex:1">{{ codeObs }}</strong>
-              <button class="btn mini" @click="partagerObs">
-                {{ copieObs ? 'Lien copié' : 'Partager' }}
-              </button>
-            </div>
-            <p v-if="observateurs.length" class="mini doux" style="margin:0">
-              {{ observateurs.map((o: any) => o.pseudo).join(', ') }}
-              {{ observateurs.length > 1 ? 'observent' : 'observe' }} cette liste.
+        <!-- En lecture seule : le code des observateurs (liste débloquée). -->
+        <template v-else>
+          <template v-if="paye">
+            <template v-if="codeObs">
+              <div class="lien-invit degrade">
+                <strong class="code">{{ codeObs }}</strong>
+                <button class="btn" @click="partagerObs">
+                  {{ copieObs ? 'Lien copié' : 'Partager le lien' }}
+                </button>
+              </div>
+            </template>
+            <button v-else class="btn" :disabled="demandeObs" @click="creerCodeObs">
+              {{ demandeObs ? 'Un instant…' : 'Créer le lien en lecture seule' }}
+            </button>
+            <p class="mini doux" style="margin:0">
+              Vous voyez son avis sur chaque prénom ; vos
+              {{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }} ne bougent pas.
             </p>
           </template>
-
-          <button v-else class="btn" :disabled="demandeObs" @click="creerCodeObs">
-            {{ demandeObs ? 'Un instant…' : 'Créer un lien d’observateur' }}
-          </button>
+          <template v-else>
+            <p class="mini doux" style="margin:0">
+              Montrer votre liste à vos parents sans qu’ils puissent rien
+              bloquer : ils donnent leur avis, vos accords restent les vôtres.
+              C’est compris dans le déblocage de la liste.
+            </p>
+            <button class="btn btn-1" @click="g.ouvrirDebloquer()">
+              Voir ce que ça ouvre
+            </button>
+          </template>
         </template>
 
-        <template v-else>
-          <p class="mini doux" style="margin:0">
-            Montrer votre liste à vos parents sans qu'ils puissent rien
-            bloquer : ils jugent, vous voyez leur avis, vos accords restent
-            les vôtres.
-          </p>
-          <button class="btn btn-1" @click="g.ouvrirDebloquer()">
-            Voir ce que ça ouvre
-          </button>
-        </template>
+        <p v-if="observateurs.length" class="mini doux" style="margin:0">
+          En lecture seule : {{ observateurs.map((o: any) => o.pseudo).join(', ') }}
+          {{ observateurs.length > 1 ? 'observent' : 'observe' }} cette liste.
+        </p>
       </section>
 
       <section class="carte pile">
@@ -290,9 +283,9 @@ const filtresActifs = computed(() => {
 
         <template v-if="paye">
           <p class="mini doux" style="margin:0">
-            On lit le prénom et le nom comme on les <em>dit</em>, pas comme on
-            les écrit : les voyelles qui se collent, les consonnes qui se
-            mangent, les initiales qu'on n'avait pas vues.
+            Chaque carte du tri montre ensuite le prénom avec votre nom, lu comme
+            on le <em>dit</em> : les voyelles qui se collent, les sons qui butent,
+            les initiales qu’on n’avait pas vues.
           </p>
           <div class="ligne">
             <input v-model="nomFamille" class="champ" style="flex:1" aria-label="Nom de famille"
@@ -301,25 +294,8 @@ const filtresActifs = computed(() => {
                    @keyup.enter="enregistrerNomFamille">
             <button class="btn mini" :disabled="!nomChangeF"
                     @click="enregistrerNomFamille">
-              {{ enregistre ? 'Fait' : 'Tester' }}
+              {{ enregistre ? 'Fait' : 'Enregistrer' }}
             </button>
-          </div>
-
-          <p v-if="nomFamille.trim().length >= 2 && !essaisNom.length"
-             class="mini doux" style="margin:0">
-            Rien à tester tant que vous n'avez pas d'accord : le test tourne
-            sur vos prénoms en commun.
-          </p>
-
-          <div v-for="e in essaisNom" :key="e.prenom" class="essai">
-            <button class="nom" @click="g.ouvrirFiche(e.prenom)">
-              {{ e.prenom }} {{ nomFamille.trim() }}
-            </button>
-            <span class="mini doux">{{ e.v.syllabes }} syll. · {{ e.v.initiales }}</span>
-            <p v-for="(r, i) in e.v.remarques" :key="i" class="mini" :class="r.gravite">
-              {{ r.texte }}
-            </p>
-            <p v-if="!e.v.remarques.length" class="mini bien">Rien à signaler.</p>
           </div>
         </template>
 
@@ -377,20 +353,18 @@ const filtresActifs = computed(() => {
 </template>
 
 <style scoped>
-.essai { display: flex; flex-direction: column; gap: 3px;
-  padding: 9px 0; border-top: 1px solid var(--trait); }
-.essai .nom { background: none; border: 0; padding: 0; text-align: left;
-  font: inherit; font-weight: 650; color: var(--encre); cursor: pointer; }
-.essai .mini { margin: 0; }
-.essai .accroche { color: var(--non); }
-.essai .attention { opacity: .78; }
-.essai .bien { opacity: .55; }
 .exemple { font-weight: 650; }
-.invit { display: flex; flex-direction: column; align-items: center; gap: 10px;
-  color: var(--encre); }
+.deux-facons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.facon { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 11px 12px;
+  border: 1px solid var(--trait); border-radius: var(--r-s); background: var(--fond);
+  font: inherit; color: var(--texte); cursor: pointer; }
+.facon strong { font-size: .88rem; }
+.facon span { font-size: .72rem; color: var(--doux); line-height: 1.3; }
+.facon[aria-pressed="true"] { border-color: var(--encre); box-shadow: inset 0 0 0 1px var(--encre); }
+.lien-invit { display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 16px; border-radius: var(--r-s); color: var(--encre); }
 .code { font-size: 1.7rem; letter-spacing: .16em; font-weight: 700; }
-.code.petit { font-size: 1.1rem; letter-spacing: .12em; }
-.invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
-.avert { border-color: color-mix(in srgb, var(--peche) 55%, var(--trait)); }
-.avert h2 { color: var(--encre); }
+.lien-invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
+.avert { gap: 6px; padding: 11px 13px; border-radius: var(--r-s);
+  border: 1px solid color-mix(in srgb, var(--peche) 55%, var(--trait)); }
 </style>

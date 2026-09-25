@@ -64,12 +64,18 @@ await sec.locator('input.chercher').fill('jeanne')
 await page.waitForTimeout(400)
 const jeanne = sec.locator('.trouve').filter({ has: page.locator('.nom:text-is("Jeanne")') })
 dit((await jeanne.locator('.puce').innerText()).trim() === 'Oui', 'Jeanne est marquée « Oui »')
-await jeanne.locator('.trio .v0').click()
-await page.waitForTimeout(900)
-dit((await jeanne.locator('.puce').innerText()).trim() === 'Non',
-    'on peut changer son choix depuis la recherche')
 await page.screenshot({ path: '/tmp/v1-recherche.png' })
-await jeanne.locator('.trio .v2').click(); await page.waitForTimeout(700)
+// La toucher la remet en première carte : on la rejuge d'un geste.
+await jeanne.click()
+await page.waitForTimeout(800)
+await page.getByRole('button', { name: 'Non à Jeanne' }).click()
+await page.waitForTimeout(1100)
+await page.getByRole('button', { name: 'Chercher un prénom' }).click()
+await page.waitForSelector('.feuille-corps input.chercher', { timeout: 6000 })
+await sec.locator('input.chercher').fill('jeanne')
+await page.waitForTimeout(400)
+dit((await jeanne.locator('.puce').innerText()).trim() === 'Non',
+    'on peut changer son choix : la recherche la ramène, la carte la rejuge')
 await page.keyboard.press('Escape'); await page.waitForTimeout(500)
 
 // ---------- 4. Mes choix : gardés et vetos --------------------------------

@@ -15,7 +15,8 @@ import type { Prenom } from '~/composables/useCatalogue'
  */
 export type Gravite = 'accroche' | 'attention' | 'bien'
 
-export interface Remarque { gravite: Gravite; texte: string }
+/** `court` : la meme chose en quelques mots, pour la carte de tri. */
+export interface Remarque { gravite: Gravite; texte: string; court: string }
 /**
  * « VerdictNom » et pas « Verdict » : les composables sont importes
  * automatiquement, et useVerdicts.ts a deja son Verdict (un vote). Deux
@@ -65,40 +66,44 @@ export function tester(prenom: string, nomFamille: string): VerdictNom | null {
   // 1. Hiatus : deux voyelles qui se touchent. C'est le défaut le plus
   //    audible et celui que personne ne voit à l'écrit.
   if (estVoyelle(p.fin) && estVoyelle(n.debut)) {
-    remarques.push({ gravite: 'accroche',
+    remarques.push({ gravite: 'accroche', court: 'deux voyelles se touchent',
       texte: `« ${prenom} ${nf} » : les deux voyelles se touchent, on entend une hésitation.` })
   }
 
   // 2. Même consonne de part et d'autre : on bafouille.
   if (!estVoyelle(p.fin) && p.fin === n.debut) {
-    remarques.push({ gravite: 'accroche',
+    remarques.push({ gravite: 'accroche', court: 'même son de part et d’autre, ça bute',
       texte: `Le prénom finit et le nom commence par le même son — ça bute.` })
   }
 
   // 3. Rime : les deux se terminent pareil, sur au moins deux sons.
   const finP = p.cle.slice(-2), finN = n.cle.slice(-2)
   if (finP.length === 2 && finP === finN) {
-    remarques.push({ gravite: 'attention',
+    remarques.push({ gravite: 'attention', court: 'le prénom et le nom riment',
       texte: `Le prénom et le nom riment. Certains aiment, d'autres l'entendent comme une comptine.` })
   }
 
   // 4. Longueur totale.
   const syl = syllabesCle(p.cle) + syllabesCle(n.cle)
   if (syl <= 2) {
-    remarques.push({ gravite: 'attention', texte: `Très court à dire : ${syl} syllabes en tout.` })
+    remarques.push({ gravite: 'attention', court: `très court : ${syl} syllabes`,
+      texte: `Très court à dire : ${syl} syllabes en tout.` })
   } else if (syl >= 8) {
-    remarques.push({ gravite: 'attention', texte: `Long à dire : ${syl} syllabes en tout.` })
+    remarques.push({ gravite: 'attention', court: `long à dire : ${syl} syllabes`,
+      texte: `Long à dire : ${syl} syllabes en tout.` })
   }
 
   // 5. Initiales.
   const ini = initialesDe(prenom, nf)
   const sigle = SIGLES[ini] ?? (ini.length >= 2 ? SIGLES[ini.slice(0, 2)] : undefined)
   if (sigle) {
-    remarques.push({ gravite: 'accroche', texte: `Les initiales donnent ${sigle}.` })
+    remarques.push({ gravite: 'accroche', court: `initiales : ${sigle}`,
+      texte: `Les initiales donnent ${sigle}.` })
   }
 
   if (!remarques.length) {
-    remarques.push({ gravite: 'bien', texte: `Rien n'accroche : ${syl} syllabes, l'enchaînement est net.` })
+    remarques.push({ gravite: 'bien', court: `rien n’accroche · ${syl} syllabes`,
+      texte: `Rien n'accroche : ${syl} syllabes, l'enchaînement est net.` })
   }
   return {
     remarques,

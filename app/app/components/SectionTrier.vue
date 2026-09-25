@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { filtrer, ordonner, trouverPrenom, sansAccent, type Prenom } from '~/composables/useCatalogue'
+import { filtrer, filtresParDefaut, ordonner, trouverPrenom, sansAccent, type Prenom }
+  from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 
 const props = defineProps<{ actif: boolean }>()
@@ -57,6 +58,12 @@ const match = ref<{ prenom: string; avec: string[] } | null>(null)
 const retour = ref<{ prenom: string; qui: string[] } | null>(null)
 const familleAEcarter = ref<Prenom[] | null>(null)
 const rechercheOuverte = ref(false)
+/** Des filtres differents de ceux d'origine ? (La recherche n'en est plus un.) */
+const filtresActifs = computed(() => {
+  const { recherche: _r, ...f } = g.filtres.value
+  const { recherche: _d, ...d } = filtresParDefaut()
+  return JSON.stringify(f) !== JSON.stringify(d)
+})
 const boiteFamille = ref<HTMLElement>()
 useDialogue(boiteFamille, () => { familleAEcarter.value = null })
 const cleJour = `pr_${g.gid}_${new Date().toISOString().slice(0, 10)}`
@@ -150,6 +157,9 @@ watch(suite, (liste) => {
  * derrière est bien celle qui arrive.
  */
 const epingle = ref<Prenom | null>(null)
+/** Epingle depuis la recherche un prenom DEJA juge : on le rejuge. Le vote
+ *  existant ne doit donc pas la lacher tout de suite (voir le watch). */
+let epingleDejaJuge = false
 const couverts = computed(() => new Set(epingle.value
   ? [epingle.value.l, ...(epingle.value.variantes ?? [])] : []))
 
@@ -173,10 +183,40 @@ function retenirEpingle(nom: string | null) {
 
 watch([() => g.dejaVotes.value, () => g.vetos.value], ([votes, vetos]) => {
   const e = epingle.value
-  if (e && (votes.has(e.l) || vetos.has(e.l))) {
+  if (e && (vetos.has(e.l) || (!epingleDejaJuge && votes.has(e.l)))) {
     epingle.value = null
     retenirEpingle(null)
   }
+})
+
+/**
+ * Choisi dans la recherche : il passe devant, meme deja juge — le rejuger
+ * remplace l'ancien vote. Bloque, il ne revient pas (la recherche ne le
+ * propose d'ailleurs pas).
+ */
+function epinglerChoisi(nom: string) {
+  const p = g.parNom.value.get(nom)
+  if (!p || g.vetos.value.has(p.l)) return
+  const groupe = dispo.value.find(c => c.gp === p.gp)
+  const autres = groupe ? [groupe.l, ...(groupe.variantes ?? [])].filter(l => l !== p.l) : []
+  epingleDejaJuge = g.dejaVotes.value.has(p.l)
+  epingle.value = { ...p, variantes: autres }
+  retenirEpingle(p.l)
+  // Le mur du jour cache la pile : on montre au moins sa fiche, et il attend
+  // son tour en tete.
+  if (quotaAtteint.value) {
+    g.ouvrirFiche(p.l)
+    dire(`${p.l} passera en premier dès que vous pourrez trier à nouveau.`)
+  }
+}
+
+/** Ce que j'en avais dit, pour la carte d'un prenom rejuge. */
+const dejaDit = computed<number | null>(() => {
+  const e = epingle.value
+  if (!e || !epingleDejaJuge || carte.value?.l !== e.l) return null
+  const moi = g.etat.value?.moi?.user_id
+  const v = g.votes.value.find((x: any) => x.user_id === moi && x.prenom === e.l)?.valeur
+  return v === 0 || v === 1 || v === 2 ? v : null
 })
 
 /** Un message court, qui passe par-dessus sans rien bloquer. */
@@ -219,6 +259,7 @@ function epingler(demande: string, depuisAdresse: boolean) {
   const autres = groupe
     ? [groupe.l, ...(groupe.variantes ?? [])].filter(l => l !== p.l)
     : []
+  epingleDejaJuge = false
   epingle.value = { ...p, variantes: autres }
   retenirEpingle(p.l)
 }
@@ -483,10 +524,40 @@ watch(carte, (c, avant) => {
 })
 
 // --- actions --------------------------------------------------------------
+/**
+ * Ranger ce que le serveur vient de répondre dans les votes connus.
+ *
+ * Le tri ne rechargeait rien : après un geste, la loupe ne disait pas « Oui »
+ * sur le prénom qu'on venait d'aimer, et « À revoir » restait sur l'état
+ * d'avant jusqu'au prochain rechargement. La réponse du vote contient déjà
+ * tout ce qu'il faut : les votes sur CE prénom, le mien compris, visibles
+ * maintenant que j'ai jugé (vote aveugle). Ils remplacent ceux qu'on avait.
+ *
+ * Les autres graphies : le serveur n'écrit mon vote dessus que s'il n'y en
+ * avait pas un porté à la main. On n'ajoute donc que celles qui manquent.
+ */
+function rangerVotes(prenom: string, variantes: string[], valeur: number, revenus: any[] = []) {
+  const moi = g.etat.value?.moi
+  if (!moi) return
+  const pseudo = (g.etat.value?.avancement ?? []).find((m: any) => m.user_id === moi.user_id)?.pseudo ?? ''
+  const miens = new Set(g.votes.value.filter((v: any) => v.user_id === moi.user_id).map((v: any) => v.prenom))
+  const suite = g.votes.value.filter((v: any) => v.prenom !== prenom)
+  const surCeluiCi = revenus.filter((v: any) => v?.prenom === prenom && typeof v.valeur === 'number')
+  if (!surCeluiCi.some((v: any) => v.user_id === moi.user_id)) {
+    surCeluiCi.push({ prenom, user_id: moi.user_id, pseudo, valeur })
+  }
+  for (const nom of variantes) {
+    if (!miens.has(nom)) suite.push({ prenom: nom, user_id: moi.user_id, pseudo, valeur })
+  }
+  g.votes.value = [...suite, ...surCeluiCi]
+}
+
 async function voter(valeur: 0 | 1 | 2) {
   const p = carte.value
   if (!p || quotaAtteint.value || envol.value) return
   const etaitEpingle = epingle.value === p
+  // Un prenom rejuge depuis la recherche : il etait deja dans mes votes.
+  const rejuge = etaitEpingle && epingleDejaJuge
 
   // On laisse la carte partir AVANT de toucher a la pile : si on retire le
   // prenom tout de suite, le noeud est remplace et il n'y a plus rien a
@@ -498,6 +569,7 @@ async function voter(valeur: 0 | 1 | 2) {
   // Les autres graphies du meme son quittent la pile avec la carte : sans ca
   // elles reviendraient une par une, ce qui est exactement ce qu'on evite.
   const variantes = p.variantes ?? []
+  if (etaitEpingle) { epingle.value = null; epingleDejaJuge = false; retenirEpingle(null) }
   g.dejaVotes.value = new Set([...g.dejaVotes.value, p.l, ...variantes])
   if (valeur === 2) g.aimes.value = [...g.aimes.value, p]
   faits.value++
@@ -514,16 +586,22 @@ async function voter(valeur: 0 | 1 | 2) {
         const d = err?.data?.data?.quota ?? err?.data?.quota
         if (d) quotaVif.value = d
         const s = new Set(g.dejaVotes.value)
-        s.delete(p.l); for (const v of variantes) s.delete(v)
+        // Rejuge, il l'etait deja avant : son ancien vote tient toujours.
+        if (!rejuge) { s.delete(p.l); for (const v of variantes) s.delete(v) }
         g.dejaVotes.value = s
         if (valeur === 2) g.aimes.value = g.aimes.value.filter(x => x.l !== p.l)
         faits.value = Math.max(0, faits.value - 1)
         // Le prénom demandé n'a pas été jugé : il reprend sa place devant.
-        if (etaitEpingle) { epingle.value = p; retenirEpingle(p.l) }
+        if (etaitEpingle) { epingleDejaJuge = rejuge; epingle.value = p; retenirEpingle(p.l) }
       }
       return null
     })
   if (r?.quota) quotaVif.value = r.quota
+  // Un vote change : la loupe, « Mes choix » et « À revoir » doivent le voir
+  // tout de suite, sans recharger toute la liste à chaque geste.
+  if (r) rangerVotes(p.l, variantes, valeur, r.votes)
+  // Un prénom rejugé peut faire ou défaire un accord.
+  if (r && rejuge) g.rechargerCommuns()
 
   // Le serveur ne renvoie les votes des autres QUE parce qu'on vient de voter
   // (regle du vote aveugle, cf. server/utils/votes.ts).
@@ -549,6 +627,8 @@ async function voter(valeur: 0 | 1 | 2) {
                  && tous.length >= nbMembres
   if (accord) {
     match.value = { prenom: p.l, avec: autres.map((v: any) => v.pseudo) }
+    // La pastille des accords doit le compter sans attendre qu'on recharge.
+    g.rechargerCommuns()
     return
   }
   // ON NE DIT JAMAIS QU'ON VOUS A REFUSE UN PRENOM.
@@ -649,9 +729,14 @@ async function confirmerFamille() {
   <div class="ecran">
     <div class="haut">
       <TeteListe class="titre" onglet="Swipe" compact :info="contexte" />
-      <button class="btn btn-0 mini" style="padding:6px 10px;flex:none"
-              @click="g.ouvrirFiltres()">
-        Filtres
+      <!-- Une icone, comme la loupe : un entonnoir (les curseurs sont deja
+           l'onglet « La liste »). Le point dit que des filtres sont actifs. -->
+      <button type="button" class="loupe" :aria-label="filtresActifs ? 'Filtres (actifs)' : 'Filtres'"
+              aria-haspopup="dialog" @click="g.ouvrirFiltres()">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 5.5h16l-6.3 7.3v5.7l-3.4 1.9v-7.6Z" />
+        </svg>
+        <i v-if="filtresActifs" class="point" aria-hidden="true" />
       </button>
       <!-- La recherche vit ici, sous la loupe : c'est pendant le tri qu'on
            pense au prénom entendu la veille, pas dans les réglages. -->
@@ -764,7 +849,8 @@ async function confirmerFamille() {
             {{ intention === 'oui' ? 'Oui' : intention === 'non' ? 'Non' : 'Neutre' }}
           </div>
 
-          <ContenuCarte :p="carte" :famille="familleCarte" @fiche="g.ouvrirFiche(carte.l)"
+          <ContenuCarte :p="carte" :famille="familleCarte" :deja-dit="dejaDit"
+                        @fiche="g.ouvrirFiche(carte.l)"
                         @favori="basculerFavori" @famille="demanderFamille"
                         @veto="demanderVeto" />
         </article>
@@ -847,7 +933,8 @@ async function confirmerFamille() {
       </template>
     </Feuille>
 
-    <FeuilleRecherche v-if="rechercheOuverte" @fermer="rechercheOuverte = false" />
+    <FeuilleRecherche v-if="rechercheOuverte" @fermer="rechercheOuverte = false"
+                      @choisir="epinglerChoisi" />
 
     <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec"
                 @fermer="match = null"
@@ -973,6 +1060,9 @@ async function confirmerFamille() {
   background: none; color: var(--texte); display: grid; place-items: center; cursor: pointer; }
 .loupe:active { background: var(--carte); }
 .loupe svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2.4;
-  stroke-linecap: round; }
+  stroke-linecap: round; stroke-linejoin: round; }
+.loupe { position: relative; }
+.loupe .point { position: absolute; top: 7px; right: 6px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--peche); box-shadow: 0 0 0 2px var(--fond); }
 .noms { flex-wrap: wrap; gap: 6px; max-height: 148px; overflow-y: auto; }
 </style>

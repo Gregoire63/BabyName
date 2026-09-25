@@ -24,7 +24,10 @@ export default defineNuxtConfig({
       // lui que lisent les robots qui n'executent pas le JavaScript.
       title: 'babyNames — choisir le prénom de bébé à deux',
       meta: [
-        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+        // resizes-content : sur Android, le clavier redimensionne la page au
+        // lieu de se poser dessus — les feuilles restent visibles. iPhone
+        // l'ignore ; useClavier y supplee.
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content' },
         { name: 'theme-color', content: '#1a234e' },
         { name: 'description', content: DESCRIPTION },
         { property: 'og:type', content: 'website' },

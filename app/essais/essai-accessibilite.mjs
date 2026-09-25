@@ -171,7 +171,7 @@ const libelle = await page.locator('.boutons .rond.oui').getAttribute('aria-labe
 dit(libelle === `Oui à ${apres}`, `le bouton dit ce qu’il fait (« ${libelle} »)`)
 
 // --- dialogues du tri ---------------------------------------------------------
-await page.getByRole('button', { name: 'Filtres', exact: true }).first().click()
+await page.getByRole('button', { name: /^Filtres/ }).first().click()
 await page.waitForSelector('[role="dialog"]')
 await auditer('Filtres')
 await page.keyboard.press('Escape')

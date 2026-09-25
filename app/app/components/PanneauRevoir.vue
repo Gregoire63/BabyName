@@ -43,6 +43,32 @@ const silence = computed(() => {
   return `On pourra dire ce qui vous sépare quand ${q.pseudo} aura gardé ${MIN_OUI} prénoms que vous avez jugés tous les deux (${q.oui} pour l'instant). En dessous, une moyenne ne veut rien dire.`
 })
 
+/**
+ * DEUX GROUPES : ce que j'ai refuse, ce que l'autre a refuse.
+ *
+ * Melanges, on ne savait pas d'un coup d'oeil sur quoi on pouvait ceder
+ * soi-meme et sur quoi il fallait en parler. Avec plus de deux decideurs, le
+ * second groupe devient « les autres ». Rien de nouveau n'est revele : ce sont
+ * les memes votes, deja visibles ici, ranges autrement.
+ */
+const autresDecideurs = computed(() => (g.etat.value?.avancement ?? [])
+  .filter((m: any) => m.role !== 'observateur' && m.user_id !== moiId.value)
+  .map((m: any) => m.pseudo as string))
+const eux = computed(() => autresDecideurs.value.length === 1 ? autresDecideurs.value[0]! : '')
+/** « qu’Audrey » mais « que Greg » ; « d’Audrey », « de Greg ». */
+const voyelle = (nom: string) => /^[aeiouyhàâäéèêëîïôöùûü]/i.test(nom)
+const que = (nom: string) => voyelle(nom) ? `qu’${nom}` : `que ${nom}`
+const de = (nom: string) => voyelle(nom) ? `d’${nom}` : `de ${nom}`
+
+const groupes = computed(() => [
+  { cle: 'moi', titre: 'Ceux que vous n’avez pas aimés',
+    aide: `${eux.value ? `${eux.value} a dit oui` : 'D’autres ont dit oui'} : si vous changez d’avis, le prénom peut rejoindre vos accords.`,
+    liste: aRevoir.value.filter(v => v.mien === 0) },
+  { cle: 'eux', titre: eux.value ? `Ceux ${que(eux.value)} n’a pas aimés` : 'Ceux que les autres n’ont pas aimés',
+    aide: `Vous avez dit oui ; c’est ${eux.value ? `du côté ${de(eux.value)}` : 'de leur côté'} que ça coince — à en parler.`,
+    liste: aRevoir.value.filter(v => v.mien !== 0) }
+].filter(gr => gr.liste.length))
+
 async function changer(prenom: string, valeur: 0 | 1 | 2,
                        autres: { pseudo: string; observateur: boolean }[]) {
   occupe.value = prenom
@@ -72,8 +98,8 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
 
     <template v-else>
       <p class="mini doux" style="margin:0">
-        Un oui d’un côté, un non de l’autre. Rien n’est figé : changez votre
-        vote ici et le prénom rejoint les communs.
+        Un oui d’un côté, un non de l’autre. Rien n’est figé : chacun peut
+        changer son vote ici.
       </p>
       <p v-if="silence" class="mini doux" style="margin:0">{{ silence }}</p>
       <button v-if="!paye" class="btn btn-0 mini" style="align-self:flex-start"
@@ -81,21 +107,27 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
         Savoir ce qui vous sépare sur chacun
       </button>
 
-      <article v-for="v in aRevoir" :key="v.prenom" class="carte desaccord">
-        <div class="ligne" style="gap:10px">
-          <button class="nom" @click="g.ouvrirFiche(v.prenom)">{{ v.prenom }}</button>
-          <BoutonsVerdict :valeur="v.mien" :occupe="occupe === v.prenom"
-                          @choisir="changer(v.prenom, $event, v.autres)" />
-        </div>
-        <p v-if="pourquoi(v.prenom)" class="pourquoi">{{ pourquoi(v.prenom)!.texte }}</p>
-        <div class="ligne avis">
-          <span class="puce" :class="`a${v.mien}`">Vous · {{ MOT[v.mien ?? 1] }}</span>
-          <span v-for="a in v.autres" :key="a.pseudo" class="puce"
-                :class="[`a${a.valeur}`, { obs: a.observateur }]">
-            {{ a.pseudo }} · {{ MOT[a.valeur] }}<template v-if="a.observateur"> · avis</template>
-          </span>
-        </div>
-      </article>
+      <section v-for="gr in groupes" :key="gr.cle" class="groupe-revoir" :aria-labelledby="`revoir-${gr.cle}`">
+        <h3 :id="`revoir-${gr.cle}`" class="titre-groupe">
+          {{ gr.titre }} <span class="puce">{{ gr.liste.length }}</span>
+        </h3>
+        <p class="mini doux" style="margin:0">{{ gr.aide }}</p>
+        <article v-for="v in gr.liste" :key="v.prenom" class="carte desaccord">
+          <div class="ligne" style="gap:10px">
+            <button class="nom" @click="g.ouvrirFiche(v.prenom)">{{ v.prenom }}</button>
+            <BoutonsVerdict :valeur="v.mien" :nom="v.prenom" :occupe="occupe === v.prenom"
+                            @choisir="changer(v.prenom, $event, v.autres)" />
+          </div>
+          <p v-if="pourquoi(v.prenom)" class="pourquoi">{{ pourquoi(v.prenom)!.texte }}</p>
+          <div class="ligne avis">
+            <span class="puce" :class="`a${v.mien}`">Vous · {{ MOT[v.mien ?? 1] }}</span>
+            <span v-for="a in v.autres" :key="a.pseudo" class="puce"
+                  :class="[`a${a.valeur}`, { obs: a.observateur }]">
+              {{ a.pseudo }} · {{ MOT[a.valeur] }}<template v-if="a.observateur"> · avis</template>
+            </span>
+          </div>
+        </article>
+      </section>
     </template>
 
     <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec"
@@ -105,6 +137,10 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
 
 <style scoped>
 .desaccord { padding: 13px 15px; display: flex; flex-direction: column; gap: 9px; }
+.groupe-revoir { display: flex; flex-direction: column; gap: 9px; }
+.groupe-revoir + .groupe-revoir { margin-top: 10px; }
+.titre-groupe { margin: 4px 0 0; font-size: .98rem; display: flex; align-items: center; gap: 8px; }
+.titre-groupe .puce { font-size: .7rem; }
 .nom { flex: 1; min-width: 0; text-align: left; border: 0; background: none; font: inherit;
   font-size: 1.15rem; font-weight: 700; letter-spacing: -.02em; color: var(--texte);
   cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

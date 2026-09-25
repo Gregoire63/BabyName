@@ -35,10 +35,10 @@ function cycler(o: string) {
       </button>
     </template>
 
+    <!-- Plus de champ « Chercher un prénom » ici : c'etait un filtre qui
+         vidait la pile de tout le reste, et il faisait doublon avec la loupe
+         du tri, qui amene le prenom en premiere carte. -->
     <div class="pile">
-        <input v-model="modele.recherche" class="champ" placeholder="Chercher un prénom"
-               aria-label="Chercher un prénom" type="search" autocapitalize="off">
-
         <div>
           <p class="titre">Sexe</p>
           <div class="nuage">
@@ -122,7 +122,7 @@ function cycler(o: string) {
           </label>
           <p class="mini doux" style="margin:-3px 0 0 24px">
             Moins de 20 naissances en trois ans. Le catalogue les contient tous et
-            la recherche les trouve déjà : cette case les fait entrer dans le swipe.
+            la loupe les trouve déjà : cette case les fait entrer dans le swipe.
           </p>
         </div>
 

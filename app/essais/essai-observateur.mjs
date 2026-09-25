@@ -71,7 +71,7 @@ dit(/ne compte pas dans vos accords|ne peut pas poser de veto/i.test(reglages),
 // L'avertissement « troisième personne » ne doit PAS se déclencher pour elle.
 const decideurs = etat.avancement.filter(m => m.role !== 'observateur').length
 dit(decideurs === 2, `deux décideurs comptés, pas trois (${decideurs})`)
-const texteAvert = await plat(greg, '.carte.avert')
+const texteAvert = await plat(greg, '.avert')
 dit(/troisième personne/i.test(texteAvert),
     'l’avertissement parle encore d’une TROISIÈME personne — Mamie n’en est pas une')
 dit(!/Mamie/.test(texteAvert), 'et il ne la compte pas dedans')

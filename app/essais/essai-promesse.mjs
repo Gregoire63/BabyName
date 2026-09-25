@@ -64,7 +64,7 @@ const ligne = await page.locator('.contexte, .sous-titre, header').first().inner
 console.log('   [ligne]', ligne.replace(/\n/g, ' · '))
 
 // Un changement de filtre doit, lui, reprendre la main sur la tete.
-await page.locator('button', { hasText: 'Filtres' }).first().click()
+await page.getByRole('button', { name: /^Filtres/ }).first().click()
 await page.waitForSelector('text=Sexe', { timeout: 10000 })
 const avantFiltre = (await devant()).trim()
 // On ne garde QUE le sexe oppose a la carte en tete : la tete figee doit

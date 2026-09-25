@@ -107,7 +107,10 @@ await page.locator('input.chercher').fill('arthur')
 await page.waitForTimeout(400)
 const douteux = page.locator('.trouve', { hasText: 'Arthur' }).first()
 dit(await douteux.count() > 0, 'la recherche trouve Arthur (sens « ours », confiance moyenne)')
-await douteux.locator('.nom').click()
+// Toucher la ligne met Arthur en première carte ; sa fiche s'ouvre de là.
+await douteux.click()
+await page.waitForTimeout(800)
+await page.locator('.carte.fiche:not(.derriere)').getByRole('button', { name: 'Infos sur Arthur' }).click()
 await page.waitForSelector('.voile', { timeout: 10000 })
 const fiche = await page.locator('.voile').first().innerText()
 dit(/probable|débattue|douteuse/i.test(fiche),
@@ -118,6 +121,8 @@ await page.getByRole('button', { name: 'Fermer la fiche' }).click()
 await page.waitForSelector('.voile', { state: 'detached', timeout: 10000 })
 
 // ---------- 4. la recherche trouve un rare et permet de le juger ----------
+await page.getByRole('button', { name: 'Chercher un prénom' }).click()
+await page.waitForSelector('.feuille-corps input.chercher', { timeout: 10000 })
 await page.locator('input.chercher').fill('caelis')
 await page.waitForTimeout(400)
 const ligne = page.locator('.trouve', { hasText: 'Caëlis' }).first()
@@ -126,10 +131,13 @@ dit(await ligne.locator('.puce.rare').count() === 1, 'Caëlis porte la pastille 
 const bulle = await ligne.locator('.puce.rare').getAttribute('title')
 dit(/15 naissances/.test(bulle ?? ''), `la pastille dit le volume : « ${bulle} »`)
 
-await ligne.getByRole('button', { name: 'Oui' }).click()
-await page.waitForTimeout(900)
-await page.locator('input.chercher').fill('')
-await page.waitForTimeout(150)
+// Un rare, hors de la pile, passe quand même en première carte, et se juge.
+await ligne.click()
+await page.waitForTimeout(800)
+await page.getByRole('button', { name: 'Oui à Caëlis' }).click()
+await page.waitForTimeout(1100)
+await page.getByRole('button', { name: 'Chercher un prénom' }).click()
+await page.waitForSelector('.feuille-corps input.chercher', { timeout: 10000 })
 await page.locator('input.chercher').fill('caelis')
 await page.waitForTimeout(500)
 const apresVote = page.locator('.trouve', { hasText: 'Caëlis' }).first()
