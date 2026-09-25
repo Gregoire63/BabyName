@@ -1,5 +1,5 @@
 import { hacherCle, normaliserCle } from './acces'
-import type { Connexion } from './db'
+import type { Connexion, Requeteur } from './db'
 
 /**
  * Jeu d'essai du developpement.
@@ -16,6 +16,49 @@ import type { Connexion } from './db'
  */
 export const CLES_DEV = {
   greg: 'DEVG-REGX-2345', audrey: 'DEVA-DREY-2345', mamie: 'DEVM-AMIE-2345'
+}
+
+/**
+ * La version du jeu d'essai. A monter a CHAQUE changement de ce fichier.
+ *
+ * On ne seme qu'une base vide : une base semee avant un changement garde
+ * l'ancien jeu, sans rien dire, et on cherche en vain la liste « Essai
+ * gratuit » qu'un essai decrit. La version est gravee a la semaille ; le
+ * demarrage et les outils de developpement disent quand elle est depassee.
+ */
+export const VERSION_SEMENCE = 1
+
+/** Les comptes du jeu d'essai, tels que les outils de dev les montrent. */
+export const COMPTES_DEV = [
+  { pseudo: 'Greg', cle: CLES_DEV.greg, role: 'parent, sur toutes les listes' },
+  { pseudo: 'Audrey', cle: CLES_DEV.audrey, role: 'parent, sur « Notre liste »' },
+  { pseudo: 'Mamie', cle: CLES_DEV.mamie, role: 'observatrice de « Notre liste »' }
+]
+
+async function marqueur(c: Requeteur) {
+  await c.query(`create table if not exists _semence (
+    version integer not null, semee_le timestamptz not null default now())`)
+}
+
+/** Version et date de la semaille. Version 0 : semee avant qu'on les grave. */
+export async function etatSemence(c: Requeteur): Promise<{ version: number; semee_le: string | null; a_jour: boolean }> {
+  await marqueur(c)
+  const r = await c.query(`select version, semee_le from _semence order by semee_le desc limit 1`)
+  const version = Number(r.rows[0]?.version ?? 0)
+  return { version, semee_le: r.rows[0]?.semee_le ?? null, a_jour: version >= VERSION_SEMENCE }
+}
+
+/** Au demarrage, une base deja semee ne disait rien : pas de cle, pas d'etat. */
+export async function annoncerBaseLocale(c: Requeteur) {
+  const e = await etatSemence(c)
+  const date = e.semee_le ? new Date(e.semee_le).toLocaleDateString('fr-FR') : 'date inconnue'
+  console.log(
+    `\n  Base locale : .data/dev (Postgres embarque) — jeu d'essai v${e.version}, seme le ${date}.\n` +
+    `  Cles : ${COMPTES_DEV.map(x => `${x.pseudo} ${x.cle}`).join(' · ')}\n` +
+    (e.a_jour
+      ? `  Outils : Mon compte -> Outils de developpement (base neuve, nouvelle journee, quotas, deblocage).\n`
+      : `  /!\\ Jeu d'essai PERIME (v${e.version}, actuel v${VERSION_SEMENCE}) : des listes et des comptes d'essai manquent.\n` +
+        `      Mon compte -> Outils de developpement -> Base neuve, ou arretez le serveur et lancez npm run dev:neuf.\n`))
 }
 
 // Deux gouts differents, avec un recouvrement volontaire ET des desaccords
@@ -53,9 +96,10 @@ const GOUTS_MAMIE = {
 // Parametres, et ce qui permet de verifier qu'un non individuel y survit.
 const BALAYAGE = { racine: 'kevi', prenoms: ['Kevin', 'Kevyn', 'Kevan'] }
 
-export async function semerSiVide(c: Connexion) {
+/** Seme une base vide. Renvoie vrai si elle l'etait. */
+export async function semerSiVide(c: Connexion): Promise<boolean> {
   const dejaLa = await c.query(`select count(*)::int as n from utilisateurs`)
-  if ((dejaLa.rows[0]?.n ?? 0) > 0) return
+  if ((dejaLa.rows[0]?.n ?? 0) > 0) return false
 
   const [greg, audrey, mamie] = await Promise.all([
     creerCompte(c, 'Greg', CLES_DEV.greg),
@@ -167,7 +211,12 @@ export async function semerSiVide(c: Connexion) {
     `  Cle d'Audrey  : ${CLES_DEV.audrey}\n` +
     `  Cle de Mamie  : ${CLES_DEV.mamie} (observatrice, code ob5e0bad)\n` +
     '  Ouvrez-en une dans une fenetre privee pour voir le vote aveugle a deux.\n' +
-    '  Pour repartir de zero : supprimez le dossier .data/\n')
+    '  Pour repartir de zero : Mon compte -> Outils de developpement -> Base neuve.\n')
+
+  await marqueur(c)
+  await c.query(`delete from _semence`)
+  await c.query(`insert into _semence (version) values ($1)`, [VERSION_SEMENCE])
+  return true
 }
 
 async function creerCompte(c: Connexion, pseudo: string, cle: string): Promise<string> {

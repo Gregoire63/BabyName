@@ -104,8 +104,8 @@ dit(refusObs === 402, `le lien d’observateur aussi : HTTP ${refusObs}`)
 // --- la projection de classe : visible, mais partielle --------------------
 await page.goto(`${BASE}/g/${gidLibre}/swipe`, { waitUntil: 'networkidle' })
 await page.waitForTimeout(1500)
-await page.goto(`${BASE}/g/${gidLibre}/reglages`, { waitUntil: 'networkidle' })
-await page.waitForTimeout(1200)
+await page.getByRole('button', { name: 'Chercher un prénom' }).click()
+await page.waitForSelector('.feuille-corps input.chercher', { timeout: 10000 })
 await page.locator('input.champ.chercher').fill('Elio')
 await page.waitForTimeout(700)
 await page.locator('.trouve .nom').first().click()
@@ -149,6 +149,10 @@ const relu = await page.evaluate(g => fetch(`/api/groupes/${g}`).then(r => r.jso
 dit(relu.groupe.nom_famille === 'Arnaud', 'le nom est bien enregistré pour la liste, pas pour la personne')
 
 // --- la projection complète ----------------------------------------------
+await page.goto(`${BASE}/g/${gid}/swipe`, { waitUntil: 'networkidle' })
+await page.waitForTimeout(1200)
+await page.getByRole('button', { name: 'Chercher un prénom' }).click()
+await page.waitForSelector('.feuille-corps input.chercher', { timeout: 10000 })
 await page.locator('input.champ.chercher').fill('Louise')
 await page.waitForTimeout(600)
 await page.locator('.trouve .nom').first().click()

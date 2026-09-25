@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
+
 /**
  * Le compte, au meme endroit que le nom sur lequel on a tape.
  *
@@ -70,6 +72,15 @@ function annulerSuppression() {
   confirmation.value = ''
   erreurSuppression.value = ''
 }
+
+// --- outils de developpement ----------------------------------------------
+/**
+ * La base locale se gere d'ici (outils-dev/OutilsCompte.vue). Le composant
+ * n'est importe qu'en developpement : au build, `import.meta.dev` vaut false,
+ * l'import disparait, et rien de ces outils n'entre dans le bundle.
+ */
+const OutilsDev = import.meta.dev
+  ? defineAsyncComponent(() => import('~/outils-dev/OutilsCompte.vue')) : null
 
 async function supprimerCompte() {
   if (!confirme.value || suppressionEnCours.value) return
@@ -176,6 +187,8 @@ async function supprimerCompte() {
       </div>
     </section>
 
+    <component :is="OutilsDev" v-if="OutilsDev" />
+
     <template #pied>
       <button type="button" class="btn btn-0 doux" @click="sortir">Se déconnecter</button>
       <PiedLegal compact />
@@ -193,6 +206,7 @@ async function supprimerCompte() {
 .suppression { padding: 12px 14px; border-radius: var(--r-s);
   border: 1px solid color-mix(in srgb, var(--non) 45%, var(--trait)); gap: 10px; }
 .btn-danger { background: var(--non); border-color: var(--non); color: var(--fond); }
+
 .cle { display: block; width: 100%; border: 1px dashed var(--trait); border-radius: 13px;
   background: var(--fond); padding: 15px 8px; cursor: pointer; font: inherit;
   font-size: 1.2rem; font-weight: 700; letter-spacing: .07em; text-align: center;

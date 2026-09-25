@@ -229,7 +229,17 @@ button { font: inherit; color: inherit; }
    ecran contre un autre. */
 .page-enter-active, .page-leave-active {
   position: absolute; inset: 0;
+  /* Opaques pendant le glissement : le fond etait sur <body> seulement, et
+     la page qui arrivait laissait voir celle qui partait au travers — les
+     pages legales comme la liste. Le meme fond que body, donc rien ne change
+     une fois arrive. */
+  background: var(--lavis), var(--fond);
   transition: transform .34s cubic-bezier(.32,.72,0,1), opacity .34s ease;
+}
+/* Celle qui bouge passe dessus : la page qui arrive quand on avance, celle
+   qui s'en va quand on recule. L'ombre dit son bord. */
+[data-sens="avant"] .page-enter-active, [data-sens="arriere"] .page-leave-active {
+  z-index: 1; box-shadow: -14px 0 32px -20px rgba(26,35,78,.4);
 }
 /* on entre : la liste vient de la droite, l'accueil recule derriere elle */
 [data-sens="avant"] .page-enter-from { transform: translateX(100%); }

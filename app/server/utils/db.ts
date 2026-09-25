@@ -113,8 +113,10 @@ async function embarque(): Promise<Connexion> {
   if (!schema) throw new Error('server/assets/schema.sql introuvable')
   await c.executer(schema)
 
-  const { semerSiVide } = await import('./semence')
-  await semerSiVide(c)
+  const { semerSiVide, annoncerBaseLocale } = await import('./semence')
+  // Semee a l'instant, elle vient de se presenter ; sinon on dit ou l'on en
+  // est — sans quoi le demarrage ne donnait ni les cles ni l'age du jeu.
+  if (!(await semerSiVide(c))) await annoncerBaseLocale(c).catch(() => null)
   return c
 }
 

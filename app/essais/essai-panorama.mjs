@@ -68,7 +68,7 @@ dit(!repli, repli ? 'REPLI sur catalogue.json : la détection gzip a raté'
 
 // ---------- 2. la pile ignore les rares par defaut -------------------------
 await page.locator('.onglets button', { hasText: 'La liste' }).click()
-await page.waitForSelector('text=Chercher un prénom', { timeout: 10000 })
+await page.waitForSelector('text=Aucun filtre', { timeout: 10000 })
 const resume = await page.locator('section.carte', { hasText: 'Aucun filtre' }).last().innerText()
 dit(/recherche/i.test(resume) && /rares/i.test(resume),
     'le bloc Filtres dit que le swipe laisse les rares de côté')
@@ -98,6 +98,11 @@ await page.locator('button.btn-1', { hasText: 'prénoms — voir' }).click()
 await page.waitForTimeout(400)
 
 // ---------- 3 bis. le doute est dit, pas caché -----------------------------
+// La recherche vit sous la loupe du tri.
+await page.locator('.onglets button', { hasText: 'Swipe' }).click()
+await page.waitForTimeout(700)
+await page.getByRole('button', { name: 'Chercher un prénom' }).click()
+await page.waitForSelector('.feuille-corps input.chercher', { timeout: 10000 })
 await page.locator('input.chercher').fill('arthur')
 await page.waitForTimeout(400)
 const douteux = page.locator('.trouve', { hasText: 'Arthur' }).first()
@@ -109,7 +114,7 @@ dit(/probable|débattue|douteuse/i.test(fiche),
     /probable|débattue|douteuse/i.test(fiche)
       ? 'la fiche d\'un sens non certain porte la mise en garde'
       : `pas de mise en garde sur la fiche : ${fiche.slice(0, 160).replace(/\n/g, ' · ')}`)
-await page.getByRole('button', { name: 'Fermer' }).first().click()
+await page.getByRole('button', { name: 'Fermer la fiche' }).click()
 await page.waitForSelector('.voile', { state: 'detached', timeout: 10000 })
 
 // ---------- 4. la recherche trouve un rare et permet de le juger ----------
@@ -130,6 +135,8 @@ await page.waitForTimeout(500)
 const apresVote = page.locator('.trouve', { hasText: 'Caëlis' }).first()
 const puces = await apresVote.locator('.puce').allInnerTexts()
 dit(puces.some(t => /oui/i.test(t)), `le vote sur un rare est enregistré : ${JSON.stringify(puces)}`)
+await page.keyboard.press('Escape')          // on referme la recherche
+await page.waitForTimeout(500)
 
 // ---------- 5. cout reel du chargement du catalogue -----------------------
 const cout = await page.evaluate(async () => {

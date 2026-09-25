@@ -6,11 +6,20 @@ const props = defineProps<{ p: Prenom }>()
 const emit = defineEmits<{ fermer: [] }>()
 const g = useGroupeSiPresent()
 
+/**
+ * Elle monte et elle redescend. La fermeture coupait net : le parent retirait
+ * la fiche des qu'on touchait la croix. Comme Feuille, elle garde donc la
+ * main — elle joue sa sortie, puis previent le parent.
+ */
+const visible = ref(false)
+onMounted(() => requestAnimationFrame(() => { visible.value = true }))
+function fermer() { visible.value = false }
+
 const dedans = ref<HTMLElement>()
-const f = useFeuille(() => emit('fermer'), dedans)
+const f = useFeuille(fermer, dedans)
 const boite = ref<HTMLElement>()
 const idNom = useId()
-useDialogue(boite, () => emit('fermer'))
+useDialogue(boite, fermer)
 
 const AN0 = 1986, AN1 = 2025
 
@@ -54,7 +63,8 @@ const lecture = computed(() => {
 </script>
 
 <template>
-  <div class="voile" @click.self="emit('fermer')">
+  <Transition name="fiche" @after-leave="emit('fermer')">
+  <div v-if="visible" class="voile" @click.self="fermer">
     <div ref="boite" class="feuille" :style="f.style.value"
          role="dialog" aria-modal="true" :aria-labelledby="idNom" tabindex="-1"
          @pointerdown="f.debut" @pointermove="f.bouge"
@@ -68,7 +78,7 @@ const lecture = computed(() => {
               {{ sexeTexte }} · {{ p.y }} syllabe{{ p.y > 1 ? 's' : '' }} · {{ p.c }} lettres
             </p>
           </div>
-          <button type="button" class="btn btn-0 rond" aria-label="Fermer la fiche" @click="emit('fermer')">
+          <button type="button" class="btn btn-0 rond" aria-label="Fermer la fiche" @click="fermer">
             <span aria-hidden="true">✕</span>
           </button>
         </header>
@@ -159,18 +169,27 @@ const lecture = computed(() => {
       </div>
     </div>
   </div>
+  </Transition>
 </template>
 
 <style scoped>
 .feuille:focus { outline: none; }
-.voile { position: fixed; inset: 0; z-index: 60; background: rgba(26,35,78,.42);
-  backdrop-filter: blur(3px); display: flex; align-items: flex-end; justify-content: center;
-  animation: fondu .18s ease; }
-@keyframes fondu { from { opacity: 0 } }
+.voile { position: fixed; inset: 0; z-index: 60; background-color: rgba(26,35,78,.42);
+  backdrop-filter: blur(3px); display: flex; align-items: flex-end; justify-content: center; }
 .feuille { width: 100%; max-width: 560px; max-height: 92%; background: var(--carte);
-  border-radius: 22px 22px 0 0; display: flex; flex-direction: column;
-  animation: monte .24s cubic-bezier(.2,.8,.3,1); }
-@keyframes monte { from { transform: translateY(16px); opacity: .6 } }
+  border-radius: 22px 22px 0 0; display: flex; flex-direction: column; }
+/* Memes regles que Feuille : le voile ne fond que sa couleur (la fiche est
+   dedans), et il dure au moins autant que la descente. */
+.fiche-enter-active { transition: background-color .3s ease, backdrop-filter .3s ease; }
+.fiche-leave-active { transition: background-color .28s ease, backdrop-filter .28s ease; }
+.fiche-enter-from, .fiche-leave-to { background-color: transparent; backdrop-filter: blur(0); }
+.fiche-enter-active .feuille { transition: transform .3s cubic-bezier(.2,.86,.3,1); }
+.fiche-leave-active .feuille { transition: transform .26s cubic-bezier(.5,0,.9,.55); }
+.fiche-enter-from .feuille, .fiche-leave-to .feuille { transform: translateY(100%); }
+@media (prefers-reduced-motion: reduce) {
+  .fiche-enter-active, .fiche-leave-active,
+  .fiche-enter-active .feuille, .fiche-leave-active .feuille { transition-duration: .01ms; }
+}
 .feuille { touch-action: none; }
 .poignee { width: 42px; height: 5px; border-radius: 999px; background: var(--trait);
   margin: 10px auto 2px; flex: none; }

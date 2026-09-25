@@ -56,6 +56,7 @@ const faits = ref(0)
 const match = ref<{ prenom: string; avec: string[] } | null>(null)
 const retour = ref<{ prenom: string; qui: string[] } | null>(null)
 const familleAEcarter = ref<Prenom[] | null>(null)
+const rechercheOuverte = ref(false)
 const boiteFamille = ref<HTMLElement>()
 useDialogue(boiteFamille, () => { familleAEcarter.value = null })
 const cleJour = `pr_${g.gid}_${new Date().toISOString().slice(0, 10)}`
@@ -607,6 +608,14 @@ async function confirmerFamille() {
               @click="g.ouvrirFiltres()">
         Filtres
       </button>
+      <!-- La recherche vit ici, sous la loupe : c'est pendant le tri qu'on
+           pense au prénom entendu la veille, pas dans les réglages. -->
+      <button type="button" class="loupe" aria-label="Chercher un prénom"
+              aria-haspopup="dialog" @click="rechercheOuverte = true">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="10.5" cy="10.5" r="6.2" /><path d="m15.2 15.2 4.8 4.8" />
+        </svg>
+      </button>
     </div>
 
     <!-- La forme de l'ecran est connue d'avance : on la dessine tout de suite
@@ -789,11 +798,14 @@ async function confirmerFamille() {
       </template>
     </Feuille>
 
+    <FeuilleRecherche v-if="rechercheOuverte" @fermer="rechercheOuverte = false" />
+
     <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec"
                 @fermer="match = null"
                 @communs="match = null; g.allerA('communs')" />
 
 
+    <Transition name="confirme">
     <div v-if="familleAEcarter" class="voile-confirme" @click.self="familleAEcarter = null">
       <div ref="boiteFamille" class="carte pile confirme" role="alertdialog" aria-modal="true"
            aria-labelledby="titre-famille" aria-describedby="texte-famille" tabindex="-1">
@@ -814,6 +826,7 @@ async function confirmerFamille() {
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
@@ -890,14 +903,26 @@ async function confirmerFamille() {
 .fondu-enter-active, .fondu-leave-active { transition: opacity .25s, translate .25s; }
 .fondu-enter-from, .fondu-leave-to { opacity: 0; translate: 0 8px; }
 
-.rouge-plein { background: var(--non); border-color: var(--non); color: #fff; }
+/* var(--fond) et pas du blanc : en sombre, le rouge s'eclaircit et le blanc
+   dessus tombait sous 3:1. */
+.rouge-plein { background: var(--non); border-color: var(--non); color: var(--fond); }
 .rouge-plein:disabled { opacity: .5; }
 
-.voile-confirme { position: fixed; inset: 0; z-index: 65; background: rgba(26,35,78,.42);
+.voile-confirme { position: fixed; inset: 0; z-index: 65; background-color: rgba(26,35,78,.42);
   backdrop-filter: blur(3px); display: flex; align-items: flex-end;
   justify-content: center; padding: 16px; }
-.confirme { width: 100%; max-width: 520px; margin-bottom: calc(8px + env(safe-area-inset-bottom));
-  animation: monter .22s cubic-bezier(.2,.8,.3,1); }
-@keyframes monter { from { transform: translateY(14px); opacity: .5 } }
+.confirme { width: 100%; max-width: 520px; margin-bottom: calc(8px + env(safe-area-inset-bottom)); }
+/* Elle arrive et repart : sans transition de sortie, elle disparaissait d'un
+   coup a « Annuler », comme un plantage. */
+.confirme-enter-active, .confirme-leave-active { transition: background-color .22s ease, backdrop-filter .22s ease; }
+.confirme-enter-from, .confirme-leave-to { background-color: transparent; backdrop-filter: blur(0); }
+.confirme-enter-active .confirme { transition: transform .22s cubic-bezier(.2,.8,.3,1), opacity .22s ease; }
+.confirme-leave-active .confirme { transition: transform .2s cubic-bezier(.5,0,.9,.55), opacity .2s ease; }
+.confirme-enter-from .confirme, .confirme-leave-to .confirme { transform: translateY(24px); opacity: 0; }
+.loupe { flex: none; width: 38px; height: 38px; margin-right: -6px; border: 0; border-radius: 50%;
+  background: none; color: var(--texte); display: grid; place-items: center; cursor: pointer; }
+.loupe:active { background: var(--carte); }
+.loupe svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2.4;
+  stroke-linecap: round; }
 .noms { flex-wrap: wrap; gap: 6px; max-height: 148px; overflow-y: auto; }
 </style>

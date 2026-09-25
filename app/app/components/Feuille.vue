@@ -104,10 +104,19 @@ defineExpose({ fermer })
   display: flex; flex-direction: column; gap: 10px; }
 
 /* ------------------------------------------------- ouverture et fermeture */
-.feuille-enter-active, .feuille-leave-active { transition: opacity .24s ease; }
-.feuille-enter-from, .feuille-leave-to { opacity: 0; }
-.feuille-enter-active .feuille-corps, .feuille-leave-active .feuille-corps {
-  transition: transform .3s cubic-bezier(.2,.86,.3,1); }
+/* La fermeture ne se voyait pas, pour deux raisons :
+   - le voile s'effacait en OPACITE, et la feuille est dedans : elle devenait
+     transparente avant d'avoir eu le temps de descendre ;
+   - Vue retire l'element quand la transition de la RACINE (le voile) finit :
+     .24 s, alors que la feuille en demandait .3. Elle etait coupee en route.
+   Le voile ne fond donc que sa couleur et son flou, et il dure au moins
+   autant que la descente. En sortie, la feuille accelere (on la jette) au
+   lieu de freiner (on la pose). */
+.feuille-enter-active { transition: background-color .3s ease, backdrop-filter .3s ease; }
+.feuille-leave-active { transition: background-color .28s ease, backdrop-filter .28s ease; }
+.feuille-enter-from, .feuille-leave-to { background-color: transparent; backdrop-filter: blur(0); }
+.feuille-enter-active .feuille-corps { transition: transform .3s cubic-bezier(.2,.86,.3,1); }
+.feuille-leave-active .feuille-corps { transition: transform .26s cubic-bezier(.5,0,.9,.55); }
 .feuille-enter-from .feuille-corps, .feuille-leave-to .feuille-corps {
   transform: translateY(100%); }
 

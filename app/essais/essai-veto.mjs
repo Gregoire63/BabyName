@@ -38,14 +38,20 @@ dit(etat.mes_vetos.length === 1 && etat.mes_vetos[0].prenom === 'Brandon',
 // ---------- 2. « La liste » : plus de gardés ni de vetos publics ---------
 await page.goto(`${BASE}/g/1/reglages`, { waitUntil: 'networkidle' })
 await page.waitForSelector('.pager > section:nth-child(3) h2', { timeout: 20000 })
-const sec = page.locator('.pager > section:nth-child(3)')
-const titres = await sec.locator('h2').allInnerTexts()
+const reglages = page.locator('.pager > section:nth-child(3)')
+const titres = await reglages.locator('h2').allInnerTexts()
 console.log('   cartes de « La liste » :', titres.join(' · '))
 dit(!titres.includes('Mes gardés'), '« Mes gardés » a disparu des réglages')
 dit(!titres.includes('Vetos'), '« Vetos » a disparu des réglages')
-dit(titres.includes('Chercher un prénom'), 'la recherche est là')
+dit(!titres.includes('Chercher un prénom'), 'la recherche a quitté les réglages')
 
-// ---------- 3. la recherche -----------------------------------------------
+// ---------- 3. la recherche, sous la loupe du tri --------------------------
+await page.goto(`${BASE}/g/1/swipe`, { waitUntil: 'networkidle' })
+await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 20000 })
+await page.getByRole('button', { name: 'Chercher un prénom' }).click()
+await page.waitForSelector('.feuille-corps input.chercher', { timeout: 6000 })
+const sec = page.locator('.feuille-corps')
+dit(true, 'la loupe du tri ouvre la recherche')
 await sec.locator('input.chercher').fill('bran')
 await page.waitForTimeout(400)
 const lignes = await sec.locator('.trouve').count()
@@ -64,6 +70,7 @@ dit((await jeanne.locator('.puce').innerText()).trim() === 'Non',
     'on peut changer son choix depuis la recherche')
 await page.screenshot({ path: '/tmp/v1-recherche.png' })
 await jeanne.locator('.trio .v2').click(); await page.waitForTimeout(700)
+await page.keyboard.press('Escape'); await page.waitForTimeout(500)
 
 // ---------- 4. Mes choix : gardés et vetos --------------------------------
 await page.goto(`${BASE}/g/1/classement`, { waitUntil: 'networkidle' })

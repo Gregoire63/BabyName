@@ -129,8 +129,8 @@ dit(revenus.length === 0, revenus.length === 0
   : `reviennent sous une autre graphie : ${revenus.join(', ')}`)
 
 // ---------- 4. la recherche trouve encore chaque graphie ----------------
-await page.locator('.onglets button', { hasText: 'La liste' }).click()
-await page.waitForSelector('input.chercher', { timeout: 10000 })
+await page.getByRole('button', { name: 'Chercher un prénom' }).click()
+await page.waitForSelector('.feuille-corps input.chercher', { timeout: 10000 })
 await page.locator('input.chercher').fill('hélyo')
 await page.waitForTimeout(500)
 const trouve = await page.locator('.trouve', { hasText: 'Hélyo' }).count()

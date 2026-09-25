@@ -58,7 +58,7 @@ const auditLe = computed(() => new Date(`${VERSIONS_TEXTES.accessibilite}T12:00:
       <li><strong>Technologies</strong> : HTML, CSS, JavaScript (Vue et Nuxt), WAI-ARIA.</li>
       <li><strong>Méthode</strong> : tests automatiques axe-core (règles WCAG 2.0, 2.1 niveaux A et AA) sur chaque écran de l’application, en thème clair et en thème sombre, rejoués à chaque évolution ; vérifications manuelles au clavier.</li>
       <li><strong>Environnement de test</strong> : Chromium, sur ordinateur et en affichage mobile.</li>
-      <li><strong>Pages vérifiées</strong> : connexion, accueil, tri, classement (communs, à revoir, mes choix, portrait), réglages de la liste, fiche d’un prénom, filtres, création de liste, achat, compte et pages d’information.</li>
+      <li><strong>Pages vérifiées</strong> : connexion, accueil, tri, recherche d’un prénom, classement (communs, à revoir, mes choix, portrait), réglages de la liste, fiche d’un prénom, filtres, création de liste, achat, compte et pages d’information.</li>
     </ul>
 
     <h2>Retour d’information et contact</h2>

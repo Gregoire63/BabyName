@@ -51,6 +51,9 @@ d'achat le dit.
 | `essai-accessibilite` | axe-core (WCAG 2.0/2.1 A et AA) sur chaque écran et chaque dialogue, clair et sombre ; lien d'évitement, focus piégé dans les dialogues, Échap, focus rendu, tri aux flèches, onglets au clavier, mouvement réduit, aucun tiers contacté |
 | `essai-desaccord` | « ce n'est peut-être pas Marius, c'est la longueur » — et le silence tant qu'il n'y a pas de quoi le dire |
 | `essai-observateur` | le non de Mamie ne retire pas Louise des accords, et elle ne peut pas poser de veto |
+| `essai-recherche` | la loupe du tri ouvre la recherche, curseur dans le champ ; on y juge (boutons nommés, le tri suit), on y pose un veto **confirmé sur place** et on le lève ; au bout du quota elle le dit ; pas de veto pour un observateur ; **la feuille et la fiche descendent en se fermant** |
+| `essai-historique` | trois pages légales lues en chaîne, **un seul Retour** pour revenir (bouton de la page comme du navigateur), glissé vers l'arrière ; **pendant le glissement la page qui bouge est opaque** ; les onglets d'une liste n'empilent rien |
+| `essai-dev` | les outils de la base locale : entrer d'un geste, âge du jeu d'essai, nouvelle journée, quotas à zéro, débloquer / rebloquer sans Stripe, base neuve sans arrêter le serveur |
 | `essai-prenom` | le prénom d'une fiche publique (`?prenom=`) traverse la connexion et la création de liste, et arrive **en première carte, même hors des filtres** ; épinglé jusqu'au jugement ; déjà jugé, en accord ou sous veto, on le dit sans le rejouer ; **le code d'invitation traverse la connexion** ; le bouton retour ne boucle pas |
 | `essai-portrait` | le portrait parle sur 12 oui et **se tait** sur 5 |
 | `essai-classement` | les désaccords, et le changement d'avis qui fait passer un prénom en commun |

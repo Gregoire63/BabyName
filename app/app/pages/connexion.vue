@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
 import { chargerCatalogue, trouverPrenom } from '~/composables/useCatalogue'
 
 const route = useRoute()
@@ -75,6 +76,18 @@ async function copier() {
   try { await navigator.clipboard.writeText(cleNeuve.value) } catch { /* selection manuelle */ }
   copie.value = true
   setTimeout(() => copie.value = false, 1800)
+}
+
+/**
+ * En developpement : entrer d'un geste avec un compte du jeu d'essai
+ * (outils-dev/OutilsConnexion.vue). Importe seulement si `import.meta.dev` :
+ * au build, l'import disparait avec tout ce qu'il contient.
+ */
+const OutilsDev = import.meta.dev
+  ? defineAsyncComponent(() => import('~/outils-dev/OutilsConnexion.vue')) : null
+async function entrerComme(c: string) {
+  cle.value = c
+  await reprendre()
 }
 
 onMounted(async () => {
@@ -184,6 +197,8 @@ onMounted(async () => {
       <button type="button" class="btn btn-0 doux" @click="mode = 'cle'; erreur = ''">
         J’ai déjà une clé
       </button>
+
+      <component :is="OutilsDev" v-if="OutilsDev" :occupe="envoi" @entrer="entrerComme" />
     </template>
 
     <PiedLegal compact />

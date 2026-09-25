@@ -18,7 +18,14 @@
  * avec history.replaceState, sans navigation. Seul le passage accueil <-> liste
  * glisse, et c'est bien le seul qui change de niveau.
  */
-const profondeur = (chemin: string) => (chemin.startsWith('/g/') ? 1 : 0)
+/**
+ * Les pages legales sont un cran plus bas que tout : on y descend depuis
+ * l'accueil comme depuis une liste, et « Retour » les renvoie vers la droite.
+ * A la meme profondeur que l'accueil, revenir faisait arriver l'accueil par
+ * la droite, comme si on avancait.
+ */
+const profondeur = (chemin: string) =>
+  estPageLegale(chemin) ? 2 : chemin.startsWith('/g/') ? 1 : 0
 
 export default defineNuxtRouteMiddleware((vers, depuis) => {
   if (!import.meta.client || vers.fullPath === depuis.fullPath) return

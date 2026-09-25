@@ -21,11 +21,34 @@ une liste déjà entamée. Le terminal affiche alors :
   Cle de Mamie  : DEVM-AMIE-2345 (observatrice, code ob5e0bad)
 ```
 
-Sur <http://localhost:3000/connexion>, choisissez « J'ai déjà une clé » et
-collez celle de Greg. Ouvrez celle d'Audrey dans une fenêtre privée : le vote
-aveugle se teste à deux, sur la même base.
+Sur <http://localhost:3000/connexion>, le bloc **Base locale — entrer comme**
+connecte d'un geste Greg, Audrey ou Mamie (en développement seulement).
+Ouvrez Audrey dans une fenêtre privée : le vote aveugle se teste à deux, sur
+la même base.
 
-`npm run dev:neuf` efface `.data/` et repart d'une base vierge.
+Aux lancements suivants, le terminal rappelle l'âge du jeu d'essai et les
+clés — et signale un jeu **périmé** : on ne sème qu'une base vide, donc une
+base semée avant un changement de `server/utils/semence.ts` garde l'ancien jeu
+(monter `VERSION_SEMENCE` à chaque changement de ce fichier).
+
+### Gérer la base locale sans arrêter le serveur
+
+**Mon compte → Outils de développement** (accueil, sous votre nom) :
+
+| Geste | Effet |
+|---|---|
+| Base neuve | vide toutes les tables et ressème le jeu d'essai du jour ; on repart de la connexion |
+| Nouvelle journée | efface les compteurs du jour : le filet quotidien revient, comme demain matin |
+| Quotas à zéro | départ et jour à zéro, pour tout le monde |
+| Débloquer / Rebloquer | passe une liste en payée (« offerte ») ou la rend gratuite, sans Stripe |
+
+La feuille « Débloquer cette liste » a aussi, en dev, **Débloquer sans payer**.
+
+Ces gestes passent par `/api/dev/base`, qui répond **404 en production** et
+**403 si le serveur de dev parle à une base distante** (un `vercel env pull`,
+un `NUXT_DATABASE_URL` oublié) : « Base neuve » ne peut pas vider Neon.
+
+`npm run dev:neuf` fait la même chose que « Base neuve », serveur arrêté.
 
 ## Ce qu'il y a dans le jeu d'essai
 
@@ -48,8 +71,8 @@ jeu d'une famille.
 
 ## Les essais
 
-`essais/` contient vingt et un essais de bout en bout — vrai navigateur, vrai
-serveur, vraie base — soit environ 360 assertions. Ils ne testent pas des
+`essais/` contient vingt-cinq essais de bout en bout — vrai navigateur, vrai
+serveur, vraie base — soit environ 470 assertions. Ils ne testent pas des
 fonctions, ils testent des promesses : « le refus ne se dit jamais », « un
 observateur ne casse pas un accord », « aucun champ de carte bancaire dans
 l'app », « effacer son compte n'efface pas celui de l'autre », « chaque écran

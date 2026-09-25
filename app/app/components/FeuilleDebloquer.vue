@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
 /**
  * Ce que l'achat apporte, dit en entier avant de payer.
  *
@@ -71,6 +72,14 @@ const GRATUIT = computed(() => [
   'Les vetos',
   'Le deuxième parent'
 ])
+
+/**
+ * En developpement, Stripe n'est pas branche : un raccourci debloque la liste
+ * locale (outils-dev/OutilsDebloquer.vue). Importe seulement si
+ * `import.meta.dev` : absent du build de production.
+ */
+const OutilsDev = import.meta.dev
+  ? defineAsyncComponent(() => import('~/outils-dev/OutilsDebloquer.vue')) : null
 
 async function payer() {
   if (envoi.value || !accord.value) return
@@ -155,6 +164,8 @@ async function payer() {
       <button type="button" class="btn btn-0 mini doux" style="width:100%" @click="fermer">
         Plus tard
       </button>
+      <component :is="OutilsDev" v-if="OutilsDev" :gid="Number(g.gid)"
+                 @fait="g.recharger().then(fermer)" />
     </template>
   </Feuille>
 </template>

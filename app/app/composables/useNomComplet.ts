@@ -1,4 +1,4 @@
-import { prononciation, bords, estVoyelle } from '~/composables/usePhonetique'
+import { bords, estVoyelle } from '~/composables/usePhonetique'
 import type { Prenom } from '~/composables/useCatalogue'
 
 /**
@@ -16,7 +16,13 @@ import type { Prenom } from '~/composables/useCatalogue'
 export type Gravite = 'accroche' | 'attention' | 'bien'
 
 export interface Remarque { gravite: Gravite; texte: string }
-export interface Verdict {
+/**
+ * « VerdictNom » et pas « Verdict » : les composables sont importes
+ * automatiquement, et useVerdicts.ts a deja son Verdict (un vote). Deux
+ * exports du meme nom, et Nuxt en ignore un en le signalant a chaque
+ * demarrage.
+ */
+export interface VerdictNom {
   remarques: Remarque[]
   syllabes: number
   initiales: string
@@ -48,7 +54,7 @@ function syllabesCle(cle: string): number {
   return Math.max(1, n)
 }
 
-export function tester(prenom: string, nomFamille: string): Verdict | null {
+export function tester(prenom: string, nomFamille: string): VerdictNom | null {
   const nf = (nomFamille ?? '').trim()
   if (!nf || !prenom) return null
 
@@ -108,4 +114,3 @@ export function sansAccroche(liste: Prenom[], nomFamille: string): Prenom[] {
   return liste.filter(p => !tester(p.l, nomFamille)?.accroche)
 }
 
-export { prononciation }

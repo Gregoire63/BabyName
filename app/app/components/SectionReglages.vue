@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
-import { sansAccent, type Prenom } from '~/composables/useCatalogue'
-import { useVerdicts, MOT } from '~/composables/useVerdicts'
-import { tester, type Verdict } from '~/composables/useNomComplet'
+import { tester, type VerdictNom } from '~/composables/useNomComplet'
 
 /**
  * Tout ce qui se regle : la liste d'abord, le compte ensuite. C'etait
@@ -11,44 +9,8 @@ import { tester, type Verdict } from '~/composables/useNomComplet'
 const props = defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
 
-/**
- * Chercher un prenom precis dans TOUT le catalogue.
- *
- * Les filtres de la liste ne s'appliquent pas ici, et c'est voulu : quand on
- * cherche le prenom d'une cousine ou celui qu'on vient d'entendre a la radio,
- * on veut savoir ce qu'on en a deja dit — pas se faire repondre qu'il ne
- * passe pas le filtre « 2 a 3 syllabes ».
- */
-const recherche = ref('')
-const { parPrenom } = useVerdicts()
-const occupe = ref('')
-
-const trouves = computed<Prenom[]>(() => {
-  const r = sansAccent(recherche.value.trim())
-  if (r.length < 2) return []
-  const debut: Prenom[] = []
-  const dedans: Prenom[] = []
-  for (const p of g.catalogue.value) {
-    if (p.slug.startsWith(r)) debut.push(p)
-    else if (p.slug.includes(r)) dedans.push(p)
-    if (debut.length >= 40) break
-  }
-  // Les plus donnes d'abord : c'est presque toujours celui qu'on cherche.
-  const parFrequence = (a: Prenom, b: Prenom) => b.n - a.n
-  return [...debut.sort(parFrequence), ...dedans.sort(parFrequence)].slice(0, 25)
-})
-
-const etat = (nom: string) => {
-  if (g.vetos.value.has(nom)) return { t: 'Veto', c: 'veto' }
-  const v = parPrenom.value.get(nom)?.mien
-  if (v === undefined || v === null) return null
-  return { t: MOT[v], c: `v${v}` }
-}
-
-async function choisir(nom: string, valeur: 0 | 1 | 2) {
-  occupe.value = nom
-  try { await g.voter(nom, valeur) } finally { occupe.value = '' }
-}
+// La recherche d'un prénom est partie sous la loupe du tri (FeuilleRecherche) :
+// c'est là qu'on est quand on y pense.
 
 const copie = ref(false)
 const renomme = ref(false)
@@ -158,10 +120,10 @@ async function enregistrerNomFamille() {
  * On teste les accords, pas le catalogue : c'est la liste courte qui compte,
  * et 12 lignes tiennent a l'ecran sans faire defiler une page de verdicts.
  */
-const essaisNom = computed<{ prenom: string; v: Verdict }[]>(() => {
+const essaisNom = computed<{ prenom: string; v: VerdictNom }[]>(() => {
   const nf = nomFamille.value.trim()
   if (!paye.value || nf.length < 2) return []
-  const out: { prenom: string; v: Verdict }[] = []
+  const out: { prenom: string; v: VerdictNom }[] = []
   for (const c of (g.communs.value ?? []).slice(0, 12)) {
     const nom = (c as any).prenom ?? (c as any).l
     if (!nom) continue
@@ -280,33 +242,6 @@ const filtresActifs = computed(() => {
           Pour un avis extérieur sans conséquence, montrez-lui plutôt vos
           accords : ils ne bougeront pas.
         </p>
-      </section>
-
-      <section class="carte pile">
-        <h2>Chercher un prénom</h2>
-        <p class="mini doux" style="margin:0">
-          Dans tout le catalogue, filtres de la liste ignorés. On vous dit ce
-          que vous en avez déjà dit, et vous pouvez le changer ici.
-        </p>
-        <input v-model="recherche" class="champ chercher" placeholder="Louise, Gabriel…"
-               aria-label="Chercher un prénom dans le catalogue"
-               autocapitalize="off" autocorrect="off" spellcheck="false">
-
-        <p v-if="recherche.trim().length >= 2 && !trouves.length" class="mini doux"
-           style="margin:0">
-          Aucun prénom ne correspond.
-        </p>
-        <div v-for="p in trouves" :key="p.l" class="trouve">
-          <button class="nom" @click="g.ouvrirFiche(p.l)">
-            {{ p.l }}
-            <Etincelles v-if="g.favoris.value.has(p.l)" :taille="12"
-                        couleur="var(--peche)" une />
-          </button>
-          <span v-if="p.q" class="puce rare" :title="`${p.n} naissances en trois ans`">rare</span>
-          <span v-if="etat(p.l)" class="puce" :class="etat(p.l)!.c">{{ etat(p.l)!.t }}</span>
-          <BoutonsVerdict :valeur="parPrenom.get(p.l)?.mien ?? null"
-                          :occupe="occupe === p.l" @choisir="choisir(p.l, $event)" />
-        </div>
       </section>
 
       <!-- La sortie de l'avertissement ci-dessus : montrer sans donner de veto. -->
@@ -428,7 +363,7 @@ const filtresActifs = computed(() => {
         </div>
         <p v-else class="mini doux" style="margin:0">
           Aucun filtre. Le swipe laisse de côté les prénoms très rares — la
-          recherche ci-dessus, elle, les trouve.
+          recherche, sous la loupe du swipe, les trouve.
         </p>
       </section>
 
@@ -456,18 +391,6 @@ const filtresActifs = computed(() => {
 .code { font-size: 1.7rem; letter-spacing: .16em; font-weight: 700; }
 .code.petit { font-size: 1.1rem; letter-spacing: .12em; }
 .invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
-.trouve { display: flex; align-items: center; gap: 8px; padding: 7px 0;
-  border-top: 1px solid var(--trait); }
-.trouve .nom { flex: 1; min-width: 0; text-align: left; border: 0; background: none;
-  font: inherit; font-weight: 600; color: var(--texte); cursor: pointer;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  display: flex; align-items: center; gap: 5px; }
-.trouve .puce { font-size: .66rem; flex: none; }
-.trouve .v0, .trouve .veto { background: color-mix(in srgb, var(--non) 22%, transparent); }
-.trouve .v2 { background: color-mix(in srgb, var(--oui) 22%, transparent); }
-/* Un prenom trouve par la recherche mais absent du swipe : sans ce marqueur
-   on croit a un bug de la pile. */
-.trouve .rare { background: none; border: 1px dashed var(--trait); color: var(--doux); }
 .avert { border-color: color-mix(in srgb, var(--peche) 55%, var(--trait)); }
 .avert h2 { color: var(--encre); }
 </style>
