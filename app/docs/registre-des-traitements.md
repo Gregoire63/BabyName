@@ -50,10 +50,10 @@ lit la même constante.
 
 | | |
 |---|---|
-| **Finalité** | Appliquer le nombre de prénoms jugés par jour et par mois sur les listes gratuites. |
+| **Finalité** | Appliquer les limites des listes gratuites : un lot de départ, puis un nombre par jour. |
 | **Base légale** | Exécution du contrat — art. 6.1.b. |
-| **Données** | Par liste, par personne et par jour : un nombre de gestes. |
-| **Conservation** | 62 jours (le quota ne lit que le mois en cours). |
+| **Données** | Par personne et par liste : le nombre de gestes du lot de départ (un total). Par liste, par personne et par jour : un nombre de gestes. |
+| **Conservation** | Totaux : avec le compte ou la liste. Détail par jour : 62 jours (le quota ne lit que le jour en cours). |
 
 ## 4. Vente : déblocage d'une liste
 

@@ -143,6 +143,27 @@ const pioche = computed(() => {
   return [...tete.value, ...suite.value.filter(p => !vus.has(p.l))]
 })
 const plafond = computed(() => HYGIENE + bonus.value)
+
+/** Le mur vient-il du depart de la LISTE (nouveau membre sur une liste deja
+ *  bien entamee) plutot que du sien ? On ne dit pas la meme chose. */
+const departListeEpuise = computed(() => {
+  const d = quotaServeur.value?.depart
+  return !!d && d.fait < d.limite && d.liste_fait >= d.liste_limite
+})
+const nbAccords = computed(() => g.communs.value.length)
+
+/**
+ * Le passage du depart au filet se dit une fois, au moment ou il arrive.
+ * Sans ca, le compteur « 165 restants » tombait a 15 sans explication, et
+ * le mur arrivait comme une punition.
+ */
+const bascule = ref(false)
+watch(() => quotaVif.value?.phase, (phase, avant) => {
+  if (avant === 'depart' && phase === 'jour' && (quotaVif.value?.reste_jour ?? 0) > 0) {
+    bascule.value = true
+    setTimeout(() => { bascule.value = false }, 5000)
+  }
+})
 const quotaAtteint = computed(() =>
   paye.value ? faits.value >= plafond.value : (reste.value !== null && reste.value <= 0))
 
@@ -515,21 +536,32 @@ async function confirmerFamille() {
         <button class="btn" @click="encore">Encore {{ PAS_BONUS }} quand même</button>
       </div>
 
+      <!-- Le mur de la version gratuite. Il tombe apres le depart, donc
+           quand il y a deja quelque chose a montrer : on le montre. Et on dit
+           que demain ca repart — un mur definitif se quitte, il ne s'achete
+           pas. -->
       <div v-else-if="quotaAtteint" class="vide">
         <Etincelles :taille="34" couleur="var(--peche)" />
-        <h2>{{ quotaServeur?.reste_jour === 0 ? 'C’est tout pour aujourd’hui'
-                                              : 'C’est tout pour ce mois-ci' }}</h2>
-        <p v-if="quotaServeur?.reste_jour === 0">
-          {{ quotaServeur?.limite_jour }} prénoms par jour, {{ quotaServeur?.fait_mois }}
-          sur {{ quotaServeur?.limite_mois }} ce mois-ci. Ça revient demain matin.
+        <h2>C’est tout pour aujourd’hui</h2>
+        <p v-if="departListeEpuise">
+          Cette liste a déjà utilisé ses {{ quotaServeur?.depart?.liste_limite }} prénoms
+          de départ, et vos {{ quotaServeur?.limite_jour }} du jour sont jugés.
         </p>
         <p v-else>
-          {{ quotaServeur?.limite_mois }} prénoms par mois dans la version
-          gratuite, et vous y êtes.
+          Vos {{ quotaServeur?.depart?.limite }} prénoms de départ sont jugés, et les
+          {{ quotaServeur?.limite_jour }} du jour aussi.
+        </p>
+        <p style="margin:0">
+          {{ quotaServeur?.limite_jour }} de plus demain matin : la version gratuite ne
+          s’arrête jamais.
+        </p>
+        <p v-if="nbAccords" class="bilan">
+          <strong>{{ nbAccords }}</strong> accord{{ nbAccords > 1 ? 's' : '' }} déjà dans
+          cette liste.
         </p>
         <p class="mini doux" style="margin:0">
-          Débloquer la liste la débloque pour tout le monde dedans — une liste
-          de prénoms ne sert à rien si un seul des deux peut trier.
+          Débloquer la liste la débloque pour tout le monde dedans : plus aucune
+          limite, et tout ce qui aide à choisir parmi vos accords.
         </p>
         <button class="btn btn-1" @click="g.ouvrirDebloquer()">Voir ce que ça ouvre</button>
       </div>
@@ -589,6 +621,15 @@ async function confirmerFamille() {
         </div>
       </div>
     </template>
+
+    <Transition name="fondu">
+      <div v-if="bascule" class="retour carte" role="status">
+        <span class="mini">
+          Départ terminé : {{ quotaServeur?.limite_jour }} prénoms par jour désormais,
+          ou sans limite en débloquant la liste.
+        </span>
+      </div>
+    </Transition>
 
     <Transition name="fondu">
       <div v-if="retour" class="retour carte" role="status">
@@ -657,6 +698,8 @@ async function confirmerFamille() {
 
 <style scoped>
 .confirme:focus { outline: none; }
+.bilan { margin: 0; padding: 8px 14px; border-radius: var(--pastille);
+  background: color-mix(in srgb, var(--menthe) 45%, var(--carte)); color: var(--texte); }
 .ecran { display: flex; flex-direction: column; gap: 12px; height: 100%; min-height: 340px; }
 .haut { display: flex; align-items: center; gap: 8px; }
 .haut .titre { flex: 1; min-width: 0; }
@@ -718,9 +761,11 @@ async function confirmerFamille() {
 .rond.non { color: var(--non); } .rond.oui { color: var(--oui); } .rond.neutre { color: var(--neutre); }
 .rond svg { width: 30px; height: 30px; }
 
+/* Un bandeau d'information ne doit jamais bloquer le tri : il passe
+   par-dessus les boutons de vote, donc il laisse passer le doigt. */
 .retour { position: fixed; left: 16px; right: 16px; bottom: 86px; max-width: 528px;
   margin: 0 auto; display: flex; gap: 12px; align-items: center; padding: 10px 14px;
-  z-index: 30; flex-wrap: wrap; }
+  z-index: 30; flex-wrap: wrap; pointer-events: none; }
 .fondu-enter-active, .fondu-leave-active { transition: opacity .25s, translate .25s; }
 .fondu-enter-from, .fondu-leave-to { opacity: 0; translate: 0 8px; }
 

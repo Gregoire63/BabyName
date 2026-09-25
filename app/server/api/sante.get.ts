@@ -42,6 +42,8 @@ export default defineEventHandler(async () => {
                                             ('groupes','offert'),
                                             ('groupes','code_observateur'),
                                             ('groupes','paiement_ref'),
+                                            ('groupes','quota_depart'),
+                                            ('utilisateurs','gestes_depart'),
                                             ('quota_jour','n'))`)
     // Le bloc RGPD du schema : sans lui, effacer un compte efface aussi les
     // listes qu'il a creees — donc les votes de l'autre parent.
@@ -61,6 +63,9 @@ export default defineEventHandler(async () => {
         'groupes.code_observateur': a('groupes', 'code_observateur'),
         'quota_jour': a('quota_jour', 'n'),
         'groupes.paiement_ref': a('groupes', 'paiement_ref'),
+        // Le quota « depart puis filet » : sans ces colonnes, chaque vote
+        // d'une liste gratuite tombe en erreur.
+        'quota.depart': a('groupes', 'quota_depart') && a('utilisateurs', 'gestes_depart'),
         'rgpd.effacement_sans_cascade': !!rgpd?.facultatif
       }
       // Pas de compte des listes vendues ici : cette route est publique, et

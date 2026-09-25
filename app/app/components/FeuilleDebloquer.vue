@@ -36,7 +36,7 @@ const membres = computed(() => g.etat.value?.avancement?.length ?? 1)
 const INCLUS = [
   {
     titre: 'Le tri sans limite',
-    texte: 'Plus de plafond quotidien, pour vous deux. Le rappel d’hygiène reste — juger deux cents prénoms d’affilée donne de moins bonnes décisions — mais il se passe.'
+    texte: 'Ni limite de départ, ni quota du jour, pour vous deux. Le rappel d’hygiène reste — juger deux cents prénoms d’affilée donne de moins bonnes décisions — mais il se passe.'
   },
   {
     titre: 'L’essai avec votre nom de famille',
@@ -60,13 +60,17 @@ const INCLUS = [
   }
 ]
 
-const GRATUIT = [
+// Les chiffres du gratuit viennent de la liste elle-meme : une liste offerte
+// plus large ne doit pas afficher les limites par defaut.
+const quota = computed(() => g.etat.value?.quota)
+const GRATUIT = computed(() => [
+  `${quota.value?.depart?.limite ?? 150} prénoms pour commencer, puis ${quota.value?.limite_jour ?? 15} par jour — sans jamais être bloqué`,
   'Les 19 608 prénoms et la recherche complète',
   'Les accords et le classement',
   'L’origine, la signification et la courbe sur chaque fiche',
   'Les vetos',
   'Le deuxième parent'
-]
+])
 
 async function payer() {
   if (envoi.value || !accord.value) return

@@ -216,13 +216,15 @@ await page.waitForTimeout(900)
 await auditer('La liste (réglages)')
 
 // L'offre s'audite sur une liste gratuite, par le chemin reel : le mur du
-// quota (3 par jour sur « Essai gratuit »), trie au clavier.
+// quota (3 de depart puis 2 par jour sur « Essai gratuit »), trie au clavier.
 await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
 await page.locator('a', { hasText: 'Essai gratuit' }).first().click()
 await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 25000 })
 await page.locator('main#contenu').focus()
-for (let i = 0; i < 4; i++) { await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(900) }
 const mur = page.getByRole('button', { name: 'Voir ce que ça ouvre' })
+for (let i = 0; i < 9 && !(await mur.count()); i++) {
+  await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(900)
+}
 dit(await mur.count() > 0, 'le mur du quota s’atteint entièrement au clavier')
 await auditer('Mur du quota')
 if (await mur.count()) {

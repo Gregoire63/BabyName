@@ -453,3 +453,31 @@ create index if not exists idx_utilisateurs_vu_le on utilisateurs (vu_le);
 -- deploiement plus ancien pourrait encore les nommer.
 update utilisateurs set email = null where email is not null;
 delete from jetons_magiques;
+
+-- ============================================================================
+--  Le quota de la version gratuite : un depart large, puis un filet.
+--
+--  20 prenoms par jour coupaient la premiere soiree au bout de deux minutes —
+--  avant le premier accord, donc avant que l'app ait rendu le moindre service.
+--  Si chacun dit oui a 15-20 % des prenoms, entre un tiers et la moitie des
+--  couples n'avaient encore aucun accord quand le mur tombait : on demandait
+--  de payer a quelqu'un qui n'avait rien vu.
+--
+--  Desormais : un DEPART (150 prenoms, sans limite de jour), puis un FILET
+--  quotidien (15), sans fin. Le mur arrive a la deuxieme ou troisieme
+--  soiree, accords a l'ecran ; et personne n'est jamais bloque pour de bon.
+--
+--  Le depart se compte deux fois : par personne, sur toutes ses listes
+--  gratuites, et par liste (300, deux personnes). Sans le plafond de liste,
+--  un compte sans e-mail se cree en trois secondes, et chaque nouveau compte
+--  invite dans la liste rapportait 150 prenoms de plus.
+--
+--  `quota_jour` ne compte plus que le filet. `quota_swipe_jour` et
+--  `quota_swipe_mois` restent pour le code deja deploye ; plus rien ne les
+--  lit. Offrir une liste plus large : relever ses trois quota_* ci-dessous.
+-- ============================================================================
+alter table groupes add column if not exists quota_depart       integer  not null default 150;
+alter table groupes add column if not exists quota_depart_liste integer  not null default 300;
+alter table groupes add column if not exists quota_par_jour     smallint not null default 15;
+alter table groupes add column if not exists gestes_depart      integer  not null default 0;
+alter table utilisateurs add column if not exists gestes_depart integer not null default 0;

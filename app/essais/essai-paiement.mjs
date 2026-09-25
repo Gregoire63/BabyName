@@ -42,10 +42,10 @@ const gidLibre = page.url().split('/')[4]
 
 // --- la feuille d'achat ---------------------------------------------------
 // On l'atteint par le mur du quota : c'est le chemin reel.
-// Le quota est de 3 : au 4e tour le mur remplace la pile pendant qu'on
-// compte, et le bouton dont `count()` vient de dire 1 n'existe deja plus.
-// On borne donc le clic au lieu d'attendre trente secondes un bouton parti.
-for (let i = 0; i < 4; i++) {
+// 3 de depart puis 2 du jour : au 6e tour le mur remplace la pile pendant
+// qu'on compte, et le bouton dont `count()` vient de dire 1 n'existe deja
+// plus. On borne donc le clic au lieu d'attendre trente secondes un bouton parti.
+for (let i = 0; i < 8; i++) {
   const b = page.getByRole('button', { name: 'Oui' })
   if (!await b.count()) break
   try { await b.first().click({ timeout: 4000 }) } catch { break }

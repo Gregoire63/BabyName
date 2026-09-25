@@ -21,7 +21,8 @@ export default defineEventHandler(async (e) => {
   const [compte, listes, votes, vetos, favoris, duels, elo, classement, commentaires, quotas] =
     await Promise.all([
       q1(`select id, pseudo, cree_le, vu_le as derniere_activite,
-                 cle_acces_hash is not null as cle_acces_active
+                 cle_acces_hash is not null as cle_acces_active,
+                 gestes_depart as prenoms_juges_du_lot_de_depart
             from utilisateurs where id = $1`, [uid]),
       q(`select g.id, g.nom, g.nom_famille, g.filtres, g.cree_le,
                 m.role, m.rejoint_le,
@@ -66,7 +67,7 @@ export default defineEventHandler(async (e) => {
         'Vos données de paiement : babyNames ne connaît que la date du déblocage. Le reste (carte, e-mail, facture) est chez Stripe.'
       ],
       valeurs_de_vote: 'non, neutre ou oui — « balayage » indique un « non » donné à toute une famille de prénoms d’un seul geste.',
-      quotas: 'Nombre de prénoms jugés par jour sur les listes gratuites. Effacé automatiquement au bout de 62 jours.'
+      quotas: 'Nombre de prénoms jugés par jour sur les listes gratuites, une fois le lot de départ épuisé. Effacé automatiquement au bout de 62 jours.'
     },
     compte,
     listes,

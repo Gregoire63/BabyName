@@ -43,7 +43,7 @@ d'achat le dit.
 | `essai-groupes` | une carte par prononciation, un vote qui vaut pour toutes les graphies |
 | `essai-promesse` | la carte du fond est celle qui arrive — la pile ne se remélange pas sous le doigt |
 | `essai-geste` | le swipe part quand le verdict s'affiche, pas dix pixels plus loin |
-| `essai-quota` | le quota est en base, vider son cache ne rend pas de swipes, et il suit la personne |
+| `essai-quota` | un départ puis un filet quotidien, un mur qui dit que demain ça repart ; le quota est en base, suit la personne, et un compte jetable ne rapporte pas un départ entier |
 | `essai-social` | **aucun refus n'est jamais annoncé** ; le match est un moment qu'on ferme soi-même |
 | `essai-paiement` | l'offre dit tout, prix TTC, **case d'accord jamais pré-cochée** et sans laquelle rien ne part, aucun champ de carte, le serveur refuse le payant sans paiement |
 | `essai-caisse` | tout le trajet contre un **faux Stripe local** : accord exigé, session, facture et renonciation, webhook signé, prélèvement, code à 100 %, rotation du secret, retour sans webhook, **re-verrouillage** sur remboursement total ou litige perdu |

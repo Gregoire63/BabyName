@@ -56,9 +56,9 @@ const c = CONSERVATION
     <h3>Les compteurs de la version gratuite</h3>
     <dl>
       <dt>Données</dt>
-      <dd>Le nombre de prénoms jugés par jour, sur chaque liste gratuite.</dd>
+      <dd>Le nombre de prénoms jugés sur les listes gratuites : au total (pour le lot de départ), et par jour.</dd>
       <dt>Pourquoi</dt>
-      <dd>Appliquer la limite quotidienne et mensuelle de la version gratuite.</dd>
+      <dd>Appliquer les limites de la version gratuite : le lot de départ, puis le nombre par jour.</dd>
       <dt>Base légale</dt>
       <dd>L’exécution du contrat (art. 6.1.b).</dd>
     </dl>
@@ -126,7 +126,7 @@ const c = CONSERVATION
     <ul>
       <li><strong>Compte et listes</strong> : tant que vous vous en servez. Effacés immédiatement si vous supprimez votre compte ; effacés automatiquement après <strong>{{ c.inactiviteMois }} mois</strong> sans ouvrir l’app.</li>
       <li><strong>Une liste</strong> dont il ne reste plus aucun membre est effacée, qu’elle ait été débloquée ou non.</li>
-      <li><strong>Compteurs de la version gratuite</strong> : {{ c.quotaJours }} jours.</li>
+      <li><strong>Compteurs de la version gratuite</strong> : le total, avec le compte ; le détail par jour, {{ c.quotaJours }} jours.</li>
       <li><strong>Cookie de connexion</strong> : {{ c.sessionJours }} jours, renouvelés à chaque connexion.</li>
       <li><strong>Pièces liées à un paiement</strong> (facture, paiement) : {{ c.comptabiliteAns }} ans, durée imposée par le Code de commerce (art. L123-22). Elles sont conservées par Stripe et dans notre comptabilité, pas dans l’app.</li>
       <li><strong>Journaux techniques</strong> : quelques jours au plus, chez l’hébergeur.</li>

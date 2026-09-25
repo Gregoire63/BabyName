@@ -171,7 +171,44 @@ une fois à deux, et l'un des deux peut payer pour l'autre. Prix par défaut
 | origine, sens et courbe sur chaque fiche | la projection de classe complète |
 | le deuxième parent | le portrait de goûts et la divergence |
 | le volet « À revoir » | ce qui cause chaque désaccord |
-| 20 swipes/jour, 600/mois (par personne) | les observateurs (grands-parents sans veto) |
+| 150 prénoms au départ, puis 15/jour, sans fin (par personne) | les observateurs (grands-parents sans veto) |
+
+### Le quota : un départ large, puis un filet
+
+Il était de 20 prénoms par jour : deux minutes de tri, et le mur tombait
+pendant la première soirée, **avant le premier accord**. Si chacun dit oui à
+15-20 % des prénoms, entre un tiers et la moitié des couples n'avaient encore
+aucun accord à ce moment-là — on faisait payer avant d'avoir rendu service,
+au moment où l'envie de continuer était la plus forte.
+
+| | Défaut | Colonne (par liste) |
+|---|---|---|
+| Départ, par personne (toutes ses listes gratuites) | 150 | `quota_depart` |
+| Départ, par liste (tous membres) | 300 | `quota_depart_liste` |
+| Filet quotidien, une fois le départ épuisé | 15 | `quota_par_jour` |
+
+- Le mur tombe à la deuxième ou troisième soirée, accords à l'écran — et dit
+  que demain ça repart : un mur définitif se quitte, il ne s'achète pas.
+- Le départ par **liste** ferme la porte aux comptes jetables : sans e-mail,
+  un compte se crée en trois secondes, et chaque compte invité rapportait
+  150 prénoms.
+- Pas de « quota total » sec : ceux qui ne paient pas doivent pouvoir finir,
+  lentement. C'est eux qui font connaître l'app.
+- Offrir une liste plus large : relever ses trois colonnes dans Neon.
+
+À mesurer après le lancement, sans rien ajouter (tout est déjà en base) :
+
+```sql
+-- qui arrive au bout du départ, et combien de listes se vendent
+select (select count(*) from utilisateurs where gestes_depart >= 150)          as au_bout_du_depart,
+       (select count(*) from utilisateurs)                                     as comptes,
+       (select count(*) from groupes where paye_le is not null and not offert) as listes_vendues,
+       (select count(*) from groupes)                                          as listes;
+```
+
+Si beaucoup arrivent au bout du départ sans payer, le mur est trop tôt ou
+l'offre trop faible ; si presque personne n'y arrive, le départ est trop
+large et ne vend rien.
 
 La projection de classe est le seul cas où le gratuit montre quand même un
 chiffre : celui d'un palmarès public — une graphie, l'an dernier — en disant
@@ -409,7 +446,9 @@ identiques, rejouable). Donc on migre **avant** de pousser, jamais après :
 
 1. Console Neon → SQL Editor → coller tout `server/assets/schema.sql` → Run.
    Il contient désormais le bloc RGPD (clés étrangères sans cascade,
-   `paiement_ref`, e-mails vestiges effacés) ; l'ancien code tourne dessus.
+   `paiement_ref`, e-mails vestiges effacés) et le quota « départ puis
+   filet » (colonnes ajoutées, rien de supprimé) ; l'ancien code tourne dessus.
+   **Sans ce collage, chaque vote d'une liste gratuite tombe en erreur.**
 2. Offrir les listes qui ne doivent pas prendre le mur (ci-dessus). Sans ça,
    toute liste existante passe en gratuit au déploiement : 40 gestes par jour.
 3. Remplir `shared/utils/editeur.ts` (SIRET, adresse, téléphone, médiateur).

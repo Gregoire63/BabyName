@@ -21,8 +21,8 @@ export const EDITEUR = {
   /** Personne physique qui exploite le service (entreprise individuelle). */
   nom: 'Grégoire Raturat',
   forme: 'Entrepreneur individuel',
-  /** 14 chiffres — sur l'avis de situation INSEE ou l'annuaire des entreprises. */
-  siret: '',
+  /** 14 chiffres — verifie dans l'annuaire des entreprises (EI active, NAF 62.01Z). */
+  siret: '920 575 578 00025',
   /** Adresse professionnelle : celle declaree pour l'entreprise (domicile ou domiciliation). */
   adresse: '',
   /** Exige par la LCEN (art. 6 III) pour une personne physique qui edite un site. */

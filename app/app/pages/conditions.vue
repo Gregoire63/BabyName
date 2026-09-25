@@ -31,8 +31,9 @@ const prix = (config.public.prixListe as string) || '6 €'
     </p>
     <p>
       <strong>La version gratuite</strong> donne accès au catalogue complet, à la recherche, aux fiches,
-      aux accords, au classement et aux vetos, dans la limite d’un nombre de prénoms jugés par jour et par
-      mois sur les listes non débloquées. Ces limites sont affichées dans l’app.
+      aux accords, au classement et aux vetos. Sur les listes non débloquées, le nombre de prénoms jugés
+      est limité : un premier lot à juger librement, puis un nombre par jour. Ces limites sont affichées
+      dans l’app ; elles n’interrompent jamais définitivement le tri.
     </p>
 
     <h2>3. Votre compte</h2>
