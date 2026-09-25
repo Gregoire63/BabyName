@@ -24,6 +24,12 @@ essais votent, paient et invitent ; l'un qui garde son état fausse le suivant.
 | `ESSAI_CHROME` | imposer un binaire Chromium (sinon celui de Playwright) |
 | `ESSAI_PLAYWRIGHT` | chemin du module si Playwright n'est pas dans le projet |
 
+Un essai qui a besoin d'un serveur configuré autrement le dit dans un fichier
+voisin : `essai-caisse.env` pose des clés Stripe bidon et pointe l'API sur un
+faux Stripe (port 3199). `relance.sh` le charge pour cet essai seulement — les
+autres gardent un serveur sans clé, et `essai-paiement` peut vérifier que
+l'écran d'achat le dit.
+
 ## Ce que chacun garde
 
 | Essai | La promesse tenue |
@@ -35,6 +41,8 @@ essais votent, paient et invitent ; l'un qui garde son état fausse le suivant.
 | `essai-quota` | le quota est en base, vider son cache ne rend pas de swipes, et il suit la personne |
 | `essai-social` | **aucun refus n'est jamais annoncé** ; le match est un moment qu'on ferme soi-même |
 | `essai-paiement` | l'offre dit tout, aucun champ de carte, le serveur refuse le payant sans paiement |
+| `essai-caisse` | tout le trajet contre un **faux Stripe local** : session, webhook signé, prélèvement, code à 100 %, rotation du secret, retour sans webhook |
+| `essai-desaccord` | « ce n'est peut-être pas Marius, c'est la longueur » — et le silence tant qu'il n'y a pas de quoi le dire |
 | `essai-observateur` | le non de Mamie ne retire pas Louise des accords, et elle ne peut pas poser de veto |
 | `essai-portrait` | le portrait parle sur 12 oui et **se tait** sur 5 |
 | `essai-classement` | les désaccords, et le changement d'avis qui fait passer un prénom en commun |

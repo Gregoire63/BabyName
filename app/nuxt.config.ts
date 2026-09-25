@@ -44,6 +44,10 @@ export default defineNuxtConfig({
     stripeSecretKey: '',          // NUXT_STRIPE_SECRET_KEY      (sk_live_… / sk_test_…)
     stripeWebhookSecret: '',      // NUXT_STRIPE_WEBHOOK_SECRET  (whsec_…)
     stripePriceId: '',            // NUXT_STRIPE_PRICE_ID        (price_…)
+    // Jamais a changer en production. Existe pour que les essais parlent a un
+    // faux Stripe local : sans lui, tout le chemin du paiement echappait aux
+    // essais — et c'est le seul chemin ou une erreur coute de l'argent.
+    stripeApiBase: 'https://api.stripe.com/v1',   // NUXT_STRIPE_API_BASE
 
     public: { siteUrl: '', prixListe: '6 €' }   // NUXT_PUBLIC_SITE_URL / NUXT_PUBLIC_PRIX_LISTE
   },

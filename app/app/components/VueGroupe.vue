@@ -249,10 +249,20 @@ const confirmation = ref<'attente' | 'ok' | 'lent' | null>(null)
 async function attendrePaiement() {
   const route = useRoute()
   if (route.query.paye !== '1') return
+  const session = typeof route.query.session_id === 'string' ? route.query.session_id : ''
   history.replaceState(history.state, '', `/g/${gid}/${ONGLETS[index.value]!.id}`)
   if (etat.value?.groupe?.paye) { confirmation.value = 'ok'; return }
 
   confirmation.value = 'attente'
+  // D'abord demander au serveur de relire la session chez Stripe : si le
+  // webhook est en retard — ou mal configure — c'est ce qui debloque.
+  if (session) {
+    try {
+      const r = await $fetch<any>(`/api/groupes/${gid}/confirmer-paiement`,
+        { method: 'POST', body: { session_id: session } })
+      if (r?.paye) { await recharger(); confirmation.value = 'ok'; return }
+    } catch { /* le webhook prendra le relais */ }
+  }
   for (const pause of [900, 1200, 1800, 2500, 4000]) {
     await new Promise(r => setTimeout(r, pause))
     try { await recharger() } catch { /* on reessaie */ }

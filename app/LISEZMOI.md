@@ -191,7 +191,13 @@ elle ne les écrit jamais) :
 Puis Stripe → Developers → Webhooks → **Add endpoint** :
 
 - URL : `https://babyname-five.vercel.app/api/paiement/webhook`
-- Événement : `checkout.session.completed` (celui-là seul suffit)
+- Événements : `checkout.session.completed` **et**
+  `checkout.session.async_payment_succeeded` — le second est celui des
+  prélèvements (SEPA…), qui ne sont pas encaissés quand la page se ferme.
+  Sans lui, on encaisse sans débloquer.
+
+`NUXT_STRIPE_API_BASE` existe mais ne se pose **jamais** en production : il
+sert à `essai-caisse.mjs`, qui parle à un faux Stripe local.
 
 Tant que `NUXT_STRIPE_SECRET_KEY` ou `NUXT_STRIPE_PRICE_ID` manque,
 `POST /api/groupes/:id/paiement` répond `503 paiement_non_configure` et
@@ -200,14 +206,66 @@ développement, et `essai-paiement.mjs` le vérifie.
 
 ### Ce qui débloque, et ce qui ne débloque pas
 
-`paye_le` n'est posé qu'à **un** endroit : `server/api/paiement/webhook.post.ts`,
-et seulement après vérification de la signature (HMAC-SHA256 du corps brut,
-horodatage de moins de cinq minutes, comparaison en temps constant). Sans
-cette signature, l'URL du webhook suffirait à tout débloquer gratuitement.
+Une liste est débloquée si et seulement si `groupes.paye_le` est rempli.
+Tout — le quota, le nom de famille, la projection, le portrait, les
+observateurs, le désaccord expliqué — lit ce seul champ, pour tout le monde
+sur la liste.
 
-Le retour du navigateur sur `?paye=1` ne prouve rien — il se tape dans la
-barre d'adresse. Il ne fait que déclencher une attente qui recharge l'état
-jusqu'à ce que le **serveur** dise « payé ».
+Il n'est posé que par `livrer()` (`server/utils/stripe.ts`), et `livrer()`
+n'a que deux appelants :
+
+- **le webhook**, après vérification de la signature (HMAC-SHA256 du corps
+  brut, moins de cinq minutes, temps constant, n'importe laquelle des
+  signatures `v1` pendant une rotation du secret). Sans elle, l'URL du
+  webhook suffirait à tout débloquer gratuitement ;
+- **le retour du navigateur**, qui n'apporte qu'un identifiant de session :
+  le serveur la relit chez Stripe avec la clé secrète, et vérifie qu'elle
+  porte bien **cette** liste. C'est la ceinture en plus des bretelles — un
+  secret de webhook mal recopié, et sans elle chaque acheteur paierait sans
+  rien recevoir.
+
+« Payé » ne veut pas dire `paid` : un code promo à 100 % donne une session à
+0 € que Stripe termine avec `no_payment_required`. Tout ce qui n'est pas
+`unpaid` se livre ; les listes à 0 € sont marquées `offert`.
+
+`essai-caisse.mjs` fait tout ce trajet contre un faux Stripe : 22 assertions,
+dont les trois défauts qu'il a trouvés en naissant (code à 100 % ignoré,
+prélèvement jamais débloqué, rotation du secret qui rejetait tout).
+
+### Offrir une liste
+
+Pas d'écran d'administration : c'est une surface d'attaque pour un geste
+qu'on fait trois fois par an. La console Neon suffit (Vercel → Storage →
+la base → *Open in Neon* → SQL Editor) :
+
+```sql
+-- les listes, pour trouver la bonne
+select id, nom, code_invitation, cree_le, paye_le, offert from groupes order by cree_le;
+
+-- l'offrir (le code est celui affiché dans « La liste »)
+update groupes set paye_le = now(), offert = true
+ where code_invitation = 'xxxxxxxx' and paye_le is null
+returning nom;
+```
+
+Pour un ami qui passera par la caisse : un **code promo à 100 %** dans Stripe
+(Products → Coupons), il le saisit sur la page de paiement, la liste se
+débloque et reste marquée offerte.
+
+### Mettre en production sans coupure
+
+Le nouveau schéma est purement additif, et l'**ancien** code tourne dessus
+(vérifié sur une copie de la base de production : aucune ligne perdue, accords
+identiques, rejouable). Donc on migre **avant** de pousser, jamais après :
+
+1. Console Neon → SQL Editor → coller tout `server/assets/schema.sql` → Run.
+2. Offrir les listes qui ne doivent pas prendre le mur (ci-dessus). Sans ça,
+   toute liste existante passe en gratuit au déploiement : 40 gestes par jour.
+3. Pousser. Vercel construit depuis `app/`.
+4. Retirer `NUXT_MIGRATION_SECRET` de Vercel s'il y est encore.
+
+Dans l'autre ordre, le nouveau code arrive sur l'ancienne base et chaque page
+tombe en erreur jusqu'à la migration.
 
 Aucun numéro de carte ne passe par l'application : on demande une session à
 Stripe, on envoie le navigateur sur *sa* page, c'est lui qui encaisse. Il n'y

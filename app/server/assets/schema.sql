@@ -365,3 +365,20 @@ having count(*) = (select count(*) from membres mm
                     where mm.groupe_id = v.groupe_id and mm.role <> 'observateur')
    and min(v.valeur) > 0
    and count(*) filter (where v.valeur = 2) >= 1;
+
+-- ============================================================================
+--  Une liste offerte n'est pas une liste vendue.
+--
+--  `paye_le` dit qu'une liste est debloquee ; il ne dit pas si quelqu'un a
+--  paye. Sans cette colonne, « combien de listes vendues ? » compterait les
+--  listes offertes aux amis et aux testeurs — et on piloterait sur un chiffre
+--  faux. Stripe reste la source de verite pour l'argent ; ceci sert a ne pas
+--  se mentir en lisant la base.
+--
+--  Offrir une liste, a la main, dans la console Neon :
+--
+--    update groupes set paye_le = now(), offert = true
+--     where code_invitation = '<le code de la liste>' and paye_le is null
+--    returning nom;
+-- ============================================================================
+alter table groupes add column if not exists offert boolean not null default false;

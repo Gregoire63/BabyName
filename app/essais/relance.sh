@@ -9,6 +9,14 @@
 RACINE=$(cd "$(dirname "$0")/.." && pwd)
 cd "$RACINE" || exit 1
 PORT=${ESSAI_PORT:-3100}
+
+# Un essai peut avoir besoin d'un serveur configure autrement (le faux Stripe
+# d'essai-caisse, par exemple) : il le dit dans un fichier voisin, charge ici
+# et seulement pour lui. Les autres essais gardent un serveur sans cle.
+ENV_ESSAI="${1%.mjs}.env"
+if [ -f "$ENV_ESSAI" ]; then
+  set -a; . "$ENV_ESSAI"; set +a
+fi
 pkill -f "nuxt dev" 2>/dev/null
 sleep 3
 rm -rf .data

@@ -20,18 +20,17 @@ export default defineEventHandler(async (e) => {
   let ev: any
   try { ev = JSON.parse(brut) } catch { throw createError({ statusCode: 400, statusMessage: 'json_invalide' }) }
 
-  // On ne réagit qu'au paiement effectivement encaissé.
-  if (ev?.type !== 'checkout.session.completed') return { ok: true, ignore: ev?.type }
-  const s = ev.data?.object ?? {}
-  if (s.payment_status !== 'paid') return { ok: true, ignore: 'non_paye' }
-
-  const gid = Number(s.metadata?.groupe_id ?? s.client_reference_id)
-  const uid = s.metadata?.user_id ?? null
-  if (!Number.isFinite(gid)) return { ok: true, ignore: 'sans_groupe' }
-
-  // `where paye_le is null` : Stripe rejoue ses webhooks, et un deuxième
-  // passage ne doit pas réécrire la date ni changer qui a payé.
-  await q(`update groupes set paye_le = now(), paye_par = $2
-            where id = $1 and paye_le is null`, [gid, uid])
-  return { ok: true, groupe: gid }
+  /**
+   * Deux evenements debloquent, pas un.
+   *
+   * `completed` arrive quand la page de paiement se ferme. Pour une carte,
+   * l'argent est deja la ; pour un prelevement (SEPA…), il ne l'est pas
+   * encore et `payment_status` vaut `unpaid` — c'est alors
+   * `async_payment_succeeded` qui arrive, plus tard, quand il l'est. N'ecouter
+   * que le premier, c'etait encaisser les prelevements sans jamais debloquer.
+   */
+  const DEBLOQUANTS = ['checkout.session.completed', 'checkout.session.async_payment_succeeded']
+  if (!DEBLOQUANTS.includes(ev?.type)) return { ok: true, ignore: ev?.type }
+  const r = await livrer(ev.data?.object)
+  return r.livre ? { ok: true, groupe: r.groupe, offert: r.offert } : { ok: true, ignore: r.raison }
 })

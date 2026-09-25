@@ -12,14 +12,13 @@
  */
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-const API = 'https://api.stripe.com/v1'
-
 function cles() {
   const c = useRuntimeConfig()
   return {
     secret: c.stripeSecretKey as string,
     webhook: c.stripeWebhookSecret as string,
-    price: c.stripePriceId as string
+    price: c.stripePriceId as string,
+    api: ((c.stripeApiBase as string) || 'https://api.stripe.com/v1').replace(/\/$/, '')
   }
 }
 
@@ -45,7 +44,7 @@ function aplatir(o: Record<string, any>, prefixe = ''): [string, string][] {
 async function appel(chemin: string, corps: Record<string, any>) {
   const k = cles()
   if (!k.secret) throw createError({ statusCode: 503, statusMessage: 'paiement_non_configure' })
-  const r = await fetch(`${API}/${chemin}`, {
+  const r = await fetch(`${k.api}/${chemin}`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${k.secret}`,
@@ -77,11 +76,58 @@ export async function creerSession(opts: {
     line_items: [{ price: k.price, quantity: 1 }],
     client_reference_id: String(opts.gid),
     metadata: { groupe_id: String(opts.gid), user_id: opts.uid },
-    success_url: `${opts.siteUrl}/g/${opts.gid}/swipe?paye=1`,
+    // `{CHECKOUT_SESSION_ID}` est remplace par Stripe : au retour, l'app peut
+    // demander elle-meme si c'est paye, sans attendre le webhook.
+    success_url: `${opts.siteUrl}/g/${opts.gid}/swipe?paye=1&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${opts.siteUrl}/g/${opts.gid}/swipe?paye=0`,
     allow_promotion_codes: true,
     customer_email: opts.email || undefined
   })
+}
+
+/** Relit une session chez Stripe. Seul le serveur peut le faire : clé secrète. */
+export async function lireSession(id: string): Promise<any | null> {
+  const k = cles()
+  if (!k.secret) throw createError({ statusCode: 503, statusMessage: 'paiement_non_configure' })
+  if (!/^cs_[A-Za-z0-9_]+$/.test(id)) return null
+  const r = await fetch(`${k.api}/checkout/sessions/${id}`, {
+    headers: { authorization: `Bearer ${k.secret}` }
+  })
+  if (r.status === 404) return null
+  const j: any = await r.json().catch(() => null)
+  if (!r.ok || !j) {
+    console.error('[stripe]', r.status, j?.error?.message ?? j)
+    throw createError({ statusCode: 502, statusMessage: 'paiement_indisponible' })
+  }
+  return j
+}
+
+/**
+ * Livre une liste pour une session Stripe. Un seul endroit, deux appelants :
+ * le webhook (signé) et le retour du navigateur (session relue chez Stripe).
+ *
+ * « Payé » ne veut pas dire `paid` : un code promo à 100 % donne une session
+ * à 0 € que Stripe termine sans moyen de paiement, avec `no_payment_required`.
+ * La règle de Stripe est l'inverse d'une liste blanche : tout ce qui n'est
+ * pas `unpaid` se livre. Idempotent — Stripe rejoue, le navigateur recharge.
+ */
+export async function livrer(session: any): Promise<{ livre: boolean; raison?: string; groupe?: number; offert?: boolean }> {
+  if (!session || session.object !== 'checkout.session') return { livre: false, raison: 'pas_une_session' }
+  if (session.status && session.status !== 'complete') return { livre: false, raison: 'pas_terminee' }
+  if (!session.payment_status || session.payment_status === 'unpaid') return { livre: false, raison: 'en_attente' }
+
+  const gid = Number(session.metadata?.groupe_id ?? session.client_reference_id)
+  if (!Number.isInteger(gid) || gid <= 0) return { livre: false, raison: 'sans_groupe' }
+  const uid = session.metadata?.user_id ?? null
+
+  // Un code à 100 % marque la liste comme offerte, pas comme vendue : c'est ce
+  // qui permet plus tard de compter les ventes sans compter les cadeaux.
+  const offert = session.payment_status === 'no_payment_required' || session.amount_total === 0
+  // `where paye_le is null` : un second passage ne réécrit ni la date ni
+  // l'acheteur.
+  await q(`update groupes set paye_le = now(), paye_par = $2, offert = $3
+            where id = $1 and paye_le is null`, [gid, uid, offert])
+  return { livre: true, groupe: gid, offert }
 }
 
 /**
@@ -95,12 +141,23 @@ export async function creerSession(opts: {
 export function signatureValide(corps: string, entete: string | undefined): boolean {
   const k = cles()
   if (!k.webhook || !entete) return false
-  const parts = Object.fromEntries(
-    entete.split(',').map(p => p.split('=', 2) as [string, string]))
-  const t = Number(parts.t)
+  let t = 0
+  const signatures: string[] = []
+  for (const morceau of entete.split(',')) {
+    const i = morceau.indexOf('=')
+    if (i < 0) continue
+    const cle = morceau.slice(0, i).trim(), val = morceau.slice(i + 1).trim()
+    if (cle === 't') t = Number(val)
+    // Plusieurs `v1` quand on fait tourner le secret dans Stripe : il signe
+    // alors avec l'ancien ET le nouveau pendant 24 h. Ne garder que le dernier
+    // rejetait tous les paiements de la journee si le notre etait le premier.
+    else if (cle === 'v1') signatures.push(val)
+  }
   if (!t || Math.abs(Date.now() / 1000 - t) > 300) return false
-  const attendu = createHmac('sha256', k.webhook).update(`${t}.${corps}`).digest('hex')
-  const recu = parts.v1 ?? ''
-  if (recu.length !== attendu.length) return false
-  return timingSafeEqual(Buffer.from(recu), Buffer.from(attendu))
+  const attendu = Buffer.from(
+    createHmac('sha256', k.webhook).update(`${t}.${corps}`).digest('hex'))
+  return signatures.some(sig => {
+    const recu = Buffer.from(sig)
+    return recu.length === attendu.length && timingSafeEqual(recu, attendu)
+  })
 }
