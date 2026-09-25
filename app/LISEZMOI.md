@@ -177,32 +177,95 @@ ce qu'il rate. Cacher le chiffre ne convainc personne ; montrer l'écart, si.
 
 ### Brancher Stripe
 
-Rien de tout ça ne marche sans quatre variables, à poser **soi-même** dans
-Vercel → babyname → Settings → Environment Variables (l'app lit les clés,
-elle ne les écrit jamais) :
+Le compte Stripe « BabyNames » a déjà son catalogue, créé le 25 septembre 2026 :
 
-| Variable | Où la prendre |
+| | |
 |---|---|
-| `NUXT_STRIPE_SECRET_KEY` | Stripe → Developers → API keys → clé secrète (`sk_live_…`) |
-| `NUXT_STRIPE_PRICE_ID` | Stripe → Products → un produit « babyNames — une liste », prix unique 6 € → `price_…` |
-| `NUXT_STRIPE_WEBHOOK_SECRET` | donné à la création du webhook ci-dessous (`whsec_…`) |
-| `NUXT_PUBLIC_SITE_URL` | `https://babyname-five.vercel.app` — sert aux URL de retour |
+| Produit | `prod_VKB9yYrGETljLP` — « babyNames — liste débloquée » |
+| Prix | `price_1UJWn1GaKiRYW6iYRjRPV7xn` — 6 € **TTC**, paiement unique, clé `babynames_liste` |
 
-Puis Stripe → Developers → Webhooks → **Add endpoint** :
+Le prix est `tax_behavior: inclusive` : si la TVA s'applique un jour (Stripe
+Tax ou Managed Payments), le client paie toujours 6 €, et c'est la marge qui
+absorbe la taxe — pas l'affichage. En France, un prix affiché à un
+particulier est TTC ; un « 6 € » qui devient « 7,20 € » à la caisse, c'est
+un panier abandonné et une pratique trompeuse. Ce réglage ne se change plus
+une fois posé : c'est voulu.
+
+Pas de code fiscal sur le produit : il n'a aucun effet tant que ni Stripe Tax
+ni Managed Payments ne sont allumés, et Stripe demande de ne pas le choisir à
+la place du vendeur. Celui qui décrit l'app, vérifié dans l'API :
+`txcd_10103000` — *Software as a service (SaaS) — personal use*. (Pas
+`txcd_10701411`, « information services », qui exclut explicitement ce
+qu'on consulte à travers un logiciel en ligne.)
+
+À poser **soi-même** dans Vercel → babyname → Settings → Environment Variables :
+
+| Variable | Valeur |
+|---|---|
+| `NUXT_STRIPE_SECRET_KEY` | une **clé restreinte** `rk_live_…` (Developers → API keys → Create restricted key) avec **une seule** permission : *Checkout Sessions → Write*. C'est tout ce que le serveur appelle (création et relecture de session) ; volée, elle ne permet ni rembourser, ni lire les clients, ni vider le compte. |
+| `NUXT_STRIPE_PRICE_ID` | `price_1UJWn1GaKiRYW6iYRjRPV7xn` |
+| `NUXT_STRIPE_WEBHOOK_SECRET` | le `whsec_…` affiché à la création du webhook ci-dessous |
+| `NUXT_PUBLIC_SITE_URL` | `https://babyname-five.vercel.app` |
+
+**Toujours le domaine de production**, jamais une URL de déploiement
+(`babyname-xxxx-gregoire63s-projects.vercel.app`) : celles-là sont des photos
+figées d'une version passée. Un webhook pointé dessus parle à un code qui n'a
+peut-être même pas la route de paiement — chaque paiement serait encaissé et
+rien ne se débloquerait.
+
+Puis Developers → Webhooks → **Add destination** :
 
 - URL : `https://babyname-five.vercel.app/api/paiement/webhook`
+- Version de l'API : `2026-08-26.dahlia`, la même que celle épinglée dans
+  `server/utils/stripe.ts` — le code attend les objets sous cette forme ;
 - Événements : `checkout.session.completed` **et**
   `checkout.session.async_payment_succeeded` — le second est celui des
   prélèvements (SEPA…), qui ne sont pas encaissés quand la page se ferme.
   Sans lui, on encaisse sans débloquer.
 
-`NUXT_STRIPE_API_BASE` existe mais ne se pose **jamais** en production : il
-sert à `essai-caisse.mjs`, qui parle à un faux Stripe local.
+Et dans Settings → Public details / Customer emails :
 
-Tant que `NUXT_STRIPE_SECRET_KEY` ou `NUXT_STRIPE_PRICE_ID` manque,
-`POST /api/groupes/:id/paiement` répond `503 paiement_non_configure` et
-l'écran d'achat l'annonce au lieu de planter. C'est l'état par défaut en
-développement, et `essai-paiement.mjs` le vérifie.
+- **Libellé de relevé** : `BABYNAMES`. Un débit qu'on ne reconnaît pas sur
+  son relevé devient une contestation — 20 € de frais pour une vente de 6 €.
+- Email de support, et les URL des CGV et de la politique de confidentialité
+  (Stripe les affiche sur la page de paiement, et en a besoin pour activer le
+  compte en live).
+- **Reçus automatiques** pour les paiements réussis : gratuits, et suffisants
+  pour une vente de 6 € à un particulier. Pas besoin de Stripe Invoicing.
+
+### Tester sans sandbox
+
+Le compte n'a que le mode live. Le trajet se vérifie quand même sans rien
+payer : un coupon à 100 % et son code promo (Products → Coupons), puis un
+passage par la caisse avec ce code — session réelle, webhook réel,
+`no_payment_required`, liste débloquée et marquée offerte. Ensuite **un** vrai
+paiement de 6 € avec sa propre carte, remboursé depuis le Dashboard (les frais
+Stripe, eux, ne reviennent pas : environ 0,34 €).
+
+`essai-caisse.mjs` fait le même trajet hors ligne, contre un faux Stripe.
+
+### Managed Payments, plus tard
+
+Stripe peut devenir **vendeur officiel** (merchant of record) : il déclare la
+TVA dans 80 pays, gère les litiges, le support et le droit de rétractation.
+Pour 3,5 % de plus, et en collectant la TVA sur chaque vente.
+
+| Par liste à 6 € (carte UE) | Checkout direct | Managed Payments |
+|---|---|---|
+| Franchise en base de TVA (art. 293 B) | **≈ 5,66 €** nets | ≈ 4,45 € (1 € de TVA collectée par Stripe) |
+| Assujetti à la TVA | ≈ 4,66 € + tes déclarations | **≈ 4,45 €**, zéro déclaration |
+
+Tant que la micro-entreprise est en franchise, Checkout direct garde un euro
+de plus par vente. Le jour où elle en sort, ou où les ventes à des
+particuliers d'autres pays de l'UE approchent 10 000 € par an, Managed
+Payments devient le bon choix. Le basculer :
+
+1. Dashboard → Settings → Managed Payments → activer ;
+2. donner au produit un code fiscal éligible (le Dashboard les étiquette) ;
+3. `NUXT_STRIPE_MANAGED_PAYMENTS=1` dans Vercel.
+
+Le code n'envoie déjà aucun des paramètres que Managed Payments refuse ;
+`essai-caisse.mjs` passe dans les deux positions.
 
 ### Ce qui débloque, et ce qui ne débloque pas
 

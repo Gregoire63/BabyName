@@ -48,6 +48,12 @@ export default defineNuxtConfig({
     // faux Stripe local : sans lui, tout le chemin du paiement echappait aux
     // essais — et c'est le seul chemin ou une erreur coute de l'argent.
     stripeApiBase: 'https://api.stripe.com/v1',   // NUXT_STRIPE_API_BASE
+    // Stripe vendeur officiel (merchant of record) : TVA, litiges, support et
+    // droit de retractation geres par Stripe, pour 3,5 % de plus. A n'allumer
+    // qu'APRES l'avoir active dans le Dashboard (Parametres → Managed Payments)
+    // et avoir donne un code fiscal eligible au produit — sinon Stripe refuse
+    // la session et l'ecran d'achat affiche « momentanement indisponible ».
+    stripeManagedPayments: '',    // NUXT_STRIPE_MANAGED_PAYMENTS=1
 
     public: { siteUrl: '', prixListe: '6 €' }   // NUXT_PUBLIC_SITE_URL / NUXT_PUBLIC_PRIX_LISTE
   },

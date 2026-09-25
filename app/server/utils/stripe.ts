@@ -12,13 +12,26 @@
  */
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
+/**
+ * La version de l'API, epinglee.
+ *
+ * Sans `Stripe-Version`, chaque requete prend la version par defaut du compte
+ * — fixee a la premiere requete, puis modifiable d'un clic dans le Dashboard.
+ * Un clic sur « mettre a jour » changerait donc la forme des reponses sous le
+ * code sans qu'aucune ligne n'ait bouge. Epinglee, elle ne change que quand
+ * on la change ici, apres avoir lu le changelog. Le webhook se cree avec la
+ * meme, pour que les evenements aient la forme que le code attend.
+ */
+export const VERSION_API = '2026-08-26.dahlia'
+
 function cles() {
   const c = useRuntimeConfig()
   return {
     secret: c.stripeSecretKey as string,
     webhook: c.stripeWebhookSecret as string,
     price: c.stripePriceId as string,
-    api: ((c.stripeApiBase as string) || 'https://api.stripe.com/v1').replace(/\/$/, '')
+    api: ((c.stripeApiBase as string) || 'https://api.stripe.com/v1').replace(/\/$/, ''),
+    managed: ['1', 'true', 'oui'].includes(String(c.stripeManagedPayments ?? '').toLowerCase())
   }
 }
 
@@ -48,7 +61,8 @@ async function appel(chemin: string, corps: Record<string, any>) {
     method: 'POST',
     headers: {
       authorization: `Bearer ${k.secret}`,
-      'content-type': 'application/x-www-form-urlencoded'
+      'content-type': 'application/x-www-form-urlencoded',
+      'stripe-version': VERSION_API
     },
     body: new URLSearchParams(aplatir(corps)).toString()
   })
@@ -81,7 +95,20 @@ export async function creerSession(opts: {
     success_url: `${opts.siteUrl}/g/${opts.gid}/swipe?paye=1&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${opts.siteUrl}/g/${opts.gid}/swipe?paye=0`,
     allow_promotion_codes: true,
-    customer_email: opts.email || undefined
+    customer_email: opts.email || undefined,
+    // La liste se lit AUSSI sur le paiement, pas seulement sur la session : le
+    // Dashboard affiche les metadonnees du paiement. Quand quelqu'un ecrit
+    // « j'ai paye et rien ne s'est debloque », c'est la que l'on cherche.
+    // (Sans effet pour un code a 100 % : aucun paiement n'est alors cree.)
+    payment_intent_data: {
+      description: `babyNames — liste ${opts.gid}`,
+      metadata: { groupe_id: String(opts.gid) }
+    },
+    // Rien d'autre ne change en passant a Managed Payments : on n'envoie aucun
+    // des parametres qu'il refuse (custom_text, invoice_creation,
+    // payment_method_types, statement_descriptor…). Le basculement tient donc
+    // dans une variable d'environnement.
+    managed_payments: k.managed ? { enabled: true } : undefined
   })
 }
 
@@ -91,7 +118,7 @@ export async function lireSession(id: string): Promise<any | null> {
   if (!k.secret) throw createError({ statusCode: 503, statusMessage: 'paiement_non_configure' })
   if (!/^cs_[A-Za-z0-9_]+$/.test(id)) return null
   const r = await fetch(`${k.api}/checkout/sessions/${id}`, {
-    headers: { authorization: `Bearer ${k.secret}` }
+    headers: { authorization: `Bearer ${k.secret}`, 'stripe-version': VERSION_API }
   })
   if (r.status === 404) return null
   const j: any = await r.json().catch(() => null)

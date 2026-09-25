@@ -26,6 +26,7 @@ const dit = (c, m) => { (c ? ok : ko).push(m); console.log((c ? '  OK   ' : '  E
 // ------------------------------------------------------------ faux Stripe --
 const sessions = new Map()
 const recus = []
+const versionsLues = []
 let n = 0
 const stripe = createServer(async (req, res) => {
   let corps = ''
@@ -34,7 +35,7 @@ const stripe = createServer(async (req, res) => {
   const repondre = (code, j) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(j)) }
   if (req.method === 'POST' && url.pathname === '/v1/checkout/sessions') {
     const f = new URLSearchParams(corps)
-    recus.push({ auth: req.headers.authorization, f })
+    recus.push({ auth: req.headers.authorization, version: req.headers['stripe-version'], f })
     const id = `cs_test_essai${++n}`
     const s = {
       id, object: 'checkout.session', status: 'open', payment_status: 'unpaid',
@@ -48,6 +49,7 @@ const stripe = createServer(async (req, res) => {
   const m = url.pathname.match(/^\/v1\/checkout\/sessions\/(cs_[\w]+)$/)
   if (req.method === 'GET' && m) {
     if (req.headers.authorization !== 'Bearer sk_test_essai_local') return repondre(401, { error: { message: 'bad key' } })
+    versionsLues.push(req.headers['stripe-version'])
     const s = sessions.get(m[1])
     return s ? repondre(200, s) : repondre(404, { error: { message: 'No such checkout.session' } })
   }
@@ -103,6 +105,15 @@ dit((f?.get('success_url') ?? '').includes(`/g/${A.id}/`) && (f?.get('success_ur
 dit(f?.get('allow_promotion_codes') === 'true', 'les codes promo sont acceptés (c’est ainsi qu’on offre une liste)')
 dit(recus.at(-1)?.auth === 'Bearer sk_test_essai_local' && !JSON.stringify(ouv.j).includes('sk_'),
     'la clé secrète part chez Stripe depuis le serveur, jamais vers le navigateur')
+dit(/^\d{4}-\d{2}-\d{2}\.[a-z]+$/.test(recus.at(-1)?.version ?? ''),
+    `la version de l’API est épinglée (${recus.at(-1)?.version}) : un clic dans le Dashboard ne change rien sous le code`)
+dit(f?.get('payment_intent_data[metadata][groupe_id]') === String(A.id),
+    'le paiement lui-même porte la liste — c’est ce que le Dashboard affiche au support')
+const mp = f?.get('managed_payments[enabled]')
+dit(process.env.NUXT_STRIPE_MANAGED_PAYMENTS ? mp === 'true' : mp === null,
+    process.env.NUXT_STRIPE_MANAGED_PAYMENTS
+      ? 'Managed Payments allumé par la variable : Stripe devient vendeur officiel'
+      : 'Managed Payments éteint par défaut : rien n’est envoyé')
 
 // ============ 2. Le webhook ne croit que ce qui est signé =================
 const sessA = { object: 'checkout.session', status: 'complete', payment_status: 'paid', amount_total: 600,
@@ -154,6 +165,8 @@ dit(r.status === 403 && (await etat(E.id))?.paye === false,
     `une session payée pour D ne débloque pas E (HTTP ${r.status})`)
 r = await api(`/api/groupes/${D.id}/confirmer-paiement`, { method: 'POST', body: JSON.stringify({ session_id: 'cs_inconnue' }) })
 dit(r.status === 404, `une session inconnue de Stripe : refusée (HTTP ${r.status})`)
+dit(versionsLues.length > 0 && versionsLues.every(v => v === recus.at(-1)?.version),
+    'la relecture d’une session utilise la même version épinglée')
 
 // Le vrai trajet : Stripe renvoie le navigateur sur l'app, aucun webhook.
 await page.goto(`${BASE}/g/${D.id}/swipe?paye=1&session_id=${idD}`, { waitUntil: 'networkidle' })
