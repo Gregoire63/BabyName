@@ -1,4 +1,4 @@
-# babyNames — développement local
+# babyNamed — développement local
 
 ## Démarrer
 
@@ -7,14 +7,16 @@ npm install
 npm run dev
 ```
 
-Et c'est tout. Pas de `.env`, pas de Docker, pas de Neon.
+Et c'est tout. Pas de `.env`, pas de Docker, pas de compte Cloudflare.
 
-Au premier lancement, l'app crée une base Postgres locale dans `.data/`,
-y applique `server/assets/schema.sql`, et la remplit avec deux comptes et
-une liste déjà entamée. Le terminal affiche alors :
+`nuxt dev` passe par wrangler, qui simule en local la plateforme de
+production — dont la base **D1** (du SQLite), dans `.data/wrangler`. Au
+premier lancement, l'app y applique les migrations
+(`server/assets/migrations/`) et la remplit avec deux comptes et une liste
+déjà entamée. Le terminal affiche alors :
 
 ```
-  Base de developpement semee (Postgres embarque, dossier .data/).
+  Base de developpement semee (D1 simulee par wrangler, dossier .data/wrangler).
   Liste « Notre liste », code d'invitation dec0de00.
   Cle de Greg   : DEVG-REGX-2345
   Cle d'Audrey  : DEVA-DREY-2345
@@ -44,9 +46,10 @@ base semée avant un changement de `server/utils/semence.ts` garde l'ancien jeu
 
 La feuille « Débloquer cette liste » a aussi, en dev, **Débloquer sans payer**.
 
-Ces gestes passent par `/api/dev/base`, qui répond **404 en production** et
-**403 si le serveur de dev parle à une base distante** (un `vercel env pull`,
-un `NUXT_DATABASE_URL` oublié) : « Base neuve » ne peut pas vider Neon.
+Ces gestes passent par `/api/dev/base`, qui répond **404 en production**. Le
+serveur de dev parle toujours à la base locale — sauf si l'on ajoutait
+`"remote": true` à la liaison `DB` de `wrangler.jsonc` : ne jamais le faire,
+« Base neuve » viderait la production.
 
 `npm run dev:neuf` fait la même chose que « Base neuve », serveur arrêté.
 
@@ -111,74 +114,156 @@ navigator.serviceWorker.getRegistrations()
   .then(() => location.reload())
 ```
 
-## Pourquoi un Postgres embarqué
+## Pourquoi D1
 
-Neon n'est joignable ni depuis la machine de dev ni depuis un connecteur, et
-un faux serveur d'API qui renvoie des données inventées ment sur le SQL —
-c'est comme ça qu'une colonne mal nommée (`v.cree_le` au lieu de `v.vote_le`)
-est partie en production sans que rien ne la rattrape.
+La base est **Cloudflare D1** : du SQLite, dans le même compte que l'app.
+Rien à réveiller (Neon s'endormait après cinq minutes sans requête, et la
+requête suivante attendait), aucune connexion à ouvrir et fermer à chaque
+requête, sept jours de retour arrière inclus (*Time Travel*), gratuit dans
+les limites ci-dessous, et un seul prestataire.
 
-`@electric-sql/pglite`, c'est le vrai Postgres compilé en WebAssembly : mêmes
-types, mêmes vues, mêmes déclencheurs plpgsql, mêmes messages d'erreur. Une
-requête qui passe en local passe sur Neon, et une qui casse casse ici d'abord.
+En local, c'est le **même moteur** : wrangler fait tourner D1 dans workerd,
+comme en ligne. Une requête qui passe en local passe en production.
 
-Le choix se fait dans `server/utils/db.ts` :
+Trois règles d'écriture, toutes dans `server/utils/db.ts` :
 
-1. une variable d'environnement `…DATABASE_URL` / `…POSTGRES_URL` → Postgres distant ;
-2. sinon, en développement → la base embarquée ;
-3. sinon → erreur.
+- **pas de transaction ouverte** : on envoie un lot (`lot([...])`), exécuté
+  d'un bloc, tout ou rien — et en un seul aller-retour ;
+- **les dates sont du texte** ISO 8601 en UTC, au format de
+  `Date.toISOString()` : `${MAINTENANT}` et `${decale('-1 day')}` dans le SQL,
+  `jourParis()` pour le jour de Paris (SQLite ne connaît pas les fuseaux) ;
+- **ni booléens ni JSON natifs** : 0/1 et du texte, remis en forme en sortie
+  (`BOOLEENS`, `JSONS`) pour que l'API réponde comme avant. Une liste en
+  paramètre : `prenom in ${DANS(3)}`.
 
-La branche embarquée est derrière `import.meta.dev`, remplacé par `false` à la
-compilation : elle n'existe pas dans le bundle de production.
+Paramètres `?1`, `?2`… ; une contrainte d'unicité se reconnaît avec
+`estDoublon(err)`.
+
+Limites du plan gratuit (voir « Héberger sur Cloudflare ») : 5 millions de
+lignes lues et 100 000 écrites par jour, 500 Mo par base. D1 compte les
+lignes **parcourues**, pas renvoyées : une requête qui balaie une table sans
+index coûte toute la table. D'où les clés primaires qui commencent par la
+liste (`groupe_id`, `user_id`, …) et les index de la migration.
 
 ## Travailler sur la vraie base
 
-Pour reproduire un problème avec les données réelles, il faut l'URL Neon :
+Depuis le poste, avec wrangler (connecté une fois par `npx wrangler login`) :
 
 ```bash
-npx vercel link            # une fois
-npx vercel env pull .env   # écrit NUXT_DATABASE_URL et NUXT_SESSION_SECRET
-npm run dev
+# une requête
+npx wrangler d1 execute DB --remote --config wrangler.jsonc --command "select count(*) from utilisateurs"
+# une copie complète, en SQL
+npx wrangler d1 export DB --remote --config wrangler.jsonc --output sauvegarde.sql
 ```
 
-Dès que `.env` contient une URL, la base embarquée n'est plus utilisée.
-**Attention : vous écrivez alors dans la base de production.** Pour éviter ça,
-créez une branche dans Neon et utilisez son URL.
+Ou dans le tableau de bord : *Storage & Databases → D1 → babynamed → Console*.
+**Vous écrivez alors dans la base de production.** Retour arrière en cas de
+fausse manœuvre : `npx wrangler d1 time-travel restore DB --timestamp=…`
+(sept jours).
 
-## Déploiement
+## Héberger sur Cloudflare
 
-Vercel déploie à chaque `git push` sur `main`, à condition que le dépôt soit
-connecté au projet : **Vercel → babyname → Settings → Git → Connect Git
-Repository → GitHub → Gregoire63/BabyName**, branche de production `main`.
-Sans cette connexion, l'app se déploie mais aucun push ne la met à jour.
+L'app tourne sur **Cloudflare Workers** : l'API et la coquille de l'app dans
+le Worker (pas de démarrage à froid), les fichiers statiques — fiches
+prénoms, JavaScript, catalogue — servis directement par Cloudflare, sans
+passer par lui. Coût : **0 €** dans les limites du plan gratuit :
 
-`vercel.json` n'autorise que `main` :
+| | Gratuit | Au-delà |
+|---|---|---|
+| Requêtes au Worker (API + pages de l'app ; pas les fichiers statiques) | 100 000 / jour | Workers Paid, 5 $/mois |
+| Temps de calcul | 10 ms par requête | 30 s |
+| D1 | 5 M lignes lues, 100 000 écrites / jour, 500 Mo par base | idem, plus larges |
 
-```json
-{ "git": { "deploymentEnabled": { "main": true, "*": false } } }
-```
+Passé une limite du jour, les requêtes échouent jusqu'à minuit UTC : si
+l'app décolle, passer à Workers Paid (une vente par mois le paie). Les
+conditions de Cloudflare autorisent l'usage commercial du plan gratuit ; elles
+interdisent seulement de collecter des numéros de carte sur le site — ce que
+l'app ne fait jamais (page de paiement Stripe).
 
-Ce n'est pas de la coquetterie. Les variables Neon visent `preview` autant que
-`production` : sans cette règle, une branche poussée pour essayer quelque chose
-déploie une preview qui écrit dans **la base de production**. Pour retrouver
-les previews proprement, il faut d'abord donner aux previews leur propre
-branche Neon, puis remettre la branche voulue à `true` ici.
+### Première mise en place (une fois)
 
-Réglages du projet, pour mémoire :
+1. **Domaine** : acheter `babynamed.fr` chez un registrar qui vend les `.fr`
+   (OVH, Gandi, Infomaniak… — Cloudflare n'en vend pas), puis *Cloudflare →
+   Add a domain* (plan Free) et remplacer chez le registrar les serveurs DNS
+   par ceux que Cloudflare donne.
+2. **La base, dans l'Union européenne** — irréversible, à ne pas rater :
 
-| | |
-|---|---|
-| Framework | Nuxt.js (détecté) |
-| Root directory | racine du dépôt |
-| Build / Install | par défaut |
-| Node | 22.x |
-| Région | cdg1 (Paris) |
-| Branche de production | `main` |
+   ```bash
+   npx wrangler login
+   npx wrangler d1 create babynamed --jurisdiction eu
+   ```
 
-Variables d'environnement en production : les `NEON_DATABASE_*` posées par
-l'intégration Neon, et `NUXT_SESSION_SECRET`. L'app ne cherche pas un nom
-précis : `server/utils/db.ts` prend la première variable qui finit par
-`DATABASE_URL` ou `POSTGRES_URL`, en préférant les poolées.
+   Recopier l'identifiant affiché (`database_id`) dans `wrangler.jsonc`, à la
+   place des zéros, et pousser. Ce n'est pas un secret.
+3. **Le Worker, relié au dépôt** : *Workers & Pages → Create → Import a
+   repository* → GitHub `Gregoire63/BabyName` :
+
+   | | |
+   |---|---|
+   | Nom du projet | `babynamed` (le même que `name` dans `wrangler.jsonc`) |
+   | Root directory | `app` |
+   | Build command | `npm run build` |
+   | Deploy command | `npx wrangler deploy` |
+   | Branche de production | `main` ; **builds des autres branches : désactivés** (elles partageraient la vraie base) |
+
+   Chaque `git push` sur `main` construit et déploie, comme avant.
+4. **Les secrets** : *Worker → Settings → Variables and Secrets* (type
+   *Secret*), ou `npx wrangler secret put NOM` :
+   `NUXT_SESSION_SECRET` (le même qu'avant garde les sessions ouvertes… sur
+   l'ancien domaine seulement, donc au choix), `NUXT_EMAIL_CLE`,
+   `NUXT_STRIPE_SECRET_KEY`, `NUXT_STRIPE_WEBHOOK_SECRET`,
+   `NUXT_STRIPE_PRICE_ID`, et `CRON_SECRET` si l'on veut pouvoir lancer la
+   purge à la main. Le reste (`NUXT_PUBLIC_SITE_URL`, prix, expéditeur) est
+   déjà dans `wrangler.jsonc`.
+5. **Le schéma** : rien à faire — la première requête applique les
+   migrations. (Ou avant : `npm run base:migrer`.)
+6. **Les données d'avant** : voir « Quitter Vercel et Neon » ci-dessous.
+7. **Le domaine sur le Worker** : décommenter `routes` dans `wrangler.jsonc`
+   (ou *Worker → Settings → Domains & Routes → Add → Custom domain*), puis
+   une règle de redirection `www.babynamed.fr` → `babynamed.fr` (*Rules →
+   Redirect Rules*). Une fois le domaine vérifié : `"workers_dev": false`.
+8. **Robots d'IA** : *Security → Bots* — vérifier que le blocage des robots
+   d'IA est **désactivé** et que le `robots.txt` « géré » par Cloudflare est
+   coupé : Cloudflare les propose (et les active parfois d'office sur un
+   nouveau domaine), et ils fermeraient la porte que les fiches ouvrent.
+9. **Stripe** : pointer le webhook sur `https://babynamed.fr/api/paiement/webhook`
+   (même événements), et remplacer l'adresse du site dans *Settings →
+   Business → Public details* (voir « Brancher Stripe »).
+10. **Brevo** : domaine `babynamed.fr` (enregistrements DKIM/DMARC dans le DNS
+    Cloudflare) — voir « Connexion sans mot de passe ».
+
+Avant le domaine, l'adresse d'essai `babynamed.<compte>.workers.dev` marche
+entièrement (connexion, passkeys, liens) : l'app prend l'adresse de la
+requête, forcément l'un des noms du Worker. Une passkey créée là-bas ne
+vaudra pas sur `babynamed.fr`.
+
+La purge RGPD tourne chaque nuit toute seule : *Cron Trigger* du Worker
+(`triggers.crons` dans `wrangler.jsonc`) qui lance la tâche
+`server/tasks/purge.ts` (`scheduledTasks` dans `nuxt.config.ts` — les deux
+expressions doivent rester identiques).
+
+### Quitter Vercel et Neon
+
+Dans cet ordre, avant d'annoncer la nouvelle adresse :
+
+1. Copier les données : `NEON_URL="postgres://…" npm run base:copier-neon`
+   (l'URL : *Vercel → Storage → la base → .env.local*, la ligne
+   `DATABASE_URL_UNPOOLED`), puis
+   `npx wrangler d1 execute DB --remote --config wrangler.jsonc --file .data/neon-vers-d1.sql`,
+   et **effacer** `.data/neon-vers-d1.sql` (il contient des adresses e-mail).
+   Comptes, listes, votes, vetos, commentaires et passkeys suivent ; les
+   passkeys créées sur `vercel.app` ne valent pas sur `babynamed.fr` : on
+   revient par la clé d'accès ou l'e-mail, puis on en recrée une.
+2. Vérifier sur `babynamed.fr` : `/api/sante`, une connexion, un vote.
+3. Supprimer le projet Vercel (sinon chaque push y construit un code qui ne
+   sait plus y tourner), puis la base Neon une fois la copie vérifiée.
+
+### En local, comme en ligne
+
+`npm run preview` construit la version de production et la sert avec
+wrangler, dans workerd — le même moteur que Cloudflare, base locale
+comprise (`.wrangler/state`). `npm run deploy` construit et déploie depuis le
+poste, sans passer par GitHub.
 
 ## Référencement : moteurs et IA
 
@@ -199,15 +284,15 @@ description et un `<noscript>` qui renvoie vers cette page.
 
 Règles tenues par le script, et vérifiées par `essai-seo` :
 
-- **Domaine** : `NUXT_PUBLIC_SITE_URL`, sinon celui de production que Vercel
-  injecte au build. Canoniques, sitemap et llms.txt en dépendent.
+- **Domaine** : `NUXT_PUBLIC_SITE_URL`, sinon `https://babynamed.fr`.
+  Canoniques, sitemap et llms.txt en dépendent.
 - **robots.txt** ferme `/?…` : les boutons des fiches mènent à l'app avec
   `?prenom=` — 7 000 variantes de la même coquille, en `nofollow` aussi. Aucun
   robot d'IA n'est écarté.
 - **lastmod** du sitemap = la constante `MAJ`, pas la date du build : un
   lastmod qui change à chaque push est vite ignoré. À monter quand les données
   ou les gabarits changent.
-- **Limites du gratuit** lues dans `schema.sql`, prix dans
+- **Limites du gratuit** lues dans la migration, prix dans
   `NUXT_PUBLIC_PRIX_LISTE` : la page de l'app et llms.txt ne peuvent pas
   annoncer autre chose que ce que fait l'app.
 - **llms.txt** (llmstxt.org) : un résumé Markdown pour les assistants qui le
@@ -221,19 +306,13 @@ ailleurs, pour relire sans toucher `public/`.
 
 Après le premier déploiement :
 
-1. **Google Search Console** : propriété « préfixe d'URL »
-   `https://babyname-five.vercel.app/` (une propriété « domaine » est
-   impossible sur `vercel.app`), vérification par balise HTML, puis soumettre
+1. **Google Search Console** : propriété « domaine » `babynamed.fr`,
+   vérifiée par un enregistrement TXT dans le DNS Cloudflare, puis soumettre
    `/sitemap.xml`.
 2. **Bing Webmaster Tools** : importer depuis Search Console. C'est l'index
    de ChatGPT (recherche) et de Copilot.
-3. **Vercel → Firewall → Bot Management** : vérifier que « AI Bots » n'est
-   pas en blocage.
-
-Un domaine à soi, si un jour : le poser **avant** de soumettre à Search
-Console. Après, il faut des 301 depuis `vercel.app`, un « changement
-d'adresse » dans Search Console, `NUXT_PUBLIC_SITE_URL`, et l'URL du webhook
-et des pages légales chez Stripe.
+3. **Cloudflare → Security → Bots** : blocage des robots d'IA désactivé,
+   `robots.txt` géré coupé (voir « Héberger sur Cloudflare »).
 
 ## Le payant
 
@@ -272,7 +351,7 @@ au moment où l'envie de continuer était la plus forte.
   150 prénoms.
 - Pas de « quota total » sec : ceux qui ne paient pas doivent pouvoir finir,
   lentement. C'est eux qui font connaître l'app.
-- Offrir une liste plus large : relever ses trois colonnes dans Neon.
+- Offrir une liste plus large : relever ses trois colonnes dans la console D1.
 
 À mesurer après le lancement, sans rien ajouter (tout est déjà en base) :
 
@@ -298,8 +377,8 @@ Le compte Stripe « BabyNames » a déjà son catalogue, créé le 25 septembre 
 
 | | |
 |---|---|
-| Produit | `prod_VKB9yYrGETljLP` — « babyNames — liste débloquée » |
-| Prix | `price_1UJWn1GaKiRYW6iYRjRPV7xn` — 6 € **TTC**, paiement unique, clé `babynames_liste` |
+| Produit | `prod_VKB9yYrGETljLP` — « babyNames — liste débloquée » : **à renommer** « babyNamed — liste débloquée » (c'est ce nom que la page de paiement et la facture affichent) |
+| Prix | `price_1UJWn1GaKiRYW6iYRjRPV7xn` — 6 € **TTC**, paiement unique, clé `babynames_liste` (une clé interne : elle peut rester) |
 
 Le prix est `tax_behavior: inclusive` : si la TVA s'applique un jour (Stripe
 Tax ou Managed Payments), le client paie toujours 6 €, et c'est la marge qui
@@ -315,29 +394,26 @@ la place du vendeur. Celui qui décrit l'app, vérifié dans l'API :
 `txcd_10701411`, « information services », qui exclut explicitement ce
 qu'on consulte à travers un logiciel en ligne.)
 
-Variables d'environnement Vercel (babyname → Settings → Environment Variables).
-État relevé le 25 septembre 2026 : les quatre premières sont posées ;
-`CRON_SECRET` manque ; `NUXT_MIGRATION_SECRET` et `NUXT_MAGIC_LINK_DEBUG`
-traînent encore et sont à **supprimer** (plus rien ne les lit : la route de
-migration a été retirée du code). Les deux variables de l'e-mail de
-connexion sont décrites dans « Connexion sans mot de passe ».
+Les secrets du Worker (*Worker → Settings → Variables and Secrets*, type
+*Secret*, ou `npx wrangler secret put NOM`). Les deux variables de l'e-mail
+de connexion sont décrites dans « Connexion sans mot de passe ».
 
 | Variable | Valeur |
 |---|---|
 | `NUXT_STRIPE_SECRET_KEY` | une **clé restreinte** `rk_live_…` (Developers → API keys → Create restricted key) avec **une seule** permission : *Checkout Sessions → Write*. C'est tout ce que le serveur appelle (création et relecture de session) ; volée, elle ne permet ni rembourser, ni lire les clients, ni vider le compte. |
 | `NUXT_STRIPE_PRICE_ID` | `price_1UJWn1GaKiRYW6iYRjRPV7xn` |
 | `NUXT_STRIPE_WEBHOOK_SECRET` | le `whsec_…` affiché à la création du webhook ci-dessous |
-| `NUXT_PUBLIC_SITE_URL` | `https://babyname-five.vercel.app` |
-| `CRON_SECRET` | une longue chaîne aléatoire (`openssl rand -hex 32`). **Sans préfixe** : c'est Vercel qui la lit et l'envoie au cron de purge RGPD. Sans elle, la purge n'existe pas (404). |
+| `NUXT_PUBLIC_SITE_URL` | déjà dans `wrangler.jsonc` : `https://babynamed.fr` |
+| `CRON_SECRET` | facultatif : ouvre `/api/admin/purger` pour lancer la purge à la main (`Authorization: Bearer …`). La purge de chaque nuit n'en a pas besoin. |
 | `NUXT_STRIPE_TAX_RATE_ID` | **seulement si assujetti à la TVA** — voir « TVA » plus bas. |
 
-**Toujours le domaine de production**, jamais une URL de déploiement
-(`babyname-xxxx-gregoire63s-projects.vercel.app`) : celles-là sont des photos
-figées d'une version passée. Un webhook pointé dessus parle à un code qui n'a
-peut-être même pas la route de paiement — chaque paiement serait encaissé et
-rien ne se débloquerait.
+**Toujours le domaine de production** pour le webhook :
+`https://babynamed.fr/api/paiement/webhook`. Un webhook pointé ailleurs parle
+à un code qui n'est peut-être pas celui de production — chaque paiement
+serait encaissé et rien ne se débloquerait.
 
-Le webhook existe : `we_1UJWzGGaKiRYW6iY3GrUaM1e`, URL de production, version
+Le webhook existe : `we_1UJWzGGaKiRYW6iY3GrUaM1e`, pointé sur l'ancienne
+adresse `vercel.app` — **à repointer** sur `babynamed.fr` au passage, version
 `2026-08-26.dahlia` (la même que celle épinglée dans `server/utils/stripe.ts`).
 Il écoute **quatre** événements :
 
@@ -355,11 +431,11 @@ les données.
 **Ce que l'API ne permet pas de régler — à faire dans le Dashboard, une fois :**
 
 1. **Settings → Business → Public details**
-   - Nom public : `babyNames` ; **libellé de relevé** : `BABYNAMES`. Un débit
+   - Nom public : `babyNamed` ; **libellé de relevé** : `BABYNAMED`. Un débit
      qu'on ne reconnaît pas devient une contestation — 20 € de frais pour
      une vente de 6 €.
    - E-mail **et adresse** de support : Stripe les exige sur chaque reçu.
-   - Site : `https://babyname-five.vercel.app` ; **politique de
+   - Site : `https://babynamed.fr` ; **politique de
      confidentialité** : `…/confidentialite` ; **conditions** : `…/conditions`.
 2. **Settings → Business → Customer emails** : **Successful payments** et
    **Refunds** activés, langue par défaut français. *Indispensable* : c'est
@@ -416,7 +492,7 @@ Le prix reste 6 € TTC ; la facture affiche alors 1 € de TVA incluse.
 Le compte n'a que le mode live. Le trajet se vérifie quand même sans rien
 payer — tout est prêt dans Stripe :
 
-- coupon `liste-offerte` : 100 %, limité au produit babyNames ;
+- coupon `liste-offerte` : 100 %, limité au produit de la liste débloquée ;
 - code promo **`ESSAI-3HACXZ`** : deux utilisations, valable jusqu'au
   25 octobre 2026.
 
@@ -451,7 +527,7 @@ Payments devient le bon choix. Le basculer :
 
 1. Dashboard → Settings → Managed Payments → activer ;
 2. donner au produit un code fiscal éligible (le Dashboard les étiquette) ;
-3. `NUXT_STRIPE_MANAGED_PAYMENTS=1` dans Vercel.
+3. `NUXT_STRIPE_MANAGED_PAYMENTS=1` dans les variables du Worker.
 
 En Managed Payments, le code n'envoie ni facture, ni texte personnalisé, ni
 habillage (Stripe les refuse, et émet lui-même reçus et factures en son nom) ;
@@ -500,16 +576,16 @@ total, litige perdu — mais pas un remboursement partiel ni un litige gagné).
 ### Offrir une liste
 
 Pas d'écran d'administration : c'est une surface d'attaque pour un geste
-qu'on fait trois fois par an. La console Neon suffit (Vercel → Storage →
-la base → *Open in Neon* → SQL Editor) :
+qu'on fait trois fois par an. La console D1 suffit (*Storage & Databases →
+D1 → babynamed → Console*) :
 
 ```sql
 -- les listes, pour trouver la bonne
 select id, nom, code_invitation, cree_le, paye_le, offert from groupes order by cree_le;
 
 -- l'offrir (le code est celui affiché dans « La liste »)
-update groupes set paye_le = now(), offert = true
- where code_invitation = 'xxxxxxxx' and paye_le is null
+update groupes set paye_le = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), offert = 1
+ where code_invitation = 'XXXXXXXXXX' and paye_le is null
 returning nom;
 ```
 
@@ -517,38 +593,22 @@ Pour un ami qui passera par la caisse : un **code promo à 100 %** dans Stripe
 (Products → Coupons), il le saisit sur la page de paiement, la liste se
 débloque et reste marquée offerte.
 
-### Mettre en production sans coupure
+### Mettre en production
 
-Le nouveau schéma est purement additif, et l'**ancien** code tourne dessus
-(vérifié sur une copie de la base de production : aucune ligne perdue, accords
-identiques, rejouable). Donc on migre **avant** de pousser, jamais après :
+Le schéma vit dans `server/assets/migrations/` et s'applique tout seul (voir
+« Schéma ») : pousser suffit. Avant d'ouvrir la vente :
 
-1. Console Neon → SQL Editor → coller tout `server/assets/schema.sql` → Run.
-   Il contient le bloc RGPD (clés étrangères sans cascade, `paiement_ref`),
-   le quota « départ puis filet », et **la connexion sans mot de passe**
-   (`passkeys`, `liens_connexion`, `limites`, `utilisateurs.session_gen`…) —
-   des ajouts seulement, rien de supprimé ; l'ancien code tourne dessus.
-   **Sans ce collage, chaque requête connectée tombe en erreur** (la
-   génération des sessions est lue à chaque fois). `/api/sante` →
-   `base.migrations['connexion.passkeys_et_liens']` doit valoir `true`.
-2. Offrir les listes qui ne doivent pas prendre le mur (ci-dessus). Sans ça,
-   toute liste existante passe en gratuit au déploiement : 40 gestes par jour.
-3. Remplir `shared/utils/editeur.ts` (SIRET, adresse, téléphone, médiateur).
+1. Remplir `shared/utils/editeur.ts` (adresse, téléphone, médiateur).
    **Tant que SIRET, adresse ou téléphone manquent, le paiement reste fermé
    en production** (`503 vente_fermee`, « le paiement ouvre très bientôt » à
    l'écran) — l'app gratuite, elle, marche. Le médiateur ne ferme pas la
    caisse (une adhésion prend quelques jours, et il faut pouvoir tester avec
    le code promo), mais il est obligatoire avant la première vente réelle.
    `GET /api/sante` → `legal.bloquants` et `legal.manquants`.
-4. Poser `CRON_SECRET` dans Vercel, et — pour le lien par e-mail —
-   `NUXT_EMAIL_CLE` et `NUXT_EMAIL_EXPEDITEUR` (voir « Connexion sans mot de
-   passe »). Sans elles, l'app ne propose que la passkey : rien ne casse.
-5. `npm install` en local (deux paquets de plus : `@simplewebauthn/*`, et
-   Nuxt 4.5.2), puis pousser. Vercel construit depuis `app/`.
-6. Retirer `NUXT_MIGRATION_SECRET` et `NUXT_MAGIC_LINK_DEBUG` de Vercel.
-
-Dans l'autre ordre, le nouveau code arrive sur l'ancienne base et chaque page
-tombe en erreur jusqu'à la migration.
+2. Les secrets de l'e-mail (`NUXT_EMAIL_CLE`, et l'expéditeur dans
+   `wrangler.jsonc`) — voir « Connexion sans mot de passe ». Sans eux, l'app
+   ne propose que la passkey : rien ne casse.
+3. Offrir les listes qui ne doivent pas prendre le mur (ci-dessus).
 
 Aucun numéro de carte ne passe par l'application : on demande une session à
 Stripe, on envoie le navigateur sur *sa* page, c'est lui qui encaisse. Il n'y
@@ -616,7 +676,7 @@ Tout ce que la loi demande, fait dans l'app plutôt que promis dans un texte :
 | Accès, portabilité (art. 15, 20) | *Mon compte → Télécharger mes données* : `GET /api/moi/donnees`, un JSON lisible — tout ce qui concerne la personne, rien des autres |
 | Rectification (art. 16) | *Mon compte → Nom affiché* ; le reste se modifie dans l'app |
 | Effacement (art. 17) | *Mon compte → Supprimer mon compte* : `POST /api/moi/supprimer` (mot `SUPPRIMER` exigé), immédiat |
-| Conservation limitée (art. 5.1.e) | purge chaque nuit : `GET /api/admin/purger`, cron Vercel (`vercel.json`), protégée par `CRON_SECRET` |
+| Conservation limitée (art. 5.1.e) | purge chaque nuit : tâche `server/tasks/purge.ts`, lancée par le *Cron Trigger* du Worker ; à la main : `GET /api/admin/purger` avec `CRON_SECRET` |
 | Minimisation | e-mail facultatif, enregistré seulement une fois prouvé, et qui ne sert qu'à la connexion ; liens et codes gardés en empreintes ; compteurs d'essais sur des empreintes chiffrées (jamais une IP en clair) ; police servie par l'app (plus d'IP envoyée à Google) |
 | Registre (art. 30) | `docs/registre-des-traitements.md` |
 | Traceurs (art. 82 loi I&L) | un cookie de session et du stockage local strictement nécessaires : **pas de bandeau**, et il ne doit jamais en falloir un. Ajouter une mesure d'audience ou un pixel changerait ça — et le registre. |
@@ -668,23 +728,22 @@ petit) jusqu'à ce qu'ils la désactivent dans *Mon compte*.
 | `app/pages/connexion/lien.vue` | le lien de l'e-mail : jeton après le `#`, effacé de l'adresse, **un bouton** avant de le consommer (les robots des messageries ouvrent les liens) |
 
 **Le domaine, avant tout.** Une passkey est liée au domaine où elle est
-créée (`NUXT_PUBLIC_SITE_URL`, aujourd'hui `babyname-five.vercel.app`).
-Changer de domaine plus tard rend les passkeys existantes inutilisables.
-Si un domaine propre est prévu, le poser **avant** d'ouvrir l'app au public.
-Il sert aussi à l'e-mail : on n'envoie pas depuis `@vercel.app`.
+créée : `babynamed.fr`. En changer plus tard rend les passkeys existantes
+inutilisables. Il sert aussi à l'e-mail : `connexion@babynamed.fr`.
 
 **L'e-mail (Brevo)** — le prestataire est nommé dans
 `shared/utils/editeur.ts` (`COURRIEL`), et la politique de confidentialité le
 cite d'elle-même :
 
 1. Créer un compte Brevo (gratuit, 300 e-mails/jour), puis *Senders, Domains
-   & Dedicated IPs → Domains* : ajouter le domaine et poser chez le registrar
-   les enregistrements DKIM/DMARC qu'il donne.
+   & Dedicated IPs → Domains* : ajouter `babynamed.fr` et poser dans le DNS
+   Cloudflare les enregistrements DKIM/DMARC qu'il donne.
 2. *Transactional → Settings* : **couper le suivi des clics** (et des
    ouvertures). Un lien de connexion réécrit par un traceur passerait par
    un tiers, jeton compris.
-3. *SMTP & API → API keys* : créer une clé ; dans Vercel, `NUXT_EMAIL_CLE`
-   (la clé) et `NUXT_EMAIL_EXPEDITEUR` (`babyNames <connexion@votre-domaine.fr>`).
+3. *SMTP & API → API keys* : créer une clé ; en secret du Worker,
+   `NUXT_EMAIL_CLE`. L'expéditeur, `NUXT_EMAIL_EXPEDITEUR`, est déjà dans
+   `wrangler.jsonc` (`babyNamed <connexion@babynamed.fr>`).
 4. `/api/sante` → `presence.courriel: true`.
 
 Pour Resend à la place : `COURRIEL.fournisseur = 'resend'` dans
@@ -709,9 +768,9 @@ Audit du 25 septembre 2026 : ce qui a été trouvé, et ce qui est en place.
 | Cookie volé ou téléphone perdu : une session signée ne se révoque pas | génération de sessions en base ; *Mon compte → Déconnecter mes autres appareils* |
 | Requête forgée depuis un autre site (CSRF) | cookie `SameSite=Lax`, **et** refus des requêtes `Sec-Fetch-Site: cross-site` ou d'une autre `Origin` (`server/middleware/origine.ts`) |
 | Script injecté (XSS) | Vue échappe tout (aucun `v-html`) ; **CSP à nonce** sur la coquille (`server/plugins/securite.ts`), CSP stricte sur les fiches statiques |
-| Détournement de clic, reniflage de type, fuite d'adresse | `X-Frame-Options: DENY` + `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS 2 ans (`server/entetes-securite.ts`, posés par `modules/entetes-cache.ts` sur Vercel) |
+| Détournement de clic, reniflage de type, fuite d'adresse | `X-Frame-Options: DENY` + `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS 2 ans (`server/entetes-securite.ts` ; sur les réponses du Worker par `server/middleware/entetes.ts`, sur les fichiers statiques par le `_headers` qu'écrit `modules/entetes-cache.ts`) |
 | Écrire un mégaoctet par requête (prénom, filtres) | prénoms validés (60 caractères, lettres), filtres bornés à 4 Ko |
-| Lien de connexion détourné par un en-tête `Host` forgé | l'adresse des liens vient de la configuration, jamais de la requête |
+| Lien de connexion détourné par un en-tête `Host` forgé | sur Cloudflare, une requête n'atteint le Worker que par l'un de ses noms : l'adresse de la requête est sûre ; `X-Forwarded-Host` n'est jamais lu |
 | `/api/admin/migrer` (du SQL derrière un secret en clair dans l'URL) | retirée |
 | `/api/sante` publique renvoyait le message d'erreur du pilote de base | message générique en production |
 | Nuxt 4.4.8 : failles connues (îlots serveur, cache de payload) | Nuxt 4.5.2, `npm audit` : 0 vulnérabilité |
@@ -722,9 +781,9 @@ constant ; aucune donnée de carte dans l'app ; routes de développement
 absentes du build ; service worker qui ne met jamais `/api/` en cache.
 
 La CSP ne s'applique qu'en production (Vite a ses propres scripts en
-développement). Pour la vérifier : `NITRO_PRESET=node-server npx nuxt build`,
-`NUXT_SESSION_SECRET=x node .output/server/index.mjs`, puis ouvrir la page et
-regarder la console : aucune ligne « Refused to… ».
+développement). Pour la vérifier : `npm run preview` (la version de
+production dans workerd), puis ouvrir la page et regarder la console :
+aucune ligne « Refused to… ».
 
 `essai-connexion` couvre les passkeys (authentificateur virtuel de Chrome),
 le lien et le code, la révocation, les limites (à leur valeur de production,
@@ -779,27 +838,33 @@ qu'aucun outil ne voit. Il lui faut axe-core : `npm i -D axe-core` (ou
 
 ## Schéma
 
-`server/assets/schema.sql` fait foi, et il est idempotent
-(`create … if not exists`, `create or replace`). En local il est rejoué à
-chaque démarrage. En production il se colle dans la console Neon (SQL
-Editor), **avant** de pousser le code qui en a besoin. La route
-`/api/admin/migrer` n'existe plus : une porte qui exécute du SQL, même
-derrière un secret, ne sert pas assez souvent pour rester ouverte.
+`server/assets/migrations/` fait foi : un fichier numéroté par changement
+(`0001_initial.sql`, puis `0002_…`), **jamais modifié une fois poussé**. La
+table `d1_migrations` (la même que wrangler) dit lesquels sont appliqués.
+
+Ils s'appliquent tout seuls : au démarrage en local, et à la première
+requête en production (`server/utils/db.ts`) — chaque fichier en un lot,
+avec sa ligne de suivi : à moitié appliqué, il ne l'est pas du tout. Pour
+les appliquer avant de pousser : `npm run base:migrer`.
+
+SQLite n'a pas `alter table … add column if not exists` : une migration
+s'écrit pour être jouée une fois, c'est la table de suivi qui l'empêche de
+repasser.
 
 ## Vérifier
 
 `GET /api/sante` dit ce qui est branché sans révéler aucune valeur :
 
 ```json
-{ "presence": { "base": false, "secret_session": false, "paiement": true,
-                "paiement_webhook": true, "purge_quotidienne": true },
-  "legal": { "complet": false, "manquants": ["siret", "mediateur"],
-             "bloquants": ["siret"], "vente_ouverte": false },
-  "base": { "joignable": true, "moteur": "embarque", "tables": 15,
-            "migrations": { "rgpd.effacement_sans_cascade": true, "groupes.paiement_ref": true } } }
+{ "presence": { "base": true, "base_variable": "DB (Cloudflare D1)", "secret_session": true,
+                "paiement": true, "paiement_webhook": true, "purge_quotidienne": true },
+  "legal": { "complet": false, "manquants": ["adresse", "telephone", "mediateur"],
+             "bloquants": ["adresse", "telephone"], "vente_ouverte": false },
+  "base": { "joignable": true, "moteur": "d1", "tables": 14,
+            "migrations": { "appliquees": ["0001_initial.sql"], "rgpd.effacement_sans_cascade": true } } }
 ```
 
 `legal.vente_ouverte: false` en production = le paiement est fermé tant que
 `bloquants` n'est pas vide.
 
-`"moteur": "embarque"` en local, `"postgres"` sur Vercel.
+`"moteur": "d1"` partout : en local, c'est la D1 que simule wrangler.

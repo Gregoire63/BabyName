@@ -11,7 +11,7 @@
 export default defineEventHandler(async (e) => {
   const moi = await exigerCompte(e)
   const r = await q1<{ gen: number }>(
-    `update utilisateurs set session_gen = session_gen + 1 where id = $1 returning session_gen as gen`,
+    `update utilisateurs set session_gen = session_gen + 1 where id = ?1 returning session_gen as gen`,
     [moi.id])
   poserSession(e, moi.id, r!.gen)
   return { ok: true }

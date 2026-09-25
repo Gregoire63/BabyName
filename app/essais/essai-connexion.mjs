@@ -86,6 +86,10 @@ async function seDeconnecter(page) {
 
   await seDeconnecter(page)
   await page.getByRole('button', { name: 'Se connecter avec une passkey' }).click()
+  // Pas seulement « .bento » : pendant la transition de page, l'accueil qu'on
+  // vient de quitter est encore dans le document — on lirait /api/auth/moi
+  // avant la fin de la connexion.
+  await page.waitForURL(u => !u.pathname.startsWith('/connexion'), { timeout: 20000 })
   await page.waitForSelector('.bento', { timeout: 20000 })
   const moi = (await api(page, '/api/auth/moi')).j
   dit(moi?.utilisateur?.pseudo === 'Zoé' && moi.utilisateur.passkeys === 1,

@@ -8,13 +8,13 @@ export default defineEventHandler(async (e) => {
   const { prenom, motif } = await readBody<{ prenom?: string; motif?: string }>(e) ?? {}
   prenomValide(prenom)
   try {
-    await q(`insert into vetos (groupe_id, user_id, prenom, motif) values ($1, $2, $3, $4)`,
+    await ecrire(`insert into vetos (groupe_id, user_id, prenom, motif) values (?1, ?2, ?3, ?4)`,
       [gid, moi.user_id, prenom, (motif ?? '').slice(0, 200) || null])
   } catch (err: any) {
     if (String(err?.message).includes('quota_veto_atteint')) {
       throw createError({ statusCode: 409, statusMessage: 'quota_veto_atteint' })
     }
-    if (err?.code === '23505') throw createError({ statusCode: 409, statusMessage: 'deja_veto' })
+    if (estDoublon(err)) throw createError({ statusCode: 409, statusMessage: 'deja_veto' })
     throw err
   }
   return { ok: true }

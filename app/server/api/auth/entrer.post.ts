@@ -14,7 +14,7 @@ export default defineEventHandler(async (e) => {
   const p = pseudoValide(pseudo)
 
   const u = await q1<{ id: string }>(
-    `insert into utilisateurs (pseudo) values ($1) returning id`, [p])
+    `insert into utilisateurs (pseudo) values (?1) returning id`, [p])
   if (!u) throw createError({ statusCode: 500, statusMessage: 'creation_impossible' })
 
   poserSession(e, u.id, 0)

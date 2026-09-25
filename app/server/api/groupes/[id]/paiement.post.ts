@@ -11,7 +11,7 @@ export default defineEventHandler(async (e) => {
   const moi = await exigerMembre(e, gid)
 
   const g = await q1<{ paye: boolean; nom: string }>(
-    `select (paye_le is not null) as paye, nom from groupes where id = $1`, [gid])
+    `select (paye_le is not null) as paye, nom from groupes where id = ?1`, [gid])
   if (!g) throw createError({ statusCode: 404, statusMessage: 'groupe_introuvable' })
   if (g.paye) return { ok: true, deja: true }
 
@@ -36,10 +36,13 @@ export default defineEventHandler(async (e) => {
     throw createError({ statusCode: 400, statusMessage: 'consentement_requis' })
   }
 
-  const c = useRuntimeConfig()
-  const siteUrl = (c.public.siteUrl as string) || getRequestURL(e).origin
+  // Le retour de la page de paiement se fait la ou l'on est (sur Cloudflare,
+  // forcement l'un des noms du Worker) ; la facture, elle, cite l'adresse
+  // officielle du site.
+  const retour = getRequestURL(e).origin
+  const siteUrl = String(useRuntimeConfig().public.siteUrl || '').replace(/\/$/, '') || retour
   const session = await creerSession({
-    gid, uid: moi.user_id, siteUrl, consentementLe: new Date().toISOString()
+    gid, uid: moi.user_id, siteUrl, retour, consentementLe: new Date().toISOString()
   })
   return { ok: true, url: session.url as string }
 })

@@ -29,8 +29,8 @@ export default defineEventHandler(async (e) => {
 
   const { credential, credentialBackedUp, aaguid } = v.registrationInfo
   const nom = nomPasskey(aaguid, getHeader(e, 'user-agent') ?? '')
-  await q(`insert into passkeys (id, user_id, cle_publique, compteur, transports, nom, synchronisee)
-           values ($1, $2, $3, $4, $5, $6, $7) on conflict (id) do nothing`,
+  await ecrire(`insert into passkeys (id, user_id, cle_publique, compteur, transports, nom, synchronisee)
+                values (?1, ?2, ?3, ?4, ?5, ?6, ?7) on conflict (id) do nothing`,
     [credential.id, moi.id, Buffer.from(credential.publicKey).toString('base64url'),
      credential.counter, credential.transports ?? [], nom, credentialBackedUp])
   // Une porte de plus sur le compte : son adresse, s'il en a une, l'apprend.

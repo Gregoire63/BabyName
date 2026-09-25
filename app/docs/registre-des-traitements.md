@@ -1,4 +1,4 @@
-# Registre des activités de traitement — babyNames
+# Registre des activités de traitement — babyNamed
 
 Article 30 du RGPD. L'exemption des structures de moins de 250 personnes ne
 joue pas ici : elle ne vaut que pour des traitements **occasionnels**, et ceux
@@ -6,7 +6,7 @@ d'une application en ligne sont permanents. Ce registre se présente à la CNIL
 sur simple demande ; il se tient à jour à chaque nouveau traitement, nouveau
 prestataire ou nouvelle durée.
 
-Tenu par : Grégoire Raturat, entrepreneur individuel, éditeur de babyNames
+Tenu par : Grégoire Raturat, entrepreneur individuel, éditeur de babyNamed
 — gregoireraturatpro@gmail.com. Pas de délégué à la protection des données
 (non obligatoire : ni organisme public, ni suivi à grande échelle, ni données
 sensibles à grande échelle).
@@ -28,9 +28,9 @@ lit la même constante.
 | **Base légale** | Exécution du contrat (conditions d'utilisation) — art. 6.1.b. |
 | **Personnes** | Utilisateurs de l'app. |
 | **Données** | Nom affiché (libre, souvent un prénom) ; empreinte SHA-256 de la clé d'accès ; dates de création et de dernière activité. Pas d'e-mail, pas de mot de passe, pas de téléphone. |
-| **Destinataires** | Éditeur (maintenance). Sous-traitants : Vercel (hébergement), Neon (base). Les autres membres des listes voient le nom affiché. |
-| **Transferts hors UE** | Vercel Inc. et Neon, LLC (États-Unis) : Data Privacy Framework + clauses contractuelles types. |
-| **Conservation** | Jusqu'à la suppression par l'utilisateur (immédiate) ; sinon effacement automatique après 24 mois sans activité. Sauvegardes Neon : historique de restauration de quelques jours. |
+| **Destinataires** | Éditeur (maintenance). Sous-traitant : Cloudflare (hébergement de l'app et base de données D1). Les autres membres des listes voient le nom affiché. |
+| **Transferts hors UE** | Cloudflare, Inc. (États-Unis) : Data Privacy Framework + clauses contractuelles types. La base D1 est créée avec la juridiction « eu » : ses données restent dans l'Union européenne ; le serveur (Worker) s'exécute au plus près du visiteur. |
+| **Conservation** | Jusqu'à la suppression par l'utilisateur (immédiate) ; sinon effacement automatique après 24 mois sans activité. Sauvegardes : retour arrière D1 (*Time Travel*) de 7 jours. |
 | **Sécurité** | HTTPS ; clé stockée en empreinte seulement ; cookie de session signé (HMAC), `HttpOnly`, `Secure`, `SameSite=Lax`, 120 jours ; secrets côté serveur uniquement. |
 
 ## 2. Listes de prénoms
@@ -74,9 +74,9 @@ lit la même constante.
 |---|---|
 | **Finalité** | Faire fonctionner et sécuriser le service, diagnostiquer les pannes. |
 | **Base légale** | Intérêt légitime (sécurité du service) — art. 6.1.f. |
-| **Données** | Adresse IP, date, URL demandée, navigateur (journaux de Vercel). Les journaux applicatifs ne contiennent ni identifiant ni contenu (la purge ne journalise que des nombres). |
-| **Destinataires** | Vercel (sous-traitant). |
-| **Conservation** | Durée de rétention des journaux Vercel (courte, quelques jours au plus selon l'offre). |
+| **Données** | Requête (date, méthode, URL, métadonnées techniques dont l'adresse IP) dans les journaux de Cloudflare (Workers Logs). Les journaux applicatifs ne contiennent ni identifiant ni contenu (la purge ne journalise que des nombres). |
+| **Destinataires** | Cloudflare (sous-traitant). |
+| **Conservation** | 3 jours (Workers Logs, plan gratuit ; 7 jours en plan payant). |
 
 ## 6. Demandes d'exercice des droits et assistance
 
@@ -120,7 +120,6 @@ risque élevé.
 
 | Prestataire | Rôle | Contrat de sous-traitance (art. 28) |
 |---|---|---|
-| Vercel Inc. | Hébergement | DPA intégré aux conditions Vercel (vercel.com/legal/dpa) |
-| Neon, LLC (Databricks) | Base de données | DPA Neon (neon.com/dpa) |
+| Cloudflare, Inc. | Hébergement (Workers) et base de données (D1) | DPA intégré aux conditions de Cloudflare (cloudflare.com/cloudflare-customer-dpa) |
 | Stripe Payments Europe, Ltd. | Paiement | Stripe Data Processing Agreement (stripe.com/legal/dpa) |
 | Google (Gmail) | Messagerie de contact | **À régulariser** : une adresse Gmail grand public n'a pas de contrat de sous-traitance. Une adresse Google Workspace (ou tout hébergeur de messagerie professionnel avec DPA) règle le point. |

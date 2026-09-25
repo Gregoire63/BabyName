@@ -8,9 +8,9 @@
  * première : le navigateur dit d'où vient la requête (Sec-Fetch-Site,
  * Origin), et on refuse ce qui vient d'ailleurs.
  *
- * Laissés passer : les appels sans ces en-têtes (Stripe, le cron de Vercel,
- * les outils en ligne de commande — qui n'ont pas de cookie de session à
- * détourner), et le webhook de Stripe, que sa signature protège.
+ * Laissés passer : les appels sans ces en-têtes (Stripe, les outils en ligne
+ * de commande — qui n'ont pas de cookie de session à détourner), et le
+ * webhook de Stripe, que sa signature protège.
  */
 const MODIFIE = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
@@ -27,7 +27,9 @@ export default defineEventHandler((e) => {
   if (origine && origine !== 'null') {
     let hote = ''
     try { hote = new URL(origine).host } catch { /* origine illisible */ }
-    const ici = getRequestHost(e, { xForwardedHost: true })
+    // L'hôte de la requête elle-même : sur Cloudflare, c'est celui qui a mené
+    // au Worker. Aucun X-Forwarded-Host à croire.
+    const ici = getRequestHost(e)
     if (hote !== ici) throw createError({ statusCode: 403, statusMessage: 'origine_refusee' })
   } else if (origine === 'null') {
     throw createError({ statusCode: 403, statusMessage: 'origine_refusee' })

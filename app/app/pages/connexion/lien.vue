@@ -53,7 +53,7 @@ onMounted(async () => {
   <main id="contenu" class="lien" tabindex="-1">
     <div class="haut">
       <img src="/logo.png" alt="" width="58" height="58">
-      <h1>babyNames</h1>
+      <h1>babyNamed</h1>
     </div>
 
     <div class="carte pile">
@@ -73,7 +73,7 @@ onMounted(async () => {
           <strong>{{ email }}</strong> est maintenant l’adresse de votre compte : un
           lien de connexion pourra y partir.
         </p>
-        <NuxtLink to="/" class="btn btn-1" style="text-align:center">Ouvrir babyNames</NuxtLink>
+        <NuxtLink to="/" class="btn btn-1" style="text-align:center">Ouvrir babyNamed</NuxtLink>
       </template>
 
       <template v-else-if="etat === 'invalide'">

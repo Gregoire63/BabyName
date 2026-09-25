@@ -120,7 +120,7 @@ async function supprimerCompte() {
     <section class="pile" aria-labelledby="compte-donnees">
       <h3 id="compte-donnees" class="etiquette">Mes données</h3>
       <p class="mini doux" style="margin:0">
-        Tout ce que babyNames garde sur vous tient dans un fichier, que vous
+        Tout ce que babyNamed garde sur vous tient dans un fichier, que vous
         pouvez emporter ailleurs.
         <NuxtLink to="/confidentialite" class="lien">Ce qu’on en fait</NuxtLink>.
       </p>

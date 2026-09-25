@@ -22,19 +22,19 @@ export default defineEventHandler(async (e) => {
     throw createError({ statusCode: 400, statusMessage: 'confirmation_requise' })
   }
 
-  const bilan = await transaction(async (c) => {
-    const { rows } = await c.query(`select groupe_id from membres where user_id = $1`, [uid])
-    const ids = rows.map((r: any) => Number(r.groupe_id))
-    await c.query(`delete from utilisateurs where id = $1`, [uid])
-    const vides = ids.length
-      ? (await c.query(
-          `delete from groupes g
-            where g.id = any ($1::bigint[])
-              and not exists (select 1 from membres m where m.groupe_id = g.id)
-           returning g.id`, [ids])).rows.length
-      : 0
-    return { listes_effacees: vides, listes_laissees_aux_autres: ids.length - vides }
-  })
+  const ids = (await q<{ groupe_id: number }>(
+    `select groupe_id from membres where user_id = ?1`, [uid])).map(r => Number(r.groupe_id))
+  // Un lot : le compte (et, en cascade, tout ce qui lui appartient), puis les
+  // listes ou il ne reste plus personne — ensemble ou pas du tout.
+  const [, vides] = await lot([
+    [`delete from utilisateurs where id = ?1`, [uid]],
+    [`delete from groupes
+       where id in ${DANS(1)}
+         and not exists (select 1 from membres m where m.groupe_id = groupes.id)
+      returning id`, [ids]]
+  ])
+  // Les lignes renvoyees, pas `changes` : D1 y compte aussi les cascades.
+  const bilan = { listes_effacees: vides!.rows.length, listes_laissees_aux_autres: ids.length - vides!.rows.length }
 
   retirerSession(e)
   return { ok: true, ...bilan }

@@ -11,10 +11,10 @@ export default defineEventHandler(async (e) => {
   const { nom } = await readBody<{ nom?: string }>(e) ?? {}
 
   const g = await q1<{ paye: boolean }>(
-    `select (paye_le is not null) as paye from groupes where id = $1`, [gid])
+    `select (paye_le is not null) as paye from groupes where id = ?1`, [gid])
   if (!g?.paye) throw createError({ statusCode: 402, statusMessage: 'liste_non_debloquee' })
 
   const propre = typeof nom === 'string' ? nom.trim().slice(0, 60) : ''
-  await q(`update groupes set nom_famille = $2 where id = $1`, [gid, propre || null])
+  await ecrire(`update groupes set nom_famille = ?2 where id = ?1`, [gid, propre || null])
   return { ok: true, nom_famille: propre || null }
 })

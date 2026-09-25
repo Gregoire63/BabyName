@@ -1,4 +1,4 @@
-/* babyNames — service worker minimal.
+/* babyNamed — service worker minimal.
    Raison d'etre : rendre l'application installable et faire que le catalogue
    (180 Ko) ne soit telecharge qu'une fois.
 

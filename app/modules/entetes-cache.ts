@@ -1,67 +1,58 @@
 import { defineNuxtModule } from 'nuxt/kit'
-import { readFile, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { ENTETES_COMMUNES, POLITIQUE_STATIQUE, PAGES_STATIQUES } from '../server/entetes-securite'
+import { ENTETES_COMMUNES, POLITIQUE_STATIQUE, SECTIONS_STATIQUES } from '../server/entetes-securite'
 
 /**
- * En-tetes de cache (et de securite, voir server/entetes-securite.ts) pour
- * Vercel, ecrites a la main dans le Build Output.
+ * En-têtes de cache et de sécurité des fichiers STATIQUES, pour Cloudflare :
+ * le fichier `_headers` à la racine des fichiers publics.
  *
- * Pourquoi ne pas se contenter de `routeRules` : le preset vercel de Nitro
- * genere ces routes SANS `continue: true`. Or une route d'en-tete sans ce
- * drapeau interrompt le routage au lieu de le poursuivre (la documentation
- * Vercel le met explicitement sur chacune de ses routes d'exemple). Et ses
- * propres regles de fichiers publics collent `immutable` sur TOUT /_nuxt/,
- * y compris /_nuxt/builds/latest.json — le fichier dont le seul role est de
- * signaler qu'un nouveau build existe. Fige, il ne signale plus rien.
+ * Cloudflare sert ces fichiers sans passer par le Worker : ni le middleware
+ * des en-têtes (server/middleware/entetes.ts) ni la politique de contenu de
+ * la coquille (server/plugins/securite.ts) ne les voient. Tout se dit donc
+ * ici — et seulement ici pour eux.
  *
- * On insere donc nos regles juste avant la phase « filesystem », apres
- * celles de Nitro : a drapeau `continue`, c'est la derniere qui gagne.
+ * Nitro écrit son propre `_headers`, qu'on remplace : ses règles se
+ * chevauchent (/_nuxt/* et /_nuxt/builds/*), et Cloudflare JOINT par une
+ * virgule deux valeurs du même en-tête — « immutable, …, max-age=1 » ne veut
+ * plus rien dire. On n'écrit donc que des règles disjointes : `:fichier` ne
+ * traverse pas les « / ».
+ *
+ * Tout le reste garde la règle par défaut de Cloudflare : revalider à chaque
+ * fois (`public, max-age=0, must-revalidate` + ETag) — la coquille, le
+ * catalogue (nom fixe, contenu variable), sw.js, le manifeste, les fiches.
  */
-const SANS_CACHE = 'no-cache, must-revalidate'
 const IMMUABLE = 'public, max-age=31536000, immutable'
+const SANS_CACHE = 'no-cache, must-revalidate'
 
-// Du plus general au plus precis : la derniere regle qui matche l'emporte.
-const REGLES: [string, string][] = [
-  ['/(.*)', SANS_CACHE],                    // la coquille HTML avant tout
-  ['/_nuxt/(.*)', IMMUABLE],                // noms haches : vraiment immuables
-  ['/_nuxt/builds/(.*)', SANS_CACHE],       // le signal de nouveau build
-  ['/_nuxt/builds/meta/(.*)', IMMUABLE],    // un fichier par build : immuable
-  ['/data/(.*)', SANS_CACHE],               // catalogue : nom fixe, contenu variable
-  ['/sw\\.js', SANS_CACHE],                 // sinon aucune mise a jour ne passe
-  ['/manifest\\.webmanifest', SANS_CACHE]
-]
+function fichierEntetes(): string {
+  const regle = (chemin: string, entetes: Record<string, string>) =>
+    [chemin, ...Object.entries(entetes).map(([k, v]) => `  ${k}: ${v}`)].join('\n')
+  const regles = [
+    // La sécurité, sur tout.
+    regle('/*', ENTETES_COMMUNES),
+    // Noms hachés : vraiment immuables. Tous à plat dans /_nuxt/.
+    regle('/_nuxt/:fichier', { 'cache-control': IMMUABLE }),
+    // Le signal de nouveau build (latest.json) : jamais figé.
+    regle('/_nuxt/builds/:fichier', { 'cache-control': SANS_CACHE }),
+    // Un fichier par build : immuable.
+    regle('/_nuxt/builds/meta/:fichier', { 'cache-control': IMMUABLE }),
+    // Les fiches statiques : aucun script exécutable en ligne. La coquille de
+    // l'app a sa politique à elle, avec son nonce (server/plugins/securite.ts).
+    ...SECTIONS_STATIQUES.map(s => regle(`/${s}/*`, { 'content-security-policy': POLITIQUE_STATIQUE }))
+  ]
+  return regles.join('\n\n') + '\n'
+}
 
 export default defineNuxtModule({
   meta: { name: 'entetes-cache' },
   setup(_options, nuxt) {
+    if (nuxt.options.dev) return
     nuxt.hook('nitro:init', nitro => {
-      if (!String(nitro.options.preset).startsWith('vercel')) return
-
+      if (!String(nitro.options.preset).startsWith('cloudflare')) return
       nitro.hooks.hook('compiled', async () => {
-        const chemin = resolve(nitro.options.output.dir, 'config.json')
-        let config: any
-        try { config = JSON.parse(await readFile(chemin, 'utf8')) }
-        catch { return }                     // pas de Build Output : rien a faire
-        if (!Array.isArray(config.routes)) return
-
-        const nouvelles: any[] = REGLES.map(([src, valeur]) => ({
-          src, headers: { 'cache-control': valeur }, continue: true
-        }))
-        // La securite, sur TOUTES les reponses (fichiers statiques compris :
-        // server/middleware/entetes.ts ne voit que ce que le serveur rend).
-        nouvelles.push({ src: '/(.*)', headers: { ...ENTETES_COMMUNES }, continue: true })
-        // Les fiches statiques ont leur politique de contenu ; celle de l'app
-        // est posee page par page, avec son nonce (server/plugins/securite.ts).
-        nouvelles.push({ src: PAGES_STATIQUES,
-                         headers: { 'content-security-policy': POLITIQUE_STATIQUE }, continue: true })
-
-        const i = config.routes.findIndex((r: any) => r?.handle === 'filesystem')
-        if (i === -1) config.routes.push(...nouvelles)
-        else config.routes.splice(i, 0, ...nouvelles)
-
-        await writeFile(chemin, JSON.stringify(config, null, 2))
-        nitro.logger.success(`En-tetes de cache et de securite posees (${nouvelles.length} regles).`)
+        await writeFile(resolve(nitro.options.output.publicDir, '_headers'), fichierEntetes())
+        nitro.logger.success(`En-tetes de cache et de securite poses (_headers, ${4 + SECTIONS_STATIQUES.length} regles).`)
       })
     })
   }

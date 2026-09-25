@@ -7,6 +7,6 @@
  */
 export default defineEventHandler(async (e) => {
   const moi = await exigerCompte(e)
-  await q(`update utilisateurs set cle_acces_hash = null where id = $1`, [moi.id])
+  await ecrire(`update utilisateurs set cle_acces_hash = null where id = ?1`, [moi.id])
   return { ok: true }
 })

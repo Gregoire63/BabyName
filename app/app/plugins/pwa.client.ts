@@ -40,7 +40,7 @@ export default defineNuxtPlugin(() => {
         // repasse par lui et recree un cache. On revide une fois tout arrive.
         document.fonts?.ready.then(() => setTimeout(vider, 150))
         setTimeout(vider, 1200)
-        console.warn('[babyNames] service worker desinstalle (developpement) — rechargez')
+        console.warn('[babyNamed] service worker desinstalle (developpement) — rechargez')
       }).catch(() => { /* navigation privee */ })
     }
     return
@@ -141,7 +141,7 @@ export default defineNuxtPlugin(() => {
     } catch (e) {
       // Pas de worker : pas d'installation possible, pas de cache hors ligne,
       // mais le filet 3 ci-dessus continue de detecter les nouvelles versions.
-      console.warn('[babyNames] service worker indisponible', e)
+      console.warn('[babyNamed] service worker indisponible', e)
     }
   }
   if (document.readyState === 'complete') brancher()

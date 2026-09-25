@@ -1,25 +1,30 @@
 {
-  "name": "prenoms",
+  "name": "babynamed",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",
     "build": "node scripts/seo.mjs && nuxt build",
-    "preview": "nuxt preview",
+    "preview": "nuxt build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
     "postinstall": "nuxt prepare",
     "dev:neuf": "node --input-type=commonjs -e \"require('node:fs').rmSync('.data',{recursive:true,force:true})\" && nuxt dev",
-    "seo": "node scripts/seo.mjs"
+    "seo": "node scripts/seo.mjs",
+    "base:migrer": "wrangler d1 migrations apply DB --remote --config wrangler.jsonc",
+    "base:copier-neon": "node scripts/neon-vers-d1.mjs"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^14.0.0",
     "@simplewebauthn/server": "^14.0.2",
     "nuxt": "^4.5.2",
-    "pg": "^8.13.0",
     "vue": "^3.5.0",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.3.0",
-    "@types/pg": "^8.11.0"
+    "pg": "^8.23.0",
+    "wrangler": "^4.141.0"
+  },
+  "engines": {
+    "node": ">=20.18"
   }
 }

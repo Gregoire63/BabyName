@@ -24,7 +24,7 @@ import { compteur, BASE } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const SITE = 'https://exemple-babynames.test'
+const SITE = 'https://exemple-babynamed.test'
 const sortie = mkdtempSync(join(tmpdir(), 'seo-'))
 const journal = execFileSync('node', [join(RACINE, 'scripts/seo.mjs')], {
   env: { ...process.env, SEO_SORTIE: sortie, NUXT_PUBLIC_SITE_URL: SITE }, encoding: 'utf8'
@@ -43,7 +43,7 @@ dit(!!webapp && webapp.url === `${SITE}/` && webapp.offers?.length === 2,
   'la page de l’app déclare une WebApplication, gratuite avec une option payante')
 dit(faq?.mainEntity?.length >= 4, `et sa FAQ en données structurées (${faq?.mainEntity?.length} questions)`)
 dit(app.includes(`<link rel="canonical" href="${SITE}/choisir-un-prenom-a-deux/">`), 'avec son URL canonique')
-const schema = readFileSync(join(RACINE, 'server/assets/schema.sql'), 'utf8')
+const schema = readFileSync(join(RACINE, 'server/assets/migrations/0001_initial.sql'), 'utf8')
 const depart = schema.match(/quota_depart\s+\w+\s+not null default (\d+)/)[1]
 const jour = schema.match(/quota_par_jour\s+\w+\s+not null default (\d+)/)[1]
 dit(app.includes(`${depart} prénoms pour commencer, puis ${jour} par jour`),
@@ -51,7 +51,7 @@ dit(app.includes(`${depart} prénoms pour commencer, puis ${jour} par jour`),
 
 // ---------- llms.txt -------------------------------------------------------
 const llms = lire('llms.txt')
-dit(/^# babyNames\n\n> /.test(llms), 'llms.txt suit le format : titre, puis résumé en citation')
+dit(/^# babyNamed\n\n> /.test(llms), 'llms.txt suit le format : titre, puis résumé en citation')
 const liens = [...llms.matchAll(/\]\((.*?)\)/g)].map(m => m[1])
 dit(liens.length >= 10 && liens.every(u => u.startsWith(SITE)),
   `ses ${liens.length} liens sont absolus, sur le domaine du build`)

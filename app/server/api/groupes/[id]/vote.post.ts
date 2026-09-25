@@ -1,3 +1,5 @@
+import type { Instruction } from '../../../utils/db'
+
 export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
@@ -34,13 +36,14 @@ export default defineEventHandler(async (e) => {
 
   // Le prénom montré sur la carte est jugé explicitement : il s'écrit sans
   // condition et sans racine — c'est LUI qu'on regardait.
-  await q(`insert into votes (groupe_id, user_id, prenom, valeur, balayage)
-           values ($1, $2, $3, $4, $5)
-           on conflict (groupe_id, user_id, prenom)
-           do update set valeur = excluded.valeur, vote_le = now(),
-                         balayage = excluded.balayage
-                   where $5::text is null`,
-    [gid, moi.user_id, prenom, valeur, racine])
+  const ecritures: Instruction[] = [[
+    `insert into votes (groupe_id, user_id, prenom, valeur, balayage)
+     values (?1, ?2, ?3, ?4, ?5)
+     on conflict (groupe_id, user_id, prenom)
+     do update set valeur = excluded.valeur, vote_le = ${MAINTENANT},
+                   balayage = excluded.balayage
+             where ?5 is null`,
+    [gid, moi.user_id, prenom, valeur, racine]]]
 
   // Les autres graphies suivent, mais JAMAIS au prix d'un jugement porté un
   // par un : le « where votes.balayage is not null » ne laisse un vote
@@ -50,15 +53,18 @@ export default defineEventHandler(async (e) => {
   // verdict, ce qui est l'incohérence inverse.
   if (autres.length) {
     const marque = (racine ?? `ph:${prenom}`).slice(0, 40)
-    const lignes = autres.map((_, i) => `($1, $2, $${i + 5}, $3, $4)`).join(', ')
-    await q(`insert into votes (groupe_id, user_id, prenom, valeur, balayage)
-             values ${lignes}
-             on conflict (groupe_id, user_id, prenom)
-             do update set valeur = excluded.valeur, vote_le = now(),
-                           balayage = excluded.balayage
-                     where votes.balayage is not null`,
-      [gid, moi.user_id, valeur, marque, ...autres])
+    ecritures.push([
+      `insert into votes (groupe_id, user_id, prenom, valeur, balayage)
+       select ?1, ?2, value, ?3, ?4 from json_each(?5)
+       where true
+       on conflict (groupe_id, user_id, prenom)
+       do update set valeur = excluded.valeur, vote_le = ${MAINTENANT},
+                     balayage = excluded.balayage
+               where votes.balayage is not null`,
+      [gid, moi.user_id, valeur, marque, autres]])
   }
+  // Un seul lot : le prénom et ses graphies s'écrivent ensemble.
+  await lot(ecritures)
 
   // On renvoie les votes des autres sur CE prénom : légitime, on vient de voter.
   return { ok: true, quota, votes: await votesVisibles(gid, moi.user_id, [prenom]) }

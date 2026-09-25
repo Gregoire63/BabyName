@@ -1,0 +1,56 @@
+// La configuration du Worker Cloudflare de babyNamed.
+//
+// Nitro la reprend au build et y ajoute ce qu'il génère (point d'entrée,
+// fichiers statiques) dans .output/server/wrangler.json : c'est celle que
+// `npx wrangler deploy` envoie. Ici, seulement ce qui est à nous.
+// Voir LISEZMOI, « Héberger sur Cloudflare ».
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "babynamed",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // La base : D1, créée UNE fois, dans l'Union européenne (irréversible) :
+  //   npx wrangler d1 create babynamed --jurisdiction eu
+  // puis l'identifiant affiché remplace celui-ci. Ce n'est pas un secret.
+  // Ne JAMAIS ajouter "remote": true : `nuxt dev` parlerait à la vraie base.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "babynamed",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "server/assets/migrations"
+    }
+  ],
+
+  // Ce qui n'est pas secret. Les secrets (NUXT_SESSION_SECRET, NUXT_EMAIL_CLE,
+  // NUXT_STRIPE_SECRET_KEY, NUXT_STRIPE_WEBHOOK_SECRET, NUXT_STRIPE_PRICE_ID,
+  // CRON_SECRET éventuel) se posent par `npx wrangler secret put NOM` ou dans
+  // le tableau de bord (Worker → Settings → Variables and Secrets).
+  "vars": {
+    "NUXT_PUBLIC_SITE_URL": "https://babynamed.fr",
+    "NUXT_PUBLIC_PRIX_LISTE": "6 €",
+    "NUXT_EMAIL_EXPEDITEUR": "babyNamed <connexion@babynamed.fr>"
+  },
+
+  // La purge RGPD, chaque nuit : la MÊME expression que scheduledTasks dans
+  // nuxt.config.ts (c'est elle qui choisit la tâche à lancer).
+  "triggers": { "crons": ["17 3 * * *"] },
+
+  // Le domaine. À décommenter une fois babynamed.fr ajouté au compte
+  // Cloudflare (serveurs DNS du registrar pointés vers Cloudflare) :
+  // "routes": [{ "pattern": "babynamed.fr", "custom_domain": true }],
+
+  // L'adresse d'essai en .workers.dev : à fermer (false) une fois le domaine
+  // en place — une passkey créée là-bas ne vaut pas sur babynamed.fr.
+  "workers_dev": true,
+  // Pas d'adresse publique par version : elles partageraient la vraie base.
+  "preview_urls": false,
+
+  // Le Worker s'exécute près de la base quand ça fait gagner du temps (une
+  // requête = plusieurs allers-retours vers D1).
+  "placement": { "mode": "smart" },
+
+  // Les journaux (erreurs, bilan de la purge) : Workers Logs.
+  "observability": { "enabled": true }
+}

@@ -12,11 +12,12 @@ export default defineEventHandler(async (e) => {
   const liste = prenomsValides(prenoms, 200)
   if (!liste.length) throw createError({ statusCode: 400, statusMessage: 'aucun_prenom' })
 
-  await q(`delete from votes
-            where groupe_id = $1 and user_id = $2 and prenom = any($3)`,
-    [gid, moi.user_id, liste])
-  // L'Elo et le classement manuel du prénom n'ont plus lieu d'être.
-  await q(`delete from elo where groupe_id = $1 and user_id = $2 and prenom = any($3)`,
-    [gid, moi.user_id, liste])
+  await lot([
+    [`delete from votes where groupe_id = ?1 and user_id = ?2 and prenom in ${DANS(3)}`,
+      [gid, moi.user_id, liste]],
+    // L'Elo et le classement manuel du prénom n'ont plus lieu d'être.
+    [`delete from elo where groupe_id = ?1 and user_id = ?2 and prenom in ${DANS(3)}`,
+      [gid, moi.user_id, liste]]
+  ])
   return { ok: true, remis: liste.length }
 })

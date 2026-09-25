@@ -16,7 +16,7 @@ export default defineEventHandler(async (e) => {
 
   const g = await q1<{ paye: boolean; code: string | null }>(
     `select (paye_le is not null) as paye, code_observateur as code
-       from groupes where id = $1`, [gid])
+       from groupes where id = ?1`, [gid])
   if (!g) throw createError({ statusCode: 404, statusMessage: 'groupe_introuvable' })
   if (!g.paye) throw createError({ statusCode: 402, statusMessage: 'liste_non_debloquee' })
   if (g.code) return { ok: true, code: g.code }
@@ -27,16 +27,16 @@ export default defineEventHandler(async (e) => {
     const code = nouveauCodeInvitation()
     try {
       const r = await q1<{ code_observateur: string }>(
-        `update groupes set code_observateur = $2
-          where id = $1 and code_observateur is null
+        `update groupes set code_observateur = ?2
+          where id = ?1 and code_observateur is null
           returning code_observateur`, [gid, code])
       if (r) return { ok: true, code: r.code_observateur }
       // Quelqu'un d'autre vient de le créer : c'est le sien qui fait foi.
       const d = await q1<{ code: string }>(
-        `select code_observateur as code from groupes where id = $1`, [gid])
+        `select code_observateur as code from groupes where id = ?1`, [gid])
       if (d?.code) return { ok: true, code: d.code }
     } catch (err: any) {
-      if (err?.code !== '23505') throw err
+      if (!estDoublon(err)) throw err
     }
   }
   throw createError({ statusCode: 503, statusMessage: 'code_indisponible' })

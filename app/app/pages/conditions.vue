@@ -16,7 +16,7 @@ const prix = (config.public.prixListe as string) || '6 €'
   <PageLegale titre="Conditions générales d’utilisation et de vente" :version="VERSIONS_TEXTES.conditions">
     <h2>1. Objet</h2>
     <p>
-      Ces conditions régissent l’utilisation de babyNames, application qui aide à choisir un prénom à
+      Ces conditions régissent l’utilisation de babyNamed, application qui aide à choisir un prénom à
       plusieurs, et l’achat de son option payante. Elles sont conclues entre vous et l’éditeur,
       {{ e.nom }}, {{ e.forme.toLowerCase() }} (voir les <NuxtLink to="/mentions-legales">mentions légales</NuxtLink>).
       Créer un compte vaut acceptation des conditions d’utilisation ; un achat suppose en plus d’accepter
@@ -25,7 +25,7 @@ const prix = (config.public.prixListe as string) || '6 €'
 
     <h2>2. Le service</h2>
     <p>
-      babyNames propose un catalogue de prénoms issu des statistiques de l’Insee, des listes partagées où
+      babyNamed propose un catalogue de prénoms issu des statistiques de l’Insee, des listes partagées où
       chacun juge les prénoms sans voir l’avis des autres avant d’avoir donné le sien, et le relevé des
       prénoms sur lesquels tout le monde est d’accord.
     </p>

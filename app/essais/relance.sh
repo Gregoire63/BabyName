@@ -18,6 +18,9 @@ if [ -f "$ENV_ESSAI" ]; then
   set -a; . "$ENV_ESSAI"; set +a
 fi
 pkill -f "nuxt dev" 2>/dev/null
+# La base D1 locale tourne dans workerd, lance par wrangler pour `nuxt dev` :
+# il survit parfois a son parent.
+pkill -f "workerd serve" 2>/dev/null
 sleep 3
 rm -rf .data
 (setsid nohup npx nuxt dev --port "$PORT" > /tmp/dev.log 2>&1 &)

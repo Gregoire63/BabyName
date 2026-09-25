@@ -1,8 +1,9 @@
 /**
  * Les en-têtes de sécurité — une seule source pour les trois endroits qui les
- * posent : le module de build (fichiers statiques servis par Vercel), le
- * serveur en développement (server/middleware/entetes.ts), et la politique
- * de contenu de la coquille de l'app (server/plugins/securite.ts).
+ * posent : le module de build (fichier _headers, pour les fichiers statiques
+ * que Cloudflare sert sans passer par le Worker), le serveur (ses propres
+ * réponses, server/middleware/entetes.ts), et la politique de contenu de la
+ * coquille de l'app (server/plugins/securite.ts).
  *
  * Fichier simple, sans import automatique : le module de build le lit aussi.
  */
@@ -55,5 +56,5 @@ export function politiqueApp(nonce: string): string {
 /** Les pages statiques (fiches prénoms) : aucun script exécutable en ligne. */
 export const POLITIQUE_STATIQUE = [...BASE_CSP, "script-src 'self'"].join('; ')
 
-/** Les chemins des pages statiques générées par scripts/seo.mjs. */
-export const PAGES_STATIQUES = '/(prenoms|prenom|lettre|origine|choisir-un-prenom-a-deux)(/.*)?'
+/** Les dossiers des pages statiques générées par scripts/seo.mjs. */
+export const SECTIONS_STATIQUES = ['prenoms', 'prenom', 'lettre', 'origine', 'choisir-un-prenom-a-deux']

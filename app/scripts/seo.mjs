@@ -2,7 +2,8 @@
 /**
  * Pages SEO : une fiche statique par prénom, des pages de liste, sitemap et
  * robots.txt — générées AVANT `nuxt build` dans public/, donc servies telles
- * quelles par Vercel, sans SSR ni JavaScript.
+ * quelles par Cloudflare (fichiers statiques), sans SSR ni JavaScript — et
+ * sans passer par le Worker.
  *
  * Pourquoi un script et pas le prérendu de Nuxt : l'app est en `ssr: false`
  * et doit le rester (catalogue embarqué, tout se joue côté client). Passer
@@ -17,10 +18,9 @@
  * Les graphies qui ne diffèrent que par les accents (Léa / Lea) partagent
  * une URL : c'est la même recherche Google. La plus fréquente porte la page.
  *
- * Domaine : NUXT_PUBLIC_SITE_URL, sinon le domaine de production que Vercel
- * injecte au build (VERCEL_PROJECT_PRODUCTION_URL).
+ * Domaine : NUXT_PUBLIC_SITE_URL, sinon babynamed.fr.
  */
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -28,10 +28,8 @@ const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PUBLIC = resolve(RACINE, 'public')
 // Pour relire le rendu sans toucher public/ : SEO_SORTIE=/tmp/seo node scripts/seo.mjs
 const SORTIE = process.env.SEO_SORTIE ? resolve(process.env.SEO_SORTIE) : PUBLIC
-const SITE = (process.env.NUXT_PUBLIC_SITE_URL
-  || (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
-  || 'https://babyname-five.vercel.app').replace(/\/$/, '')
-const MARQUE = 'babyNames'
+const SITE = (process.env.NUXT_PUBLIC_SITE_URL || 'https://babynamed.fr').replace(/\/$/, '')
+const MARQUE = 'babyNamed'
 /**
  * La date de derniere modification des pages, pour le sitemap. PAS la date du
  * build : a chaque push, 7 500 URL se seraient declarees modifiees, et Google
@@ -46,7 +44,11 @@ const PRIX = (process.env.NUXT_PUBLIC_PRIX_LISTE || '6 €').trim()
 const PRIX_NOMBRE = Number(PRIX.replace(',', '.').replace(/[^\d.]/g, '')) || 6
 // Les limites du gratuit viennent du schema, pas d'une copie : si elles
 // changent en base, la page qui les annonce change au build suivant.
-const SCHEMA = readFileSync(resolve(RACINE, 'server/assets/schema.sql'), 'utf8')
+// Les limites du gratuit, lues dans les migrations de la base : la page ne
+// peut pas annoncer autre chose que ce que fait l'app.
+const MIGRATIONS = resolve(RACINE, 'server/assets/migrations')
+const SCHEMA = readdirSync(MIGRATIONS).filter(f => f.endsWith('.sql')).sort()
+  .map(f => readFileSync(resolve(MIGRATIONS, f), 'utf8')).join('\n')
 const defaut = (col, repli) => Number(SCHEMA.match(new RegExp(`${col}\\s+\\w+\\s+not null default (\\d+)`))?.[1] ?? repli)
 const QUOTA_DEPART = defaut('quota_depart', 150)
 const QUOTA_JOUR = defaut('quota_par_jour', 15)
@@ -425,7 +427,7 @@ urls.unshift('/prenoms/')
 
 // ---------------------------------------------------------------- l'application
 /**
- * La page qui dit ce qu'est babyNames. La racine « / » est l'application :
+ * La page qui dit ce qu'est babyNamed. La racine « / » est l'application :
  * une coquille JavaScript, vide pour un robot qui n'execute pas le JS — ce
  * qui est le cas de la plupart des robots d'IA (GPTBot, ClaudeBot,
  * PerplexityBot…). Sans cette page, rien de lisible ne disait ce que fait
@@ -438,7 +440,7 @@ const FAQ = [
   ['Mon ou ma partenaire voit-il mes votes ?',
    'Seulement sur les prénoms qu’il ou elle a déjà jugés soi-même. Avant, rien : c’est le vote à l’aveugle. Un « non » n’est jamais annoncé, et personne ne sait qui a bloqué un prénom.'],
   ['Faut-il installer une application ?',
-   'Non. babyNames s’ouvre dans le navigateur, sur téléphone comme sur ordinateur, et s’ajoute à l’écran d’accueil si vous le souhaitez. Votre partenaire rejoint votre liste par un simple lien.'],
+   'Non. babyNamed s’ouvre dans le navigateur, sur téléphone comme sur ordinateur, et s’ajoute à l’écran d’accueil si vous le souhaitez. Votre partenaire rejoint votre liste par un simple lien.'],
   ['Est-ce vraiment gratuit ?',
    `Oui : on trie, on trouve ses accords et on choisit sans rien payer — ${QUOTA_DEPART} prénoms pour commencer, puis ${QUOTA_JOUR} par jour, sans jamais être bloqué. L’option à ${PRIX} TTC débloque une liste pour tous ses membres, en une fois : pas d’abonnement.`],
   ['D’où viennent les chiffres ?',

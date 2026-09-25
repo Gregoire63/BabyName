@@ -15,14 +15,14 @@ export default defineEventHandler(async (e) => {
    * bricolerait son lien s'elirait sinon parent, avec droit de veto sur des
    * accords qui ne sont pas les siens.
    */
-  const g = await q1<{ id: number; nom: string; observateur: boolean }>(
-    `select id, nom, (code_observateur = $1) as observateur
-       from groupes where code_invitation = $1 or code_observateur = $1`, [c])
+  const g = await q1<{ id: string; nom: string; observateur: boolean }>(
+    `select cast(id as text) as id, nom, coalesce(code_observateur = ?1, 0) as observateur
+       from groupes where code_invitation = ?1 or code_observateur = ?1`, [c])
   if (!g) throw createError({ statusCode: 404, statusMessage: 'groupe_introuvable' })
   const role = g.observateur ? 'observateur' : 'invite'
   // `do nothing` : un membre deja parent ne se fait pas retrograder parce
   // qu'on lui a repasse le lien « observateur ».
-  await q(`insert into membres (groupe_id, user_id, role, poids) values ($1, $2, $3, 1.0)
-           on conflict do nothing`, [g.id, uid, role])
+  await ecrire(`insert into membres (groupe_id, user_id, role, poids) values (?1, ?2, ?3, 1.0)
+                on conflict do nothing`, [Number(g.id), uid, role])
   return { id: g.id, nom: g.nom, role }
 })

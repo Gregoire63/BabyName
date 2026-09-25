@@ -133,7 +133,7 @@ function piedFacture(siteUrl: string, consentementLe: string): string {
  * la preuve, lisible dans le Dashboard, de ce qui a ete accepte et quand.
  */
 export async function creerSession(opts: {
-  gid: number, uid: string, siteUrl: string, email?: string | null, consentementLe: string
+  gid: number, uid: string, siteUrl: string, retour?: string, email?: string | null, consentementLe: string
 }) {
   const k = cles()
   const direct = !k.managed
@@ -158,8 +158,8 @@ export async function creerSession(opts: {
     metadata: meta,
     // `{CHECKOUT_SESSION_ID}` est remplace par Stripe : au retour, l'app peut
     // demander elle-meme si c'est paye, sans attendre le webhook.
-    success_url: `${opts.siteUrl}/g/${opts.gid}/swipe?paye=1&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${opts.siteUrl}/g/${opts.gid}/swipe?paye=0`,
+    success_url: `${opts.retour ?? opts.siteUrl}/g/${opts.gid}/swipe?paye=1&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${opts.retour ?? opts.siteUrl}/g/${opts.gid}/swipe?paye=0`,
     allow_promotion_codes: true,
     customer_email: opts.email || undefined,
     // La liste se lit AUSSI sur le paiement, pas seulement sur la session : le
@@ -167,7 +167,7 @@ export async function creerSession(opts: {
     // « j'ai paye et rien ne s'est debloque », c'est la que l'on cherche.
     // (Sans effet pour un code a 100 % : aucun paiement n'est alors cree.)
     payment_intent_data: {
-      description: `babyNames — liste ${opts.gid}`,
+      description: `babyNamed — liste ${opts.gid}`,
       metadata: meta
     },
     // Managed Payments refuse custom_text (verifie en live), et envoie lui-meme
@@ -181,7 +181,7 @@ export async function creerSession(opts: {
             '(art. L221-28 13° du Code de la consommation).'
         },
         after_submit: {
-          message: 'Paiement traité par Stripe : babyNames ne voit jamais votre carte. ' +
+          message: 'Paiement traité par Stripe : babyNamed ne voit jamais votre carte. ' +
             'La facture vous est envoyée par e-mail.'
         }
       },
@@ -191,7 +191,7 @@ export async function creerSession(opts: {
       invoice_creation: {
         enabled: true,
         invoice_data: {
-          description: `Déblocage de la liste n° ${opts.gid} sur babyNames — accès immédiat, sans abonnement.`,
+          description: `Déblocage de la liste n° ${opts.gid} sur babyNamed — accès immédiat, sans abonnement.`,
           footer: piedFacture(opts.siteUrl, opts.consentementLe),
           custom_fields: [
             { name: 'Liste', value: `n° ${opts.gid}` },
@@ -206,7 +206,7 @@ export async function creerSession(opts: {
       // Le logo, lui, se pose dans le Dashboard (Parametres → Image de marque) :
       // il sert aussi aux recus et aux factures.
       branding_settings: {
-        display_name: 'babyNames',
+        display_name: 'babyNamed',
         font_family: 'nunito',
         border_style: 'pill',
         button_color: '#1a234e',
@@ -268,10 +268,10 @@ export async function livrer(session: any): Promise<{ livre: boolean; raison?: s
   // `where paye_le is null` : un second passage ne réécrit ni la date ni
   // l'acheteur. L'acheteur peut avoir efface son compte entre-temps : la
   // cle etrangere refuserait son id, on ne le note alors pas.
-  await q(`update groupes set paye_le = now(),
-                  paye_par = (select id from utilisateurs where id = $2::uuid),
-                  offert = $3, paiement_ref = $4
-            where id = $1 and paye_le is null`, [gid, uid, offert, ref])
+  await ecrire(`update groupes set paye_le = ${MAINTENANT},
+                       paye_par = (select id from utilisateurs where id = ?2),
+                       offert = ?3, paiement_ref = ?4
+                 where id = ?1 and paye_le is null`, [gid, uid, offert, ref])
   return { livre: true, groupe: gid, offert }
 }
 
@@ -301,8 +301,8 @@ export async function reprendrePaiement(ev: any): Promise<{ repris: boolean; rai
   const pi = typeof o?.payment_intent === 'string' ? o.payment_intent : o?.payment_intent?.id
   if (typeof pi !== 'string' || !pi.startsWith('pi_')) return { repris: false, raison: 'sans_paiement' }
   const r = await q<{ id: number }>(
-    `update groupes set paye_le = null, paye_par = null, offert = false
-      where paiement_ref = $1 and paye_le is not null returning id`, [pi])
+    `update groupes set paye_le = null, paye_par = null, offert = 0
+      where paiement_ref = ?1 and paye_le is not null returning id`, [pi])
   return r.length ? { repris: true, groupe: Number(r[0]!.id) } : { repris: false, raison: 'liste_inconnue' }
 }
 

@@ -14,7 +14,7 @@ export default defineEventHandler(async (e) => {
   if (norme.length < 8) throw createError({ statusCode: 400, statusMessage: 'cle_invalide' })
 
   const u = await q1<{ id: string; pseudo: string; gen: number }>(
-    `update utilisateurs set vu_le = now() where cle_acces_hash = $1
+    `update utilisateurs set vu_le = ${MAINTENANT} where cle_acces_hash = ?1
      returning id, pseudo, session_gen as gen`, [hacherCle(norme)])
   if (!u) throw createError({ statusCode: 403, statusMessage: 'cle_inconnue' })
 

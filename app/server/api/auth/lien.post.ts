@@ -13,7 +13,7 @@ export default defineEventHandler(async (e) => {
   if (!courrielPret()) throw createError({ statusCode: 503, statusMessage: 'courriel_non_configure' })
 
   const u = await q1<{ id: string; pseudo: string }>(
-    `select id, pseudo from utilisateurs where email = $1 and email_verifie_le is not null`, [email])
+    `select id, pseudo from utilisateurs where email = ?1 and email_verifie_le is not null`, [email])
   if (u) {
     const { jeton, code } = await creerLien({ email, userId: u.id, but: 'connexion' })
     await envoyerCourriel(courrielConnexion({ a: email, pseudo: u.pseudo, lien: lienDe(e, jeton), code }))

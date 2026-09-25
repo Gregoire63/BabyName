@@ -1,6 +1,6 @@
 /**
  * Le lien par e-mail est-il proposé ? Seulement si l'envoi est configuré sur
- * le serveur (clé et expéditeur posés dans Vercel). Sinon, on ne montre pas
+ * le serveur (clé et expéditeur posés sur le Worker). Sinon, on ne montre pas
  * un bouton qui répondrait « pas encore en place » : la passkey suffit.
  * Demandé une fois par visite.
  */

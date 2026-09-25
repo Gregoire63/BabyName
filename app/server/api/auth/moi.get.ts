@@ -11,12 +11,11 @@
 export default defineEventHandler(async (e) => {
   const s = sessionOuNull(e)
   if (!s) return { connecte: false }
-  const u = await q1<any>(
-    `with activite as (${NOTER_ACTIVITE})
-     select u.id, u.pseudo, u.email, u.session_gen as gen,
+  const u = await avecActivite<any>(s.u,
+    `select u.id, u.pseudo, u.email, u.session_gen as gen,
             u.cle_acces_hash is not null as a_une_cle,
-            (select count(*)::int from passkeys p where p.user_id = u.id) as passkeys
-       from utilisateurs u where u.id = $1`, [s.u])
+            (select count(*) from passkeys p where p.user_id = u.id) as passkeys
+       from utilisateurs u where u.id = ?1`, [s.u])
   if (!u || u.gen !== s.g) { retirerSession(e); return { connecte: false } }
   return {
     connecte: true,

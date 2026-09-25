@@ -12,25 +12,22 @@ import type { H3Event } from 'h3'
 /**
  * La « partie de confiance » : le domaine auquel une passkey est liée.
  *
- * Une passkey créée sur babyname-five.vercel.app ne vaut QUE là : c'est ce
- * qui la rend insensible à l'hameçonnage (une copie de la page sur un autre
- * domaine ne peut rien en tirer). Conséquence à connaître : changer de
- * domaine plus tard rend les passkeys existantes inutilisables — mieux vaut
- * poser le domaine définitif avant d'en créer en production.
+ * Une passkey créée sur babynamed.fr ne vaut QUE là : c'est ce qui la rend
+ * insensible à l'hameçonnage (une copie de la page sur un autre domaine ne
+ * peut rien en tirer). Conséquence : changer de domaine plus tard rend les
+ * passkeys existantes inutilisables.
  *
- * En production, seules les adresses CONNUES comptent (NUXT_PUBLIC_SITE_URL,
- * l'adresse de production de Vercel) : l'en-tête Host d'une requête ne
- * choisit rien. En local et sur les préversions, l'adresse de la requête.
+ * L'adresse de la REQUÊTE fait foi, et c'est sûr sur Cloudflare : une requête
+ * n'atteint le Worker que par l'un de SES noms (babynamed.fr, ou l'adresse
+ * workers.dev d'essai tant qu'elle est ouverte) — un en-tête Host forgé mène
+ * ailleurs, pas ici. Un lien de connexion part donc toujours vers l'app
+ * elle-même. NUXT_PUBLIC_SITE_URL s'ajoute aux origines acceptées ; en
+ * local, c'est localhost.
  */
 export function partieConfiante(e: H3Event) {
-  const demande = getRequestURL(e).origin
-  const c = useRuntimeConfig()
-  const prod = process.env.VERCEL_PROJECT_PRODUCTION_URL
-  const connues = [c.public.siteUrl as string, prod ? `https://${prod}` : '']
-    .filter(Boolean).map(u => u.replace(/\/$/, ''))
-  const production = process.env.VERCEL_ENV === 'production'
-  const origines = production && connues.length ? [...new Set(connues)] : [...new Set([...connues, demande])]
-  const origine = origines.includes(demande) ? demande : origines[0]!
+  const origine = getRequestURL(e).origin
+  const site = String(useRuntimeConfig().public.siteUrl || '').replace(/\/$/, '')
+  const origines = [...new Set([origine, site].filter(Boolean))]
   return {
     rpID: new URL(origine).hostname,
     origine,

@@ -27,7 +27,7 @@ const c = CONSERVATION
     <h2>Qui est responsable</h2>
     <p>
       Le responsable du traitement est {{ e.nom }}, {{ e.forme.toLowerCase() }}, éditeur de
-      babyNames (coordonnées complètes dans les <NuxtLink to="/mentions-legales">mentions légales</NuxtLink>).
+      babyNamed (coordonnées complètes dans les <NuxtLink to="/mentions-legales">mentions légales</NuxtLink>).
       Pour toute question sur vos données : <a :href="`mailto:${e.email}`">{{ e.email }}</a>.
     </p>
 
@@ -77,10 +77,10 @@ const c = CONSERVATION
     <dl>
       <dt>Données</dt>
       <dd>
-        Chez babyNames : la date du déblocage, le compte qui l’a payé, la référence du paiement chez
+        Chez babyNamed : la date du déblocage, le compte qui l’a payé, la référence du paiement chez
         Stripe, la version des conditions acceptées et l’heure de votre accord.
         Chez Stripe, qui encaisse : votre e-mail, votre moyen de paiement, votre pays et des informations
-        techniques utiles à la lutte contre la fraude. <strong>babyNames ne voit jamais votre carte.</strong>
+        techniques utiles à la lutte contre la fraude. <strong>babyNamed ne voit jamais votre carte.</strong>
       </dd>
       <dt>Pourquoi</dt>
       <dd>Vendre, facturer, prouver votre accord à l’exécution immédiate, traiter un remboursement ou une contestation.</dd>
@@ -140,8 +140,9 @@ const c = CONSERVATION
 
     <h2>Transferts hors de l’Union européenne</h2>
     <p>
-      Vercel et Neon sont des sociétés américaines : vos données peuvent être traitées aux États-Unis
-      <template v-if="e.regionDonnees">(la base elle-même est hébergée à {{ e.regionDonnees }})</template>.
+      Cloudflare, qui héberge l’application, est une société américaine : vos données peuvent être traitées
+      aux États-Unis<template v-if="e.regionDonnees"> — la base elle-même est conservée dans
+      {{ e.regionDonnees }}</template>.
       Ces transferts reposent sur la décision d’adéquation de la Commission européenne pour les entreprises
       certifiées Data Privacy Framework, et sur les clauses contractuelles types de la Commission.
       Stripe Payments Europe est établie en Irlande ; certaines données peuvent être traitées par Stripe, Inc.
@@ -190,14 +191,14 @@ const c = CONSERVATION
     </p>
 
     <h2>Cookies et stockage sur votre appareil</h2>
-    <p>babyNames ne dépose <strong>aucun cookie publicitaire ni de mesure d’audience</strong>. Ce qu’il garde sur votre appareil sert uniquement à faire marcher l’app, ce qui le dispense de votre consentement (art. 82 de la loi Informatique et Libertés) :</p>
+    <p>babyNamed ne dépose <strong>aucun cookie publicitaire ni de mesure d’audience</strong>. Ce qu’il garde sur votre appareil sert uniquement à faire marcher l’app, ce qui le dispense de votre consentement (art. 82 de la loi Informatique et Libertés) :</p>
     <ul>
       <li><strong>pr_session</strong> (cookie) : vous garde connecté(e) {{ c.sessionJours }} jours. Illisible par les scripts de la page, envoyé uniquement en HTTPS.</li>
       <li><strong>pr_defi</strong> (cookie) : le temps de créer ou d’utiliser une passkey, cinq minutes au plus ; il est effacé dès qu’il a servi.</li>
       <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour, et le prénom choisi depuis une fiche tant qu’il n’est pas jugé. Ces informations restent sur votre appareil et sont effacées à la déconnexion — sauf le thème choisi (clair, sombre), réglage de l’appareil et non du compte.</li>
       <li><strong>Cache hors ligne</strong> : les fichiers de l’application et le catalogue des prénoms, pour que l’app s’ouvre vite. Aucune donnée personnelle.</li>
     </ul>
-    <p>La police de caractères est servie par babyNames lui-même : ouvrir l’app n’envoie rien à Google ni à aucun autre tiers.</p>
+    <p>La police de caractères est servie par babyNamed lui-même : ouvrir l’app n’envoie rien à Google ni à aucun autre tiers.</p>
 
     <h2>Sécurité</h2>
     <p>
@@ -210,7 +211,7 @@ const c = CONSERVATION
     </p>
 
     <h2>Mineurs</h2>
-    <p>babyNames s’adresse aux personnes majeures qui choisissent un prénom pour leur enfant.</p>
+    <p>babyNamed s’adresse aux personnes majeures qui choisissent un prénom pour leur enfant.</p>
 
     <h2>Modifications</h2>
     <p>

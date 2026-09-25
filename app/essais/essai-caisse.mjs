@@ -154,7 +154,7 @@ if (process.env.NUXT_STRIPE_MANAGED_PAYMENTS) {
   dit(/\/conditions/.test(pied), 'et renvoie aux conditions acceptées')
   dit(/rétractation/.test(f?.get('custom_text[submit][message]') ?? ''),
       'la page de paiement le rappelle au-dessus du bouton')
-  dit(f?.get('branding_settings[display_name]') === 'babyNames', 'la page de paiement porte le nom de l’app')
+  dit(f?.get('branding_settings[display_name]') === 'babyNamed', 'la page de paiement porte le nom de l’app')
   dit(f?.get('line_items[0][tax_rates][0]') === null, 'aucun taux de TVA appliqué en franchise')
 }
 

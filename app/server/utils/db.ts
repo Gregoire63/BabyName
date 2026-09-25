@@ -1,145 +1,230 @@
-import pg from 'pg'
-
 /**
- * Résolution de l'URL de connexion.
+ * La base : Cloudflare D1 — du SQLite, dans le compte Cloudflare qui sert
+ * l'app. En production comme en développement : `nuxt dev` passe par wrangler
+ * (getPlatformProxy), qui fait tourner le MÊME moteur en local, dans
+ * .data/wrangler. Ce qui passe en local passe en ligne.
  *
- * Les intégrations Vercel préfixent leurs variables par le nom du store :
- * un store « neon-database » produit NEON_DATABASE_DATABASE_URL,
- * NEON_DATABASE_POSTGRES_URL, NEON_DATABASE_DATABASE_URL_UNPOOLED… Une liste
- * en dur est donc condamnée à être fausse. On détecte par motif :
- *   1. NUXT_DATABASE_URL, si on veut forcer une valeur
- *   2. toute variable se terminant par DATABASE_URL ou POSTGRES_URL, en
- *      écartant les variantes non poolées
- *   3. les non poolées en dernier recours
+ * Pourquoi D1 plutôt qu'un Postgres : rien à réveiller (Neon s'endormait après
+ * cinq minutes sans requête), aucune connexion à ouvrir puis fermer à chaque
+ * requête, une sauvegarde de sept jours incluse (Time Travel), et un seul
+ * prestataire pour l'app et ses données.
  *
- * Le pooling n'est pas un détail : en serverless, chaque instance ouvre ses
- * propres connexions. Sans le pooler de Neon, quelques minutes d'usage
- * épuisent le quota et la base refuse tout le monde.
+ * Trois différences avec Postgres commandent le reste du code :
+ *  - pas de transaction « ouverte » : on envoie un LOT d'instructions
+ *    (`lot()`), exécuté d'un bloc, tout ou rien — c'est aussi un seul
+ *    aller-retour ;
+ *  - les dates sont du texte ISO 8601 en UTC, au format de
+ *    `Date.toISOString()` (« 2026-09-25T21:05:04.563Z ») : elles se trient
+ *    comme du texte et se lisent avec `new Date()` (voir MAINTENANT) ;
+ *  - ni booléens ni JSON natifs : 0/1 et du texte. Remis en forme ici, en
+ *    sortie (BOOLEENS, JSONS), pour que l'API réponde exactement comme avant.
+ *
+ * Paramètres numérotés `?1`, `?2`… (un même numéro peut servir deux fois).
  */
-const NON_POOLE = /UNPOOLED|NON_POOLING|NO_SSL/
-const CANDIDATE = /(^|_)(DATABASE_URL|POSTGRES_URL)$/
 
-export function urlBase(): { url: string; source: string | null } {
-  const force = String(useRuntimeConfig().databaseUrl || '')
-  if (force) return { url: force, source: 'NUXT_DATABASE_URL' }
-
-  const cles = Object.keys(process.env).filter(k => CANDIDATE.test(k) && process.env[k])
-  const poolees = cles.filter(k => !NON_POOLE.test(k))
-  // à défaut de pooler, on prend quand même : mieux vaut une app lente qu'une app morte
-  const choix = poolees.sort()[0] ?? cles.filter(k => NON_POOLE.test(k)).sort()[0]
-  return choix ? { url: process.env[choix]!, source: choix } : { url: '', source: null }
+// --- ce que l'on utilise de l'API D1 (types minimaux, sans dépendance) -------
+interface D1Meta { changes?: number; rows_read?: number; rows_written?: number; last_row_id?: number }
+interface D1Resultat { results?: any[]; meta?: D1Meta }
+interface D1Instruction {
+  bind(...valeurs: unknown[]): D1Instruction
+  all(): Promise<D1Resultat>
+  run(): Promise<D1Resultat>
+  first(): Promise<any>
+}
+export interface D1 {
+  prepare(sql: string): D1Instruction
+  batch(instructions: D1Instruction[]): Promise<D1Resultat[]>
 }
 
-/** Le strict minimum qu'une route attend d'une base. Postgres distant et
- *  Postgres embarqué implémentent la même chose — aucune route ne sait
- *  laquelle des deux elle a sous les pieds. */
-export interface Requeteur {
-  query(sql: string, params?: any[]): Promise<{ rows: any[] }>
-}
-export interface Connexion extends Requeteur {
-  /** Une transaction. Tout ou rien, quel que soit le moteur. */
-  transaction<T>(fn: (c: Requeteur) => Promise<T>): Promise<T>
-  /** Plusieurs instructions d'un coup — un fichier de schéma, typiquement. */
-  executer(sql: string): Promise<void>
-  moteur: 'postgres' | 'embarque'
+export type Valeur = string | number | boolean | null | undefined | Date | object
+export type Instruction = [sql: string, params?: Valeur[]]
+export interface Resultat<T = any> { rows: T[]; changes: number; lues: number; ecrites: number }
+
+/** Maintenant, au format des dates de la base. */
+export const MAINTENANT = `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+
+/** Un instant décalé de maintenant, au même format : `decale('-1 day')`. Le
+ *  modificateur peut aussi être un paramètre : `decale('?2')`. */
+export const decale = (modificateur: string) =>
+  `strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ${modificateur.startsWith('?') ? modificateur : `'${modificateur}'`})`
+
+/** Le jour de Paris (AAAA-MM-JJ) : un filet qui revient à deux heures du
+ *  matin passe pour un bug. SQLite ne connaît pas les fuseaux ; JS, si. */
+export function jourParis(d = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(d)
 }
 
-let connexion: Promise<Connexion> | null = null
+/** Une liste en paramètre : `prenom in (select value from json_each(?3))`. */
+export const DANS = (n: number) => `(select value from json_each(?${n}))`
 
-/** Postgres distant : Neon en production. */
-function distant(url: string): Connexion {
-  const pool = new pg.Pool({
-    connectionString: url,
-    max: 3,                       // fonctions serverless : peu de connexions par instance
-    idleTimeoutMillis: 10_000,
-    connectionTimeoutMillis: 8_000,
-    ssl: url.includes('localhost') ? undefined : { rejectUnauthorized: false }
-  })
+/** Une contrainte d'unicité a refusé l'écriture (l'ancien code 23505). */
+export function estDoublon(err: unknown): boolean {
+  return /UNIQUE constraint failed|SQLITE_CONSTRAINT_(UNIQUE|PRIMARYKEY)/i.test(String((err as any)?.message ?? err))
+}
+
+// Colonnes à remettre en forme en sortie. Un nom ici vaut pour toutes les
+// requêtes : on nomme ses colonnes en conséquence.
+const BOOLEENS = new Set([
+  'favoris_visibles', 'offert', 'synchronisee', 'paye', 'a_une_cle', 'observateur',
+  'creee_par_moi', 'debloquee', 'debloquee_par_moi', 'cle_acces_active',
+  'rangee_dans_un_trousseau'
+])
+const JSONS = new Set(['filtres', 'transports'])
+
+function ligne(r: any) {
+  for (const k in r) {
+    const v = r[k]
+    if (v === null) continue
+    if (BOOLEENS.has(k)) r[k] = !!v
+    else if (JSONS.has(k) && typeof v === 'string') {
+      try { r[k] = JSON.parse(v) } catch { /* laisse le texte */ }
+    }
+  }
+  return r
+}
+
+/** Ce que D1 sait lier : ni `undefined`, ni booléen, ni date, ni tableau. */
+function valeur(v: Valeur): string | number | null {
+  if (v === undefined || v === null) return null
+  if (typeof v === 'boolean') return v ? 1 : 0
+  if (v instanceof Date) return v.toISOString()
+  if (typeof v === 'object') return JSON.stringify(v)
+  return v as string | number
+}
+
+function preparer(db: D1, sql: string, params: Valeur[] = []) {
+  const p = db.prepare(sql)
+  return params.length ? p.bind(...params.map(valeur)) : p
+}
+
+function resultat<T>(r: D1Resultat): Resultat<T> {
   return {
-    moteur: 'postgres',
-    query: (sql, params) => pool.query(sql, params),
-    executer: async (sql) => { await pool.query(sql) },
-    async transaction(fn) {
-      const client = await pool.connect()
-      try {
-        await client.query('begin')
-        const r = await fn(client)
-        await client.query('commit')
-        return r
-      } catch (err) {
-        await client.query('rollback').catch(() => null)
-        throw err
-      } finally {
-        client.release()
-      }
+    rows: (r.results ?? []).map(ligne) as T[],
+    changes: r.meta?.changes ?? 0,
+    lues: r.meta?.rows_read ?? 0,
+    ecrites: r.meta?.rows_written ?? 0
+  }
+}
+
+/** Les requêtes, liées à une base donnée — sans attendre qu'elle soit prête. */
+export function outils(db: D1) {
+  const q = async <T = any>(sql: string, params: Valeur[] = []): Promise<T[]> =>
+    resultat<T>(await preparer(db, sql, params).all()).rows
+  return {
+    db,
+    q,
+    q1: async <T = any>(sql: string, params: Valeur[] = []): Promise<T | null> =>
+      (await q<T>(sql, params))[0] ?? null,
+    /** Une écriture : combien de lignes elle a touchées. */
+    ecrire: async (sql: string, params: Valeur[] = []) => resultat(await preparer(db, sql, params).run()),
+    /** Un lot : exécuté d'un bloc, dans l'ordre, tout ou rien. */
+    lot: async (instructions: Instruction[]): Promise<Resultat[]> => {
+      if (!instructions.length) return []
+      const r = await db.batch(instructions.map(([sql, params]) => preparer(db, sql, params)))
+      return r.map(x => resultat(x))
     }
   }
 }
+export type Outils = ReturnType<typeof outils>
+
+function liaison(): D1 {
+  const db = (globalThis as any).__env__?.DB as D1 | undefined
+  if (!db) throw createError({ statusCode: 500, statusMessage: 'base_absente' })
+  return db
+}
+
+// --- migrations ----------------------------------------------------------------
 
 /**
- * Postgres embarqué, en développement uniquement.
- *
- * Pourquoi : sans base, on ne peut meme pas se connecter a l'app en local —
- * il n'y a rien a regarder. Neon n'est joignable ni depuis la machine de dev
- * ni depuis un connecteur, et un faux serveur d'API qui repond des donnees
- * inventees ment sur le SQL : c'est exactement comme ca qu'une colonne mal
- * nommee est partie en production sans que rien ne la rattrape.
- *
- * PGlite, c'est le vrai Postgres compile en WebAssembly. Memes types, memes
- * vues, memes erreurs. Rien a installer, rien a lancer a cote, et le fichier
- * vit dans .data/ qui n'est pas versionne.
- *
- * Ce chemin est mort en production : `import.meta.dev` vaut false a la
- * compilation, la branche disparait du bundle.
+ * Découpe un fichier de migration en instructions : D1 prépare une instruction
+ * à la fois. Un déclencheur (`create trigger … begin … ; … end`) reste entier.
+ * Les commentaires `--` partent avant : pas de `--` dans une chaîne, donc.
  */
-async function embarque(): Promise<Connexion> {
-  const { PGlite } = await import('@electric-sql/pglite')
-  const { pgcrypto } = await import('@electric-sql/pglite/contrib/pgcrypto')
-  const { mkdirSync } = await import('node:fs')
-  const dossier = '.data/dev'
-  mkdirSync(dossier, { recursive: true })   // PGlite ne cree pas les parents
-  const pgl = await PGlite.create({ dataDir: dossier, extensions: { pgcrypto } })
-
-  const c: Connexion = {
-    moteur: 'embarque',
-    query: (sql, params) => pgl.query(sql, params) as any,
-    executer: (sql) => pgl.exec(sql).then(() => undefined),
-    transaction: (fn) => pgl.transaction(tx => fn(tx as any)) as any
+export function decouper(sql: string): string[] {
+  const morceaux = sql.replace(/--[^\n]*/g, '').split(';')
+  const out: string[] = []
+  let enCours = ''
+  for (const m of morceaux) {
+    enCours = enCours ? `${enCours};${m}` : m
+    const t = enCours.trim()
+    if (!t) { enCours = ''; continue }
+    if (/^create\s+trigger/i.test(t) && !/\bend$/i.test(t)) continue
+    out.push(t)
+    enCours = ''
   }
-
-  // Schema idempotent : on le rejoue a chaque demarrage. Il ne coute rien, et
-  // une migration ecrite dans la journee est prise en compte sans rien faire.
-  const schema = await useStorage('assets:server').getItem<string>('schema.sql')
-  if (!schema) throw new Error('server/assets/schema.sql introuvable')
-  await c.executer(schema)
-
-  const { semerSiVide, annoncerBaseLocale } = await import('./semence')
-  // Semee a l'instant, elle vient de se presenter ; sinon on dit ou l'on en
-  // est — sans quoi le demarrage ne donnait ni les cles ni l'age du jeu.
-  if (!(await semerSiVide(c))) await annoncerBaseLocale(c).catch(() => null)
-  return c
+  if (enCours.trim()) out.push(enCours.trim())
+  return out
 }
 
-export function base(): Promise<Connexion> {
-  return (connexion ??= (async () => {
-    const { url } = urlBase()
-    if (url) return distant(url)
-    if (import.meta.dev) return embarque()
-    throw createError({ statusCode: 500, statusMessage: 'aucune_url_de_base' })
-  })())
+/**
+ * Applique les migrations manquantes (server/assets/migrations/*.sql).
+ *
+ * La même table que `wrangler d1 migrations apply` (d1_migrations) : on peut
+ * appliquer à la main avant un déploiement, ou laisser la première requête le
+ * faire. Chaque fichier passe en UN lot avec sa ligne de suivi : à moitié
+ * appliqué, il ne l'est pas du tout. Deux instances qui démarrent ensemble :
+ * la seconde bute sur la ligne de suivi, relit, et constate que c'est fait.
+ */
+export async function appliquerMigrations(db: D1): Promise<string[]> {
+  const stockage = useStorage('assets:server')
+  const cles = (await stockage.getKeys('migrations')).filter(k => k.endsWith('.sql')).sort()
+  await db.prepare(`create table if not exists d1_migrations (
+      id integer primary key autoincrement, name text unique,
+      applied_at timestamp default current_timestamp not null)`).run()
+  const faites = new Set(((await db.prepare('select name from d1_migrations').all()).results ?? [])
+    .map((r: any) => r.name as string))
+  const appliquees: string[] = []
+  for (const cle of cles) {
+    const nom = cle.split(':').pop()!
+    if (faites.has(nom)) continue
+    const sql = String(await stockage.getItem(cle) ?? '')
+    try {
+      await db.batch([
+        ...decouper(sql).map(s => db.prepare(s)),
+        db.prepare('insert into d1_migrations (name) values (?1)').bind(nom)
+      ])
+      appliquees.push(nom)
+    } catch (err) {
+      const deja = await db.prepare('select 1 as ok from d1_migrations where name = ?1').bind(nom).first()
+      if (!deja) throw err
+    }
+  }
+  return appliquees
 }
 
-export async function q<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-  const r = await (await base()).query(sql, params)
-  return r.rows as T[]
+// --- la base, prête -----------------------------------------------------------------
+
+let prete: Promise<void> | null = null
+
+/** La base, migrations appliquées (et, en développement, jeu d'essai semé). */
+export async function base(): Promise<Outils> {
+  const db = liaison()
+  prete ??= (async () => {
+    const appliquees = await appliquerMigrations(db)
+    if (appliquees.length) console.info('[base] migrations appliquées :', appliquees.join(', '))
+    if (import.meta.dev) {
+      const { semerSiVide, annoncerBaseLocale } = await import('./semence')
+      if (!(await semerSiVide(outils(db)))) await annoncerBaseLocale(outils(db)).catch(() => null)
+    }
+  })().catch((err) => { prete = null; throw err })
+  await prete
+  return outils(db)
 }
 
-export async function q1<T = any>(sql: string, params: any[] = []): Promise<T | null> {
-  const rows = await q<T>(sql, params)
-  return rows[0] ?? null
+export async function q<T = any>(sql: string, params: Valeur[] = []): Promise<T[]> {
+  return (await base()).q<T>(sql, params)
 }
 
-/** Tout ou rien. Remplace l'ancien `db().connect()` + begin/commit à la main. */
-export async function transaction<T>(fn: (c: Requeteur) => Promise<T>): Promise<T> {
-  return (await base()).transaction(fn)
+export async function q1<T = any>(sql: string, params: Valeur[] = []): Promise<T | null> {
+  return (await base()).q1<T>(sql, params)
+}
+
+export async function ecrire(sql: string, params: Valeur[] = []): Promise<Resultat> {
+  return (await base()).ecrire(sql, params)
+}
+
+export async function lot(instructions: Instruction[]): Promise<Resultat[]> {
+  return (await base()).lot(instructions)
 }

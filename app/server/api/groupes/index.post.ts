@@ -19,17 +19,16 @@ export default defineEventHandler(async (e) => {
   for (let i = 0; i < 5; i++) {
     const code = nouveauCodeInvitation()
     try {
-      const g = await transaction(async (c) => {
-        const { rows } = await c.query(
-          `insert into groupes (nom, code_invitation, cree_par, filtres)
-           values ($1, $2, $3, $4) returning id`, [n, code, uid, JSON.stringify(f)])
-        await c.query(`insert into membres (groupe_id, user_id, role) values ($1, $2, 'parent')`,
-          [rows[0].id, uid])
-        return rows[0]
-      })
-      return { id: Number(g.id), nom: n, code_invitation: code }
+      // Un lot : la liste et son premier membre, ensemble ou pas du tout.
+      const [g] = await lot([
+        [`insert into groupes (nom, code_invitation, cree_par, filtres)
+          values (?1, ?2, ?3, ?4) returning id`, [n, code, uid, JSON.stringify(f)]],
+        [`insert into membres (groupe_id, user_id, role)
+          select id, ?2, 'parent' from groupes where code_invitation = ?1`, [code, uid]]
+      ])
+      return { id: Number(g!.rows[0].id), nom: n, code_invitation: code }
     } catch (err: any) {
-      if (err?.code !== '23505') throw err
+      if (!estDoublon(err)) throw err
     }
   }
   throw createError({ statusCode: 503, statusMessage: 'code_indisponible' })

@@ -18,15 +18,15 @@ export default defineEventHandler(async (e) => {
   // l'id du compte (voir le schema). `coalesce` : deux onglets en meme temps
   // ne doivent pas en creer deux.
   const handle = (await q1<{ h: string }>(
-    `update utilisateurs set webauthn_id = coalesce(webauthn_id, $2)
-      where id = $1 returning webauthn_id as h`,
+    `update utilisateurs set webauthn_id = coalesce(webauthn_id, ?2)
+      where id = ?1 returning webauthn_id as h`,
     [moi.id, randomBytes(32).toString('base64url')]))!.h
 
   const existantes = await q<{ id: string; transports: string[] }>(
-    `select id, transports from passkeys where user_id = $1`, [moi.id])
+    `select id, transports from passkeys where user_id = ?1`, [moi.id])
 
   const options = await generateRegistrationOptions({
-    rpName: 'babyNames',
+    rpName: 'babyNamed',
     rpID: rp.rpID,
     // Ce que le trousseau affichera : l'adresse si on en a une (elle
     // distingue deux comptes), sinon le nom.

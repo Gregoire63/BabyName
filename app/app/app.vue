@@ -5,7 +5,7 @@ onMounted(() => { rafraichirMoi() })
 useHead({
   // Le titre par defaut (nuxt.config) commence deja par le nom : on ne le
   // redouble pas.
-  titleTemplate: (t?: string) => (t && !t.startsWith('babyNames') ? `${t} · babyNames` : (t || 'babyNames'))
+  titleTemplate: (t?: string) => (t && !t.startsWith('babyNamed') ? `${t} · babyNamed` : (t || 'babyNamed'))
 })
 
 /**

@@ -31,7 +31,7 @@ const depuis = computed(() => props.version
       </button>
       <NuxtLink to="/" class="marque">
         <img src="/logo.png" alt="" width="26" height="26">
-        <span>babyNames</span>
+        <span>babyNamed</span>
       </NuxtLink>
     </header>
 

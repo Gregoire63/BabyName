@@ -111,7 +111,7 @@ async function payer() {
 
     <h3 class="titre-bloc">Comment ça se passe</h3>
     <p class="mini doux" style="margin:0">
-      Paiement sur la page sécurisée de Stripe : babyNames ne voit jamais votre carte.
+      Paiement sur la page sécurisée de Stripe : babyNamed ne voit jamais votre carte.
       La liste se débloque aussitôt, et la facture arrive par e-mail.
     </p>
 

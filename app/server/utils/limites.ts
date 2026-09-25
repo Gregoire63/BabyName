@@ -25,11 +25,11 @@ import type { H3Event } from 'h3'
  */
 const FACTEUR_DEV = Number(process.env.NUXT_LIMITES_FACTEUR) || 50
 
-/** L'adresse du client. Sur Vercel, X-Real-IP et X-Forwarded-For sont posés
- *  par la plateforme, qui écrase ce que le client enverrait. */
+/** L'adresse du client. Sur Cloudflare, CF-Connecting-IP est posé par la
+ *  plateforme, qui écrase ce que le client enverrait. En local, il n'y a que
+ *  la socket. */
 export function ipDe(e: H3Event): string {
-  return getHeader(e, 'x-real-ip')?.trim()
-    || (getHeader(e, 'x-forwarded-for') ?? '').split(',')[0]!.trim()
+  return getHeader(e, 'cf-connecting-ip')?.trim()
     || getRequestIP(e)
     || 'inconnue'
 }
@@ -42,19 +42,18 @@ export function ipDe(e: H3Event): string {
 export async function limiter(e: H3Event, action: string, qui: string, max: number, fenetreSec: number) {
   const plafond = import.meta.dev ? max * FACTEUR_DEV : max
   const cle = `${action}:${empreinteSignee(qui, 'limite').slice(0, 24)}`
-  const r = await q1<{ n: number; reste: number }>(
-    `insert into limites (cle, debut, n) values ($1, now(), 1)
+  const maintenant = Date.now()
+  const r = await q1<{ n: number; debut: string }>(
+    `insert into limites (cle, debut, n) values (?1, ?2, 1)
      on conflict (cle) do update set
-       n     = case when limites.debut < now() - make_interval(secs => $2::double precision)
-                    then 1 else limites.n + 1 end,
-       debut = case when limites.debut < now() - make_interval(secs => $2::double precision)
-                    then now() else limites.debut end
-     returning n, greatest(1, ceil(extract(epoch from
-       (debut + make_interval(secs => $2::double precision) - now()))))::int as reste`,
-    [cle, fenetreSec])
+       n     = case when limites.debut < ?3 then 1 else limites.n + 1 end,
+       debut = case when limites.debut < ?3 then ?2 else limites.debut end
+     returning n, debut`,
+    [cle, new Date(maintenant).toISOString(), new Date(maintenant - fenetreSec * 1000).toISOString()])
   if (r && r.n > plafond) {
-    setHeader(e, 'retry-after', String(r.reste))
-    throw createError({ statusCode: 429, statusMessage: 'trop_d_essais', data: { reessayer_dans: r.reste } })
+    const reste = Math.max(1, Math.ceil((Date.parse(r.debut) + fenetreSec * 1000 - maintenant) / 1000))
+    setHeader(e, 'retry-after', String(reste))
+    throw createError({ statusCode: 429, statusMessage: 'trop_d_essais', data: { reessayer_dans: reste } })
   }
 }
 
@@ -62,5 +61,5 @@ export async function limiter(e: H3Event, action: string, qui: string, max: numb
  *  qui s'est trompé deux fois puis a réussi. */
 export async function oublierEssais(action: string, qui: string) {
   const cle = `${action}:${empreinteSignee(qui, 'limite').slice(0, 24)}`
-  await q(`delete from limites where cle = $1`, [cle])
+  await ecrire(`delete from limites where cle = ?1`, [cle])
 }

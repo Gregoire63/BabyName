@@ -33,7 +33,7 @@ async function renommer() {
 }
 
 async function partager() {
-  const donnees = { title: 'babyNames', text: 'Aide-moi à choisir un prénom', url: lien.value }
+  const donnees = { title: 'babyNamed', text: 'Aide-moi à choisir un prénom', url: lien.value }
   if (navigator.share) { try { await navigator.share(donnees); return } catch { /* annulé */ } }
   await navigator.clipboard.writeText(lien.value)
   copie.value = true; setTimeout(() => copie.value = false, 1800)

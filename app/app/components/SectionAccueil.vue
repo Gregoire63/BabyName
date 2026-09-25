@@ -218,7 +218,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
     <main id="contenu" class="defile page" tabindex="-1">
       <header class="tete">
         <img src="/logo.png" alt="" width="34" height="34">
-        <h1 style="flex:1">babyNames</h1>
+        <h1 style="flex:1">babyNamed</h1>
         <!-- Le nom visible est dans le nom accessible (WCAG 2.5.3) : « Mon
              compte : Greg » se dit et se commande a la voix par « Greg ». -->
         <button type="button" class="qui" :aria-label="`Mon compte : ${moi?.pseudo ?? ''}`"

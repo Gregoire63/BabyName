@@ -21,14 +21,15 @@ const e = EDITEUR
     <h2>Hébergement</h2>
     <p>
       <strong>{{ HEBERGEUR.nom }}</strong> — {{ HEBERGEUR.adresse }}.<br>
-      Contact : <a :href="`mailto:${HEBERGEUR.contact}`">{{ HEBERGEUR.contact }}</a> ·
+      Téléphone : {{ HEBERGEUR.telephone }} ·
+      contact : <a :href="`mailto:${HEBERGEUR.contact}`">{{ HEBERGEUR.contact }}</a> ·
       <a :href="HEBERGEUR.site" rel="noopener">{{ HEBERGEUR.site.replace('https://', '') }}</a>
     </p>
     <p>
-      La base de données est hébergée par Neon, LLC (groupe Databricks),
-      160 Spear Street, Suite 1300, San Francisco, CA 94105, États-Unis.
-      Le détail des prestataires et des garanties encadrant vos données figure
-      dans la <NuxtLink to="/confidentialite">politique de confidentialité</NuxtLink>.
+      Le même prestataire héberge l’application et sa base de données, conservée
+      dans l’Union européenne. Le détail des prestataires et des garanties
+      encadrant vos données figure dans la
+      <NuxtLink to="/confidentialite">politique de confidentialité</NuxtLink>.
     </p>
 
     <h2>Propriété intellectuelle</h2>
@@ -43,7 +44,7 @@ const e = EDITEUR
         <strong>Statistiques de naissances</strong> : Insee, fichier des prénoms
         (millésime 2025), sous
         <a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/" rel="noopener">Licence Ouverte 2.0</a>.
-        Les indicateurs dérivés (tendances, projections, rareté) sont calculés par babyNames.
+        Les indicateurs dérivés (tendances, projections, rareté) sont calculés par babyNamed.
       </li>
       <li>
         <strong>Significations et origines</strong> : en partie issues du
@@ -57,7 +58,7 @@ const e = EDITEUR
       <li>
         <strong>Police de caractères</strong> : Nunito, par Vernon Adams et contributeurs,
         sous <a href="https://openfontlicense.org/" rel="noopener">SIL Open Font License 1.1</a>,
-        servie par babyNames lui-même.
+        servie par babyNamed lui-même.
       </li>
     </ul>
 

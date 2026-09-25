@@ -3,6 +3,8 @@ node_modules
 .nuxt
 .output
 .vercel
+.wrangler
+.dev.vars*
 .env
 .env.*
 .data

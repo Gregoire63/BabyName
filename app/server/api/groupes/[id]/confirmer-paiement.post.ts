@@ -3,7 +3,7 @@
  *
  * Le webhook reste la voie principale — lui seul voit les paiements des gens
  * qui ferment l'onglet avant la redirection. Mais c'est aussi un point de
- * panne unique : un secret mal recopié dans Vercel, et chaque acheteur paie
+ * panne unique : un secret mal recopié sur le Worker, et chaque acheteur paie
  * sans rien recevoir. Stripe recommande donc de livrer AUSSI au retour.
  *
  * Rien ici ne fait confiance au navigateur : il n'apporte qu'un identifiant
@@ -27,6 +27,6 @@ export default defineEventHandler(async (e) => {
 
   const r = await livrer(s)
   const g = await q1<{ paye: boolean }>(
-    `select (paye_le is not null) as paye from groupes where id = $1`, [gid])
+    `select (paye_le is not null) as paye from groupes where id = ?1`, [gid])
   return { ok: true, paye: !!g?.paye, raison: r.livre ? undefined : r.raison }
 })

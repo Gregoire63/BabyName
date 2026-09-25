@@ -2,7 +2,7 @@
 /**
  * Declaration d'accessibilite.
  *
- * babyNames n'y est pas oblige : l'obligation de l'article 47 de la loi du
+ * babyNamed n'y est pas oblige : l'obligation de l'article 47 de la loi du
  * 11 fevrier 2005 vise les organismes publics et les grandes entreprises, et
  * l'Acte europeen sur l'accessibilite exempte les microentreprises de
  * services. On la publie quand meme, au format du RGAA, parce qu'elle dit ce
@@ -21,15 +21,15 @@ const auditLe = computed(() => new Date(`${VERSIONS_TEXTES.accessibilite}T12:00:
 <template>
   <PageLegale titre="Déclaration d’accessibilité" :version="VERSIONS_TEXTES.accessibilite">
     <p>
-      {{ e.nom }} s’engage à rendre babyNames accessible à tous, conformément au référentiel général
+      {{ e.nom }} s’engage à rendre babyNamed accessible à tous, conformément au référentiel général
       d’amélioration de l’accessibilité (RGAA, version 4.1.2), qui reprend les critères de niveau AA des
-      règles internationales WCAG 2.1. Cette déclaration s’applique à l’application babyNames.
+      règles internationales WCAG 2.1. Cette déclaration s’applique à l’application babyNamed.
       Elle est volontaire : l’éditeur, microentreprise, n’est pas soumis à l’obligation légale.
     </p>
 
     <h2>État de conformité</h2>
     <p>
-      babyNames est <strong>partiellement conforme</strong> au RGAA 4.1.2. Aucun audit complet n’a été
+      babyNamed est <strong>partiellement conforme</strong> au RGAA 4.1.2. Aucun audit complet n’a été
       mené par un organisme externe : ce statut repose sur un audit interne, décrit plus bas.
     </p>
 

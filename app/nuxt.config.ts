@@ -1,14 +1,8 @@
-import { fileURLToPath } from 'node:url'
-
-const VIDE = fileURLToPath(new URL('./vide.mjs', import.meta.url))
-
 // Le domaine public, pour les balises Open Graph de la coquille (meme regle que
-// scripts/seo.mjs). Vide en local : les chemins restent relatifs.
-const SITE = (process.env.NUXT_PUBLIC_SITE_URL
-  || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
-).replace(/\/$/, '')
+// scripts/seo.mjs).
+const SITE = (process.env.NUXT_PUBLIC_SITE_URL || 'https://babynamed.fr').replace(/\/$/, '')
 const DESCRIPTION = 'Choisir le prénom de bébé à deux, sans s’influencer : chacun trie de son côté, '
-  + 'babyNames ne montre que les prénoms que vous aimez tous les deux. Gratuit, sans mot de passe.'
+  + 'babyNamed ne montre que les prénoms que vous aimez tous les deux. Gratuit, sans mot de passe.'
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-09-01',
@@ -22,7 +16,7 @@ export default defineNuxtConfig({
       htmlAttrs: { lang: 'fr' },
       // Le titre de la coquille : chaque page le remplace aussitot, mais c'est
       // lui que lisent les robots qui n'executent pas le JavaScript.
-      title: 'babyNames — choisir le prénom de bébé à deux',
+      title: 'babyNamed — choisir le prénom de bébé à deux',
       meta: [
         // resizes-content : sur Android, le clavier redimensionne la page au
         // lieu de se poser dessus — les feuilles restent visibles. iPhone
@@ -31,8 +25,8 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#1a234e' },
         { name: 'description', content: DESCRIPTION },
         { property: 'og:type', content: 'website' },
-        { property: 'og:site_name', content: 'babyNames' },
-        { property: 'og:title', content: 'babyNames — choisir le prénom de bébé à deux' },
+        { property: 'og:site_name', content: 'babyNamed' },
+        { property: 'og:title', content: 'babyNamed — choisir le prénom de bébé à deux' },
         { property: 'og:description', content: DESCRIPTION },
         { property: 'og:image', content: `${SITE}/icone-512.png` },
         { property: 'og:locale', content: 'fr_FR' }
@@ -42,7 +36,7 @@ export default defineNuxtConfig({
       // savoir ce qu'est l'app, et ou lire la suite.
       noscript: [{
         tagPosition: 'bodyOpen',
-        innerHTML: '<h1>babyNames — choisir le prénom de bébé à deux</h1>'
+        innerHTML: '<h1>babyNamed — choisir le prénom de bébé à deux</h1>'
           + `<p>${DESCRIPTION}</p>`
           + '<p><a href="/choisir-un-prenom-a-deux/">Comment ça marche, prix et confidentialité</a> · '
           + '<a href="/prenoms/">Signification, origine et popularité des prénoms donnés en France</a></p>'
@@ -65,8 +59,10 @@ export default defineNuxtConfig({
       ]
     }
   },
+  // Les valeurs se posent sur le Worker : les secrets par `wrangler secret put`
+  // (ou le tableau de bord Cloudflare), le reste dans wrangler.jsonc (vars).
+  // La base n'est pas une valeur : c'est la liaison D1 « DB » de wrangler.jsonc.
   runtimeConfig: {
-    databaseUrl: '',              // NUXT_DATABASE_URL (injecte par Neon sur Vercel)
     sessionSecret: '',            // NUXT_SESSION_SECRET
 
     // Les e-mails de connexion (lien + code). Le prestataire est nomme dans
@@ -74,11 +70,10 @@ export default defineNuxtConfig({
     // l'expediteur. Sans eux, l'app ne propose simplement pas le lien par
     // e-mail — les passkeys marchent sans.
     emailCle: '',                 // NUXT_EMAIL_CLE         (cle d'API du prestataire)
-    emailExpediteur: '',          // NUXT_EMAIL_EXPEDITEUR  (« babyNames <connexion@domaine.fr> »)
+    emailExpediteur: '',          // NUXT_EMAIL_EXPEDITEUR  (« babyNamed <connexion@babynamed.fr> »)
 
     // Stripe. Ces trois valeurs ne sont JAMAIS dans le dépôt : elles se posent
-    // dans les variables d'environnement Vercel, et la clé secrète ne quitte
-    // jamais le serveur. Le navigateur ne voit que l'URL de paiement que
+    // en secrets du Worker, et la clé secrète ne quitte jamais le serveur. Le navigateur ne voit que l'URL de paiement que
     // Stripe renvoie — aucune donnée de carte ne traverse l'app.
     stripeSecretKey: '',          // NUXT_STRIPE_SECRET_KEY      (sk_live_… / sk_test_…)
     stripeWebhookSecret: '',      // NUXT_STRIPE_WEBHOOK_SECRET  (whsec_…)
@@ -97,23 +92,31 @@ export default defineNuxtConfig({
     // l'id du taux « TVA FR 20 % » inclusive cree dans le Dashboard (txr_…).
     stripeTaxRateId: '',          // NUXT_STRIPE_TAX_RATE_ID
 
-    // La purge quotidienne (RGPD). Vercel lit CRON_SECRET directement et
-    // l'envoie au cron : c'est CE nom-la qu'il faut poser, sans prefixe.
+    // La purge quotidienne (RGPD) tourne seule, chaque nuit (scheduledTasks
+    // ci-dessous). CRON_SECRET ouvre en plus /api/admin/purger, pour la
+    // declencher a la main.
     cronSecret: '',               // CRON_SECRET (lu aussi tel quel)
 
     public: { siteUrl: '', prixListe: '6 €' }   // NUXT_PUBLIC_SITE_URL / NUXT_PUBLIC_PRIX_LISTE
   },
-  nitro: { preset: 'vercel' },
-
-  // Le Postgres embarque du developpement n'a rien a faire dans la fonction
-  // serverless : son code y est deja mort, mais le traceur recopiait quand
-  // meme le paquet et ses deux .wasm. Voir vide.mjs.
-  $production: {
-    nitro: {
-      alias: {
-        '@electric-sql/pglite': VIDE,
-        '@electric-sql/pglite/contrib/pgcrypto': VIDE
-      }
-    }
+  /**
+   * Cloudflare Workers : l'API et la coquille dans le Worker, les fichiers
+   * statiques servis directement par Cloudflare (sans le Worker), la base en
+   * D1 (liaison DB, wrangler.jsonc). Pas de démarrage à froid.
+   *
+   * En développement, `nuxt dev` passe par wrangler, qui fournit les mêmes
+   * liaisons en local : la base D1 locale vit dans .data/wrangler.
+   */
+  nitro: {
+    preset: 'cloudflare_module',
+    cloudflare: {
+      deployConfig: true,
+      nodeCompat: true,
+      dev: { persistDir: '.data/wrangler' }
+    },
+    experimental: { tasks: true },
+    // La purge RGPD, chaque nuit à 3 h 17 UTC. La MÊME expression doit figurer
+    // dans wrangler.jsonc (triggers.crons) : c'est elle qui réveille le Worker.
+    scheduledTasks: { '17 3 * * *': ['purge'] }
   }
 })

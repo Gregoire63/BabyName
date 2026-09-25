@@ -180,7 +180,7 @@ onBeforeUnmount(() => abandonnerPasskey())
     <template v-else>
       <div class="haut">
         <img src="/logo.png" alt="" width="66" height="66">
-        <h1>babyNames</h1>
+        <h1>babyNamed</h1>
         <p class="doux">Choisir un prénom à deux, sans s’influencer.</p>
       </div>
 

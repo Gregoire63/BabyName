@@ -17,7 +17,7 @@ export default defineEventHandler(async (e) => {
     return { but: 'verification', email: l.email }
   }
   const u = await q1<{ id: string; pseudo: string; gen: number }>(
-    `update utilisateurs set vu_le = now() where id = $1 and email = $2
+    `update utilisateurs set vu_le = ${MAINTENANT} where id = ?1 and email = ?2
      returning id, pseudo, session_gen as gen`, [l.user_id, l.email])
   // L'adresse a change entre l'envoi et le clic : le lien ne vaut plus.
   if (!u) throw createError({ statusCode: 400, statusMessage: 'lien_invalide' })

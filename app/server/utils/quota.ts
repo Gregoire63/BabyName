@@ -53,8 +53,6 @@ export interface Quota {
   reste: number
 }
 
-const JOUR = `(now() at time zone 'Europe/Paris')::date`
-
 interface Reglages {
   paye: boolean
   depart: number
@@ -66,9 +64,9 @@ interface Reglages {
 async function reglages(gid: number): Promise<Reglages> {
   const g = await q1<Reglages>(
     `select (paye_le is not null) as paye,
-            quota_depart::int as depart, quota_depart_liste::int as "departListe",
-            quota_par_jour::int as jour, gestes_depart::int as "faitListe"
-       from groupes where id = $1`, [gid])
+            quota_depart as depart, quota_depart_liste as "departListe",
+            quota_par_jour as jour, gestes_depart as "faitListe"
+       from groupes where id = ?1`, [gid])
   if (!g) throw createError({ statusCode: 404, statusMessage: 'groupe_introuvable' })
   return g
 }
@@ -79,12 +77,12 @@ async function reglages(gid: number): Promise<Reglages> {
  */
 async function comptes(uid: string): Promise<{ depart: number; jour: number }> {
   const r = await q1<{ depart: number; jour: number }>(
-    `select u.gestes_depart::int as depart,
-            coalesce((select sum(qj.n)::int
+    `select u.gestes_depart as depart,
+            coalesce((select sum(qj.n)
                         from quota_jour qj join groupes g on g.id = qj.groupe_id
-                       where qj.user_id = u.id and qj.jour = ${JOUR}
+                       where qj.user_id = u.id and qj.jour = ?2
                          and g.paye_le is null), 0) as jour
-       from utilisateurs u where u.id = $1`, [uid])
+       from utilisateurs u where u.id = ?1`, [uid, jourParis()])
   return { depart: r?.depart ?? 0, jour: r?.jour ?? 0 }
 }
 
@@ -119,39 +117,35 @@ export async function quotaEtat(gid: number, uid: string): Promise<Quota> {
  * aujourd'hui — auquel cas rien n'a été compté : une tentative refusée ne doit
  * pas manger le filet du lendemain.
  *
- * Le départ d'abord, puis le filet. Le départ se prend en UNE instruction qui
+ * Le départ d'abord, puis le filet. Le départ se prend en UN lot qui
  * vérifie les deux plafonds (personne, liste) et incrémente les deux
- * compteurs ensemble — ou aucun. Deux onglets ouverts au même instant
- * peuvent passer un geste de trop ; ça ne vaut pas un verrou.
+ * compteurs ensemble — ou aucun : la liste d'abord, sous condition des deux
+ * plafonds ; la personne ensuite, seulement si la liste vient de bouger
+ * (`changes()` : les lignes touchées par l'instruction précédente du lot).
+ * Deux onglets ouverts au même instant peuvent passer un geste de trop ; ça
+ * ne vaut pas un verrou.
  */
 export async function consommerGeste(gid: number, uid: string): Promise<Quota | null> {
   const g = await reglages(gid)
   if (g.paye) return etat(g, { depart: 0, jour: 0 })
 
-  const pris = await q1<{ n: number }>(
-    `with ok as (
-       select 1 from utilisateurs u, groupes g
-        where u.id = $1 and g.id = $2
-          and u.gestes_depart < g.quota_depart
-          and g.gestes_depart < g.quota_depart_liste
-     ), personne as (
-       update utilisateurs set gestes_depart = gestes_depart + 1
-        where id = $1 and exists (select 1 from ok) returning 1
-     ), liste as (
-       update groupes set gestes_depart = gestes_depart + 1
-        where id = $2 and exists (select 1 from ok) returning 1
-     )
-     select (select count(*) from personne)::int as n`, [uid, gid])
-  if (pris?.n) return quotaEtat(gid, uid)
+  const [, personne] = await lot([
+    [`update groupes set gestes_depart = gestes_depart + 1
+       where id = ?2 and gestes_depart < quota_depart_liste
+         and (select gestes_depart from utilisateurs where id = ?1) < quota_depart`, [uid, gid]],
+    [`update utilisateurs set gestes_depart = gestes_depart + 1
+       where id = ?1 and changes() = 1 returning 1 as n`, [uid]]
+  ])
+  if (personne!.rows.length) return quotaEtat(gid, uid)
 
   // Plus de départ : le filet du jour.
   if (g.jour <= 0) return null
   const c = await comptes(uid)
   if (c.jour >= g.jour) return null
-  await q(`insert into quota_jour (groupe_id, user_id, jour, n)
-           values ($1, $2, ${JOUR}, 1)
-           on conflict (groupe_id, user_id, jour)
-           do update set n = quota_jour.n + 1`,
-    [gid, uid])
+  await ecrire(`insert into quota_jour (groupe_id, user_id, jour, n)
+                values (?1, ?2, ?3, 1)
+                on conflict (groupe_id, user_id, jour)
+                do update set n = quota_jour.n + 1`,
+    [gid, uid, jourParis()])
   return quotaEtat(gid, uid)
 }

@@ -13,7 +13,7 @@ export default defineEventHandler(async (e) => {
   const moi = await exigerMembre(e, gid)
   const lignes = await q<{ prenom: string; vote_le: string; balayage: string | null }>(
     `select prenom, vote_le, balayage from votes
-      where groupe_id = $1 and user_id = $2 and valeur = 0
+      where groupe_id = ?1 and user_id = ?2 and valeur = 0
       order by vote_le desc limit 600`, [gid, moi.user_id])
 
   const familles = new Map<string, { racine: string; prenoms: string[]; le: string }>()

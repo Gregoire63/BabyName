@@ -16,19 +16,19 @@ export interface VoteVisible {
 export async function votesVisibles(
   groupeId: number, moi: string, prenoms?: string[]
 ): Promise<VoteVisible[]> {
-  const filtre = prenoms?.length ? 'and v.prenom = any($3)' : ''
+  const filtre = prenoms?.length ? `and v.prenom in ${DANS(3)}` : ''
   return q<VoteVisible>(
     `select v.prenom, v.user_id, u.pseudo, v.valeur
        from votes v
        join utilisateurs u on u.id = v.user_id
-      where v.groupe_id = $1
+      where v.groupe_id = ?1
         ${filtre}
         and (
-          v.user_id = $2
+          v.user_id = ?2
           or exists (select 1 from votes mien
                       where mien.groupe_id = v.groupe_id
-                        and mien.prenom    = v.prenom
-                        and mien.user_id   = $2)
+                        and mien.user_id   = ?2
+                        and mien.prenom    = v.prenom)
         )
       order by v.prenom`,
     prenoms?.length ? [groupeId, moi, prenoms] : [groupeId, moi]
@@ -42,11 +42,11 @@ export async function votesVisibles(
  *  observatrice — les accords ne l'attendent pas, justement. */
 export async function avancement(groupeId: number) {
   return q(
-    `select m.user_id, u.pseudo, m.role, count(v.prenom)::int as votes
+    `select m.user_id, u.pseudo, m.role, count(v.prenom) as votes
        from membres m
        join utilisateurs u on u.id = m.user_id
        left join votes v on v.groupe_id = m.groupe_id and v.user_id = m.user_id
-      where m.groupe_id = $1
+      where m.groupe_id = ?1
       group by m.user_id, u.pseudo, m.role
       order by votes desc`,
     [groupeId]

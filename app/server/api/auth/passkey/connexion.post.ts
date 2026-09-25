@@ -21,7 +21,7 @@ export default defineEventHandler(async (e) => {
                          transports: string[]; handle: string | null; gen: number; pseudo: string }>(
     `select p.id, p.user_id, p.cle_publique, p.compteur, p.transports,
             u.webauthn_id as handle, u.session_gen as gen, u.pseudo
-       from passkeys p join utilisateurs u on u.id = p.user_id where p.id = $1`, [reponse.id])
+       from passkeys p join utilisateurs u on u.id = p.user_id where p.id = ?1`, [reponse.id])
   if (!pk) {
     throw createError({ statusCode: 404, statusMessage: 'passkey_inconnue',
                         data: { rpID: rp.rpID, credentialID: reponse.id } })
@@ -49,9 +49,11 @@ export default defineEventHandler(async (e) => {
   }
   if (!v.verified) throw createError({ statusCode: 400, statusMessage: 'passkey_refusee' })
 
-  await q(`update passkeys set compteur = $2, utilisee_le = now(), synchronisee = $3 where id = $1`,
-    [pk.id, v.authenticationInfo.newCounter, v.authenticationInfo.credentialBackedUp])
-  await q(`update utilisateurs set vu_le = now() where id = $1`, [pk.user_id])
+  await lot([
+    [`update passkeys set compteur = ?2, utilisee_le = ${MAINTENANT}, synchronisee = ?3 where id = ?1`,
+      [pk.id, v.authenticationInfo.newCounter, v.authenticationInfo.credentialBackedUp]],
+    [`update utilisateurs set vu_le = ${MAINTENANT} where id = ?1`, [pk.user_id]]
+  ])
   poserSession(e, pk.user_id, pk.gen)
   return { utilisateur: { id: pk.user_id, pseudo: pk.pseudo } }
 })

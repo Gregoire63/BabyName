@@ -1,5 +1,5 @@
 /**
- * Qui edite babyNames, et ce que la loi oblige a dire.
+ * Qui edite babyNamed, et ce que la loi oblige a dire.
  *
  * UNE seule source pour les mentions legales, la politique de
  * confidentialite, les conditions de vente, la facture Stripe et /api/sante.
@@ -17,7 +17,7 @@
 export type RegimeTva = 'franchise' | 'assujetti'
 
 export const EDITEUR = {
-  marque: 'babyNames',
+  marque: 'babyNamed',
   /** Personne physique qui exploite le service (entreprise individuelle). */
   nom: 'Grégoire Raturat',
   forme: 'Entrepreneur individuel',
@@ -48,8 +48,12 @@ export const EDITEUR = {
    */
   mediateur: { nom: '', adresse: '', site: '' },
 
-  /** Facultatif : la region des serveurs, si on veut la preciser (ex. « Francfort, Allemagne »). */
-  regionDonnees: ''
+  /**
+   * Ou dort la base. La base D1 est creee avec `--jurisdiction eu` (voir
+   * LISEZMOI) : Cloudflare garantit alors qu'elle reste dans l'Union
+   * europeenne. A vider si la base etait creee sans.
+   */
+  regionDonnees: 'l’Union européenne'
 }
 
 /**
@@ -71,19 +75,21 @@ export const VERSIONS_TEXTES = {
  * Brevo par défaut : société française, données hébergées dans l'Union
  * européenne, 300 e-mails par jour gratuits. Resend est prévu aussi
  * (américain, clauses contractuelles types). La clé d'API, elle, ne vit que
- * dans Vercel : NUXT_EMAIL_CLE ; l'expéditeur dans NUXT_EMAIL_EXPEDITEUR
- * (« babyNames <connexion@votre-domaine.fr> », domaine vérifié chez le
- * prestataire).
+ * dans les secrets du Worker : NUXT_EMAIL_CLE ; l'expéditeur dans
+ * NUXT_EMAIL_EXPEDITEUR (« babyNamed <connexion@babynamed.fr> », domaine
+ * vérifié chez le prestataire).
  */
 export const COURRIEL = {
   fournisseur: 'brevo' as 'brevo' | 'resend'
 }
 
+/** L'hebergeur (LCEN, art. 6 III : nom, adresse, telephone). */
 export const HEBERGEUR = {
-  nom: 'Vercel Inc.',
-  adresse: '440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis',
-  contact: 'privacy@vercel.com',
-  site: 'https://vercel.com'
+  nom: 'Cloudflare, Inc.',
+  adresse: '101 Townsend Street, San Francisco, CA 94107, États-Unis',
+  telephone: '+1 888 993 5273',
+  contact: 'dpo@cloudflare.com',
+  site: 'https://www.cloudflare.com'
 }
 
 /**
@@ -95,18 +101,11 @@ export const HEBERGEUR = {
  */
 export const DESTINATAIRES = [
   {
-    nom: 'Vercel Inc.',
-    role: 'Hébergement de l’application et exécution du serveur',
-    pays: 'États-Unis',
+    nom: 'Cloudflare, Inc.',
+    role: 'Hébergement de l’application, exécution du serveur et base de données (Cloudflare Workers et D1)',
+    pays: 'États-Unis (société) — base de données conservée dans l’Union européenne ; le serveur s’exécute au plus près de chaque visiteur',
     garantie: 'Certifié Data Privacy Framework UE–États-Unis ; clauses contractuelles types de la Commission européenne',
-    lien: 'https://vercel.com/legal/privacy-notice'
-  },
-  {
-    nom: 'Neon, LLC (groupe Databricks)',
-    role: 'Base de données',
-    pays: 'États-Unis (société) — serveurs dans la région choisie à la création de la base',
-    garantie: 'Certifié Data Privacy Framework UE–États-Unis ; clauses contractuelles types',
-    lien: 'https://www.databricks.com/legal/privacynotice'
+    lien: 'https://www.cloudflare.com/fr-fr/privacypolicy/'
   },
   COURRIEL.fournisseur === 'brevo'
     ? {

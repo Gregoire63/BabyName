@@ -88,10 +88,10 @@ const [dl] = await Promise.all([
   A1.page.waitForEvent('download'),
   A1.page.getByRole('link', { name: 'Télécharger mes données' }).click()
 ])
-dit(/^babynames-mes-donnees-\d{4}-\d{2}-\d{2}\.json$/.test(dl.suggestedFilename()),
+dit(/^babynamed-mes-donnees-\d{4}-\d{2}-\d{2}\.json$/.test(dl.suggestedFilename()),
     `le bouton télécharge un fichier nommé (${dl.suggestedFilename()})`)
 const exp = JSON.parse(readFileSync(await dl.path(), 'utf8'))
-dit(exp.compte?.pseudo === 'Audrey' && exp.format === 'babynames-export/1', 'le fichier est celui d’Audrey, format versionné')
+dit(exp.compte?.pseudo === 'Audrey' && exp.format === 'babynamed-export/1', 'le fichier est celui d’Audrey, format versionné')
 dit(exp.listes?.some(l => l.nom === 'Notre liste') && exp.listes?.some(l => l.nom === 'Rien qu’à moi'),
     'il contient ses deux listes')
 dit(exp.votes?.some(v => v.prenom === 'Louise' && v.valeur === 'oui'),

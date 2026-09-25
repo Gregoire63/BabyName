@@ -24,7 +24,7 @@ export default defineEventHandler(async (e) => {
   const r = await consommerCode(email, 'connexion', String(code ?? ''))
   if (!r.ok) throw createError({ statusCode: 400, statusMessage: `code_${r.raison}`, data: { restants: r.restants } })
   const u = await q1<{ id: string; pseudo: string; gen: number }>(
-    `update utilisateurs set vu_le = now() where id = $1 and email = $2
+    `update utilisateurs set vu_le = ${MAINTENANT} where id = ?1 and email = ?2
      returning id, pseudo, session_gen as gen`, [r.user_id, email])
   if (!u) throw createError({ statusCode: 400, statusMessage: 'code_aucun' })
   await oublierEssais('code-email', email)

@@ -1,6 +1,6 @@
 {
-  "name": "babyNames",
-  "short_name": "babyNames",
+  "name": "babyNamed",
+  "short_name": "babyNamed",
   "description": "Choisir un prénom à plusieurs, sans s'influencer.",
   "start_url": "/",
   "scope": "/",
