@@ -26,12 +26,12 @@ export const CLES_DEV = {
  * gratuit » qu'un essai decrit. La version est gravee a la semaille ; le
  * demarrage et les outils de developpement disent quand elle est depassee.
  */
-export const VERSION_SEMENCE = 1
+export const VERSION_SEMENCE = 2
 
 /** Les comptes du jeu d'essai, tels que les outils de dev les montrent. */
 export const COMPTES_DEV = [
   { pseudo: 'Greg', cle: CLES_DEV.greg, role: 'parent, sur toutes les listes' },
-  { pseudo: 'Audrey', cle: CLES_DEV.audrey, role: 'parent, sur « Notre liste »' },
+  { pseudo: 'Audrey', cle: CLES_DEV.audrey, role: 'parent, sur « Notre liste » — e-mail audrey@exemple.test (lien de connexion)' },
   { pseudo: 'Mamie', cle: CLES_DEV.mamie, role: 'observatrice de « Notre liste »' }
 ]
 
@@ -180,9 +180,15 @@ export async function semerSiVide(c: Connexion): Promise<boolean> {
      values ($1, $2, 'Louise', 'Un peu partout en ce moment, non ?')`,
     [gid, audrey]).catch(() => null)
 
+  // Audrey a une adresse verifiee : de quoi essayer le lien de connexion en
+  // local (la boite de developpement recoit l'e-mail, voir « Mon compte »).
+  await c.query(`update utilisateurs set email = 'audrey@exemple.test', email_verifie_le = now()
+                  where id = $1`, [audrey])
+
   // Un compte oublie depuis plus de deux ans : c'est ce que la purge RGPD doit
   // effacer (essai-rgpd.mjs), avec sa liste ou il etait seul. Il porte aussi
-  // un reste du temps du lien magique (e-mail, jeton) que la purge nettoie.
+  // un reste du premier lien magique (jeton) et un lien de connexion expire,
+  // que la purge nettoie.
   const fantome = await creerCompte(c, 'Fantome', 'DEVF-ANTM-2345')
   await c.query(
     `update utilisateurs set cree_le = now() - interval '26 months',
@@ -198,6 +204,10 @@ export async function semerSiVide(c: Connexion): Promise<boolean> {
   await c.query(
     `insert into jetons_magiques (jeton, email, expire_le)
      values ('jeton-du-temps-du-lien-magique', 'fantome@exemple.invalid', now() - interval '2 years')`)
+  await c.query(
+    `insert into liens_connexion (id, email, user_id, but, code_hash, expire_le, cree_le)
+     values ('lien-expire-de-fantome', 'fantome@exemple.invalid', $1, 'connexion', 'x',
+             now() - interval '3 days', now() - interval '3 days')`, [fantome])
   // Un compteur de gestes de plus de deux mois cote Greg : la purge le retire,
   // et le quota du mois en cours ne le voit pas.
   await c.query(

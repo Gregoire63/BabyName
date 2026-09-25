@@ -17,7 +17,7 @@ const c = CONSERVATION
     <div class="encadre">
       <p><strong>L’essentiel.</strong></p>
       <ul>
-        <li>On vous demande un prénom ou un pseudo. Pas d’e-mail, pas de mot de passe, pas de numéro.</li>
+        <li>On vous demande un prénom ou un pseudo. Pas de mot de passe, pas de numéro. Votre e-mail seulement si vous voulez recevoir des liens de connexion.</li>
         <li>Aucune publicité, aucune mesure d’audience, aucun cookie tiers. Rien n’est vendu ni loué.</li>
         <li>Votre compte s’efface quand vous le décidez, en un geste depuis l’app — et tout seul après {{ c.inactiviteMois }} mois sans l’ouvrir.</li>
         <li>Vous pouvez télécharger toutes vos données à tout moment : <em>Mon compte → Télécharger mes données</em>.</li>
@@ -36,9 +36,19 @@ const c = CONSERVATION
     <h3>Votre compte</h3>
     <dl>
       <dt>Données</dt>
-      <dd>Le nom affiché que vous choisissez ; l’empreinte de votre clé d’accès (la clé elle-même n’est jamais enregistrée) ; les dates de création et de dernière ouverture de l’app.</dd>
+      <dd>
+        Le nom affiché que vous choisissez ; les dates de création et de dernière ouverture de l’app.
+        Pour vous reconnecter, selon ce que vous choisissez :
+        <strong>vos passkeys</strong> — leur clé <em>publique</em>, leur nom (« Trousseau iCloud »), leurs dates
+        de création et de dernière utilisation ; la clé privée, votre visage ou votre empreinte ne quittent
+        jamais votre appareil ;
+        <strong>votre adresse e-mail</strong>, si vous la donnez, une fois confirmée ;
+        pour les comptes d’avant les passkeys, l’empreinte de l’ancienne clé d’accès (jamais la clé elle-même).
+      </dd>
       <dt>Pourquoi</dt>
-      <dd>Vous reconnaître, et vous permettre de retrouver votre compte sur un autre appareil.</dd>
+      <dd>Vous reconnaître, et vous permettre de retrouver votre compte sur un autre appareil. L’adresse e-mail
+        ne sert qu’à vous envoyer les liens et codes de connexion que vous demandez : aucune lettre
+        d’information, aucune publicité.</dd>
       <dt>Base légale</dt>
       <dd>L’exécution du contrat que sont les <NuxtLink to="/conditions">conditions d’utilisation</NuxtLink> (art. 6.1.b du RGPD).</dd>
     </dl>
@@ -76,6 +86,22 @@ const c = CONSERVATION
       <dd>Vendre, facturer, prouver votre accord à l’exécution immédiate, traiter un remboursement ou une contestation.</dd>
       <dt>Base légale</dt>
       <dd>L’exécution du contrat (art. 6.1.b) et nos obligations comptables et fiscales (art. 6.1.c). Stripe traite aussi ces données pour son propre compte, notamment contre la fraude.</dd>
+    </dl>
+
+    <h3>Les liens de connexion et les limites d’essais</h3>
+    <dl>
+      <dt>Données</dt>
+      <dd>
+        Pour un lien ou un code envoyé par e-mail : l’adresse, le compte, et une empreinte du lien et du code
+        (jamais en clair), avec l’heure. Pour freiner ceux qui essaieraient de deviner un code ou de créer des
+        comptes à la chaîne : des compteurs d’essais rattachés à une empreinte chiffrée de l’adresse IP, du
+        compte ou de l’adresse e-mail — jamais à leur valeur en clair.
+      </dd>
+      <dt>Pourquoi</dt>
+      <dd>Vous connecter sans mot de passe, et protéger les comptes et les listes contre les essais répétés.</dd>
+      <dt>Base légale</dt>
+      <dd>L’exécution du contrat (art. 6.1.b) pour les liens ; notre intérêt légitime à sécuriser le service
+        (art. 6.1.f) pour les compteurs.</dd>
     </dl>
 
     <h3>Les journaux techniques</h3>
@@ -120,6 +146,13 @@ const c = CONSERVATION
       certifiées Data Privacy Framework, et sur les clauses contractuelles types de la Commission.
       Stripe Payments Europe est établie en Irlande ; certaines données peuvent être traitées par Stripe, Inc.
       aux États-Unis, sous les mêmes garanties.
+      <template v-if="COURRIEL.fournisseur === 'resend'">
+        Resend, qui envoie les e-mails de connexion, est aussi une société américaine (clauses contractuelles
+        types).
+      </template>
+      <template v-else>
+        Les e-mails de connexion partent par Brevo, société française, depuis l’Union européenne.
+      </template>
     </p>
 
     <h2>Combien de temps</h2>
@@ -127,7 +160,10 @@ const c = CONSERVATION
       <li><strong>Compte et listes</strong> : tant que vous vous en servez. Effacés immédiatement si vous supprimez votre compte ; effacés automatiquement après <strong>{{ c.inactiviteMois }} mois</strong> sans ouvrir l’app.</li>
       <li><strong>Une liste</strong> dont il ne reste plus aucun membre est effacée, qu’elle ait été débloquée ou non.</li>
       <li><strong>Compteurs de la version gratuite</strong> : le total, avec le compte ; le détail par jour, {{ c.quotaJours }} jours.</li>
-      <li><strong>Cookie de connexion</strong> : {{ c.sessionJours }} jours, renouvelés à chaque connexion.</li>
+      <li><strong>Cookie de connexion</strong> : {{ c.sessionJours }} jours, renouvelés à chaque connexion. <em>Mon compte → Déconnecter mes autres appareils</em> les annule tous d’un coup, sauf celui de l’appareil en main.</li>
+      <li><strong>Adresse e-mail et passkeys</strong> : tant que votre compte existe, ou jusqu’à ce que vous les retiriez dans <em>Mon compte</em>.</li>
+      <li><strong>Liens et codes de connexion</strong> : valables {{ c.lienMinutes }} minutes, une seule fois ; effacés le lendemain de leur expiration.</li>
+      <li><strong>Compteurs d’essais</strong> : deux jours au plus.</li>
       <li><strong>Pièces liées à un paiement</strong> (facture, paiement) : {{ c.comptabiliteAns }} ans, durée imposée par le Code de commerce (art. L123-22). Elles sont conservées par Stripe et dans notre comptabilité, pas dans l’app.</li>
       <li><strong>Journaux techniques</strong> : quelques jours au plus, chez l’hébergeur.</li>
       <li><strong>Sauvegardes</strong> : la base garde un historique de restauration de quelques jours ; une donnée effacée en disparaît à l’issue de ce délai.</li>
@@ -144,9 +180,9 @@ const c = CONSERVATION
     </ul>
     <p>
       Pour toute demande qui ne se fait pas depuis l’app, écrivez à
-      <a :href="`mailto:${e.email}`">{{ e.email }}</a>. Nous répondons dans un délai d’un mois. Comme aucun
-      e-mail n’est lié à votre compte, nous vous demanderons de quoi vérifier qu’il est bien le vôtre —
-      jamais votre clé d’accès.
+      <a :href="`mailto:${e.email}`">{{ e.email }}</a>. Nous répondons dans un délai d’un mois. Si aucune
+      adresse n’est liée à votre compte, nous vous demanderons de quoi vérifier qu’il est bien le vôtre —
+      jamais un code de connexion ni une clé d’accès.
     </p>
     <p>
       Si vous estimez que vos droits ne sont pas respectés, vous pouvez saisir la CNIL
@@ -157,16 +193,19 @@ const c = CONSERVATION
     <p>babyNames ne dépose <strong>aucun cookie publicitaire ni de mesure d’audience</strong>. Ce qu’il garde sur votre appareil sert uniquement à faire marcher l’app, ce qui le dispense de votre consentement (art. 82 de la loi Informatique et Libertés) :</p>
     <ul>
       <li><strong>pr_session</strong> (cookie) : vous garde connecté(e) {{ c.sessionJours }} jours. Illisible par les scripts de la page, envoyé uniquement en HTTPS.</li>
-      <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour, et le prénom choisi depuis une fiche tant qu’il n’est pas jugé. Ces informations restent sur votre appareil et sont effacées à la déconnexion.</li>
+      <li><strong>pr_defi</strong> (cookie) : le temps de créer ou d’utiliser une passkey, cinq minutes au plus ; il est effacé dès qu’il a servi.</li>
+      <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour, et le prénom choisi depuis une fiche tant qu’il n’est pas jugé. Ces informations restent sur votre appareil et sont effacées à la déconnexion — sauf le thème choisi (clair, sombre), réglage de l’appareil et non du compte.</li>
       <li><strong>Cache hors ligne</strong> : les fichiers de l’application et le catalogue des prénoms, pour que l’app s’ouvre vite. Aucune donnée personnelle.</li>
     </ul>
     <p>La police de caractères est servie par babyNames lui-même : ouvrir l’app n’envoie rien à Google ni à aucun autre tiers.</p>
 
     <h2>Sécurité</h2>
     <p>
-      Connexions chiffrées (HTTPS) ; clé d’accès conservée sous forme d’empreinte, jamais en clair ; cookie
-      inaccessible aux scripts ; secrets et base de données accessibles au seul serveur ; paiement confié à
-      Stripe, certifié PCI-DSS. En cas de violation de données présentant un risque pour vous, la CNIL et,
+      Connexions chiffrées (HTTPS) ; aucun mot de passe : passkeys (seule la clé publique est gardée) ou lien
+      et code par e-mail, à usage unique et gardés sous forme d’empreinte ; nombre d’essais limité ; cookie
+      inaccessible aux scripts, et révocable depuis <em>Mon compte</em> ; politique de sécurité du contenu qui
+      empêche l’exécution de scripts étrangers ; secrets et base de données accessibles au seul serveur ;
+      paiement confié à Stripe, certifié PCI-DSS. En cas de violation de données présentant un risque pour vous, la CNIL et,
       si nécessaire, les personnes concernées seront prévenues dans les délais prévus par le RGPD.
     </p>
 

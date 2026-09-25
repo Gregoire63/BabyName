@@ -2,10 +2,14 @@ export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
   const [groupe, membres, av, vetos, favoris] = await Promise.all([
-    q1(`select id, nom, code_invitation, nb_vetos_max, favoris_visibles, quota_swipe_jour,
-               filtres, nom_famille, (paye_le is not null) as paye, offert,
-               case when paye_le is not null then code_observateur end as code_observateur
-          from groupes where id = $1`, [gid]),
+    // Les codes d'invitation ne vont qu'a ceux qui decident (voir
+    // groupes/index.get.ts) : un observateur ne fait entrer personne.
+    q1(`select id, nom,
+               case when $2 then code_invitation end as code_invitation,
+               nb_vetos_max, favoris_visibles, quota_swipe_jour,
+               filtres, nom_famille, (paye_le is not null) as paye, paye_le, offert,
+               case when $2 and paye_le is not null then code_observateur end as code_observateur
+          from groupes where id = $1`, [gid, moi.role !== 'observateur']),
     q(`select m.user_id, u.pseudo, m.role, m.poids from membres m
          join utilisateurs u on u.id = m.user_id where m.groupe_id = $1
         order by m.rejoint_le`, [gid]),

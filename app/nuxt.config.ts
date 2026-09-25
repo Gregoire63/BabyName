@@ -8,7 +8,7 @@ const SITE = (process.env.NUXT_PUBLIC_SITE_URL
   || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
 ).replace(/\/$/, '')
 const DESCRIPTION = 'Choisir le prénom de bébé à deux, sans s’influencer : chacun trie de son côté, '
-  + 'babyNames ne montre que les prénoms que vous aimez tous les deux. Gratuit, sans e-mail.'
+  + 'babyNames ne montre que les prénoms que vous aimez tous les deux. Gratuit, sans mot de passe.'
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-09-01',
@@ -48,6 +48,14 @@ export default defineNuxtConfig({
           + '<a href="/prenoms/">Signification, origine et popularité des prénoms donnés en France</a></p>'
           + '<p>L’application elle-même demande JavaScript.</p>'
       }],
+      // Le theme choisi dans les reglages (voir useTheme), pose AVANT le premier
+      // affichage : sans lui, « Sombre » sur un telephone en clair clignotait
+      // en clair a chaque ouverture, le temps que Vue demarre. Rien d'autre.
+      script: [{
+        tagPosition: 'head',
+        innerHTML: "try{var t=localStorage.getItem('pr_theme');if(t==='sombre'||t==='clair')"
+          + "document.documentElement.setAttribute('data-theme',t==='sombre'?'dark':'light')}catch(e){}"
+      }],
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },
         // Nunito est servie par l'app (app/assets/fonts, @font-face dans
@@ -60,7 +68,13 @@ export default defineNuxtConfig({
   runtimeConfig: {
     databaseUrl: '',              // NUXT_DATABASE_URL (injecte par Neon sur Vercel)
     sessionSecret: '',            // NUXT_SESSION_SECRET
-    migrationSecret: '',          // NUXT_MIGRATION_SECRET : à retirer une fois la migration faite
+
+    // Les e-mails de connexion (lien + code). Le prestataire est nomme dans
+    // shared/utils/editeur.ts (COURRIEL) ; ici, seulement la cle et
+    // l'expediteur. Sans eux, l'app ne propose simplement pas le lien par
+    // e-mail — les passkeys marchent sans.
+    emailCle: '',                 // NUXT_EMAIL_CLE         (cle d'API du prestataire)
+    emailExpediteur: '',          // NUXT_EMAIL_EXPEDITEUR  (« babyNames <connexion@domaine.fr> »)
 
     // Stripe. Ces trois valeurs ne sont JAMAIS dans le dépôt : elles se posent
     // dans les variables d'environnement Vercel, et la clé secrète ne quitte

@@ -63,6 +63,22 @@ export const VERSIONS_TEXTES = {
   accessibilite: '2026-09-25'
 } as const
 
+/**
+ * L'envoi des e-mails de connexion (lien + code). UN prestataire, nommé ici :
+ * le serveur l'utilise (server/utils/courriel.ts) et la politique de
+ * confidentialité le cite — changer l'un sans l'autre est impossible.
+ *
+ * Brevo par défaut : société française, données hébergées dans l'Union
+ * européenne, 300 e-mails par jour gratuits. Resend est prévu aussi
+ * (américain, clauses contractuelles types). La clé d'API, elle, ne vit que
+ * dans Vercel : NUXT_EMAIL_CLE ; l'expéditeur dans NUXT_EMAIL_EXPEDITEUR
+ * (« babyNames <connexion@votre-domaine.fr> », domaine vérifié chez le
+ * prestataire).
+ */
+export const COURRIEL = {
+  fournisseur: 'brevo' as 'brevo' | 'resend'
+}
+
 export const HEBERGEUR = {
   nom: 'Vercel Inc.',
   adresse: '440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis',
@@ -92,6 +108,21 @@ export const DESTINATAIRES = [
     garantie: 'Certifié Data Privacy Framework UE–États-Unis ; clauses contractuelles types',
     lien: 'https://www.databricks.com/legal/privacynotice'
   },
+  COURRIEL.fournisseur === 'brevo'
+    ? {
+        nom: 'Brevo (Sendinblue SAS)',
+        role: 'Envoi des e-mails de connexion (uniquement si vous donnez une adresse)',
+        pays: 'France (Union européenne)',
+        garantie: 'Données traitées dans l’Union européenne',
+        lien: 'https://www.brevo.com/fr/legal/privacypolicy/'
+      }
+    : {
+        nom: 'Resend, Inc.',
+        role: 'Envoi des e-mails de connexion (uniquement si vous donnez une adresse)',
+        pays: 'États-Unis',
+        garantie: 'Clauses contractuelles types de la Commission européenne',
+        lien: 'https://resend.com/legal/privacy-policy'
+      },
   {
     nom: 'Stripe Payments Europe, Ltd.',
     role: 'Paiement (uniquement si vous débloquez une liste) : encaissement, reçu et facture, lutte contre la fraude',
@@ -112,6 +143,8 @@ export const CONSERVATION = {
   quotaJours: 62,
   /** Duree de vie du cookie de session. */
   sessionJours: 120,
+  /** Un lien (ou un code) de connexion recu par e-mail : minutes de validite. */
+  lienMinutes: 15,
   /** Pieces comptables (factures, paiements) : obligation legale. */
   comptabiliteAns: 10
 } as const

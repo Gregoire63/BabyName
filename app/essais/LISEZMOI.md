@@ -27,7 +27,9 @@ essais votent, paient et invitent ; l'un qui garde son état fausse le suivant.
 
 Un essai qui a besoin d'un serveur configuré autrement le dit dans un fichier
 voisin : `essai-caisse.env` pose des clés Stripe bidon et pointe l'API sur un
-faux Stripe (port 3199) ; `essai-rgpd.env` pose un `CRON_SECRET` pour que la
+faux Stripe (port 3199) ; `essai-connexion.env` remet les limites d'essais à
+leur valeur de production (le développement les multiplie par 50) ;
+`essai-rgpd.env` pose un `CRON_SECRET` pour que la
 purge existe. `relance.sh` les charge pour leur essai seulement — les autres
 gardent un serveur sans clé, et `essai-paiement` peut vérifier que l'écran
 d'achat le dit.
@@ -52,7 +54,10 @@ d'achat le dit.
 | `essai-desaccord` | « ce n'est peut-être pas Marius, c'est la longueur » — et le silence tant qu'il n'y a pas de quoi le dire |
 | `essai-observateur` | le non de Mamie ne retire pas Louise des accords, et elle ne peut pas poser de veto |
 | `essai-carte-actions` | **toucher la carte ouvre la fiche** (pas un glissement court, pas un appui long) ; « Infos », « Non aux Maël… » (début de prénom et nombre en clair) et « Bloquer », dessinés et nommés ; rien à balayer : le geste s'efface sans déplacer les autres ; la courbe prend la place, et sur petit écran les gestes restent dans la carte |
-| `essai-recherche` | la loupe du tri ouvre la recherche, curseur dans le champ ; on y juge (boutons nommés, le tri suit), on y pose un veto **confirmé sur place** et on le lève ; au bout du quota elle le dit ; pas de veto pour un observateur ; **la feuille et la fiche descendent en se fermant** |
+| `essai-recherche` | la loupe du tri ouvre la recherche, curseur dans le champ ; **toucher un prénom le met en première carte** (déjà jugé : on le rejuge, la carte rappelle le vote) ; un prénom bloqué ne se propose pas ; au bout du quota il attend son tour ; Filtres en icône ; **la feuille tient au-dessus du clavier** ; la feuille et la fiche descendent en se fermant |
+| `essai-connexion` | **sans mot de passe** : passkey créée puis utilisée (authentificateur virtuel de Chrome), retirée elle n'ouvre plus rien et le trousseau est prévenu ; lien et code par e-mail (code faux, lien à usage unique, adresse inconnue muette, 5 codes faux et le lien meurt) ; adresse prouvée avant d'être enregistrée ; ancienne clé désactivable ; **déconnecter les autres appareils** ; codes d'invitation longs et essais limités ; requête d'un autre site refusée ; pas de code pour un observateur ; tailles bornées ; en-têtes de sécurité |
+| `essai-graphies` | la carte dit « aussi écrit … Voir plus » au lieu de « le vote vaut pour 7 graphies » ; la feuille à onglets (une graphie par onglet, sa part dans l'étiquette, flèches au clavier), la fiche de chaque graphie ; WCAG en clair et en sombre |
+| `essai-reglages` | la carte « Débloquer cette liste » dit sa **portée** (cette liste, ses membres, pas toute l'app) ; débloquée, elle le dit ; thème Clair / Système / Sombre appliqué, retenu, **posé avant le démarrage** (pas de flash), gardé à la déconnexion |
 | `essai-historique` | trois pages légales lues en chaîne, **un seul Retour** pour revenir (bouton de la page comme du navigateur), glissé vers l'arrière ; **pendant le glissement la page qui bouge est opaque** ; les onglets d'une liste n'empilent rien |
 | `essai-dev` | les outils de la base locale : entrer d'un geste, âge du jeu d'essai, nouvelle journée, quotas à zéro, débloquer / rebloquer sans Stripe, base neuve sans arrêter le serveur |
 | `essai-seo` | ce que lisent les moteurs et les IA : page de l'app statique (WebApplication, FAQ) aux limites **lues dans le schéma**, llms.txt au bon domaine, robots.txt qui ferme `/?…` sans écarter les robots d'IA, boutons en nofollow, mentions légales sur chaque fiche, lastmod stable, coquille lisible sans JavaScript |

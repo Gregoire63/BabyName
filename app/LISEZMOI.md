@@ -55,7 +55,7 @@ un `NUXT_DATABASE_URL` oublié) : « Base neuve » ne peut pas vider Neon.
 | | |
 |---|---|
 | Greg | 27 votes, 2 gardés (Alma, Nine), une famille écartée d'un geste (`kevi`) et des non un par un |
-| Audrey | 19 votes, un veto sur Jayden, un commentaire sur Louise |
+| Audrey | 19 votes, un veto sur Jayden, un commentaire sur Louise ; adresse vérifiée `audrey@exemple.test` (lien de connexion : la boîte de dev le reçoit) |
 | Mamie | **observatrice** : 6 votes, dont un **non à Louise**, qui reste un accord |
 | en commun | 9 prénoms, plus des désaccords francs (Marius, Hector : Greg oui, Audrey non) pour remplir « À revoir » |
 | listes | « Notre liste » débloquée (code `dec0de00`), « Essai gratuit » et « Autre essai » au quota 3/jour pour taper dans le mur en trois swipes |
@@ -71,8 +71,8 @@ jeu d'une famille.
 
 ## Les essais
 
-`essais/` contient vingt-sept essais de bout en bout — vrai navigateur, vrai
-serveur, vraie base — soit près de 500 assertions. Ils ne testent pas des
+`essais/` contient trente essais de bout en bout — vrai navigateur, vrai
+serveur, vraie base — soit près de 600 assertions. Ils ne testent pas des
 fonctions, ils testent des promesses : « le refus ne se dit jamais », « un
 observateur ne casse pas un accord », « aucun champ de carte bancaire dans
 l'app », « effacer son compte n'efface pas celui de l'autre », « chaque écran
@@ -318,8 +318,9 @@ qu'on consulte à travers un logiciel en ligne.)
 Variables d'environnement Vercel (babyname → Settings → Environment Variables).
 État relevé le 25 septembre 2026 : les quatre premières sont posées ;
 `CRON_SECRET` manque ; `NUXT_MIGRATION_SECRET` et `NUXT_MAGIC_LINK_DEBUG`
-traînent encore et sont à **supprimer** (la première rouvre une route de
-migration, la seconde ne sert plus à rien).
+traînent encore et sont à **supprimer** (plus rien ne les lit : la route de
+migration a été retirée du code). Les deux variables de l'e-mail de
+connexion sont décrites dans « Connexion sans mot de passe ».
 
 | Variable | Valeur |
 |---|---|
@@ -523,10 +524,13 @@ Le nouveau schéma est purement additif, et l'**ancien** code tourne dessus
 identiques, rejouable). Donc on migre **avant** de pousser, jamais après :
 
 1. Console Neon → SQL Editor → coller tout `server/assets/schema.sql` → Run.
-   Il contient désormais le bloc RGPD (clés étrangères sans cascade,
-   `paiement_ref`, e-mails vestiges effacés) et le quota « départ puis
-   filet » (colonnes ajoutées, rien de supprimé) ; l'ancien code tourne dessus.
-   **Sans ce collage, chaque vote d'une liste gratuite tombe en erreur.**
+   Il contient le bloc RGPD (clés étrangères sans cascade, `paiement_ref`),
+   le quota « départ puis filet », et **la connexion sans mot de passe**
+   (`passkeys`, `liens_connexion`, `limites`, `utilisateurs.session_gen`…) —
+   des ajouts seulement, rien de supprimé ; l'ancien code tourne dessus.
+   **Sans ce collage, chaque requête connectée tombe en erreur** (la
+   génération des sessions est lue à chaque fois). `/api/sante` →
+   `base.migrations['connexion.passkeys_et_liens']` doit valoir `true`.
 2. Offrir les listes qui ne doivent pas prendre le mur (ci-dessus). Sans ça,
    toute liste existante passe en gratuit au déploiement : 40 gestes par jour.
 3. Remplir `shared/utils/editeur.ts` (SIRET, adresse, téléphone, médiateur).
@@ -536,8 +540,11 @@ identiques, rejouable). Donc on migre **avant** de pousser, jamais après :
    caisse (une adhésion prend quelques jours, et il faut pouvoir tester avec
    le code promo), mais il est obligatoire avant la première vente réelle.
    `GET /api/sante` → `legal.bloquants` et `legal.manquants`.
-4. Poser `CRON_SECRET` dans Vercel.
-5. Pousser. Vercel construit depuis `app/`.
+4. Poser `CRON_SECRET` dans Vercel, et — pour le lien par e-mail —
+   `NUXT_EMAIL_CLE` et `NUXT_EMAIL_EXPEDITEUR` (voir « Connexion sans mot de
+   passe »). Sans elles, l'app ne propose que la passkey : rien ne casse.
+5. `npm install` en local (deux paquets de plus : `@simplewebauthn/*`, et
+   Nuxt 4.5.2), puis pousser. Vercel construit depuis `app/`.
 6. Retirer `NUXT_MIGRATION_SECRET` et `NUXT_MAGIC_LINK_DEBUG` de Vercel.
 
 Dans l'autre ordre, le nouveau code arrive sur l'ancienne base et chaque page
@@ -610,7 +617,7 @@ Tout ce que la loi demande, fait dans l'app plutôt que promis dans un texte :
 | Rectification (art. 16) | *Mon compte → Nom affiché* ; le reste se modifie dans l'app |
 | Effacement (art. 17) | *Mon compte → Supprimer mon compte* : `POST /api/moi/supprimer` (mot `SUPPRIMER` exigé), immédiat |
 | Conservation limitée (art. 5.1.e) | purge chaque nuit : `GET /api/admin/purger`, cron Vercel (`vercel.json`), protégée par `CRON_SECRET` |
-| Minimisation | pas d'e-mail ; les e-mails du temps du lien magique sont effacés ; police servie par l'app (plus d'IP envoyée à Google) |
+| Minimisation | e-mail facultatif, enregistré seulement une fois prouvé, et qui ne sert qu'à la connexion ; liens et codes gardés en empreintes ; compteurs d'essais sur des empreintes chiffrées (jamais une IP en clair) ; police servie par l'app (plus d'IP envoyée à Google) |
 | Registre (art. 30) | `docs/registre-des-traitements.md` |
 | Traceurs (art. 82 loi I&L) | un cookie de session et du stockage local strictement nécessaires : **pas de bandeau**, et il ne doit jamais en falloir un. Ajouter une mesure d'audience ou un pixel changerait ça — et le registre. |
 
@@ -633,6 +640,96 @@ retiré) au lieu de laisser une clé étrangère lever une `500`.
 
 `essai-rgpd.mjs` exerce tout ça comme un utilisateur (37 assertions), avec
 « Fantome », un compte semé inactif depuis 25 mois.
+
+## Connexion sans mot de passe
+
+Plus de clé d'accès à recopier. On crée son compte avec un prénom, puis
+l'app propose (sans l'imposer) de quoi le retrouver ailleurs :
+
+- **une passkey** (WebAuthn) : Face ID, empreinte ou code du téléphone. Elle
+  se range dans le trousseau (iCloud, Google, 1Password…) et suit sur les
+  autres appareils. La base ne garde que la clé **publique** ; rien de
+  biométrique ne quitte le téléphone. Vérification confiée à
+  `@simplewebauthn/server` (pas de cryptographie maison) ;
+- **un lien par e-mail, doublé d'un code à 6 chiffres**. Le code est
+  indispensable : l'app installée sur l'écran d'accueil a ses propres
+  cookies, et le lien s'ouvrirait dans le navigateur, pas dans elle.
+
+Sans l'un ni l'autre, l'accueil affiche « Ce compte n'existe que sur cet
+appareil ». Les comptes d'avant gardent leur clé (« J'ai déjà une clé », en
+petit) jusqu'à ce qu'ils la désactivent dans *Mon compte*.
+
+| Où | Quoi |
+|---|---|
+| `server/api/auth/passkey/*` | options et vérification (inscription, connexion) ; défi dans un cookie signé de 5 min |
+| `server/api/auth/lien*.ts`, `code.post.ts`, `email.*.ts` | lien + code (15 min, un seul usage, 5 codes faux et le lien meurt, empreintes seulement) |
+| `server/utils/liens.ts`, `courriel.ts` | création/consommation des liens ; envoi (Brevo ou Resend, sans SDK) |
+| `app/components/SecuriserCompte.vue`, `MoyensConnexion.vue`, `FormulaireEmail.vue` | l'étape après création, *Mon compte → Se connecter*, le formulaire adresse → code |
+| `app/pages/connexion/lien.vue` | le lien de l'e-mail : jeton après le `#`, effacé de l'adresse, **un bouton** avant de le consommer (les robots des messageries ouvrent les liens) |
+
+**Le domaine, avant tout.** Une passkey est liée au domaine où elle est
+créée (`NUXT_PUBLIC_SITE_URL`, aujourd'hui `babyname-five.vercel.app`).
+Changer de domaine plus tard rend les passkeys existantes inutilisables.
+Si un domaine propre est prévu, le poser **avant** d'ouvrir l'app au public.
+Il sert aussi à l'e-mail : on n'envoie pas depuis `@vercel.app`.
+
+**L'e-mail (Brevo)** — le prestataire est nommé dans
+`shared/utils/editeur.ts` (`COURRIEL`), et la politique de confidentialité le
+cite d'elle-même :
+
+1. Créer un compte Brevo (gratuit, 300 e-mails/jour), puis *Senders, Domains
+   & Dedicated IPs → Domains* : ajouter le domaine et poser chez le registrar
+   les enregistrements DKIM/DMARC qu'il donne.
+2. *Transactional → Settings* : **couper le suivi des clics** (et des
+   ouvertures). Un lien de connexion réécrit par un traceur passerait par
+   un tiers, jeton compris.
+3. *SMTP & API → API keys* : créer une clé ; dans Vercel, `NUXT_EMAIL_CLE`
+   (la clé) et `NUXT_EMAIL_EXPEDITEUR` (`babyNames <connexion@votre-domaine.fr>`).
+4. `/api/sante` → `presence.courriel: true`.
+
+Pour Resend à la place : `COURRIEL.fournisseur = 'resend'` dans
+`editeur.ts` (la politique de confidentialité suit), même variables.
+
+En local, rien ne part : les e-mails arrivent dans une boîte de
+développement (*Mon compte → Outils de développement*, ou
+`/api/dev/courriels`). Audrey a une adresse vérifiée, `audrey@exemple.test`.
+Les passkeys marchent sur `http://localhost:3000` (pas sur une adresse IP :
+WebAuthn refuse `127.0.0.1` comme domaine).
+
+## Sécurité
+
+Audit du 25 septembre 2026 : ce qui a été trouvé, et ce qui est en place.
+
+| Risque | Parade |
+|---|---|
+| Deviner un code d'invitation (8 hexadécimaux : 4 milliards, une liste parmi mille tombe en une demi-journée à 100 essais/s) | nouveaux codes à 10 caractères (30^10) ; essais limités (10/h par compte, 30/h par IP) ; les anciens codes restent valables |
+| Deviner un code reçu par e-mail (un million de valeurs) | 5 essais par lien, 10 par adresse et quart d'heure, 30 par IP |
+| Créer des comptes ou des listes à la chaîne | 12 comptes/h par IP, 20 listes/jour par compte |
+| Un observateur (lecture seule) récupérait le code qui fait entrer comme **membre** | les codes ne sont plus envoyés aux observateurs, ni créables par eux |
+| Cookie volé ou téléphone perdu : une session signée ne se révoque pas | génération de sessions en base ; *Mon compte → Déconnecter mes autres appareils* |
+| Requête forgée depuis un autre site (CSRF) | cookie `SameSite=Lax`, **et** refus des requêtes `Sec-Fetch-Site: cross-site` ou d'une autre `Origin` (`server/middleware/origine.ts`) |
+| Script injecté (XSS) | Vue échappe tout (aucun `v-html`) ; **CSP à nonce** sur la coquille (`server/plugins/securite.ts`), CSP stricte sur les fiches statiques |
+| Détournement de clic, reniflage de type, fuite d'adresse | `X-Frame-Options: DENY` + `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS 2 ans (`server/entetes-securite.ts`, posés par `modules/entetes-cache.ts` sur Vercel) |
+| Écrire un mégaoctet par requête (prénom, filtres) | prénoms validés (60 caractères, lettres), filtres bornés à 4 Ko |
+| Lien de connexion détourné par un en-tête `Host` forgé | l'adresse des liens vient de la configuration, jamais de la requête |
+| `/api/admin/migrer` (du SQL derrière un secret en clair dans l'URL) | retirée |
+| `/api/sante` publique renvoyait le message d'erreur du pilote de base | message générique en production |
+| Nuxt 4.4.8 : failles connues (îlots serveur, cache de payload) | Nuxt 4.5.2, `npm audit` : 0 vulnérabilité |
+
+Déjà bon avant l'audit, et vérifié : requêtes SQL paramétrées partout ;
+vote aveugle appliqué côté serveur ; webhook Stripe signé et comparé en temps
+constant ; aucune donnée de carte dans l'app ; routes de développement
+absentes du build ; service worker qui ne met jamais `/api/` en cache.
+
+La CSP ne s'applique qu'en production (Vite a ses propres scripts en
+développement). Pour la vérifier : `NITRO_PRESET=node-server npx nuxt build`,
+`NUXT_SESSION_SECRET=x node .output/server/index.mjs`, puis ouvrir la page et
+regarder la console : aucune ligne « Refused to… ».
+
+`essai-connexion` couvre les passkeys (authentificateur virtuel de Chrome),
+le lien et le code, la révocation, les limites (à leur valeur de production,
+voir `essai-connexion.env`), l'origine, les observateurs, les tailles et les
+en-têtes.
 
 ## Mentions légales et vente à des particuliers
 
@@ -684,9 +781,10 @@ qu'aucun outil ne voit. Il lui faut axe-core : `npm i -D axe-core` (ou
 
 `server/assets/schema.sql` fait foi, et il est idempotent
 (`create … if not exists`, `create or replace`). En local il est rejoué à
-chaque démarrage. En production il s'applique via `POST /api/admin/migrer`,
-protégé par `NUXT_MIGRATION_SECRET` — variable à vider une fois la migration
-passée, sinon la route reste ouverte.
+chaque démarrage. En production il se colle dans la console Neon (SQL
+Editor), **avant** de pousser le code qui en a besoin. La route
+`/api/admin/migrer` n'existe plus : une porte qui exécute du SQL, même
+derrière un secret, ne sert pas assez souvent pour rester ouverte.
 
 ## Vérifier
 

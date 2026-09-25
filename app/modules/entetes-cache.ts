@@ -1,9 +1,11 @@
 import { defineNuxtModule } from 'nuxt/kit'
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { ENTETES_COMMUNES, POLITIQUE_STATIQUE, PAGES_STATIQUES } from '../server/entetes-securite'
 
 /**
- * En-tetes de cache pour Vercel, ecrites a la main dans le Build Output.
+ * En-tetes de cache (et de securite, voir server/entetes-securite.ts) pour
+ * Vercel, ecrites a la main dans le Build Output.
  *
  * Pourquoi ne pas se contenter de `routeRules` : le preset vercel de Nitro
  * genere ces routes SANS `continue: true`. Or une route d'en-tete sans ce
@@ -43,16 +45,23 @@ export default defineNuxtModule({
         catch { return }                     // pas de Build Output : rien a faire
         if (!Array.isArray(config.routes)) return
 
-        const nouvelles = REGLES.map(([src, valeur]) => ({
+        const nouvelles: any[] = REGLES.map(([src, valeur]) => ({
           src, headers: { 'cache-control': valeur }, continue: true
         }))
+        // La securite, sur TOUTES les reponses (fichiers statiques compris :
+        // server/middleware/entetes.ts ne voit que ce que le serveur rend).
+        nouvelles.push({ src: '/(.*)', headers: { ...ENTETES_COMMUNES }, continue: true })
+        // Les fiches statiques ont leur politique de contenu ; celle de l'app
+        // est posee page par page, avec son nonce (server/plugins/securite.ts).
+        nouvelles.push({ src: PAGES_STATIQUES,
+                         headers: { 'content-security-policy': POLITIQUE_STATIQUE }, continue: true })
 
         const i = config.routes.findIndex((r: any) => r?.handle === 'filesystem')
         if (i === -1) config.routes.push(...nouvelles)
         else config.routes.splice(i, 0, ...nouvelles)
 
         await writeFile(chemin, JSON.stringify(config, null, 2))
-        nitro.logger.success(`En-tetes de cache posees (${nouvelles.length} regles).`)
+        nitro.logger.success(`En-tetes de cache et de securite posees (${nouvelles.length} regles).`)
       })
     })
   }

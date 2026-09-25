@@ -86,6 +86,22 @@ const retardataire = computed(() => {
  * une liste de verdicts ici faisait doublon, et arrivait apres coup.
  */
 const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
+
+/**
+ * La carte « Débloquer cette liste ».
+ *
+ * L'offre ne se voyait qu'en butant sur une limite. Ici, elle se lit au calme,
+ * et surtout sa PORTÉE : six euros pour cette liste-ci et ses membres, pas pour
+ * l'application entière. Débloquée, la carte dit depuis quand, et que les
+ * autres listes restent gratuites.
+ */
+const prix = (useRuntimeConfig().public.prixListe as string) || '6 €'
+const INCLUS = INCLUS_DEBLOCAGE
+const offerte = computed(() => !!(g.etat.value?.groupe as any)?.offert)
+const debloqueeLe = computed(() => {
+  const d = (g.etat.value?.groupe as any)?.paye_le
+  return d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+})
 const nomFamille = ref('')
 const enregistre = ref(false)
 
@@ -197,6 +213,37 @@ const filtresActifs = computed(() => {
         </div>
       </section>
 
+      <section class="carte pile achat" :class="{ debloquee: paye }" aria-labelledby="titre-achat">
+        <template v-if="!paye">
+          <div class="ligne" style="align-items:baseline">
+            <h2 id="titre-achat" style="flex:1">Débloquer cette liste</h2>
+            <strong class="prix">{{ prix }}</strong>
+          </div>
+          <p class="mini" style="margin:0">
+            <strong>Une fois, pour cette liste seulement</strong> — et pour tous
+            ses membres. Ni abonnement, ni toute l’application : une autre liste
+            se débloque à part, et vos autres listes restent gratuites.
+          </p>
+          <ul class="inclus-court">
+            <li v-for="i in INCLUS" :key="i.titre">{{ i.titre }}</li>
+          </ul>
+          <button v-if="!jObserve" class="btn btn-1" @click="g.ouvrirDebloquer()">
+            Voir le détail — {{ prix }}
+          </button>
+          <p v-else class="mini doux" style="margin:0">
+            Un membre de la liste peut la débloquer ; vous en profiterez aussi.
+          </p>
+        </template>
+        <template v-else>
+          <h2 id="titre-achat">Liste débloquée</h2>
+          <p class="mini doux" style="margin:0">
+            {{ offerte ? 'Offerte' : 'Débloquée' }}<template v-if="debloqueeLe"> le {{ debloqueeLe }}</template>,
+            pour tous ses membres et sans limite de durée. Elle seule : vos
+            autres listes restent gratuites.
+          </p>
+        </template>
+      </section>
+
       <section v-if="!jObserve" class="carte pile invit" aria-labelledby="titre-invit">
         <h2 id="titre-invit">Inviter quelqu’un</h2>
         <div class="deux-facons" role="group" aria-label="Type d’invitation">
@@ -215,7 +262,7 @@ const filtresActifs = computed(() => {
         <!-- Pour choisir avec vous : le code de la liste. -->
         <template v-if="typeInvit === 'membre'">
           <div class="lien-invit degrade">
-            <strong class="code">{{ g.etat.value.groupe.code_invitation }}</strong>
+            <strong class="code">{{ codeLisible(g.etat.value.groupe.code_invitation) }}</strong>
             <button class="btn" @click="partager">
               {{ copie ? 'Lien copié' : 'Partager le lien' }}
             </button>
@@ -246,7 +293,7 @@ const filtresActifs = computed(() => {
           <template v-if="paye">
             <template v-if="codeObs">
               <div class="lien-invit degrade">
-                <strong class="code">{{ codeObs }}</strong>
+                <strong class="code">{{ codeLisible(codeObs) }}</strong>
                 <button class="btn" @click="partagerObs">
                   {{ copieObs ? 'Lien copié' : 'Partager le lien' }}
                 </button>
@@ -343,9 +390,15 @@ const filtresActifs = computed(() => {
         </p>
       </section>
 
+      <section class="carte pile" aria-labelledby="titre-theme">
+        <h2 id="titre-theme">Apparence</h2>
+        <ChoixTheme />
+        <p class="mini doux" style="margin:0">Sur cet appareil, pour toutes vos listes.</p>
+      </section>
+
       <p class="mini doux" style="text-align:center;margin:6px 0 0">
         Vos choix, vos gardés, vos écartés et vos prénoms bloqués sont dans
-        Classement · Mes choix. Votre nom et votre clé d’accès sont sur
+        Classement · Mes choix. Votre compte (nom, connexion, données) est sur
         l’accueil, sous votre nom.
       </p>
     </template>
@@ -354,6 +407,11 @@ const filtresActifs = computed(() => {
 
 <style scoped>
 .exemple { font-weight: 650; }
+.achat { background: linear-gradient(160deg, color-mix(in srgb, var(--menthe) 38%, var(--carte)) 0%, var(--carte) 70%); }
+.achat.debloquee { background: color-mix(in srgb, var(--menthe) 26%, var(--carte)); }
+.prix { font-size: 1.25rem; font-weight: 800; }
+.inclus-court { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px;
+  font-size: .82rem; }
 .deux-facons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .facon { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 11px 12px;
   border: 1px solid var(--trait); border-radius: var(--r-s); background: var(--fond);
@@ -363,7 +421,8 @@ const filtresActifs = computed(() => {
 .facon[aria-pressed="true"] { border-color: var(--encre); box-shadow: inset 0 0 0 1px var(--encre); }
 .lien-invit { display: flex; flex-direction: column; align-items: center; gap: 10px;
   padding: 16px; border-radius: var(--r-s); color: var(--encre); }
-.code { font-size: 1.7rem; letter-spacing: .16em; font-weight: 700; }
+.code { font-size: clamp(1.25rem, 6.4vw, 1.7rem); letter-spacing: .12em; font-weight: 700;
+  white-space: nowrap; }
 .lien-invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
 .avert { gap: 6px; padding: 11px 13px; border-radius: var(--r-s);
   border: 1px solid color-mix(in srgb, var(--peche) 55%, var(--trait)); }

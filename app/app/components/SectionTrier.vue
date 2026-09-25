@@ -58,6 +58,9 @@ const match = ref<{ prenom: string; avec: string[] } | null>(null)
 const retour = ref<{ prenom: string; qui: string[] } | null>(null)
 const familleAEcarter = ref<Prenom[] | null>(null)
 const rechercheOuverte = ref(false)
+/** La carte dont on regarde les autres graphies (feuille à onglets). */
+const graphiesDe = ref<Prenom | null>(null)
+const prixListe = (useRuntimeConfig().public.prixListe as string) || '6 €'
 /** Des filtres differents de ceux d'origine ? (La recherche n'en est plus un.) */
 const filtresActifs = computed(() => {
   const { recherche: _r, ...f } = g.filtres.value
@@ -814,8 +817,8 @@ async function confirmerFamille() {
           cette liste.
         </p>
         <p class="mini doux" style="margin:0">
-          Débloquer la liste la débloque pour tout le monde dedans : plus aucune
-          limite, et tout ce qui aide à choisir parmi vos accords.
+          Débloquer cette liste ({{ prixListe }}, une fois) : plus aucune limite
+          ici, pour tout le monde dedans. Vos autres listes restent gratuites.
         </p>
         <button class="btn btn-1" @click="g.ouvrirDebloquer()">Voir ce que ça ouvre</button>
       </div>
@@ -850,7 +853,7 @@ async function confirmerFamille() {
           </div>
 
           <ContenuCarte :p="carte" :famille="familleCarte" :deja-dit="dejaDit"
-                        @fiche="g.ouvrirFiche(carte.l)"
+                        @fiche="g.ouvrirFiche(carte.l)" @graphies="graphiesDe = carte"
                         @favori="basculerFavori" @famille="demanderFamille"
                         @veto="demanderVeto" />
         </article>
@@ -935,6 +938,8 @@ async function confirmerFamille() {
 
     <FeuilleRecherche v-if="rechercheOuverte" @fermer="rechercheOuverte = false"
                       @choisir="epinglerChoisi" />
+
+    <FeuilleGraphies v-if="graphiesDe" :p="graphiesDe" @fermer="graphiesDe = null" />
 
     <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec"
                 @fermer="match = null"

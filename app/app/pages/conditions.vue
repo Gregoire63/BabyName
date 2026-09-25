@@ -38,10 +38,13 @@ const prix = (config.public.prixListe as string) || '6 €'
 
     <h2>3. Votre compte</h2>
     <p>
-      Un compte se crée avec un nom affiché. L’app vous remet une clé d’accès personnelle : c’est le seul
-      moyen de retrouver votre compte sur un autre appareil. Il n’y a ni e-mail ni mot de passe : une clé
-      perdue ne peut pas être retrouvée par l’éditeur. Depuis un appareil encore connecté, vous pouvez en
-      générer une nouvelle, ce qui annule l’ancienne. Gardez-la pour vous.
+      Un compte se crée avec un nom affiché. Il n’y a pas de mot de passe : pour retrouver votre compte sur
+      un autre appareil, vous pouvez créer une <strong>passkey</strong> (déverrouillée par le visage,
+      l’empreinte ou le code de votre téléphone) et/ou confirmer une <strong>adresse e-mail</strong>, qui
+      reçoit sur demande un lien et un code de connexion. Sans l’un ni l’autre, le compte n’existe que sur
+      l’appareil où il a été créé, et l’éditeur ne peut pas le retrouver pour vous. Les comptes créés avant
+      les passkeys gardent leur clé d’accès tant qu’ils ne la désactivent pas. Ne partagez ni vos codes ni
+      l’accès à votre boîte mail ; <em>Mon compte</em> permet de déconnecter tous vos autres appareils.
     </p>
     <p>
       Vous êtes responsable de ce que vous écrivez dans l’app (noms de listes, commentaires, motifs). Tout
@@ -55,11 +58,13 @@ const prix = (config.public.prixListe as string) || '6 €'
       Le déblocage d’<strong>une</strong> liste, pour <strong>tous ses membres</strong> : le tri sans limite
       quotidienne, l’essai des prénoms avec votre nom de famille, la projection du nombre d’enfants portant
       le prénom dans une classe, le portrait de vos goûts, l’explication des désaccords et l’invitation
-      d’observateurs. Le détail est présenté dans l’app avant tout paiement.
+      de personnes en lecture seule. Le déblocage ne s’étend <strong>ni à vos autres listes, ni à votre
+      compte</strong> : chaque liste se débloque séparément. Le détail est présenté dans l’app avant tout
+      paiement.
     </p>
     <h3>Prix</h3>
     <p>
-      <strong>{{ prix }} TTC</strong>, en une fois. Ce n’est pas un abonnement : rien n’est reconduit ni
+      <strong>{{ prix }} TTC par liste</strong>, en une fois. Ce n’est pas un abonnement : rien n’est reconduit ni
       prélevé ensuite. {{ mentionTva() }}.
     </p>
     <h3>Commande et paiement</h3>

@@ -59,10 +59,11 @@ await page.waitForTimeout(700)
 const feuille = await plat('.feuille-corps')
 dit(/6\s?€|€/.test(feuille), `le prix est affiché : « ${feuille.slice(0, 40)} »`)
 dit(/une fois|pas d’abonnement/i.test(feuille), 'il est dit que c’est un paiement unique')
-dit(/la liste.*se débloque|tout le monde en profite|en profitera aussi/i.test(feuille),
-    'il est dit que c’est la LISTE qui se débloque, pas le compte')
+dit(/chaque liste se débloque à part/i.test(feuille) && /autres listes restent gratuites/i.test(feuille)
+    && /Pas toute l’application/i.test(feuille),
+    'il est dit que c’est CETTE liste qui se débloque, pas toute l’app')
 dit(/nom de famille/i.test(feuille) && /classe/i.test(feuille)
-    && /observateur/i.test(feuille) && /sans limite/i.test(feuille),
+    && /lecture seule/i.test(feuille) && /sans limite/i.test(feuille),
     'les cinq fonctions payantes sont nommées')
 dit(/reste gratuit/i.test(feuille), 'l’écran dit aussi ce qui reste gratuit')
 dit(!/carte bancaire|numéro de carte|cvv|expiration/i.test(feuille),
@@ -71,7 +72,7 @@ dit(await page.locator('.feuille-corps input[type="tel"], .feuille-corps input[n
     'et aucun champ de saisie de paiement, même caché')
 
 // --- l'accord avant paiement (art. L221-28 13°) ------------------------------
-const payer = page.getByRole('button', { name: /Débloquer pour/ })
+const payer = page.getByRole('button', { name: /Débloquer cette liste —/ })
 dit(await page.locator('.feuille-corps input[type="checkbox"]:checked').count() === 0,
     'la case d’accord n’est jamais pré-cochée')
 dit(await payer.isDisabled(), 'sans elle, le bouton de paiement reste inactif')

@@ -6,7 +6,8 @@ export default defineEventHandler(async () => {
     base: !!url,
     base_variable: source,
     secret_session: !!(c.sessionSecret || process.env.SESSION_SECRET),
-    secret_migration: !!process.env.NUXT_MIGRATION_SECRET,
+    // Le lien de connexion par e-mail : la cle et l'expediteur sont poses.
+    courriel: !!(c.emailCle && c.emailExpediteur),
     // Le paiement : pret seulement si la cle ET le prix sont poses. Le secret
     // du webhook a part — sans lui la caisse s'ouvre, mais seul le retour du
     // navigateur debloque, ce qui rate ceux qui ferment l'onglet trop tot.
@@ -43,6 +44,10 @@ export default defineEventHandler(async () => {
                                             ('groupes','code_observateur'),
                                             ('groupes','paiement_ref'),
                                             ('groupes','quota_depart'),
+                                            ('utilisateurs','session_gen'),
+                                            ('passkeys','id'),
+                                            ('liens_connexion','id'),
+                                            ('limites','cle'),
                                             ('utilisateurs','gestes_depart'),
                                             ('quota_jour','n'))`)
     // Le bloc RGPD du schema : sans lui, effacer un compte efface aussi les
@@ -66,13 +71,21 @@ export default defineEventHandler(async () => {
         // Le quota « depart puis filet » : sans ces colonnes, chaque vote
         // d'une liste gratuite tombe en erreur.
         'quota.depart': a('groupes', 'quota_depart') && a('utilisateurs', 'gestes_depart'),
+        // La connexion sans mot de passe : sans ces tables, toute page
+        // connectee tombe en erreur (la generation des sessions est lue a
+        // chaque requete).
+        'connexion.passkeys_et_liens': a('utilisateurs', 'session_gen') && a('passkeys', 'id')
+          && a('liens_connexion', 'id') && a('limites', 'cle'),
         'rgpd.effacement_sans_cascade': !!rgpd?.facultatif
       }
       // Pas de compte des listes vendues ici : cette route est publique, et
       // le nombre de clients n'a pas a l'etre. Il se lit dans la console Neon.
     }
   } catch (err: any) {
-    infos = { joignable: false, erreur: String(err?.message ?? err).slice(0, 120) }
+    // Le message d'erreur d'un pilote de base peut nommer l'hote ou
+    // l'utilisateur : il reste dans les journaux, pas sur une route publique.
+    console.error('[sante]', String(err?.message ?? err).slice(0, 200))
+    infos = { joignable: false, erreur: import.meta.dev ? String(err?.message ?? err).slice(0, 120) : 'base_injoignable' }
   }
   return { presence, legal, base: infos }
 })

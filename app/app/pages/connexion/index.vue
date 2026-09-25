@@ -1,17 +1,28 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
 import { chargerCatalogue, trouverPrenom } from '~/composables/useCatalogue'
+import { passkeysPossibles, connecterPasskey, abandonnerPasskey } from '~/composables/usePasskey'
 
+/**
+ * Entrer : sans mot de passe, et sans rien à recopier.
+ *
+ *  - Nouveau : un prénom suffit. Juste après, on propose de quoi retrouver
+ *    le compte ailleurs (SecuriserCompte) — passkey, e-mail, ou plus tard.
+ *  - Déjà un compte : la passkey (Face ID, empreinte, code du téléphone), ou
+ *    un lien reçu par e-mail, doublé d'un code pour l'app installée.
+ *  - Les comptes d'avant gardent leur clé d'accès, en petit en bas.
+ */
 const route = useRoute()
 const pseudo = ref('')
 const cle = ref('')
-const mode = ref<'choix' | 'cle'>('choix')
+const mode = ref<'choix' | 'email' | 'cle'>('choix')
 const envoi = ref(false)
 const erreur = ref('')
-
-// Clé fraîchement créée : on la montre une fois, puis on entre.
-const cleNeuve = ref('')
-const copie = ref(false)
+/** Le compte vient d'être créé : l'étape « pour retrouver votre compte ». */
+const nouveau = ref(false)
+const passkeyPossible = ref(false)
+const courrielPossible = useCourrielPossible()
+const erreurPasskey = ref('')
 
 useHead({ title: 'Connexion' })
 
@@ -19,10 +30,7 @@ useHead({ title: 'Connexion' })
 // croire a une simple deconnexion.
 const compteSupprime = computed(() => route.query.compte === 'supprime')
 
-const invitation = computed(() => {
-  const c = typeof route.query.code === 'string' ? route.query.code.trim().toLowerCase() : ''
-  return /^[0-9a-f]{8}$/.test(c) ? c : ''
-})
+const invitation = computed(() => normaliserCodeInvitation(route.query.code))
 
 /**
  * Le prénom venu d'une fiche publique (`?prenom=louise`). On le nomme ici,
@@ -43,20 +51,43 @@ function suite() {
   return navigateTo({ path: '/', query }, { replace: true })
 }
 
+function messageErreur(e: any, defaut: string) {
+  return e?.data?.statusMessage === 'trop_d_essais'
+    ? 'Trop d’essais d’un coup depuis cette connexion. Réessayez dans un moment.'
+    : defaut
+}
+
 async function creer() {
   erreur.value = ''
   if (pseudo.value.trim().length < 2) { erreur.value = 'Il faut au moins deux lettres.'; return }
   envoi.value = true
   try {
-    const r = await $fetch<any>('/api/auth/entrer', {
-      method: 'POST', body: { pseudo: pseudo.value }
-    })
+    await $fetch<any>('/api/auth/entrer', { method: 'POST', body: { pseudo: pseudo.value } })
     await rafraichirMoi()
-    cleNeuve.value = r.cle
-  } catch {
-    erreur.value = 'Création impossible. Réessayez dans un instant.'
+    abandonnerPasskey()
+    nouveau.value = true
+  } catch (e: any) {
+    erreur.value = messageErreur(e, 'Création impossible. Réessayez dans un instant.')
   } finally { envoi.value = false }
 }
+
+async function avecPasskey() {
+  if (envoi.value) return
+  erreurPasskey.value = ''
+  envoi.value = true
+  const r = await connecterPasskey()
+  envoi.value = false
+  if (r.ok) return suite()
+  erreurPasskey.value = r.message
+}
+
+function versEmail() {
+  mode.value = 'email'; erreur.value = ''
+  // Le champ de l'adresse propose aussi les passkeys du téléphone (clavier) :
+  // qui a une passkey et ne s'en souvient pas la retrouve là.
+  nextTick(() => { if (passkeyPossible.value) connecterPasskey(true).then(r => { if (r.ok) suite() }) })
+}
+function versChoix() { abandonnerPasskey(); mode.value = 'choix'; erreur.value = '' }
 
 async function reprendre() {
   erreur.value = ''
@@ -68,14 +99,8 @@ async function reprendre() {
   } catch (e: any) {
     erreur.value = e?.data?.statusMessage === 'cle_inconnue'
       ? 'Cette clé ne correspond à aucun compte.'
-      : 'Clé incomplète.'
+      : messageErreur(e, 'Clé incomplète.')
   } finally { envoi.value = false }
-}
-
-async function copier() {
-  try { await navigator.clipboard.writeText(cleNeuve.value) } catch { /* selection manuelle */ }
-  copie.value = true
-  setTimeout(() => copie.value = false, 1800)
 }
 
 /**
@@ -92,51 +117,43 @@ async function entrerComme(c: string) {
 
 onMounted(async () => {
   if (await rafraichirMoi()) return suite()
+  passkeyPossible.value = passkeysPossibles()
   if (!prenomDemande.value) return
   // Le catalogue servira de toute facon juste apres : autant le charger ici.
   const cat = await chargerCatalogue().catch(() => null)
   prenomVu.value = cat ? trouverPrenom(cat.liste, prenomDemande.value)?.l ?? '' : ''
 })
+onBeforeUnmount(() => abandonnerPasskey())
 </script>
 
 <template>
   <main id="contenu" class="accueil" tabindex="-1">
-    <p v-if="compteSupprime && !cleNeuve" class="carte mini supprime" role="status">
+    <p v-if="compteSupprime && !nouveau" class="carte mini supprime" role="status">
       Votre compte et vos données ont été supprimés.
     </p>
 
-    <!-- 1. la clé vient d'être créée : elle ne sera plus jamais affichée -->
-    <template v-if="cleNeuve">
+    <!-- 1. le compte vient d'être créé : comment le retrouver ailleurs -->
+    <template v-if="nouveau">
       <div class="haut">
         <img src="/logo.png" alt="" width="58" height="58">
         <h1>Bonjour {{ pseudo.trim() }}</h1>
       </div>
+      <SecuriserCompte @suite="suite" />
+    </template>
 
+    <!-- 2. un lien par e-mail -->
+    <template v-else-if="mode === 'email'">
+      <div class="haut">
+        <img src="/logo.png" alt="" width="58" height="58">
+        <h1>Recevoir un lien</h1>
+      </div>
       <div class="carte pile">
-        <div class="ligne">
-          <Etincelles :taille="22" couleur="var(--peche)" />
-          <h2>Votre clé d’accès</h2>
-        </div>
-        <p class="mini doux" style="margin:0">
-          Elle remplace le mot de passe. Notez-la maintenant : elle ne s’affiche
-          qu’une fois, et elle seule permet de retrouver votre compte sur un
-          autre téléphone.
-        </p>
-        <button type="button" class="cle" @click="copier">
-          <span class="sr-only">Votre clé d’accès, touchez pour la copier : </span>{{ cleNeuve }}
-        </button>
-        <p class="mini" :class="copie ? '' : 'doux'" aria-live="polite" style="margin:0;text-align:center">
-          {{ copie ? 'Copiée' : 'Touchez pour copier' }}
-        </p>
-        <button type="button" class="btn btn-1" @click="suite">C’est noté, on y va</button>
-        <p class="mini doux" style="margin:0">
-          Vous restez connecté sur cet appareil pendant plusieurs mois. La clé
-          ne sert qu’en cas de changement de téléphone.
-        </p>
+        <FormulaireEmail but="connexion" @fait="suite" />
+        <button type="button" class="btn btn-0 doux" @click="versChoix">Retour</button>
       </div>
     </template>
 
-    <!-- 2. reprise d'un compte existant -->
+    <!-- 3. l'ancienne clé d'accès -->
     <template v-else-if="mode === 'cle'">
       <div class="haut">
         <img src="/logo.png" alt="" width="58" height="58">
@@ -151,11 +168,15 @@ onMounted(async () => {
           {{ envoi ? 'Vérification…' : 'Entrer' }}
         </button>
         <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
-        <button type="button" class="btn btn-0 doux" @click="mode = 'choix'; erreur = ''">Retour</button>
+        <p class="mini doux" style="margin:0">
+          Pour les comptes créés avant les passkeys. Une fois entré, ajoutez une
+          passkey ou votre e-mail dans « Mon compte » : la clé ne sera plus utile.
+        </p>
+        <button type="button" class="btn btn-0 doux" @click="versChoix">Retour</button>
       </div>
     </template>
 
-    <!-- 3. première venue -->
+    <!-- 4. première venue, ou retour -->
     <template v-else>
       <div class="haut">
         <img src="/logo.png" alt="" width="66" height="66">
@@ -178,10 +199,10 @@ onMounted(async () => {
         <button type="button" class="btn btn-1" :disabled="envoi" @click="creer">
           {{ envoi ? 'Création…' : 'Commencer' }}
         </button>
-        <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
+        <p v-if="erreur && mode === 'choix'" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
         <p class="mini doux" style="margin:0">
-          Pas d’adresse e-mail, pas de mot de passe. On vous donne une clé à noter,
-          utile seulement si vous changez de téléphone.
+          Pas de mot de passe. Juste après, vous choisirez comment retrouver votre
+          compte sur un autre appareil : une passkey, ou un lien par e-mail.
         </p>
         <!-- L'information au moment de la collecte (RGPD, art. 13) : courte
              ici, complete derriere le lien. -->
@@ -194,7 +215,18 @@ onMounted(async () => {
         </p>
       </div>
 
-      <button type="button" class="btn btn-0 doux" @click="mode = 'cle'; erreur = ''">
+      <div v-if="passkeyPossible || courrielPossible" class="carte pile">
+        <h2 class="deja">Vous avez déjà un compte ?</h2>
+        <button v-if="passkeyPossible" type="button" class="btn" :disabled="envoi" @click="avecPasskey">
+          Se connecter avec une passkey
+        </button>
+        <button v-if="courrielPossible" type="button" class="btn" @click="versEmail">
+          Recevoir un lien par e-mail
+        </button>
+        <p v-if="erreurPasskey" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreurPasskey }}</p>
+      </div>
+
+      <button type="button" class="btn btn-0 doux mini" @click="mode = 'cle'; erreur = ''">
         J’ai déjà une clé
       </button>
 
@@ -207,19 +239,20 @@ onMounted(async () => {
 
 <style scoped>
 .accueil { height: 100%; overflow-y: auto; display: flex; flex-direction: column;
-  justify-content: center; gap: 20px; max-width: 460px; margin: 0 auto;
+  gap: 18px; max-width: 460px; margin: 0 auto;
   padding: max(24px, env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom)); }
+/* Centré quand ça tient, et qui défile depuis le HAUT quand ça ne tient pas :
+   `justify-content: center` coupait le logo sur un petit écran, sans qu'on
+   puisse remonter jusqu'à lui. */
+.accueil > :first-child { margin-top: auto; }
+.accueil > :last-child { margin-bottom: auto; }
 .haut { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .haut img { border-radius: 17px; }
 .haut h1 { font-size: 1.7rem; }
 .haut p { margin: 0; }
+.deja { font-size: .98rem; }
 .champ.grand { text-align: center; font-size: 1.25rem; letter-spacing: .1em;
   font-variant-numeric: tabular-nums; padding: 16px 12px; }
-.cle { display: block; width: 100%; border: 1px dashed var(--trait); border-radius: var(--r-s);
-  background: var(--fond); padding: 18px 10px; cursor: pointer;
-  font: inherit; font-size: 1.35rem; font-weight: 700; letter-spacing: .08em;
-  text-align: center; color: var(--texte); }
-.cle:active { transform: scale(.99); }
 .accueil:focus { outline: none; }
 .supprime { margin: 0; padding: 12px 16px; text-align: center; }
 .attend { margin: 0; padding: 10px 14px; border-radius: var(--r-s); font-size: .92rem;

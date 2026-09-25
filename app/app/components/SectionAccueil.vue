@@ -7,7 +7,7 @@ import { listeCourante } from '~/composables/useListeCourante'
  * L'accueil, hors de toute liste. C'est le seul ecran sans barre du bas :
  * cette barre n'apparait que dans une liste, et c'est precisement ce qui dit
  * qu'on y est. Ce qui touche au compte vit ici, pas dans les reglages d'une
- * liste — un pseudo et une cle d'acces n'appartiennent a aucune liste.
+ * liste — un nom et des facons de se connecter n'appartiennent a aucune liste.
  */
 useHead({ title: 'Accueil' })
 
@@ -75,8 +75,7 @@ async function creer(filtres: Filtres) {
  */
 onMounted(async () => {
   const q = useRoute().query
-  const brut = typeof q.code === 'string' ? q.code.trim().toLowerCase() : ''
-  const code = /^[0-9a-f]{8}$/.test(brut) ? brut : ''
+  const code = normaliserCodeInvitation(q.code)
   const prenom = typeof q.prenom === 'string' ? q.prenom.trim().slice(0, 60) : ''
   const avecPrenom = prenom ? { prenom } : {}
 
@@ -231,6 +230,15 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         </button>
       </header>
 
+      <!-- Un compte sans passkey ni e-mail n'existe que sur cet appareil :
+           perdu avec lui. On le dit ici, une ligne, jusqu'a ce que ce soit
+           regle — pas une fenetre qui bloque le tri. -->
+      <button v-if="moi && moi.moyens === 0" type="button" class="carte proteger"
+              @click="compteOuvert = true">
+        <strong>Ce compte n’existe que sur cet appareil</strong>
+        <span class="mini">Ajoutez une passkey ou votre e-mail pour le retrouver ailleurs.</span>
+      </button>
+
       <div v-if="chargement" class="bento" aria-busy="true">
         <div class="carte grande fantome">
           <Squelette l="96px" :h="12" />
@@ -376,7 +384,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
                 {{ quandDernier(g.derniere_activite) }}
               </p>
             </div>
-            <span class="puce">{{ g.code_invitation }}</span>
+            <span v-if="g.code_invitation" class="puce">{{ codeLisible(g.code_invitation) }}</span>
           </NuxtLink>
         </template>
 
@@ -408,6 +416,11 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 </template>
 
 <style scoped>
+.proteger { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%;
+  text-align: left; font: inherit; color: var(--texte); cursor: pointer; padding: 13px 16px;
+  margin: 0 0 12px; border-color: color-mix(in srgb, var(--peche) 70%, var(--trait));
+  background: color-mix(in srgb, var(--peche) 28%, var(--carte)); }
+.proteger strong { font-size: .92rem; }
 .ecran.page { height: 100%; }
 /* La tirette du bord droit : assez visible pour qu'on la trouve, assez
    discrete pour ne pas manger l'ecran. Elle se tire ou se touche. */

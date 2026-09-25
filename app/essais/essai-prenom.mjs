@@ -42,7 +42,7 @@ const message = p => p.locator('.retour[role="status"]')
 
   await page.locator('input.champ').fill('Léa')
   await page.getByRole('button', { name: 'Commencer' }).click()
-  await page.getByRole('button', { name: 'C’est noté, on y va' }).click({ timeout: 15000 })
+  await page.getByRole('button', { name: 'Plus tard' }).click({ timeout: 15000 })
 
   const note = page.locator('.premier', { hasText: 'Louise' })
   await note.waitFor({ timeout: 20000 }).catch(() => null)
@@ -160,7 +160,7 @@ const message = p => p.locator('.retour[role="status"]')
     'et la connexion dit qu’une liste attend')
   await page.locator('input.champ').fill('Paul')
   await page.getByRole('button', { name: 'Commencer' }).click()
-  await page.getByRole('button', { name: 'C’est noté, on y va' }).click({ timeout: 15000 })
+  await page.getByRole('button', { name: 'Plus tard' }).click({ timeout: 15000 })
   await page.waitForURL(/\/g\/[^/]+\/swipe/, { timeout: 20000 }).catch(() => null)
   const listes = await page.evaluate(() => fetch('/api/groupes').then(r => r.json()))
   dit(/\/g\/[^/]+\/swipe/.test(page.url()) && listes.some(l => l.nom === 'Essai gratuit'),

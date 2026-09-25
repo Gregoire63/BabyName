@@ -34,33 +34,8 @@ const tva = mentionTva()
 
 const membres = computed(() => g.etat.value?.avancement?.length ?? 1)
 
-const INCLUS = [
-  {
-    titre: 'Le tri sans limite',
-    texte: 'Ni limite de départ, ni quota du jour, pour vous deux. Le rappel d’hygiène reste — juger deux cents prénoms d’affilée donne de moins bonnes décisions — mais il se passe.'
-  },
-  {
-    titre: 'L’essai avec votre nom de famille',
-    texte: 'Chaque prénom confronté au vôtre : les voyelles qui se télescopent, les consonnes qui butent, les rimes, la longueur, les initiales involontaires. Ça se calcule sur la prononciation, pas sur l’orthographe.'
-  },
-  {
-    titre: 'Combien dans sa classe',
-    texte: 'Le nombre d’enfants qui porteront ce prénom dans une classe de 25, aujourd’hui et projeté à l’entrée en maternelle.'
-  },
-  {
-    titre: 'Ce que vos oui disent de vous',
-    texte: 'Les origines qui reviennent, la longueur que vous préférez, le degré de rareté — pour chacun de vous, et là où vous divergez.'
-  },
-  {
-    titre: 'Pourquoi vous n’êtes pas d’accord',
-    texte: 'Sur chaque désaccord, ce qui le cause vraiment : « ce n’est peut-être pas Marius, c’est la longueur ». Calculé sur vos votes, et tu par honnêteté quand il n’y a pas encore de quoi le dire.'
-  },
-  {
-    titre: 'Les observateurs',
-    texte: 'Inviter les grands-parents pour qu’ils voient et commentent, sans qu’ils puissent bloquer un prénom ni retarder vos accords.'
-  }
-]
-
+const INCLUS = INCLUS_DEBLOCAGE
+const nomListe = computed(() => g.etat.value?.groupe?.nom ?? 'cette liste')
 // Les chiffres du gratuit viennent de la liste elle-meme : une liste offerte
 // plus large ne doit pas afficher les limites par defaut.
 const quota = computed(() => g.etat.value?.quota)
@@ -107,15 +82,17 @@ async function payer() {
   <Feuille titre="Débloquer cette liste" @fermer="emit('fermer')">
     <p style="margin:0 0 4px">
       <strong style="font-size:1.3rem">{{ prix }} TTC</strong>
-      <span class="doux"> une fois, pas d’abonnement</span>
+      <span class="doux"> pour cette liste, une fois — pas d’abonnement</span>
     </p>
     <p class="mini doux" style="margin:0 0 6px">{{ tva }}.</p>
-    <p class="mini doux" style="margin:0 0 16px">
-      C’est la <strong>liste</strong> qui se débloque, pas votre compte :
-      {{ membres > 1 ? 'vous êtes ' + membres + ' dessus, tout le monde en profite'
-                     : 'la personne que vous inviterez en profitera aussi' }}.
+    <!-- Ce qu'on achète, sans ambiguïté : UNE liste, pas l'app. Quelqu'un qui
+         croit tout débloquer, puis crée une seconde liste, se sent floué. -->
+    <p class="portee mini" style="margin:0 0 16px">
+      Ça débloque <strong>« {{ nomListe }} »</strong>, pour
+      {{ membres > 1 ? `ses ${membres} membres` : 'vous et la personne que vous inviterez' }}.
+      Pas toute l’application : <strong>chaque liste se débloque à part</strong>,
+      et vos autres listes restent gratuites.
     </p>
-
     <h3 class="titre-bloc">Ce que ça débloque</h3>
     <ul class="inclus">
       <li v-for="i in INCLUS" :key="i.titre" class="item">
@@ -156,7 +133,7 @@ async function payer() {
     <template #pied="{ fermer }">
       <button type="button" class="btn btn-1" style="width:100%" :disabled="envoi || !accord"
               :aria-describedby="accord ? undefined : 'accord-requis'" @click="payer">
-        {{ envoi ? 'Ouverture…' : `Débloquer pour ${prix}` }}
+        {{ envoi ? 'Ouverture…' : `Débloquer cette liste — ${prix}` }}
       </button>
       <p v-if="!accord" id="accord-requis" class="mini doux" style="margin:0;text-align:center">
         Cochez la case d’accord pour continuer.
@@ -172,6 +149,8 @@ async function payer() {
 
 <style scoped>
 .inclus { list-style: none; margin: 0; padding: 0; }
+.portee { padding: 10px 12px; border-radius: var(--r-s); line-height: 1.45;
+  background: color-mix(in srgb, var(--menthe) 30%, transparent); }
 .item { display: flex; gap: 10px; align-items: flex-start; padding: 11px 0;
   border-top: 1px solid var(--trait); }
 .accord { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0 0;

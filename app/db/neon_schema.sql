@@ -17,16 +17,15 @@ create extension if not exists pgcrypto;
 -- ---------------------------------------------------------------- comptes
 create table if not exists utilisateurs (
   id         uuid primary key default gen_random_uuid(),
-  email      text unique,                  -- vestige : plus utilise, remis a NULL (bloc RGPD)
+  email      text unique,                  -- facultatif, en minuscules, verifie (voir fin de fichier)
   pseudo     text not null,
   cree_le    timestamptz not null default now(),
   vu_le      timestamptz not null default now()
 );
 
--- Table morte depuis l'abandon du lien magique. Elle reste declaree tant
--- qu'un deploiement ancien pourrait encore la nommer, mais elle est VIDEE
--- (bloc RGPD en fin de fichier) : des e-mails gardes sans usage, c'est
--- exactement ce que la minimisation interdit.
+-- Table morte du PREMIER lien magique (jeton en clair). Elle reste declaree
+-- tant qu'un deploiement ancien pourrait encore la nommer ; la purge
+-- quotidienne la vide. Le lien actuel vit dans `liens_connexion`.
 create table if not exists jetons_magiques (
   jeton      text primary key,              -- aléatoire, 32 octets base64url
   email      text not null,
@@ -448,11 +447,11 @@ create index if not exists idx_groupes_paiement_ref
 -- sans activite depuis 24 mois : sans index, elle lirait toute la table.
 create index if not exists idx_utilisateurs_vu_le on utilisateurs (vu_le);
 
--- Minimisation (art. 5.1.c) : les e-mails du temps du lien magique n'ont plus
--- aucun usage. On les efface. Colonne et table restent, vides, tant qu'un
--- deploiement plus ancien pourrait encore les nommer.
-update utilisateurs set email = null where email is not null;
-delete from jetons_magiques;
+-- (Il y avait ici l'effacement des e-mails du premier lien magique. Il est
+-- parti avec le retour de l'e-mail comme moyen de connexion — voir le bloc
+-- « Connexion sans mot de passe » en fin de fichier : le rejouer effacerait
+-- des adresses verifiees. La vieille table jetons_magiques reste videe par
+-- la purge quotidienne.)
 
 -- ============================================================================
 --  Le quota de la version gratuite : un depart large, puis un filet.
@@ -481,3 +480,72 @@ alter table groupes add column if not exists quota_depart_liste integer  not nul
 alter table groupes add column if not exists quota_par_jour     smallint not null default 15;
 alter table groupes add column if not exists gestes_depart      integer  not null default 0;
 alter table utilisateurs add column if not exists gestes_depart integer not null default 0;
+
+-- ============================================================================
+--  Connexion sans mot de passe : passkeys, et lien par e-mail doublé d'un code.
+--
+--  La clé d'accès à recopier disparaît pour les nouveaux comptes : c'était un
+--  mot de passe qui ne disait pas son nom — à noter, à garder, à perdre.
+--  Deux façons de revenir la remplacent :
+--   * la PASSKEY (WebAuthn) : Face ID, empreinte, code du téléphone. La base
+--     ne garde que la clé PUBLIQUE ; rien de biométrique ne quitte l'appareil,
+--     et une clé publique volée n'ouvre rien ;
+--   * le LIEN PAR E-MAIL, doublé d'un code à 6 chiffres : l'app installée sur
+--     l'écran d'accueil n'est pas le navigateur où le lien s'ouvrirait, le
+--     code s'y tape.
+--  L'e-mail reste FACULTATIF, en minuscules, et n'est enregistré qu'une fois
+--  prouvé (lien ou code reçu). Les anciens comptes gardent leur clé d'accès
+--  tant qu'ils ne la désactivent pas.
+-- ============================================================================
+alter table utilisateurs add column if not exists email_verifie_le timestamptz;
+
+-- La génération des sessions : le cookie la porte, chaque requête la compare.
+-- « Déconnecter mes autres appareils » l'incrémente, et tous les cookies
+-- émis avant cessent de valoir — un cookie signé ne se révoque pas autrement.
+alter table utilisateurs add column if not exists session_gen integer not null default 0;
+
+-- L'identifiant WebAuthn du compte (« user handle ») : 32 octets au hasard,
+-- JAMAIS l'id du compte, que la passkey emporterait dans chaque trousseau.
+alter table utilisateurs add column if not exists webauthn_id text;
+create unique index if not exists idx_utilisateurs_webauthn
+  on utilisateurs (webauthn_id) where webauthn_id is not null;
+
+create table if not exists passkeys (
+  id            text primary key,              -- identifiant de la passkey (base64url)
+  user_id       uuid not null references utilisateurs(id) on delete cascade,
+  cle_publique  text not null,                 -- clé publique COSE (base64url)
+  compteur      bigint not null default 0,     -- compteur de signatures (clone)
+  transports    text[] not null default '{}',
+  nom           text not null default 'Passkey',
+  synchronisee  boolean not null default false, -- rangée dans un trousseau (iCloud, Google…)
+  cree_le       timestamptz not null default now(),
+  utilisee_le   timestamptz
+);
+create index if not exists idx_passkeys_user on passkeys (user_id);
+
+-- Un lien (et son code) : on ne garde que des EMPREINTES. Le jeton du lien
+-- est haché (SHA-256) ; le code, trop court pour un simple hachage, est
+-- signé (HMAC avec le secret des sessions). Quinze minutes, un seul usage,
+-- cinq essais de code au plus. Purgés le lendemain.
+create table if not exists liens_connexion (
+  id          text primary key,                -- SHA-256 du jeton du lien
+  email       text not null,
+  user_id     uuid not null references utilisateurs(id) on delete cascade,
+  but         text not null check (but in ('connexion', 'verification')),
+  code_hash   text not null,
+  essais      smallint not null default 0,
+  expire_le   timestamptz not null,
+  utilise_le  timestamptz,
+  cree_le     timestamptz not null default now()
+);
+create index if not exists idx_liens_email on liens_connexion (email, but, cree_le desc);
+
+-- Limiter les essais (création de comptes, codes d'invitation, liens,
+-- codes) : une ligne par action et par empreinte d'IP, de compte ou
+-- d'e-mail — jamais la valeur en clair. Fenêtre glissante grossière, purgée
+-- au bout de deux jours.
+create table if not exists limites (
+  cle    text primary key,
+  debut  timestamptz not null,
+  n      integer not null
+);

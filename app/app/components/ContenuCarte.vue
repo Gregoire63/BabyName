@@ -26,7 +26,7 @@ const props = withDefaults(defineProps<{
   /** Ce qu'on en avait dit, quand la recherche l'a ramene pour le rejuger. */
   dejaDit?: number | null
 }>(), { interactif: true, famille: null, dejaDit: null })
-const emit = defineEmits<{ fiche: []; favori: []; famille: []; veto: [] }>()
+const emit = defineEmits<{ fiche: []; favori: []; famille: []; veto: []; graphies: [] }>()
 const g = useGroupeCourant()
 
 // Un observateur juge, il ne bloque pas : les boutons qui bloquent ou
@@ -84,13 +84,17 @@ const niveau = computed(() => !essai.value ? ''
     <div class="identite">
       <h2 class="nom">{{ p.l }}</h2>
       <!-- Les graphies qui se disent pareil tiennent sur une carte : les juger
-           une par une, c'est cinq swipes pour une seule decision. Le vote les
-           emporte toutes, et on le dit plutot que de le faire en douce. -->
-      <p v-if="p.variantes?.length" class="graphies">
-        aussi écrit {{ p.variantes.slice(0, 4).join(', ')
-          }}<template v-if="p.variantes.length > 4"> et {{ p.variantes.length - 4 }} autres</template>
-        <span class="doux"> — le vote vaut pour {{ p.variantes.length + 1 }} graphies</span>
-      </p>
+           une par une, c'est cinq swipes pour une seule decision. Une ligne
+           courte les nomme ; la toucher (ou « Voir plus ») ouvre leurs
+           chiffres, une graphie par onglet — et dit que le vote les emporte
+           toutes. -->
+      <button v-if="p.variantes?.length" type="button" class="graphies"
+              :aria-label="`Aussi écrit ${p.variantes.join(', ')} : voir les chiffres de chaque graphie`"
+              @click.stop="emit('graphies')">
+        <span class="lesquelles">aussi écrit {{ p.variantes.slice(0, 3).join(', ')
+          }}<template v-if="p.variantes.length > 3"> +{{ p.variantes.length - 3 }}</template></span>
+        <span class="voir">Voir plus</span>
+      </button>
       <p v-if="p.m" class="sens">« {{ p.m }} »<span v-if="p.cf !== null && p.cf < 2" class="doute"> · sens probable</span></p>
       <p v-else-if="p.me" class="sens doux">« {{ p.me }} »</p>
     </div>
@@ -177,7 +181,12 @@ const niveau = computed(() => !essai.value ? ''
 .nom { font-size: clamp(2.4rem, 10.5vw, 3.1rem); letter-spacing: -.035em; margin: 2px 0 0;
   line-height: 1.02; overflow-wrap: anywhere; }
 .sens { margin: 0; font-size: 1.05rem; font-style: italic; }
-.graphies { margin: -2px 0 0; font-size: .74rem; color: var(--texte); line-height: 1.35; }
+.graphies { margin: -2px 0 0; padding: 2px 0; border: 0; background: none; font: inherit;
+  font-size: .78rem; color: var(--texte); line-height: 1.35; text-align: left; cursor: pointer;
+  display: flex; align-items: baseline; gap: 8px; min-width: 0; align-self: stretch; }
+.graphies .lesquelles { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.graphies .voir { flex: none; font-weight: 800; text-decoration: underline;
+  text-underline-offset: 3px; text-decoration-thickness: 1px; }
 /* Une etymologie discutee ne doit pas se lire comme un fait. */
 .doute { font-style: normal; font-size: .74rem; color: var(--doux); }
 

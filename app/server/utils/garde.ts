@@ -19,48 +19,70 @@ export const NOTER_ACTIVITE =
   `update utilisateurs set vu_le = now()
     where id = $1 and vu_le < now() - interval '1 day' returning 1`
 
-function jetonOuRefus(e: H3Event): string {
-  const id = userIdOuNull(e)
-  if (!id) throw createError({ statusCode: 401, statusMessage: 'non_connecte' })
-  return id
+function sessionOuRefus(e: H3Event): Session {
+  const s = sessionOuNull(e)
+  if (!s) throw createError({ statusCode: 401, statusMessage: 'non_connecte' })
+  return s
+}
+
+/** Cookie d'un compte efface, ou d'une generation revoquee : on le retire
+ *  et l'app repart de la connexion. */
+function sessionMorte(e: H3Event, raison: string): never {
+  retirerSession(e)
+  throw createError({ statusCode: 401, statusMessage: raison })
 }
 
 /**
- * Exige une session valide ET un compte qui existe encore.
+ * Exige une session valide ET un compte qui existe encore ET une generation
+ * de sessions a jour.
  *
  * Le cookie est signe, pas adosse a la base : il survit a l'effacement du
- * compte sur les autres appareils de la personne. Sans cette verification,
- * une session orpheline passait la garde et tombait plus loin sur une cle
- * etrangere — une erreur 500 au lieu d'un retour propre a l'accueil.
+ * compte sur les autres appareils de la personne, et a « Deconnecter mes
+ * autres appareils ». La base tranche : compte absent, ou generation
+ * depassee, et la session tombe ici — pas plus loin sur une cle etrangere.
  */
 export async function exigerUtilisateur(e: H3Event): Promise<string> {
-  const id = jetonOuRefus(e)
-  const u = await q1(
+  const s = sessionOuRefus(e)
+  const u = await q1<{ gen: number }>(
     `with activite as (${NOTER_ACTIVITE})
-     select 1 as ok from utilisateurs where id = $1`, [id])
-  if (!u) {
-    retirerSession(e)
-    throw createError({ statusCode: 401, statusMessage: 'compte_inexistant' })
-  }
-  return id
+     select session_gen as gen from utilisateurs where id = $1`, [s.u])
+  if (!u) sessionMorte(e, 'compte_inexistant')
+  if (u.gen !== s.g) sessionMorte(e, 'session_revoquee')
+  return s.u
+}
+
+/** Le compte, sa generation, et ce dont les routes de connexion ont besoin. */
+export async function exigerCompte(e: H3Event) {
+  const s = sessionOuRefus(e)
+  const u = await q1<{ id: string; pseudo: string; email: string | null; gen: number; webauthn_id: string | null }>(
+    `with activite as (${NOTER_ACTIVITE})
+     select id, pseudo, email, session_gen as gen, webauthn_id from utilisateurs where id = $1`, [s.u])
+  if (!u) sessionMorte(e, 'compte_inexistant')
+  if (u.gen !== s.g) sessionMorte(e, 'session_revoquee')
+  return u
 }
 
 /**
  * Exige que l'utilisateur soit membre du groupe. Renvoie son adhésion.
  *
- * Une seule requete : l'adhesion prouve que le compte existe (elle disparait
- * avec lui, en cascade), et l'activite se note dans la meme instruction.
+ * Une seule requete : le compte (et sa generation de sessions), l'adhesion,
+ * et l'activite notee dans la meme instruction. Pas de compte ou generation
+ * depassee : 401, la session est morte. Pas d'adhesion : 403.
  */
 export async function exigerMembre(e: H3Event, groupeId: number): Promise<Membre> {
-  const uid = jetonOuRefus(e)
-  const m = await q1<Membre>(
+  const s = sessionOuRefus(e)
+  const m = await q1<Membre & { gen: number }>(
     `with activite as (${NOTER_ACTIVITE})
-     select groupe_id, user_id, role, poids from membres
-      where user_id = $1 and groupe_id = $2`,
-    [uid, groupeId]
+     select u.session_gen as gen, m.groupe_id, m.user_id, m.role, m.poids
+       from utilisateurs u
+       left join membres m on m.user_id = u.id and m.groupe_id = $2
+      where u.id = $1`,
+    [s.u, groupeId]
   )
-  if (!m) throw createError({ statusCode: 403, statusMessage: 'pas_membre' })
-  return m
+  if (!m) sessionMorte(e, 'compte_inexistant')
+  if (m.gen !== s.g) sessionMorte(e, 'session_revoquee')
+  if (!m.groupe_id) throw createError({ statusCode: 403, statusMessage: 'pas_membre' })
+  return { groupe_id: Number(m.groupe_id), user_id: m.user_id, role: m.role, poids: m.poids }
 }
 
 /** Lit l'id de groupe d'une route, en validant que c'en est bien un. */

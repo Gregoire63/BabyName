@@ -3,9 +3,10 @@ export default defineEventHandler(async (e) => {
   const moi = await exigerMembre(e, gid)
   const { prenom, valeur, balayage, variantes } = await readBody<
     { prenom?: string; valeur?: number; balayage?: string; variantes?: string[] }>(e) ?? {}
-  if (!prenom || typeof valeur !== 'number' || ![0, 1, 2].includes(valeur)) {
+  if (typeof valeur !== 'number' || ![0, 1, 2].includes(valeur)) {
     throw createError({ statusCode: 400, statusMessage: 'vote_invalide' })
   }
+  prenomValide(prenom)
 
   // Le quota d'abord : on ne consomme un geste que si on va vraiment écrire,
   // et on n'écrit rien si le geste n'a pas pu être consommé. Le compteur est
@@ -29,9 +30,7 @@ export default defineEventHandler(async (e) => {
   // variantes : les autres graphies du MEME prénom (Elyo, Élio, Hélio). Elles
   // ne sont pas d'autres prénoms qu'on écarterait au passage, c'est le même
   // qu'on ne veut pas juger dix fois. Ça vaut pour les trois verdicts.
-  const autres = Array.isArray(variantes)
-    ? [...new Set(variantes.filter(v => typeof v === 'string' && v && v !== prenom))].slice(0, 40)
-    : []
+  const autres = prenomsValides(variantes, 40).filter(v => v !== prenom)
 
   // Le prénom montré sur la carte est jugé explicitement : il s'écrit sans
   // condition et sans racine — c'est LUI qu'on regardait.

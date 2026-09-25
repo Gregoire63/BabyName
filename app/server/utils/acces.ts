@@ -1,7 +1,11 @@
 import { createHash, randomInt } from 'node:crypto'
 
 /**
- * Cle d'acces personnelle — ce qui remplace le lien magique.
+ * Cle d'acces personnelle — l'ANCIENNE facon de revenir.
+ *
+ * Remplacee par la passkey et le lien par e-mail (voir server/api/auth) :
+ * les nouveaux comptes n'en recoivent plus. Les anciens la gardent tant
+ * qu'ils ne la desactivent pas ; ce fichier sert encore a la verifier.
  *
  * Pourquoi pas d'e-mail : pour une liste a deux, le code d'invitation fait
  * deja entrer dans le bon groupe ; l'e-mail ne servait qu'a retrouver son
@@ -36,6 +40,13 @@ export function nouvelleCle(): { cle: string; hash: string } {
   let brut = ''
   for (let i = 0; i < LONGUEUR; i++) brut += ALPHABET[randomInt(ALPHABET.length)]
   return { cle: formaterCle(brut), hash: hacherCle(brut) }
+}
+
+/** Un code d'invitation neuf (voir shared/utils/codes.ts). */
+export function nouveauCodeInvitation(): string {
+  let c = ''
+  for (let i = 0; i < LONGUEUR_CODE; i++) c += ALPHABET_CODE[randomInt(ALPHABET_CODE.length)]
+  return c
 }
 
 export function pseudoValide(brut: unknown): string {

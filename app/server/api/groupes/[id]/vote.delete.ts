@@ -9,7 +9,7 @@ export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
   const { prenoms } = await readBody<{ prenoms?: string[] }>(e) ?? {}
-  const liste = (prenoms ?? []).filter(p => typeof p === 'string' && p).slice(0, 200)
+  const liste = prenomsValides(prenoms, 200)
   if (!liste.length) throw createError({ statusCode: 400, statusMessage: 'aucun_prenom' })
 
   await q(`delete from votes

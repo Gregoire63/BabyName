@@ -16,6 +16,8 @@
  * - Une liste sans membre n'appartient plus a personne : elle part. On
  *   attend un jour, pour ne jamais attraper une liste a l'instant ou elle
  *   se cree (le groupe est ecrit une instruction avant son premier membre).
+ * - Les liens de connexion expires depuis un jour, et les compteurs de
+ *   limites vieux de deux jours.
  */
 // Les durees elles-memes vivent dans shared/utils/editeur.ts (CONSERVATION) :
 // la page /confidentialite les lit au meme endroit que la purge.
@@ -25,7 +27,7 @@ export interface BilanPurge {
   listes_sans_membre: number
   compteurs_anciens: number
   jetons_morts: number
-  emails_vestiges: number
+  limites_anciennes: number
 }
 
 export async function purger(): Promise<BilanPurge> {
@@ -45,12 +47,18 @@ export async function purger(): Promise<BilanPurge> {
     const compteurs_anciens = await n(
       `delete from quota_jour where jour < current_date - $1::int returning 1`,
       [CONSERVATION.quotaJours])
-    // Filets : le schema les vide deja, mais une base restauree d'une
-    // sauvegarde ancienne les remplirait de nouveau sans que rien ne le dise.
-    const jetons_morts = await n(`delete from jetons_magiques returning 1`)
-    const emails_vestiges = await n(
-      `update utilisateurs set email = null where email is not null returning 1`)
+    // Les liens de connexion : quinze minutes de vie, un jour de grace (pour
+    // qu'un « lien expire » se distingue d'un « lien inconnu » le temps de
+    // lire l'e-mail), puis plus rien. La vieille table du premier lien
+    // magique, elle, n'a plus aucun usage : videe.
+    const jetons_morts = await n(
+      `delete from liens_connexion where expire_le < now() - interval '1 day' returning 1`)
+      + await n(`delete from jetons_magiques returning 1`)
+    // Les compteurs des limites d'essais : deux jours suffisent a toutes les
+    // fenetres (la plus longue fait 24 h).
+    const limites_anciennes = await n(
+      `delete from limites where debut < now() - interval '2 days' returning 1`)
 
-    return { comptes_inactifs, listes_sans_membre, compteurs_anciens, jetons_morts, emails_vestiges }
+    return { comptes_inactifs, listes_sans_membre, compteurs_anciens, jetons_morts, limites_anciennes }
   })
 }

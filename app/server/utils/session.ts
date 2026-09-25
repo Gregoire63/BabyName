@@ -24,26 +24,39 @@ function signer(charge: string): string {
   return b64(createHmac('sha256', secret()).update(charge).digest())
 }
 
-export function creerJeton(userId: string): string {
-  const charge = b64(Buffer.from(JSON.stringify({ u: userId, e: Math.floor(Date.now() / 1000) + DUREE })))
+/**
+ * Le cookie porte le compte ET sa generation de sessions (`g`).
+ *
+ * Un cookie signe ne se revoque pas : tant qu'il n'a pas expire, il dit vrai.
+ * La generation, elle, vit en base (utilisateurs.session_gen) ; chaque
+ * requete la compare (voir garde.ts). « Deconnecter mes autres appareils »
+ * l'incremente, et tous les cookies emis avant cessent de valoir d'un coup.
+ * Un cookie d'avant cette regle n'a pas de `g` : il vaut 0, la generation de
+ * depart — personne n'est deconnecte par la mise a jour.
+ */
+export function creerJeton(userId: string, gen = 0): string {
+  const charge = b64(Buffer.from(JSON.stringify({ u: userId, g: gen, e: Math.floor(Date.now() / 1000) + DUREE })))
   return `${charge}.${signer(charge)}`
 }
 
-export function lireJeton(jeton: string | undefined): string | null {
+export interface Session { u: string; g: number }
+
+export function lireJeton(jeton: string | undefined): Session | null {
   if (!jeton || !jeton.includes('.')) return null
   const [charge, sig] = jeton.split('.')
+  if (!charge || !sig) return null
   const attendu = Buffer.from(signer(charge))
   const recu = Buffer.from(sig)
   if (attendu.length !== recu.length || !timingSafeEqual(attendu, recu)) return null
   try {
-    const { u, e } = JSON.parse(Buffer.from(charge, 'base64url').toString())
-    if (!u || typeof e !== 'number' || e < Math.floor(Date.now() / 1000)) return null
-    return u as string
+    const { u, g, e } = JSON.parse(Buffer.from(charge, 'base64url').toString())
+    if (!u || typeof u !== 'string' || typeof e !== 'number' || e < Math.floor(Date.now() / 1000)) return null
+    return { u, g: Number.isInteger(g) ? g : 0 }
   } catch { return null }
 }
 
-export function poserSession(e: H3Event, userId: string) {
-  setCookie(e, COOKIE, creerJeton(userId), {
+export function poserSession(e: H3Event, userId: string, gen = 0) {
+  setCookie(e, COOKIE, creerJeton(userId, gen), {
     // secure en production ; en local on sert en http, et Safari refuse un
     // cookie Secure sur http://localhost — on ne pourrait pas se connecter.
     httpOnly: true, secure: !import.meta.dev, sameSite: 'lax', path: '/', maxAge: DUREE
@@ -54,10 +67,21 @@ export function retirerSession(e: H3Event) {
   deleteCookie(e, COOKIE, { path: '/' })
 }
 
-export function userIdOuNull(e: H3Event): string | null {
+/** Le compte du cookie, SANS verifier sa generation : a reserver aux
+ *  chemins qui la verifient ensuite en base (garde.ts). */
+export function sessionOuNull(e: H3Event): Session | null {
   return lireJeton(getCookie(e, COOKIE))
 }
 
 export function jetonAleatoire(): string {
   return randomBytes(32).toString('base64url')
+}
+
+/** Le secret du serveur, pour signer autre chose que la session (defis
+ *  WebAuthn, codes recus par e-mail, empreintes des limites). */
+export function secretServeur(): string { return secret() }
+
+/** Un HMAC court, en base64url : empreinte non reversible d'une valeur. */
+export function empreinteSignee(valeur: string, contexte: string): string {
+  return b64(createHmac('sha256', secret()).update(`${contexte}\u0000${valeur}`).digest())
 }

@@ -76,9 +76,9 @@ await page.getByRole('button', { name: /Rejoindre une liste/ }).click()
 await page.waitForSelector('.feuille-corps', { timeout: 5000 })
 dit((await page.locator('.feuille-corps h2').first().innerText()) === 'Rejoindre une liste',
     'la feuille « Rejoindre » s’ouvre')
-await page.locator('input.code').fill('zzzzzzzz')
+await page.locator('input.code').fill('ilou -_!')
 dit(await page.locator('input.code').inputValue() === '',
-    'les caractères hors hexadécimal sont refusés à la saisie')
+    'les caractères qui ne peuvent figurer dans aucun code (I, L, O, U, ponctuation) sont refusés à la saisie')
 await page.locator('input.code').fill('deadbeef')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForTimeout(1200)

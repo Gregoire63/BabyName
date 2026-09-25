@@ -171,8 +171,13 @@ const iphone = await entrer('DEVG-REGX-2345', () => {
   Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true })
   window.__clavier = (h) => { hauteur = window.innerHeight - h; vv.dispatchEvent(new Event('resize')) }
 })
-await iphone.goto(`${BASE}/g/1/swipe`, { waitUntil: 'domcontentloaded' })
-await devant(iphone).locator('.nom').first().waitFor({ timeout: 20000 })
+// Par l'accueil, comme au premier bloc : c'est le chemin que prend l'app.
+await iphone.locator('a.carte', { hasText: 'Notre liste' }).first().click()
+const carteVue = await devant(iphone).locator('.nom').first().waitFor({ timeout: 30000 }).then(() => true, () => false)
+if (!carteVue) {
+  await iphone.screenshot({ path: '/tmp/essai-recherche-iphone.png' })
+  console.log('   [iphone]', iphone.url(), (await iphone.locator('main, body').first().innerText()).slice(0, 300).replace(/\s+/g, ' '))
+}
 await ouvrirRecherche(iphone)
 await iphone.locator('input.chercher').fill('ma')
 await iphone.waitForTimeout(300)

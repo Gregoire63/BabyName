@@ -2,7 +2,7 @@ export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
   const { prenom, actif } = await readBody<{ prenom?: string; actif?: boolean }>(e) ?? {}
-  if (!prenom) throw createError({ statusCode: 400, statusMessage: 'prenom_manquant' })
+  prenomValide(prenom)
   if (actif === false) {
     await q(`delete from favoris where groupe_id=$1 and user_id=$2 and prenom=$3`, [gid, moi.user_id, prenom])
   } else {

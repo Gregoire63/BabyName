@@ -254,7 +254,7 @@ if (await mur.count()) {
   await mur.first().click()
   await page.waitForSelector('[role="dialog"]')
   await auditer('Achat (débloquer)')
-  const payer = page.getByRole('button', { name: /Débloquer pour/ })
+  const payer = page.getByRole('button', { name: /Débloquer cette liste —/ })
   dit(await payer.isDisabled(), 'sans la case d’accord, le paiement ne peut pas partir')
   await page.getByRole('checkbox', { name: /conditions générales de vente/ }).check()
   dit(!await payer.isDisabled(), 'la case cochée, le bouton s’active')

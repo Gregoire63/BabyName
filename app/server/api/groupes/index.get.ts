@@ -2,7 +2,12 @@ export default defineEventHandler(async (e) => {
   const uid = await exigerUtilisateur(e)
   // Attention : la colonne de date des votes s'appelle vote_le, pas cree_le.
   return q(
-    `select g.id, g.nom, g.code_invitation, g.nb_vetos_max, g.favoris_visibles,
+    // Le code d'invitation fait entrer comme membre qui DECIDE : un
+    // observateur (lecture seule) ne le recoit pas, sinon il le transmettrait
+    // et ferait entrer n'importe qui avec plus de droits que lui.
+    `select g.id, g.nom,
+            case when m.role <> 'observateur' then g.code_invitation end as code_invitation,
+            g.nb_vetos_max, g.favoris_visibles,
             g.quota_swipe_jour, g.filtres, g.cree_le,
             (select count(*)::int from membres m2 where m2.groupe_id = g.id)   as nb_membres,
             (select count(*)::int from votes v where v.groupe_id = g.id

@@ -6,7 +6,7 @@ export default defineEventHandler(async (e) => {
     throw createError({ statusCode: 403, statusMessage: 'observateur_sans_veto' })
   }
   const { prenom, motif } = await readBody<{ prenom?: string; motif?: string }>(e) ?? {}
-  if (!prenom) throw createError({ statusCode: 400, statusMessage: 'prenom_manquant' })
+  prenomValide(prenom)
   try {
     await q(`insert into vetos (groupe_id, user_id, prenom, motif) values ($1, $2, $3, $4)`,
       [gid, moi.user_id, prenom, (motif ?? '').slice(0, 200) || null])

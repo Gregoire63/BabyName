@@ -451,7 +451,7 @@ ecrire(APP, page({
   chemin: APP,
   ariane: [{ n: MARQUE, u: '/' }, { n: 'Choisir à deux', u: APP }],
   titre: `Choisir un prénom à deux, sans s’influencer — l’application ${MARQUE}`,
-  description: `Chacun trie les prénoms de son côté, sans voir l’avis de l’autre ; ${MARQUE} ne montre que ceux que vous aimez tous les deux. ${nf(d.n)} prénoms, chiffres INSEE. Gratuit, sans e-mail.`,
+  description: `Chacun trie les prénoms de son côté, sans voir l’avis de l’autre ; ${MARQUE} ne montre que ceux que vous aimez tous les deux. ${nf(d.n)} prénoms, chiffres INSEE. Gratuit, sans mot de passe.`,
   jsonld: [{
     '@context': 'https://schema.org', '@type': 'WebApplication',
     name: MARQUE, url: `${SITE}/`, inLanguage: 'fr-FR',
@@ -476,7 +476,7 @@ ecrire(APP, page({
 
 <div class="chiffres">
 <div><b>${nf(d.n)}</b><span>prénoms, naissances INSEE ${AN0}–${AN1}</span></div>
-<div><b>0</b><span>e-mail ou mot de passe demandé</span></div>
+<div><b>0</b><span>mot de passe : passkey ou lien par e-mail</span></div>
 <div><b>Gratuit</b><span>option à ${esc(PRIX)} par liste, une fois</span></div>
 </div>
 
@@ -499,7 +499,7 @@ ecrire(APP, page({
 <p style="margin:0"><b>${esc(PRIX)} TTC, une fois, par liste</b> — pour tous ses membres : le tri sans limite, l’essai avec votre nom de famille, le nombre d’enfants qui porteront le prénom dans une classe, le portrait de vos goûts, l’explication de vos désaccords, et les observateurs (les grands-parents donnent leur avis sans rien bloquer). Pas d’abonnement.</p></div>
 
 <h2>Vos données</h2>
-<p>Un prénom ou un pseudo suffit : ni e-mail, ni mot de passe. Aucune publicité, aucune mesure d’audience, aucun cookie tiers. Votre compte s’efface en un geste, et vos données se téléchargent à tout moment. <a href="/confidentialite">Ce qu’on garde et pourquoi</a>.</p>
+<p>Un prénom ou un pseudo suffit pour commencer, et aucun mot de passe : on revient avec une passkey (Face ID, empreinte) ou un lien reçu par e-mail — l’adresse n’est demandée que si vous choisissez le lien. Aucune publicité, aucune mesure d’audience, aucun cookie tiers. Votre compte s’efface en un geste, et vos données se téléchargent à tout moment. <a href="/confidentialite">Ce qu’on garde et pourquoi</a>.</p>
 
 <h2>Questions fréquentes</h2>
 ${FAQ.map(([q, r]) => `<h3>${esc(q)}</h3><p>${esc(r)}</p>`).join('\n')}
@@ -527,7 +527,7 @@ writeFileSync(resolve(SORTIE, 'llms.txt'), `# ${MARQUE}
 > Application web française pour choisir le prénom de son bébé à deux, sans s’influencer : chacun juge les prénoms de son côté, à l’aveugle, et l’application ne montre que ceux que tout le monde aime. ${nf(d.n)} prénoms, avec les naissances INSEE en France de ${AN0} à ${AN1}.
 
 - Gratuit : ${QUOTA_DEPART} prénoms pour commencer, puis ${QUOTA_JOUR} par jour, sans jamais être bloqué. Option à ${PRIX} TTC par liste, en une fois, pour tous ses membres (tri sans limite, essai avec le nom de famille, projection dans une classe, explication des désaccords, observateurs).
-- Ni e-mail ni mot de passe ; aucune publicité, aucune mesure d’audience, aucun cookie tiers.
+- Aucun mot de passe (passkey ou lien par e-mail, adresse facultative) ; aucune publicité, aucune mesure d’audience, aucun cookie tiers.
 - Dans le navigateur, sur téléphone ou ordinateur, installable sur l’écran d’accueil ; l’autre parent rejoint la liste par un lien.
 - Une fiche publique par prénom : signification (avec son niveau de certitude), origine, courbe des naissances depuis ${AN0}, tendance, graphies qui se prononcent pareil, prénoms proches.
 

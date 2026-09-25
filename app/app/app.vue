@@ -107,8 +107,18 @@ function allerAuContenu() {
   --lavis: radial-gradient(120% 55% at 12% -8%, color-mix(in srgb, var(--menthe) 55%, transparent) 0%, transparent 62%),
            radial-gradient(110% 50% at 95% -4%, color-mix(in srgb, var(--peche) 48%, transparent) 0%, transparent 58%);
 }
+/* LE SOMBRE A DEUX PORTES D'ENTREE (voir useTheme) :
+   - le telephone est en sombre et l'on a laisse « Systeme » : la media query ;
+   - on a choisi « Sombre » dans les reglages : [data-theme="dark"], meme sur
+     un telephone en clair.
+   « Clair » pose [data-theme="light"], qui ferme la premiere porte. Les deux
+   blocs portent LES MEMES valeurs : qui en change une change l'autre.
+   `color-scheme` suit : cases, curseurs et barres de defilement natifs
+   prennent le theme de l'app, pas celui du telephone. */
+:root { color-scheme: light; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --fond: #101321; --carte: #191d2e; --trait: #2a2f45;
     --texte: #eef0f7; --doux: #9298b2; --encre: #eef0f7;
     --menthe: #2c4a44; --peche: #4d3330; --sable: #33313c;
@@ -118,6 +128,17 @@ function allerAuContenu() {
     --lavis: radial-gradient(120% 55% at 12% -8%, rgba(44,74,68,.55) 0%, transparent 62%),
              radial-gradient(110% 50% at 95% -4%, rgba(77,51,48,.5) 0%, transparent 58%);
   }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --fond: #101321; --carte: #191d2e; --trait: #2a2f45;
+  --texte: #eef0f7; --doux: #9298b2; --encre: #eef0f7;
+  --menthe: #2c4a44; --peche: #4d3330; --sable: #33313c;
+  --oui: #4fc095; --non: #e2726b; --neutre: #a4a4b6; --focus: #eef0f7;
+  --ombre: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px -14px rgba(0,0,0,.65);
+  --lueur: rgba(255,255,255,.075);
+  --lavis: radial-gradient(120% 55% at 12% -8%, rgba(44,74,68,.55) 0%, transparent 62%),
+           radial-gradient(110% 50% at 95% -4%, rgba(77,51,48,.5) 0%, transparent 58%);
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }

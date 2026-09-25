@@ -18,12 +18,16 @@ const VALEUR = ['non', 'neutre', 'oui'] as const
 export default defineEventHandler(async (e) => {
   const uid = await exigerUtilisateur(e)
 
-  const [compte, listes, votes, vetos, favoris, duels, elo, classement, commentaires, quotas] =
+  const [compte, passkeys, listes, votes, vetos, favoris, duels, elo, classement, commentaires, quotas] =
     await Promise.all([
-      q1(`select id, pseudo, cree_le, vu_le as derniere_activite,
+      q1(`select id, pseudo, email, email_verifie_le as email_verifie_le, cree_le, vu_le as derniere_activite,
                  cle_acces_hash is not null as cle_acces_active,
                  gestes_depart as prenoms_juges_du_lot_de_depart
             from utilisateurs where id = $1`, [uid]),
+      // Les passkeys : leur nom et leurs dates. Pas la cle publique — elle ne
+      // dit rien de vous, et ne sert qu'a verifier une signature.
+      q(`select nom, synchronisee as rangee_dans_un_trousseau, cree_le, utilisee_le
+           from passkeys where user_id = $1 order by cree_le`, [uid]),
       q(`select g.id, g.nom, g.nom_famille, g.filtres, g.cree_le,
                 m.role, m.rejoint_le,
                 coalesce(g.cree_par = $1, false) as creee_par_moi,
@@ -63,13 +67,15 @@ export default defineEventHandler(async (e) => {
       contenu: 'Toutes les données que babyNames conserve sur votre compte, liste par liste.',
       absent: [
         'Les votes, commentaires et pseudos des autres membres de vos listes : ce sont leurs données.',
-        'L’empreinte de votre clé d’accès : elle ne sert qu’à la vérifier.',
+        'L’empreinte de votre ancienne clé d’accès, s’il y en a une : elle ne sert qu’à la vérifier.',
+        'La clé publique de vos passkeys : elle ne sert qu’à vérifier une signature, et ne dit rien de vous. Rien de biométrique n’a jamais quitté votre appareil.',
         'Vos données de paiement : babyNames ne connaît que la date du déblocage. Le reste (carte, e-mail, facture) est chez Stripe.'
       ],
       valeurs_de_vote: 'non, neutre ou oui — « balayage » indique un « non » donné à toute une famille de prénoms d’un seul geste.',
       quotas: 'Nombre de prénoms jugés par jour sur les listes gratuites, une fois le lot de départ épuisé. Effacé automatiquement au bout de 62 jours.'
     },
     compte,
+    passkeys,
     listes,
     votes: votes.map((v: any) => ({ ...v, valeur: VALEUR[v.valeur] ?? v.valeur })),
     vetos,

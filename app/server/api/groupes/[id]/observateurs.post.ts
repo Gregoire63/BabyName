@@ -8,11 +8,11 @@
  * On le crée à la demande et on le garde : le regénérer à chaque appel
  * casserait les liens déjà envoyés.
  */
-import { randomBytes } from 'node:crypto'
-
 export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
-  await exigerMembre(e, gid)
+  const moi = await exigerMembre(e, gid)
+  // Un observateur n'invite personne (il ne voit pas non plus les codes).
+  if (moi.role === 'observateur') throw createError({ statusCode: 403, statusMessage: 'reserve_aux_membres' })
 
   const g = await q1<{ paye: boolean; code: string | null }>(
     `select (paye_le is not null) as paye, code_observateur as code
@@ -21,10 +21,10 @@ export default defineEventHandler(async (e) => {
   if (!g.paye) throw createError({ statusCode: 402, statusMessage: 'liste_non_debloquee' })
   if (g.code) return { ok: true, code: g.code }
 
-  // Collision quasi impossible sur 8 hex, mais `unique` la rendrait fatale :
+  // Collision quasi impossible (format long), mais `unique` la rendrait fatale :
   // on réessaie au lieu de renvoyer une 500 à quelqu'un qui n'y peut rien.
   for (let i = 0; i < 5; i++) {
-    const code = randomBytes(4).toString('hex')
+    const code = nouveauCodeInvitation()
     try {
       const r = await q1<{ code_observateur: string }>(
         `update groupes set code_observateur = $2

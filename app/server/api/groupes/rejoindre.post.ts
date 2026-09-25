@@ -1,8 +1,13 @@
 export default defineEventHandler(async (e) => {
   const uid = await exigerUtilisateur(e)
+  // Un code se devine par essais : dix par heure et par compte, trente par
+  // IP. Largement assez pour se tromper de lien ; beaucoup trop peu pour
+  // balayer quatre milliards de valeurs (voir shared/utils/codes.ts).
+  await limiter(e, 'rejoindre-compte', uid, 10, 3600)
+  await limiter(e, 'rejoindre-ip', ipDe(e), 30, 3600)
   const { code } = await readBody<{ code?: string }>(e) ?? {}
-  const c = (code ?? '').trim().toLowerCase()
-  if (!/^[0-9a-f]{8}$/.test(c)) throw createError({ statusCode: 400, statusMessage: 'code_invalide' })
+  const c = normaliserCodeInvitation(code)
+  if (!c) throw createError({ statusCode: 400, statusMessage: 'code_invalide' })
   /**
    * Deux codes mènent a la meme liste et n'y donnent pas la meme voix.
    *

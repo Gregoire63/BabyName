@@ -19,7 +19,12 @@ async function lireBaseLocale() {
   baseLocale.value = await $fetch('/api/dev/base').catch((e: any) =>
     ({ erreur: e?.data?.message || 'Outils indisponibles.' }))
 }
-onMounted(lireBaseLocale)
+/** La boite de developpement : les e-mails que l'app aurait envoyes. */
+const courriels = ref<any[]>([])
+async function lireCourriels() {
+  courriels.value = await $fetch<any[]>('/api/dev/courriels').catch(() => [])
+}
+onMounted(() => { lireBaseLocale(); lireCourriels() })
 
 const dateSemence = computed(() => baseLocale.value?.semence?.semee_le
   ? new Date(baseLocale.value.semence.semee_le).toLocaleDateString('fr-FR') : '')
@@ -104,6 +109,19 @@ async function gesteDev(action: string, groupe?: number, fait = 'Fait.') {
           </button>
         </li>
       </ul>
+      <div class="pile" style="gap:4px">
+        <div class="ligne">
+          <p class="mini" style="margin:0;flex:1"><strong>E-mails envoyés</strong> (boîte locale, rien ne part)</p>
+          <button type="button" class="btn btn-0 mini" @click="lireCourriels">Relire</button>
+        </div>
+        <p v-if="!courriels.length" class="mini doux" style="margin:0">
+          Aucun pour l’instant. Audrey a une adresse vérifiée : audrey@exemple.test.
+        </p>
+        <p v-for="c in courriels.slice(0, 3)" :key="c.le" class="mini" style="margin:0">
+          {{ c.a }} · code <code>{{ c.code }}</code> ·
+          <a :href="c.lien" class="lien">ouvrir le lien</a>
+        </p>
+      </div>
       <p class="mini doux" style="margin:0">
         Clés :
         <template v-for="(c, i) in baseLocale.comptes" :key="c.cle">

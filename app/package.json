@@ -11,13 +11,15 @@
     "seo": "node scripts/seo.mjs"
   },
   "dependencies": {
-    "nuxt": "^4.1.0",
+    "@simplewebauthn/browser": "^14.0.0",
+    "@simplewebauthn/server": "^14.0.2",
+    "nuxt": "^4.5.2",
+    "pg": "^8.13.0",
     "vue": "^3.5.0",
-    "vue-router": "^4.5.0",
-    "pg": "^8.13.0"
+    "vue-router": "^4.5.0"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.0",
-    "@electric-sql/pglite": "^0.3.0"
+    "@electric-sql/pglite": "^0.3.0",
+    "@types/pg": "^8.11.0"
   }
 }

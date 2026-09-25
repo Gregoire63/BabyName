@@ -38,16 +38,27 @@
   @keyframes amorce-tourne { to { transform: rotate(90deg) } }
   @keyframes amorce-respire { 0%, 100% { opacity: .72 } 50% { opacity: 1 } }
 
+  /* Memes portes que app.vue : le telephone en sombre (sauf « Clair »
+     choisi), ou « Sombre » choisi. Le script de <head> a deja pose
+     data-theme quand ce texte s'affiche. */
   @media (prefers-color-scheme: dark) {
-    .amorce {
+    html:not([data-theme="light"]) .amorce {
       background:
         radial-gradient(120% 55% at 12% -8%, rgba(44,74,68,.55) 0%, transparent 62%),
         radial-gradient(110% 50% at 95% -4%, rgba(77,51,48,.5) 0%, transparent 58%),
         #101321;
       color: #eef0f7;
     }
-    .amorce svg { fill: #eef0f7; }
+    html:not([data-theme="light"]) .amorce svg { fill: #eef0f7; }
   }
+  html[data-theme="dark"] .amorce {
+    background:
+      radial-gradient(120% 55% at 12% -8%, rgba(44,74,68,.55) 0%, transparent 62%),
+      radial-gradient(110% 50% at 95% -4%, rgba(77,51,48,.5) 0%, transparent 58%),
+      #101321;
+    color: #eef0f7;
+  }
+  html[data-theme="dark"] .amorce svg { fill: #eef0f7; }
   @media (prefers-reduced-motion: reduce) {
     .amorce svg { animation: none; opacity: .9; }
   }

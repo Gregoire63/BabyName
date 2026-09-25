@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
+import { signalerNom, signalerPasskeysRestantes } from '~/composables/usePasskey'
 
 /**
  * Le compte, au meme endroit que le nom sur lequel on a tape.
  *
  * C'etait au fond des reglages d'une liste, ce qui n'avait pas de sens : le
- * pseudo et la cle d'acces ne dependent d'aucune liste. On touche son nom sur
- * l'accueil, on tombe sur ce qui le concerne.
+ * nom et les facons de se connecter ne dependent d'aucune liste. On touche
+ * son nom sur l'accueil, on tombe sur ce qui le concerne.
  */
 const emit = defineEmits<{ fermer: [] }>()
 
@@ -26,24 +27,10 @@ async function renommer() {
   try {
     await $fetch('/api/auth/pseudo', { method: 'POST', body: { pseudo: nom.value.trim() } })
     await rafraichirMoi()
+    signalerNom()
     enregistre.value = true
     setTimeout(() => enregistre.value = false, 1600)
   } catch { erreur.value = 'Ce nom n’a pas pu être enregistré.' }
-}
-
-// --- cle d'acces ----------------------------------------------------------
-const cleNeuve = ref('')
-const demandeCle = ref(false)
-const copiee = ref(false)
-
-async function regenererCle() {
-  const r = await $fetch<any>('/api/auth/cle', { method: 'POST' }).catch(() => null)
-  if (r?.cle) { cleNeuve.value = r.cle; demandeCle.value = false }
-}
-async function copier() {
-  try { await navigator.clipboard.writeText(cleNeuve.value) } catch { /* selection manuelle */ }
-  copiee.value = true
-  setTimeout(() => copiee.value = false, 1800)
 }
 
 async function sortir() {
@@ -87,7 +74,10 @@ async function supprimerCompte() {
   suppressionEnCours.value = true
   erreurSuppression.value = ''
   try {
+    // De quoi dire ensuite au trousseau que ces passkeys ne servent plus.
+    const pk = await $fetch<any>('/api/auth/passkeys').catch(() => null)
     await $fetch('/api/moi/supprimer', { method: 'POST', body: { confirmation: 'SUPPRIMER' } })
+    if (pk?.userID) signalerPasskeysRestantes({ rpID: pk.rpID, userID: pk.userID, restantes: [] })
     viderStockageLocal()
     moi.value = null
     await navigateTo('/connexion?compte=supprime')
@@ -116,36 +106,15 @@ async function supprimerCompte() {
       <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
     </section>
 
-    <section class="pile">
-      <p class="etiquette">Clé d’accès</p>
-      <p class="mini doux" style="margin:0">
-        Elle ne sert qu’à retrouver ce compte sur un autre téléphone. Il n’y a
-        pas d’e-mail : cette clé est la seule façon de revenir.
-      </p>
+    <section class="pile" aria-labelledby="compte-connexion">
+      <h3 id="compte-connexion" class="etiquette">Se connecter</h3>
+      <MoyensConnexion />
+    </section>
 
-      <button v-if="cleNeuve" type="button" class="cle" @click="copier">
-        <span class="sr-only">Nouvelle clé d’accès, touchez pour la copier : </span>{{ cleNeuve }}
-      </button>
-      <p v-if="cleNeuve" class="mini" :class="copiee ? '' : 'doux'" aria-live="polite"
-         style="margin:0;text-align:center">
-        {{ copiee ? 'Copiée' : 'Touchez pour copier' }} — notez-la, elle ne réapparaîtra pas.
-      </p>
-
-      <template v-else-if="demandeCle">
-        <p class="mini" style="margin:0">
-          Générer une nouvelle clé <strong>annule immédiatement l’ancienne</strong>.
-          Un appareil qui s’en servait devra utiliser la nouvelle.
-        </p>
-        <div class="ligne">
-          <button type="button" class="btn btn-1 mini" @click="regenererCle">Générer quand même</button>
-          <button type="button" class="btn btn-0 mini doux" @click="demandeCle = false">Annuler</button>
-        </div>
-      </template>
-
-      <button v-else class="btn btn-0 mini doux" style="align-self:flex-start"
-              @click="demandeCle = true">
-        J’ai perdu ma clé — en générer une nouvelle
-      </button>
+    <section class="pile" aria-labelledby="compte-theme">
+      <h3 id="compte-theme" class="etiquette">Apparence</h3>
+      <ChoixTheme />
+      <p class="mini doux" style="margin:0">Sur cet appareil.</p>
     </section>
 
     <section class="pile" aria-labelledby="compte-donnees">
@@ -207,8 +176,4 @@ async function supprimerCompte() {
   border: 1px solid color-mix(in srgb, var(--non) 45%, var(--trait)); gap: 10px; }
 .btn-danger { background: var(--non); border-color: var(--non); color: var(--fond); }
 
-.cle { display: block; width: 100%; border: 1px dashed var(--trait); border-radius: 13px;
-  background: var(--fond); padding: 15px 8px; cursor: pointer; font: inherit;
-  font-size: 1.2rem; font-weight: 700; letter-spacing: .07em; text-align: center;
-  color: var(--texte); }
 </style>

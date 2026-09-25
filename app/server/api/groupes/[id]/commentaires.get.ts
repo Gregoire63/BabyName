@@ -3,8 +3,7 @@
 export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
-  const prenom = String(getQuery(e).prenom ?? '')
-  if (!prenom) throw createError({ statusCode: 400, statusMessage: 'prenom_manquant' })
+  const prenom = prenomValide(String(getQuery(e).prenom ?? ''))
   return q(
     `select c.id, c.prenom, c.texte, c.ecrit_le, u.pseudo, c.user_id
        from commentaires c join utilisateurs u on u.id = c.user_id
