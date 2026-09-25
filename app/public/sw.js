@@ -7,7 +7,7 @@
    servi par le reseau d'abord, ou revalide en arriere-plan. Un fichier sans
    nom hache garde en cache-d'abord, c'est une application figee pour
    toujours sur le telephone de quelqu'un. */
-const VERSION = 'bn-7'   // bn-7 : catalogue passe de 7 667 a 19 608 prenoms
+const VERSION = 'bn-8'   // bn-8 : les pages SEO statiques ne remplacent plus la coquille
 const COQUILLE = `coquille-${VERSION}`
 const BIENS = `biens-${VERSION}`
 
@@ -47,6 +47,9 @@ const EMPREINTE = /^(?:[\w-]+\.)?[A-Za-z0-9_-]{8,}\.(?:js|mjs|css|woff2?)$/
 function hache(u) {
   if (!u.pathname.startsWith('/_nuxt/')) return false
   if (u.pathname.startsWith('/_nuxt/builds/')) return false
+  // /_nuxt/assets/… n'existe qu'en developpement (Vite, noms sans empreinte :
+  // « nunito-latin-500-normal.woff2 » passait pour un nom hache).
+  if (u.pathname.startsWith('/_nuxt/assets/')) return false
   if (u.search) return false
   return EMPREINTE.test(u.pathname.slice(u.pathname.lastIndexOf('/') + 1))
 }
@@ -57,6 +60,13 @@ self.addEventListener('fetch', e => {
   const u = new URL(r.url)
   if (u.origin !== location.origin) return
   if (u.pathname.startsWith('/api/')) return           // jamais de cache sur l'API
+
+  // Pages SEO (/prenom/…, /prenoms/…, la page de l'app) et fichiers pour les
+  // robots : du statique complet, pas la coquille. On ne s'en mele pas —
+  // sinon la premiere fiche visitee ecrasait '/' dans le cache et l'app hors
+  // ligne ouvrait sur Louise.
+  if (/^\/(prenoms?|choisir-un-prenom-a-deux)\//.test(u.pathname)
+      || ['/sitemap.xml', '/robots.txt', '/llms.txt'].includes(u.pathname)) return
 
   // Coquille SPA : reseau d'abord, cache seulement si on est hors ligne.
   if (r.mode === 'navigate') {

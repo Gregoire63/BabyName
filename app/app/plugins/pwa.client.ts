@@ -31,9 +31,15 @@ export default defineNuxtPlugin(() => {
       navigator.serviceWorker.getRegistrations().then(async (rs) => {
         if (!rs.length) return
         await Promise.all(rs.map(r => r.unregister()))
-        if ('caches' in window) {
-          for (const k of await caches.keys()) await caches.delete(k)
+        const vider = async () => {
+          if ('caches' in window) for (const k of await caches.keys()) await caches.delete(k)
         }
+        await vider()
+        // Desinscrit, le worker controle ENCORE cette page jusqu'au prochain
+        // rechargement : ce qu'elle charge ensuite (les polices, en dernier)
+        // repasse par lui et recree un cache. On revide une fois tout arrive.
+        document.fonts?.ready.then(() => setTimeout(vider, 150))
+        setTimeout(vider, 1200)
         console.warn('[babyNames] service worker desinstalle (developpement) — rechargez')
       }).catch(() => { /* navigation privee */ })
     }

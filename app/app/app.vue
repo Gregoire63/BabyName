@@ -3,7 +3,9 @@ onMounted(() => { rafraichirMoi() })
 
 // Chaque page donne son titre ; le nom de l'app suit (RGAA 8.6).
 useHead({
-  titleTemplate: (t?: string) => (t && t !== 'babyNames' ? `${t} · babyNames` : 'babyNames')
+  // Le titre par defaut (nuxt.config) commence deja par le nom : on ne le
+  // redouble pas.
+  titleTemplate: (t?: string) => (t && !t.startsWith('babyNames') ? `${t} · babyNames` : (t || 'babyNames'))
 })
 
 /**

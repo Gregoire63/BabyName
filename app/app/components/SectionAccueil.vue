@@ -382,7 +382,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
         <p class="mini doux credit">
           {{ stats?.total.toLocaleString('fr-FR') ?? '—' }} prénoms · fichier INSEE des prénoms,
-          millésime 2025<br>
+          millésime 2025 · <a href="/prenoms/" class="lien">toutes les fiches prénoms</a><br>
           <button type="button" class="version" @click="vider">
             version {{ version }}{{ purge ? ' — rechargement…' : ' · toucher pour recharger à neuf' }}
           </button>

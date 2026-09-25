@@ -2,6 +2,14 @@ import { fileURLToPath } from 'node:url'
 
 const VIDE = fileURLToPath(new URL('./vide.mjs', import.meta.url))
 
+// Le domaine public, pour les balises Open Graph de la coquille (meme regle que
+// scripts/seo.mjs). Vide en local : les chemins restent relatifs.
+const SITE = (process.env.NUXT_PUBLIC_SITE_URL
+  || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '')
+).replace(/\/$/, '')
+const DESCRIPTION = 'Choisir le prénom de bébé à deux, sans s’influencer : chacun trie de son côté, '
+  + 'babyNames ne montre que les prénoms que vous aimez tous les deux. Gratuit, sans e-mail.'
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-09-01',
   ssr: false,                     // le catalogue est statique et embarque : aucun SSR utile
@@ -12,12 +20,31 @@ export default defineNuxtConfig({
     pageTransition: { name: 'page', mode: 'default' },
     head: {
       htmlAttrs: { lang: 'fr' },
-      title: 'babyNames',
+      // Le titre de la coquille : chaque page le remplace aussitot, mais c'est
+      // lui que lisent les robots qui n'executent pas le JavaScript.
+      title: 'babyNames — choisir le prénom de bébé à deux',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'theme-color', content: '#1a234e' },
-        { name: 'description', content: 'Choisir un prénom à plusieurs, sans s’influencer.' }
+        { name: 'description', content: DESCRIPTION },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:site_name', content: 'babyNames' },
+        { property: 'og:title', content: 'babyNames — choisir le prénom de bébé à deux' },
+        { property: 'og:description', content: DESCRIPTION },
+        { property: 'og:image', content: `${SITE}/icone-512.png` },
+        { property: 'og:locale', content: 'fr_FR' }
       ],
+      // « / » est une coquille JavaScript : un robot qui ne l'execute pas
+      // (la plupart des robots d'IA) n'y voyait rien. Il trouve ici de quoi
+      // savoir ce qu'est l'app, et ou lire la suite.
+      noscript: [{
+        tagPosition: 'bodyOpen',
+        innerHTML: '<h1>babyNames — choisir le prénom de bébé à deux</h1>'
+          + `<p>${DESCRIPTION}</p>`
+          + '<p><a href="/choisir-un-prenom-a-deux/">Comment ça marche, prix et confidentialité</a> · '
+          + '<a href="/prenoms/">Signification, origine et popularité des prénoms donnés en France</a></p>'
+          + '<p>L’application elle-même demande JavaScript.</p>'
+      }],
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },
         // Nunito est servie par l'app (app/assets/fonts, @font-face dans
