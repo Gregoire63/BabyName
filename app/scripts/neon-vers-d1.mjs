@@ -1,52 +1,164 @@
 #!/usr/bin/env node
 /**
- * Copier les données de l'ancienne base (Postgres, Neon) vers D1.
+ * Sauvegarder toute la base Neon, et préparer sa copie vers D1.
  *
- * Une seule fois, au passage sur Cloudflare. Rien n'est envoyé nulle part :
- * le script LIT Neon et ÉCRIT un fichier SQL, que wrangler importe ensuite.
+ * Une commande, au passage sur Cloudflare. Rien n'est envoyé nulle part : le
+ * script LIT Neon et ÉCRIT deux fichiers dans .data/ (ignoré par git) :
  *
- *   1. NEON_URL="postgres://…" npm run base:copier-neon
- *        (l'URL : Vercel → Storage → la base Neon → .env.local, la ligne
- *         DATABASE_URL_UNPOOLED ; sous Windows PowerShell :
- *         $env:NEON_URL="postgres://…"; npm run base:copier-neon)
- *   2. npm run base:migrer        (le schéma dans D1, si ce n'est pas fait)
- *   3. npx wrangler d1 execute DB --remote --config wrangler.jsonc --file .data/neon-vers-d1.sql
- *   4. Effacer .data/neon-vers-d1.sql : il contient des adresses e-mail.
+ *   neon-sauvegarde-AAAA-MM-JJ-HHMM.json
+ *     TOUTES les tables, toutes les lignes, telles quelles, avec leurs
+ *     colonnes, leurs index et les compteurs d'identifiants. C'est le filet :
+ *     ce que D1 ne reprend pas (jetons de connexion, colonnes abandonnées,
+ *     adresses jamais vérifiées) y est aussi. Écrite, puis relue, AVANT la
+ *     conversion : si celle-ci échoue, la sauvegarde existe déjà.
+ *   neon-vers-d1.sql
+ *     les données au format de D1, à importer dans une base NEUVE (une garde,
+ *     en tête du fichier, arrête l'import si la base a déjà des comptes).
  *
- * Ce qui est copié : comptes, listes, membres, votes, vetos (chacun avec ses
- * graphies, prises dans le catalogue, comme un veto posé aujourd'hui), favoris,
- * commentaires, passkeys (et les tables mortes duels, Elo, classement manuel,
- * si elles ont des lignes). Les votes arrivent en BULLETINS, un par membre et
- * par liste (migration 0005), avec le dernier compteur du filet quotidien ;
- * les compteurs de départ de Neon (gestes_depart) deviennent les archives que
- * la migration décrit. Ce qui ne l'est pas : les liens de connexion en cours
- * (quinze minutes de vie) et les compteurs de limites — rien qui manque à
- * personne.
+ * Les deux viennent de la même photo : une transaction en lecture seule
+ * (repeatable read), cohérente même si l'ancienne app écrit pendant ce temps.
  *
- * Les identifiants sont gardés tels quels (comptes, listes) : les sessions
- * ouvertes restent valables si NUXT_SESSION_SECRET ne change pas, et les
- * passkeys suivent… à condition que le domaine soit le même (elles sont liées
- * à babyname-five.vercel.app tant qu'elles ont été créées là).
+ *   1. L'URL de la base, SANS pooling : Vercel → Storage → la base Neon →
+ *      .env.local → DATABASE_URL_UNPOOLED (ou console Neon → Connect,
+ *      « Connection pooling » décoché).
+ *   2. Dans app/, après npm install :
+ *        PowerShell : $env:NEON_URL="postgresql://…"; npm run base:copier-neon
+ *        bash :       NEON_URL="postgresql://…" npm run base:copier-neon
+ *   3. Import : npx wrangler d1 execute DB --remote --config wrangler.jsonc --file .data/neon-vers-d1.sql
+ *   4. Effacer .data/neon-vers-d1.sql. La sauvegarde : à garder à l'abri,
+ *      hors du dépôt (elle contient des adresses e-mail), puis à effacer une
+ *      fois D1 vérifié.
+ *
+ * Ce qui passe dans D1 : comptes, listes, membres, votes, vetos (chacun avec
+ * ses graphies, prises dans le catalogue, comme un veto posé aujourd'hui),
+ * favoris, commentaires, passkeys (et les tables mortes duels, Elo,
+ * classement manuel, si elles ont des lignes). Les votes arrivent en
+ * BULLETINS, un par membre et par liste (migration 0005), avec le dernier
+ * compteur du filet quotidien ; les compteurs de départ de Neon
+ * (gestes_depart) deviennent les archives que la migration décrit. Ce qui n'y
+ * passe pas, et reste dans la sauvegarde : les liens et jetons de connexion
+ * (quinze minutes de vie), les compteurs de limites, les adresses e-mail
+ * jamais prouvées. Le script les nomme en finissant.
+ *
+ * Les identifiants sont gardés tels quels (comptes, listes) : les clés
+ * d'accès restent valables (une empreinte SHA-256, sans secret), les codes
+ * d'invitation aussi. Les sessions et les passkeys, elles, sont liées au
+ * domaine où elles ont été créées : on se reconnecte une fois.
  */
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { readFileSync, writeFileSync, mkdirSync, statSync } from 'node:fs'
+import { resolve, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const URL_NEON = process.env.NEON_URL || process.argv[2]
+const URL_NEON = process.env.NEON_URL || process.env.DATABASE_URL_UNPOOLED
+  || process.env.POSTGRES_URL_NON_POOLING || process.argv[2]
 if (!URL_NEON) {
-  console.error('Donnez l’URL de la base Neon : NEON_URL="postgres://…" npm run base:copier-neon')
+  console.error('Donnez l’URL de la base Neon : NEON_URL="postgresql://…" npm run base:copier-neon')
   process.exit(1)
 }
+if (/-pooler\./.test(URL_NEON)) {
+  console.warn('Note : adresse « pooler ». Ça marche (tout se lit dans une transaction), '
+    + 'mais Neon conseille l’adresse directe, DATABASE_URL_UNPOOLED.')
+}
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const SORTIE = resolve(RACINE, '.data/neon-vers-d1.sql')
+const DOSSIER = resolve(RACINE, '.data')
+const SORTIE = resolve(DOSSIER, 'neon-vers-d1.sql')
+// L'heure de Paris dans le nom : deux sauvegardes du même jour ne s'écrasent pas.
+const horodatage = new Date().toLocaleString('sv-SE', { timeZone: 'Europe/Paris' })
+  .slice(0, 16).replace(' ', '-').replace(':', '')
+const SAUVEGARDE = resolve(DOSSIER, `neon-sauvegarde-${horodatage}.json`)
 
+/**
+ * Le chiffrement, c'est nous qui le réglons : un « sslmode=require » laissé
+ * dans l'URL remplacerait nos réglages (et pg afficherait un avertissement
+ * alarmant pour rien). NEON_TLS=0 : une base locale d'essai, sans TLS.
+ */
+function adresseSansSsl(url) {
+  try {
+    const u = new URL(url)
+    for (const p of ['sslmode', 'channel_binding', 'sslrootcert', 'sslcert', 'sslkey']) u.searchParams.delete(p)
+    return u.toString()
+  } catch { return url }
+}
 const pg = (await import('pg')).default
-// Neon exige TLS, avec un certificat valide. NEON_TLS=0 : une base locale d'essai.
 const client = new pg.Client({
-  connectionString: URL_NEON,
+  connectionString: adresseSansSsl(URL_NEON),
   ssl: process.env.NEON_TLS === '0' ? false : { rejectUnauthorized: true }
 })
 await client.connect()
+// Une seule photo pour tout, en UTC : les dates de la sauvegarde ne dépendent
+// pas du fuseau de l'ordinateur qui la fait.
+await client.query('begin isolation level repeatable read read only')
+await client.query(`set local time zone 'UTC'`)
+
+// =================== 1. LA SAUVEGARDE BRUTE ===============================
+
+/** Dates et heures : le texte de Postgres, sans passer par un Date JavaScript
+ *  (un `date` y deviendrait minuit dans le fuseau de l'ordinateur). */
+const TEL_QUEL = new Set([1082, 1083, 1114, 1184, 1186, 1266])
+const typesTelsQuels = {
+  getTypeParser: (oid, format) => TEL_QUEL.has(oid) ? v => v : pg.types.getTypeParser(oid, format)
+}
+const ident = s => `"${String(s).replace(/"/g, '""')}"`
+/** Une valeur en JSON ; un bytea (Buffer) devient du base64. */
+const J = v => JSON.stringify(v, (k, x) =>
+  x && x.type === 'Buffer' && Array.isArray(x.data) ? { base64: Buffer.from(x.data).toString('base64') } : x)
+
+/**
+ * Toutes les tables de tous les schémas (pas seulement public), une ligne de
+ * JSON par ligne de table : lisible, et un fichier qu'un autre outil relit
+ * sans rien savoir de l'app. Renvoie le nombre de lignes par table.
+ */
+async function sauvegardeBrute() {
+  const { rows: [info] } = await client.query(
+    `select current_database() as base, version() as version, now() as photo`)
+  const { rows: tables } = await client.query(`
+    select table_schema as schema, table_name as nom from information_schema.tables
+     where table_type = 'BASE TABLE'
+       and table_schema not in ('pg_catalog', 'information_schema') and table_schema not like 'pg\\_%'
+     order by table_schema <> 'public', table_schema, table_name`)
+  const comptes = {}
+  const json = ['{"format": "neon-sauvegarde/1", "genere_par": "scripts/neon-vers-d1.mjs",',
+    `"base": ${J(info)},`, '"tables": {']
+  for (let i = 0; i < tables.length; i++) {
+    const { schema, nom } = tables[i]
+    const cle = schema === 'public' ? nom : `${schema}.${nom}`
+    const { rows: colonnes } = await client.query(`
+      select column_name as nom, data_type as type, is_nullable = 'YES' as nul_permis, column_default as defaut
+        from information_schema.columns where table_schema = $1 and table_name = $2
+       order by ordinal_position`, [schema, nom])
+    const { rows } = await client.query({ text: `select * from ${ident(schema)}.${ident(nom)}`, types: typesTelsQuels })
+    comptes[cle] = rows.length
+    json.push(`${J(cle)}: {"colonnes": ${J(colonnes)}, "lignes": [`)
+    rows.forEach((r, k) => json.push(J(r) + (k < rows.length - 1 ? ',' : '')))
+    json.push(`]}${i < tables.length - 1 ? ',' : ''}`)
+  }
+  // De quoi tout reconstruire ailleurs : index (clés primaires et uniques
+  // comprises) et compteurs d'identifiants. Le schéma complet, lui, est dans
+  // l'historique git (db/neon_schema.sql).
+  const { rows: index } = await client.query(`
+    select schemaname as schema, tablename as table, indexname as nom, indexdef as definition
+      from pg_indexes where schemaname not in ('pg_catalog', 'information_schema') order by 1, 2, 3`)
+  const { rows: sequences } = await client.query(`
+    select schemaname as schema, sequencename as nom, last_value as valeur
+      from pg_sequences where schemaname not in ('pg_catalog', 'information_schema') order by 1, 2`)
+  json.push('},', `"index": ${J(index)},`, `"sequences": ${J(sequences)}`, '}')
+  mkdirSync(DOSSIER, { recursive: true })
+  writeFileSync(SAUVEGARDE, json.join('\n') + '\n')
+  // Relue avant d'aller plus loin : une sauvegarde jamais relue n'en est pas une.
+  const relue = JSON.parse(readFileSync(SAUVEGARDE, 'utf8'))
+  for (const [t, n] of Object.entries(comptes)) {
+    if (relue.tables[t]?.lignes?.length !== n) throw new Error(`Sauvegarde incomplète : ${t}`)
+  }
+  return { comptes, photo: info.photo }
+}
+
+const { comptes, photo } = await sauvegardeBrute()
+const total = Object.values(comptes).reduce((a, b) => a + b, 0)
+const ko = Math.ceil(statSync(SAUVEGARDE).size / 1024)
+console.log(`Sauvegarde : ${Object.keys(comptes).length} tables, ${total} lignes, ${ko} Ko, relue`
+  + `\n  ${relative(RACINE, SAUVEGARDE)}\n`)
+
+// =================== 2. LA COPIE POUR D1 ==================================
 
 /** Une valeur Postgres → un littéral SQLite. */
 function litteral(v, type) {
@@ -87,6 +199,13 @@ const TABLES = [
   ['passkeys', { id: '', user_id: '', cle_publique: '', compteur: 'int', transports: 'json', nom: '',
     synchronisee: 'bool', cree_le: '', utilisee_le: '' }]
 ]
+/** Les tables de Neon que la copie lit : `votes` et `quota_jour` deviennent les bulletins. */
+const LUES = new Set([...TABLES.map(([t]) => t).filter(t => t !== 'bulletins'), 'votes', 'quota_jour'])
+
+const colonnesDe = async t => (await client.query(
+  `select column_name from information_schema.columns where table_schema = 'public' and table_name = $1`,
+  [t])).rows.map(r => r.column_name)
+const existe = async t => (await client.query(`select to_regclass($1) as t`, [`public.${t}`])).rows[0].t
 
 /**
  * Les votes de Neon, une ligne par vote, rangés en bulletins : une ligne par
@@ -96,10 +215,6 @@ const TABLES = [
  * lit que le jour même.
  */
 async function bulletins() {
-  const existe = async t => (await client.query(`select to_regclass($1) as t`, [`public.${t}`])).rows[0].t
-  const colonnes = async t => (await client.query(
-    `select column_name from information_schema.columns where table_schema = 'public' and table_name = $1`,
-    [t])).rows.map(r => r.column_name)
   const parMembre = new Map()
   const bulletin = (gid, uid) => {
     const cle = `${gid}|${uid}`
@@ -108,7 +223,7 @@ async function bulletins() {
   }
   let votes = 0
   if (await existe('votes')) {
-    const avecBalayage = (await colonnes('votes')).includes('balayage')
+    const avecBalayage = (await colonnesDe('votes')).includes('balayage')
     const { rows } = await client.query(
       `select groupe_id, user_id, prenom, valeur, vote_le${avecBalayage ? ', balayage' : ''}
          from votes order by groupe_id, user_id, vote_le`)
@@ -171,18 +286,22 @@ for (let k = 0; k < cat.n; k++) {
 }
 const graphiesDe = nom => (parSon.get(sonDe.get(nom)) ?? []).filter(x => x !== nom)
 
-const lignes = ['-- Copie de Neon vers D1 — genere par scripts/neon-vers-d1.mjs. A effacer apres import.']
+const lignes = [
+  `-- Copie de Neon vers D1, photo du ${new Date(photo).toISOString()} (scripts/neon-vers-d1.mjs). A effacer apres import.`,
+  '-- Garde : sur une base qui a deja des comptes (import en double, ou apres l ouverture),',
+  '-- l import s arrete ici, sur une erreur « malformed JSON ». Rien n est ecrit.',
+  `select json(case when exists (select 1 from utilisateurs) then 'base_deja_remplie' else '{}' end);`
+]
 const bilan = []
+const laissees = []
 for (const [table, colonnes] of TABLES) {
   if (table === 'bulletins') { await bulletins(); continue }
-  const existe = await client.query(`select to_regclass($1) as t`, [`public.${table}`])
-  if (!existe.rows[0].t) { bilan.push(`${table}: absente`); continue }
+  if (!(await existe(table))) { bilan.push(`${table}: absente`); continue }
   const noms = Object.keys(colonnes)
   // Seulement les colonnes qui existent côté Neon (une base ancienne peut en manquer).
-  const presentes = (await client.query(
-    `select column_name from information_schema.columns where table_schema = 'public' and table_name = $1`,
-    [table])).rows.map(r => r.column_name)
+  const presentes = await colonnesDe(table)
   const cols = noms.filter(n => presentes.includes(n))
+  for (const c of presentes) if (!noms.includes(c)) laissees.push(`${table}.${c}`)
   const { rows } = await client.query(`select ${cols.join(', ')} from ${table}`)
   // Une adresse jamais prouvée (celles du tout premier lien magique, que plus
   // rien ne lit) ne passe pas : minimisation, et elle bloquerait l'adresse
@@ -211,10 +330,20 @@ for (const [table, colonnes] of TABLES) {
     if (graphies.length) bilan.push(`  (graphies bloquées avec eux : ${graphies.length})`)
   }
 }
+await client.query('commit')
 await client.end()
 
-mkdirSync(dirname(SORTIE), { recursive: true })
+mkdirSync(DOSSIER, { recursive: true })
 writeFileSync(SORTIE, lignes.join('\n') + '\n')
-console.log(bilan.join('\n'))
-console.log(`\nÉcrit : ${SORTIE}\nImport : npx wrangler d1 execute DB --remote --config wrangler.jsonc --file .data/neon-vers-d1.sql`)
-console.log('Puis effacez ce fichier : il contient des adresses e-mail.')
+console.log('Pour D1 :')
+console.log(bilan.map(l => `  ${l}`).join('\n'))
+// Rien ne disparaît sans être nommé : ce que D1 ne reprend pas reste dans la sauvegarde.
+const horsCopie = Object.entries(comptes).filter(([t]) => !LUES.has(t))
+if (horsCopie.length || laissees.length) {
+  console.log('\nPas repris dans D1 (mais dans la sauvegarde) :')
+  if (horsCopie.length) console.log(`  tables : ${horsCopie.map(([t, n]) => `${t} (${n})`).join(', ')}`)
+  if (laissees.length) console.log(`  colonnes : ${laissees.join(', ')}`)
+}
+console.log(`\nÉcrit : ${relative(RACINE, SORTIE)}`
+  + '\nImport : npx wrangler d1 execute DB --remote --config wrangler.jsonc --file .data/neon-vers-d1.sql'
+  + '\nPuis effacez ce fichier ; la sauvegarde, gardez-la à l’abri le temps de vérifier D1.')

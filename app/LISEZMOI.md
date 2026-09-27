@@ -246,7 +246,11 @@ l'app ne fait jamais (page de paiement Stripe).
    ```
 
    Recopier l'identifiant affiché (`database_id`) dans `wrangler.jsonc`, à la
-   place des zéros, et pousser. Ce n'est pas un secret.
+   place des zéros, et pousser. Ce n'est pas un secret. Si wrangler propose
+   d'ajouter la base à la configuration, répondre non : la liaison `DB`
+   existe déjà, seul l'identifiant change. (Par le tableau de bord, c'est
+   *Storage & Databases → D1 → Create*, juridiction **EU** : elle ne se
+   change plus ensuite.)
 3. **Le Worker, relié au dépôt** : *Workers & Pages → Create → Import a
    repository* → le dépôt GitHub du projet :
 
@@ -301,18 +305,33 @@ expressions doivent rester identiques).
 
 Dans cet ordre, avant d'annoncer la nouvelle adresse :
 
-1. Copier les données : `NEON_URL="postgres://…" npm run base:copier-neon`
-   (l'URL : *Vercel → Storage → la base → .env.local*, la ligne
-   `DATABASE_URL_UNPOOLED`), puis
-   `npx wrangler d1 execute DB --remote --config wrangler.jsonc --file .data/neon-vers-d1.sql`,
-   et **effacer** `.data/neon-vers-d1.sql` (il contient des adresses e-mail).
-   Comptes, listes, votes (rangés en bulletins), vetos, commentaires et
-   passkeys suivent ; les
-   passkeys créées sur `vercel.app` ne valent pas sur `babynamed.fr` : on
-   revient par la clé d'accès ou l'e-mail, puis on en recrée une.
-2. Vérifier sur `babynamed.fr` : `/api/sante`, une connexion, un vote.
-3. Supprimer le projet Vercel (sinon chaque push y construit un code qui ne
-   sait plus y tourner), puis la base Neon une fois la copie vérifiée.
+1. **Sauvegarder et copier**, dans `app/` après `npm install` :
+   `NEON_URL="postgresql://…" npm run base:copier-neon`
+   (PowerShell : `$env:NEON_URL="postgresql://…"; npm run base:copier-neon` ;
+   l'URL : *Vercel → Storage → la base → .env.local*, la ligne
+   `DATABASE_URL_UNPOOLED`). Deux fichiers dans `.data/`, d'une même photo
+   de la base :
+   - `neon-sauvegarde-<date>.json` : **toutes** les tables, toutes les
+     lignes, telles quelles (le filet : même ce que D1 ne reprend pas y est) ;
+   - `neon-vers-d1.sql` : la copie pour D1 (votes rangés en bulletins, vetos
+     avec leurs graphies…). Le script nomme en finissant ce qu'il ne reprend
+     pas.
+2. **Importer**, dans la base D1 neuve : `npm run base:migrer`, puis
+   `npx wrangler d1 execute DB --remote --config wrangler.jsonc --file .data/neon-vers-d1.sql`.
+   Une garde, en tête du fichier, arrête l'import si la base a déjà des
+   comptes (erreur « malformed JSON ») : pas de double import.
+3. **Plus personne sur l'ancienne app** à partir de la photo : ce qui s'y
+   écrit ensuite n'est pas copié (au besoin, vider D1 et refaire 1 et 2).
+4. **Vérifier** sur `babynamed.fr` : `/api/sante`, une connexion par clé
+   d'accès (reprises telles quelles : une empreinte SHA-256, sans secret), un
+   vote. Les sessions et les passkeys de `vercel.app` ne suivent pas : on se
+   reconnecte une fois.
+5. **Effacer** `.data/neon-vers-d1.sql` ; la sauvegarde, la ranger hors du
+   dépôt (elle contient des données personnelles), et l'effacer une fois D1
+   vérifié.
+6. **Supprimer** le projet Vercel (sinon chaque push y construit un code qui
+   ne sait plus y tourner), puis la base Neon (*Vercel → Storage → la base →
+   Settings*).
 
 ### En local, comme en ligne
 
