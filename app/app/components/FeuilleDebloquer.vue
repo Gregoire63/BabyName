@@ -56,6 +56,43 @@ const GRATUIT = computed(() => [
 const OutilsDev = import.meta.dev
   ? defineAsyncComponent(() => import('~/outils-dev/OutilsDebloquer.vue')) : null
 
+/**
+ * Un code cadeau, pour CETTE liste. Replié : l'écran vend d'abord ; qui a
+ * reçu un code le cherche, et le trouve sous le bouton.
+ */
+const cadeauOuvert = ref(false)
+const codeCadeau = ref('')
+const envoiCadeau = ref(false)
+const erreurCadeau = ref('')
+const merciCadeau = ref('')
+const champCadeau = ref<HTMLInputElement>()
+function ouvrirCadeau() {
+  cadeauOuvert.value = true
+  nextTick(() => champCadeau.value?.focus())
+}
+async function utiliserCadeau(fermer: () => void) {
+  const code = normaliserCodeCadeau(codeCadeau.value)
+  if (!code) { erreurCadeau.value = 'Douze caractères, comme K7QM-X3PD-9RTA.'; return }
+  if (envoiCadeau.value) return
+  envoiCadeau.value = true; erreurCadeau.value = ''
+  try {
+    await $fetch('/api/cadeaux/utiliser', { method: 'POST', body: { code, groupe: Number(g.gid) } })
+    await g.recharger()
+    const de = g.etat.value?.groupe?.cadeau_de
+    merciCadeau.value = de ? `C’est débloqué — un cadeau de ${de}.` : 'C’est débloqué — un beau cadeau.'
+    setTimeout(fermer, 1600)
+  } catch (e: any) {
+    const m = e?.data?.statusMessage
+    erreurCadeau.value = m === 'cadeau_utilise' ? 'Ce code cadeau a déjà servi.'
+      : m === 'cadeau_annule' ? 'Ce code cadeau a été annulé (l’achat a été remboursé).'
+      : m === 'cadeau_expire' ? 'Ce code cadeau a expiré.'
+      : m === 'cadeau_inconnu' ? 'Code inconnu. Vérifiez-le : douze caractères, sans I, L, O, U, 0 ni 1.'
+      : m === 'liste_deja_debloquee' ? 'Cette liste est déjà débloquée : le code n’a pas été utilisé.'
+      : m === 'trop_d_essais' ? 'Trop d’essais d’un coup : réessayez dans un moment.'
+      : 'Le code n’a pas pu être utilisé. Réessayez dans un instant.'
+  } finally { envoiCadeau.value = false }
+}
+
 async function payer() {
   if (envoi.value || !accord.value) return
   envoi.value = true; erreur.value = ''
@@ -138,6 +175,25 @@ async function payer() {
       <p v-if="!accord" id="accord-requis" class="mini doux" style="margin:0;text-align:center">
         Cochez la case d’accord pour continuer.
       </p>
+      <button v-if="!cadeauOuvert" type="button" class="btn btn-0 mini" style="width:100%"
+              @click="ouvrirCadeau">
+        Vous avez un code cadeau ?
+      </button>
+      <div v-else class="cadeau">
+        <p v-if="merciCadeau" class="mini merci" role="status">{{ merciCadeau }}</p>
+        <template v-else>
+          <div class="ligne">
+            <input ref="champCadeau" v-model="codeCadeau" class="champ" style="flex:1"
+                   aria-label="Code cadeau" placeholder="K7QM-X3PD-9RTA"
+                   autocapitalize="characters" autocorrect="off" spellcheck="false"
+                   @keyup.enter="utiliserCadeau(fermer)">
+            <button type="button" class="btn mini" :disabled="envoiCadeau" @click="utiliserCadeau(fermer)">
+              {{ envoiCadeau ? '…' : 'Utiliser' }}
+            </button>
+          </div>
+          <p v-if="erreurCadeau" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreurCadeau }}</p>
+        </template>
+      </div>
       <button type="button" class="btn btn-0 mini doux" style="width:100%" @click="fermer">
         Plus tard
       </button>
@@ -161,4 +217,7 @@ async function payer() {
 .titre-bloc { margin: 18px 0 6px; font-size: .72rem; text-transform: uppercase;
   letter-spacing: .05em; color: var(--doux); font-weight: 700; }
 .gratuit { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.cadeau { display: flex; flex-direction: column; gap: 6px; }
+.merci { margin: 0; padding: 10px 12px; border-radius: var(--r-s); text-align: center;
+  background: color-mix(in srgb, var(--menthe) 45%, var(--carte)); }
 </style>

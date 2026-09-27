@@ -55,6 +55,10 @@ const QUOTA_JOUR = defaut('quota_par_jour', 15)
 // Les blocages secrets : la constante que l'app applique, pas une copie.
 const BLOCAGES = Number(readFileSync(resolve(RACINE, 'shared/utils/exclusions.ts'), 'utf8')
   .match(/BLOCAGES_SECRETS = (\d+)/)?.[1] ?? 5)
+// La validité d'un code cadeau : celle que l'app applique et que les
+// conditions annoncent.
+const CADEAU_ANS = Number(readFileSync(resolve(RACINE, 'shared/utils/editeur.ts'), 'utf8')
+  .match(/cadeauMois: (\d+)/)?.[1] ?? 24) / 12
 
 // ---------------------------------------------------------------- données
 const d = JSON.parse(readFileSync(resolve(PUBLIC, 'data/catalogue.json'), 'utf8'))
@@ -442,6 +446,8 @@ urls.unshift('/prenoms/')
 const FAQ = [
   ['Mon ou ma partenaire voit-il mes votes ?',
    'Seulement sur les prénoms qu’il ou elle a déjà jugés soi-même. Avant, rien : c’est le vote à l’aveugle. Un « non » n’est jamais annoncé, et personne ne sait qui a bloqué un prénom en secret.'],
+  ['Peut-on offrir babyNamed ?',
+   `Oui, sans créer de compte : un code cadeau à ${PRIX} TTC débloque une liste, celle que les parents ont déjà commencée ou une nouvelle. Vous recevez un lien et un code à transmettre, valables ${CADEAU_ANS} ans, avec votre nom et un mot si vous le souhaitez.`],
   ['Et les prénoms déjà pris dans la famille ?',
    `Ajoutez-les une fois à la liste « Déjà pris » : la cousine, le fils des amis, quelqu’un qu’on connaît trop. Ils sortent du tri pour tout le monde, avec toutes leurs graphies (Chloé emporte Cloé et Khloé), sans limite. Pour un prénom qu’on préfère ne pas expliquer, chacun a aussi ${BLOCAGES} blocages secrets.`],
   ['Faut-il installer une application ?',
@@ -503,7 +509,8 @@ ecrire(APP, page({
 
 <h2>Ce qui est gratuit, ce qui est payant</h2>
 <div class="carte"><p style="margin:0 0 .6em"><b>Gratuit</b> : ${QUOTA_DEPART} prénoms pour commencer, puis ${QUOTA_JOUR} par jour, sans jamais être bloqué ; tout le catalogue, la recherche, les fiches, les accords et le classement, le blocage d’un prénom, le deuxième parent.</p>
-<p style="margin:0"><b>${esc(PRIX)} TTC, une fois, par liste</b> — pour tous ses membres : le tri sans limite, l’essai avec votre nom de famille, le nombre d’enfants qui porteront le prénom dans une classe, le portrait de vos goûts, l’explication de vos désaccords, et les observateurs (les grands-parents donnent leur avis sans rien bloquer). Pas d’abonnement.</p></div>
+<p style="margin:0"><b>${esc(PRIX)} TTC, une fois, par liste</b> — pour tous ses membres : le tri sans limite, l’essai avec votre nom de famille, le nombre d’enfants qui porteront le prénom dans une classe, le portrait de vos goûts, l’explication de vos désaccords, et les observateurs (les grands-parents donnent leur avis sans rien bloquer). Pas d’abonnement.</p>
+<p style="margin:.6em 0 0"><b>À offrir</b> : le même déblocage en cadeau, sans compte — un lien et un code à transmettre à des futurs parents, valables ${CADEAU_ANS} ans. <a href="/offrir" rel="nofollow">Offrir ${MARQUE}</a></p></div>
 
 <h2>Vos données</h2>
 <p>Un prénom ou un pseudo suffit pour commencer, et aucun mot de passe : on revient avec une passkey (Face ID, empreinte) ou un lien reçu par e-mail — l’adresse n’est demandée que si vous choisissez le lien. Aucune publicité, aucune mesure d’audience, aucun cookie tiers. Votre compte s’efface en un geste, et vos données se téléchargent à tout moment. <a href="/confidentialite">Ce qu’on garde et pourquoi</a>.</p>
@@ -533,7 +540,7 @@ writeFileSync(resolve(SORTIE, 'llms.txt'), `# ${MARQUE}
 
 > Application web française pour choisir le prénom de son bébé à deux, sans s’influencer : chacun juge les prénoms de son côté, à l’aveugle, et l’application ne montre que ceux que tout le monde aime. ${nf(d.n)} prénoms, avec les naissances INSEE en France de ${AN0} à ${AN1}.
 
-- Gratuit : ${QUOTA_DEPART} prénoms pour commencer, puis ${QUOTA_JOUR} par jour, sans jamais être bloqué. Option à ${PRIX} TTC par liste, en une fois, pour tous ses membres (tri sans limite, essai avec le nom de famille, projection dans une classe, explication des désaccords, observateurs).
+- Gratuit : ${QUOTA_DEPART} prénoms pour commencer, puis ${QUOTA_JOUR} par jour, sans jamais être bloqué. Option à ${PRIX} TTC par liste, en une fois, pour tous ses membres (tri sans limite, essai avec le nom de famille, projection dans une classe, explication des désaccords, observateurs). Elle s'offre aussi, sans compte : un code cadeau valable ${CADEAU_ANS} ans (${SITE}/offrir).
 - Aucun mot de passe (passkey ou lien par e-mail, adresse facultative) ; aucune publicité, aucune mesure d’audience, aucun cookie tiers.
 - Dans le navigateur, sur téléphone ou ordinateur, installable sur l’écran d’accueil ; l’autre parent rejoint la liste par un lien.
 - Une fiche publique par prénom : signification (avec son niveau de certitude), origine, courbe des naissances depuis ${AN0}, tendance, graphies qui se prononcent pareil, prénoms proches.

@@ -110,6 +110,40 @@ const prix = (config.public.prixListe as string) || '6 €'
       <a :href="`mailto:${e.email}`">{{ e.email }}</a>.
     </p>
 
+    <h3 id="cadeau">Offrir une liste : le code cadeau</h3>
+    <p>
+      Depuis la page <em>Offrir babyNamed</em>, sans compte, vous pouvez acheter pour quelqu’un d’autre le
+      déblocage d’une liste, au même prix (<strong>{{ prix }} TTC</strong>). Vous pouvez y joindre votre nom et
+      un mot, que le destinataire lira en ouvrant le cadeau. Le paiement se fait chez Stripe, comme pour une
+      liste.
+    </p>
+    <p>
+      <strong>Livraison</strong> : un code de douze caractères et un lien, affichés dès la confirmation du
+      paiement et reportés sur la facture envoyée par e-mail. C’est à vous de les transmettre. Quiconque
+      détient le code peut s’en servir : gardez-le comme un bon d’achat. L’éditeur ne peut pas envoyer
+      le code à votre place, ni le remplacer s’il a déjà servi.
+    </p>
+    <p>
+      <strong>Utilisation</strong> : le code débloque une seule liste, au choix de celui qui l’utilise — une liste
+      dont il est membre et qui n’est pas encore débloquée, ou une nouvelle liste, créée débloquée. Il est
+      valable <strong>{{ CONSERVATION.cadeauMois / 12 }} ans</strong> à compter de l’achat ; passé ce délai,
+      il n’ouvre plus rien et n’est pas remboursé. Il n’est pas échangeable contre de l’argent.
+    </p>
+    <div class="encadre">
+      <p>
+        <strong>Rétractation</strong> : rien n’étant fourni au moment de l’achat, vous gardez votre droit de
+        rétractation de quatorze jours (art. L221-18 du Code de la consommation) tant que le code n’a pas servi :
+        écrivez à <a :href="`mailto:${e.email}`">{{ e.email }}</a> avec l’adresse e-mail du paiement, le code est
+        annulé et vous êtes remboursé. En cochant la case qui précède le paiement, vous demandez que la liste
+        soit débloquée dès l’utilisation du code, et reconnaissez perdre alors ce droit (art. L221-28, 13°) ;
+        la facture le confirme.
+      </p>
+    </div>
+    <p>
+      Un remboursement total ou un paiement contesté avec succès annule le code ; s’il a déjà servi, la
+      liste qu’il a débloquée revient à la version gratuite, sans perte de votes ni de données.
+    </p>
+
     <h2>5. Disponibilité et évolution</h2>
     <p>
       L’éditeur fait ses meilleurs efforts pour que l’app soit disponible, sans garantir une disponibilité

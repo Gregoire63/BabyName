@@ -30,6 +30,8 @@ function cles() {
     secret: c.stripeSecretKey as string,
     webhook: c.stripeWebhookSecret as string,
     price: c.stripePriceId as string,
+    // Un produit a part pour les cadeaux, s'il existe ; sinon le meme prix.
+    priceCadeau: (c.stripePriceIdCadeau as string) || (c.stripePriceId as string),
     // Seulement si l'on est assujetti a la TVA : le taux « TVA FR 20 % »
     // (inclusive) cree dans le Dashboard. Vide en franchise : la facture porte
     // alors la mention de l'article 293 B, et aucun taux.
@@ -123,6 +125,124 @@ function piedFacture(siteUrl: string, consentementLe: string): string {
   ].filter(Boolean).join('\n')
 }
 
+/** Les couleurs de l'app sur la page de Stripe (vente directe seulement). */
+const HABILLAGE = {
+  display_name: 'babyNamed',
+  font_family: 'nunito',
+  border_style: 'pill',
+  button_color: '#1a234e',
+  background_color: '#fbfaf9'
+} as const
+
+/**
+ * Le pied de la facture d'un CADEAU. Pas de renonciation au droit de
+ * rétractation à l'achat : rien n'est fourni avant que le code serve. Elle
+ * vaut à l'utilisation, et c'est ce que l'acheteur a demandé en cochant la
+ * case — la facture le confirme (support durable, art. L221-13).
+ */
+function piedFactureCadeau(siteUrl: string, consentementLe: string, expireLe: string): string {
+  const e = EDITEUR
+  const qui = [
+    `${e.marque} — ${e.nom}, ${e.forme.toLowerCase()}`,
+    e.siret ? `SIRET ${e.siret}` : '',
+    e.adresse
+  ].filter(Boolean).join(' · ')
+  const jour = (d: string) => new Date(d).toLocaleDateString('fr-FR',
+    { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' })
+  return [
+    qui,
+    mentionTva() + '.',
+    `Code cadeau : le déblocage d’une liste, valable jusqu’au ${jour(expireLe)}. ` +
+      `Tant qu’il n’a pas servi, vous pouvez vous rétracter pendant 14 jours (art. L221-18 du Code de la consommation). ` +
+      `Le ${jour(consentementLe)}, vous avez demandé que la liste soit débloquée dès l’utilisation du code, ` +
+      `et reconnu perdre alors ce droit (art. L221-28 13°).`,
+    `Conditions générales, version du ${VERSIONS_TEXTES.conditions} : ${siteUrl}/conditions`,
+    e.mediateur.nom ? `Médiateur de la consommation : ${e.mediateur.nom} — ${e.mediateur.site}` : ''
+  ].filter(Boolean).join('\n')
+}
+
+/**
+ * Une session de paiement pour UN CADEAU : un code qui débloquera une liste,
+ * la sienne ou une nouvelle, chez quelqu'un d'autre. Pas de compte exigé :
+ * les grands-parents qui offrent n'ont rien à créer. Stripe demande l'e-mail
+ * (pour le reçu et la facture) ; l'app ne le voit pas.
+ *
+ * Le code est tiré ici et voyage dans les métadonnées : c'est de là que le
+ * webhook et la page de retour le reprennent. Il figure aussi sur la
+ * facture, que Stripe envoie par e-mail : l'acheteur qui ferme l'onglet trop
+ * tôt ne le perd pas.
+ */
+export async function creerSessionCadeau(opts: {
+  code: string, deLaPart: string | null, message: string | null,
+  siteUrl: string, retour?: string, consentementLe: string
+}) {
+  const k = cles()
+  const direct = !k.managed
+  // La même échéance que la base (+N mois à l'encaissement) : si le paiement
+  // se termine après minuit, la base donne un jour de plus, jamais de moins.
+  const echeance = new Date()
+  echeance.setUTCMonth(echeance.getUTCMonth() + CONSERVATION.cadeauMois)
+  const expireLe = echeance.toISOString()
+  const meta = {
+    type: 'cadeau',
+    code: opts.code,
+    de_la_part: opts.deLaPart ?? undefined,
+    message: opts.message ?? undefined,
+    conditions_version: VERSIONS_TEXTES.conditions,
+    execution: 'a_l_utilisation_du_code',
+    retractation: '14 jours tant que le code n’a pas servi ; renonciation à l’utilisation (art. L221-28 13 C. conso)',
+    consentement_le: opts.consentementLe
+  }
+  const lisible = cadeauLisible(opts.code)
+  const base = opts.retour ?? opts.siteUrl
+  return appel('checkout/sessions', {
+    mode: 'payment',
+    line_items: [{
+      price: k.priceCadeau, quantity: 1,
+      tax_rates: direct && k.taxRate ? [k.taxRate] : undefined
+    }],
+    locale: 'fr',
+    metadata: meta,
+    success_url: `${base}/offrir/merci?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${base}/offrir?annule=1`,
+    // Un code promo à 100 % ferait d'un cadeau gratuit un code transmissible :
+    // les codes promo restent réservés au déblocage d'une liste.
+    allow_promotion_codes: false,
+    payment_intent_data: {
+      description: `babyNamed — code cadeau ${lisible}`,
+      metadata: { ...meta, message: undefined }
+    },
+    ...(direct ? {
+      custom_text: {
+        submit: {
+          message: `Vous recevez un code cadeau à transmettre : il débloque une liste babyNamed, nouvelle ou déjà commencée, ` +
+            `et reste valable ${CONSERVATION.cadeauMois / 12} ans. Tant qu’il n’a pas servi, vous pouvez vous rétracter pendant 14 jours.`
+        },
+        after_submit: {
+          message: 'Paiement traité par Stripe : babyNamed ne voit jamais votre carte. ' +
+            'Le code s’affiche à la page suivante et figure sur la facture envoyée par e-mail.'
+        }
+      },
+      invoice_creation: {
+        enabled: true,
+        invoice_data: {
+          description: `Code cadeau babyNamed : le déblocage d’une liste, à utiliser sous ${CONSERVATION.cadeauMois / 12} ans.`,
+          footer: piedFactureCadeau(opts.siteUrl, opts.consentementLe, expireLe),
+          custom_fields: [
+            { name: 'Code cadeau', value: lisible },
+            { name: 'À utiliser sur', value: `${opts.siteUrl.replace(/^https?:\/\//, '')}/?cadeau=${opts.code}` },
+            { name: 'Conditions générales', value: `version du ${VERSIONS_TEXTES.conditions}` }
+          ],
+          metadata: { type: 'cadeau' },
+          rendering_options: k.taxRate ? { amount_tax_display: 'include_inclusive_tax' } : undefined
+        }
+      },
+      branding_settings: HABILLAGE
+    } : {}),
+    managed_payments: { enabled: k.managed }
+  })
+}
+
 /**
  * Une session de paiement pour UNE liste. `client_reference_id` porte l'id de
  * la liste et `metadata.user_id` celui de l'acheteur : c'est ce que le webhook
@@ -205,13 +325,7 @@ export async function creerSession(opts: {
       // reconnait pas l'endroit ou il paie abandonne, ou conteste ensuite.
       // Le logo, lui, se pose dans le Dashboard (Parametres → Image de marque) :
       // il sert aussi aux recus et aux factures.
-      branding_settings: {
-        display_name: 'babyNamed',
-        font_family: 'nunito',
-        border_style: 'pill',
-        button_color: '#1a234e',
-        background_color: '#fbfaf9'
-      }
+      branding_settings: HABILLAGE
     } : {}),
     // TOUJOURS explicite, dans les deux sens. Le compte a Managed Payments
     // « active par defaut » : une session qui ne dit rien part en Managed
@@ -251,6 +365,8 @@ export async function lireSession(id: string): Promise<any | null> {
  */
 export async function livrer(session: any): Promise<{ livre: boolean; raison?: string; groupe?: number; offert?: boolean }> {
   if (!session || session.object !== 'checkout.session') return { livre: false, raison: 'pas_une_session' }
+  // Un cadeau ne débloque aucune liste à l'achat (voir livrerCadeau).
+  if (session.metadata?.type === 'cadeau') return { livre: false, raison: 'cadeau' }
   if (session.status && session.status !== 'complete') return { livre: false, raison: 'pas_terminee' }
   if (!session.payment_status || session.payment_status === 'unpaid') return { livre: false, raison: 'en_attente' }
 
@@ -288,8 +404,9 @@ export async function livrer(session: any): Promise<{ livre: boolean; raison?: s
  *    perdre six euros.
  *
  * Les votes, eux, ne bougent pas : on retire le deblocage, pas les donnees.
+ * Un code cadeau rembourse est annule : il ne debloquera plus rien.
  */
-export async function reprendrePaiement(ev: any): Promise<{ repris: boolean; raison?: string; groupe?: number }> {
+export async function reprendrePaiement(ev: any): Promise<{ repris: boolean; raison?: string; groupe?: number; cadeau?: boolean }> {
   const o = ev?.data?.object
   if (ev?.type === 'charge.refunded') {
     if (!o?.refunded) return { repris: false, raison: 'remboursement_partiel' }
@@ -300,10 +417,18 @@ export async function reprendrePaiement(ev: any): Promise<{ repris: boolean; rai
   }
   const pi = typeof o?.payment_intent === 'string' ? o.payment_intent : o?.payment_intent?.id
   if (typeof pi !== 'string' || !pi.startsWith('pi_')) return { repris: false, raison: 'sans_paiement' }
-  const r = await q<{ id: number }>(
-    `update groupes set paye_le = null, paye_par = null, offert = 0
-      where paiement_ref = ?1 and paye_le is not null returning id`, [pi])
-  return r.length ? { repris: true, groupe: Number(r[0]!.id) } : { repris: false, raison: 'liste_inconnue' }
+  // Un cadeau remboursé est annulé, qu'il ait servi ou non. S'il a servi, la
+  // liste qu'il a débloquée porte la même référence de paiement : elle est
+  // re-verrouillée par la seconde instruction, comme une liste achetée.
+  const [cadeaux, listes] = await lot([
+    [`update cadeaux set annule_le = ${MAINTENANT}
+       where paiement_ref = ?1 and annule_le is null returning 1`, [pi]],
+    [`update groupes set paye_le = null, paye_par = null, offert = 0
+       where paiement_ref = ?1 and paye_le is not null returning id`, [pi]]
+  ])
+  const gid = listes!.rows[0]?.id
+  if (gid !== undefined) return { repris: true, groupe: Number(gid), cadeau: cadeaux!.rows.length > 0 }
+  return cadeaux!.rows.length ? { repris: true, cadeau: true } : { repris: false, raison: 'liste_inconnue' }
 }
 
 /**

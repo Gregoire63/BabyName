@@ -78,6 +78,9 @@ export default defineNuxtConfig({
     stripeSecretKey: '',          // NUXT_STRIPE_SECRET_KEY      (sk_live_… / sk_test_…)
     stripeWebhookSecret: '',      // NUXT_STRIPE_WEBHOOK_SECRET  (whsec_…)
     stripePriceId: '',            // NUXT_STRIPE_PRICE_ID        (price_…)
+    // Facultatif : un produit a part pour les cadeaux (« babyNamed — liste a
+    // offrir »), pour les distinguer dans les ventes. Vide : le meme prix.
+    stripePriceIdCadeau: '',      // NUXT_STRIPE_PRICE_ID_CADEAU (price_…)
     // Jamais a changer en production. Existe pour que les essais parlent a un
     // faux Stripe local : sans lui, tout le chemin du paiement echappait aux
     // essais — et c'est le seul chemin ou une erreur coute de l'argent.

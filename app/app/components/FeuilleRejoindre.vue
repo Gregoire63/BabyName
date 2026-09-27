@@ -1,7 +1,11 @@
 <script setup lang="ts">
 /** Entrer dans la liste de quelqu'un d'autre avec son code (10 caracteres,
- *  ou 8 pour les listes d'avant — voir shared/utils/codes.ts). */
-const emit = defineEmits<{ fermer: [] }>()
+ *  ou 8 pour les listes d'avant — voir shared/utils/codes.ts).
+ *
+ *  Un code CADEAU (12 caracteres) se tape ici aussi : c'est le seul champ
+ *  « code » de l'accueil, celui qu'on cherche quand quelqu'un vous en a dicte
+ *  un. Il ouvre alors la feuille du cadeau (`cadeau`). */
+const emit = defineEmits<{ fermer: []; cadeau: [code: string] }>()
 
 // On nettoie DANS le champ, pas seulement dans la variable : sinon on voit
 // s'inscrire des caracteres que le serveur refusera (I, L, O, U, espaces,
@@ -9,19 +13,21 @@ const emit = defineEmits<{ fermer: [] }>()
 const code = ref('')
 function saisir(e: Event) {
   const champ = e.target as HTMLInputElement
-  code.value = saisieCodeInvitation(champ.value)
+  code.value = champ.value.toUpperCase().replace(/[^0-9A-HJKMNP-TV-Z]/g, '').slice(0, LONGUEUR_CADEAU)
   champ.value = code.value        // Vue ne repeint pas si la valeur n'a pas bouge
 }
+const cadeau = computed(() => normaliserCodeCadeau(code.value))
 const envoi = ref(false)
 const erreur = ref('')
 const champ = ref<HTMLInputElement>()
 
 onMounted(() => setTimeout(() => champ.value?.focus(), 380))   // apres l'animation
 
-const pret = computed(() => !!normaliserCodeInvitation(code.value))
+const pret = computed(() => !!normaliserCodeInvitation(code.value) || !!cadeau.value)
 
 async function entrer() {
   if (!pret.value || envoi.value) return
+  if (cadeau.value) { emit('cadeau', cadeau.value); return }
   envoi.value = true
   erreur.value = ''
   try {
@@ -33,7 +39,7 @@ async function entrer() {
     erreur.value = m === 'trop_d_essais'
       ? 'Trop d’essais : réessayez dans une heure, ou demandez le lien de la liste.'
       : m === 'code_invalide'
-        ? 'Ce code n’a pas le bon format : 10 caractères (8 pour les listes plus anciennes).'
+        ? 'Ce code n’a pas le bon format : 10 caractères (8 pour les listes plus anciennes, 12 pour un code cadeau).'
         : 'Code inconnu. Vérifiez-le, ou demandez le lien de la liste.'
     envoi.value = false
   }
@@ -45,17 +51,17 @@ async function entrer() {
     <p class="mini doux" style="margin:0 0 12px">
       Demandez son code à la personne qui a créé la liste : dans les réglages
       de sa liste, sous « Inviter quelqu’un ». Le plus simple reste le lien
-      qu’elle peut vous envoyer.
+      qu’elle peut vous envoyer. Un code cadeau se tape ici aussi.
     </p>
     <input ref="champ" :value="code" class="champ code" placeholder="Le code"
-           aria-label="Code d’invitation"
+           aria-label="Code d’invitation ou code cadeau"
            autocapitalize="characters" autocorrect="off" spellcheck="false"
            inputmode="latin" @input="saisir" @keyup.enter="entrer">
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:10px 0 0">{{ erreur }}</p>
 
     <template #pied>
       <button class="btn btn-1" :disabled="!pret || envoi" @click="entrer">
-        {{ envoi ? 'Un instant…' : 'Entrer' }}
+        {{ envoi ? 'Un instant…' : cadeau ? 'Voir le cadeau' : 'Entrer' }}
       </button>
     </template>
   </Feuille>

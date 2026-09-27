@@ -11,6 +11,7 @@ export default defineEventHandler(async (e) => {
             case when m.role <> 'observateur' then g.code_invitation end as code_invitation,
             g.nb_vetos_max, g.favoris_visibles,
             g.quota_swipe_jour, g.filtres, g.cree_le,
+            (g.paye_le is not null) as paye, m.role,
             (select count(*) from membres m2 where m2.groupe_id = g.id)   as nb_membres,
             (select count(*) from votes v where v.groupe_id = g.id
                and v.user_id = ?1)                                       as mes_votes,

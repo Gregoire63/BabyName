@@ -68,6 +68,19 @@ lit la même constante.
 | **Conservation** | Pièces comptables : 10 ans (art. L123-22 du Code de commerce), chez Stripe et dans la comptabilité. Dans l'app : tant que la liste existe ; l'effacement de l'acheteur met la référence du compte à NULL, la liste reste débloquée pour ses autres membres. |
 | **Sécurité** | Aucune donnée de carte ne transite par l'app (page de paiement hébergée par Stripe, PCI-DSS) ; webhook signé (HMAC, 5 min, comparaison en temps constant) ; clé restreinte à *Checkout Sessions*. |
 
+## 4 bis. Cadeaux : codes qui débloquent une liste
+
+| | |
+|---|---|
+| **Finalité** | Vendre un code cadeau sans compte, le remettre à qui le détient, montrer au destinataire de qui il vient, traiter rétractation (14 jours tant qu'il n'a pas servi), remboursement et contestation. |
+| **Base légale** | Exécution du contrat (6.1.b) ; obligations comptables et fiscales (6.1.c). |
+| **Personnes** | Acheteurs (souvent sans compte) ; destinataires (comptes). |
+| **Données** | Dans l'app (table `cadeaux`) : empreinte SHA-256 du code (jamais le code), nom et mot facultatifs de l'offrant, dates d'achat, d'échéance, d'utilisation et d'annulation, compte et liste de l'utilisation, références Stripe (`cs_…`, `pi_…`). Chez Stripe : e-mail et moyen de paiement de l'acheteur, code en clair (métadonnées, facture), nom et mot. |
+| **Destinataires** | Le destinataire du code (nom et mot de l'offrant) ; les membres de la liste débloquée (« un cadeau de… ») ; Stripe comme au 4. |
+| **Transferts hors UE** | Comme au 4. |
+| **Conservation** | Code inutilisé : jusqu'à son échéance (`CONSERVATION.cadeauMois`, 24 mois), puis effacé par la purge nocturne ; annulé : un mois ; utilisé : tant que la liste existe. Pièces comptables : comme au 4. |
+| **Sécurité** | Code de 12 caractères (30^12) ; seule l'empreinte est en base ; vérification et utilisation limitées par adresse et par compte ; consommation atomique (un code ne sert qu'une fois, même à deux au même instant). |
+
 ## 5. Journaux techniques et sécurité
 
 | | |

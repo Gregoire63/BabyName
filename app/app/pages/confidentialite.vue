@@ -88,6 +88,21 @@ const c = CONSERVATION
       <dd>L’exécution du contrat (art. 6.1.b) et nos obligations comptables et fiscales (art. 6.1.c). Stripe traite aussi ces données pour son propre compte, notamment contre la fraude.</dd>
     </dl>
 
+    <h3>Les cadeaux (code cadeau)</h3>
+    <dl>
+      <dt>Données</dt>
+      <dd>
+        Si vous offrez : le nom et le mot que vous choisissez d’écrire (facultatifs), l’empreinte du code
+        — pas le code lui-même —, sa date d’achat et la référence du paiement. Aucun compte n’est demandé ;
+        votre e-mail et votre moyen de paiement sont chez Stripe, pas chez babyNamed. Si vous recevez : la
+        date à laquelle vous avez utilisé le code, et la liste qu’il a débloquée.
+      </dd>
+      <dt>Pourquoi</dt>
+      <dd>Remettre le cadeau à qui détient le code, montrer au destinataire de qui il vient, traiter une rétractation ou un remboursement.</dd>
+      <dt>Base légale</dt>
+      <dd>L’exécution du contrat (art. 6.1.b) et nos obligations comptables (art. 6.1.c).</dd>
+    </dl>
+
     <h3>Les liens de connexion et les limites d’essais</h3>
     <dl>
       <dt>Données</dt>
@@ -161,6 +176,7 @@ const c = CONSERVATION
     <ul>
       <li><strong>Compte et listes</strong> : tant que vous vous en servez. Effacés immédiatement si vous supprimez votre compte ; effacés automatiquement après <strong>{{ c.inactiviteMois }} mois</strong> sans ouvrir l’app.</li>
       <li><strong>Une liste</strong> dont il ne reste plus aucun membre est effacée, qu’elle ait été débloquée ou non.</li>
+      <li><strong>Codes cadeaux</strong> : un code jamais utilisé est effacé {{ c.cadeauMois }} mois après l’achat, avec le nom et le mot de celui qui l’a offert ; un code annulé, un mois après ; un code utilisé reste attaché à la liste qu’il a débloquée (« un cadeau de… ») et disparaît avec elle.</li>
       <li><strong>Prénoms « déjà pris »</strong> : ils appartiennent à la liste. Si vous effacez votre compte, ceux que vous avez ajoutés y restent pour les autres membres, sans votre nom ni votre note.</li>
       <li><strong>Compteurs de la version gratuite</strong> : le total, avec le compte ; le détail par jour, {{ c.quotaJours }} jours.</li>
       <li><strong>Cookie de connexion</strong> : {{ c.sessionJours }} jours, renouvelés à chaque connexion. <em>Mon compte → Déconnecter mes autres appareils</em> les annule tous d’un coup, sauf celui de l’appareil en main.</li>
@@ -197,7 +213,7 @@ const c = CONSERVATION
     <ul>
       <li><strong>pr_session</strong> (cookie) : vous garde connecté(e) {{ c.sessionJours }} jours. Illisible par les scripts de la page, envoyé uniquement en HTTPS.</li>
       <li><strong>pr_defi</strong> (cookie) : le temps de créer ou d’utiliser une passkey, cinq minutes au plus ; il est effacé dès qu’il a servi.</li>
-      <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour, et le prénom choisi depuis une fiche tant qu’il n’est pas jugé. Ces informations restent sur votre appareil et sont effacées à la déconnexion — sauf le thème choisi (clair, sombre), réglage de l’appareil et non du compte.</li>
+      <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour, le prénom choisi depuis une fiche tant qu’il n’est pas jugé, et un code cadeau reçu par lien le temps de vous connecter (un mois au plus). Ces informations restent sur votre appareil et sont effacées à la déconnexion — sauf le thème choisi (clair, sombre), réglage de l’appareil et non du compte.</li>
       <li><strong>Cache hors ligne</strong> : les fichiers de l’application et le catalogue des prénoms, pour que l’app s’ouvre vite. Aucune donnée personnelle.</li>
     </ul>
     <p>La police de caractères est servie par babyNamed lui-même : ouvrir l’app n’envoie rien à Google ni à aucun autre tiers.</p>

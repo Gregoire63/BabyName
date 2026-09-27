@@ -349,10 +349,18 @@ onMounted(async () => {
  * d'adresse. On se contente de recharger jusqu'a ce que le serveur, lui, dise
  * que c'est paye.
  */
-const confirmation = ref<'attente' | 'ok' | 'lent' | null>(null)
+const confirmation = ref<'attente' | 'ok' | 'lent' | 'cadeau' | null>(null)
+const cadeauDe = computed(() => etat.value?.groupe?.cadeau_de as string | null)
 
 async function attendrePaiement() {
   const route = useRoute()
+  // Débloquée par un code cadeau (FeuilleCadeau, accueil) : c'est déjà fait,
+  // côté serveur, avant d'arriver ici — on le dit, avec le nom de l'offrant.
+  if (route.query.offerte === '1') {
+    history.replaceState(history.state, '', `/g/${gid}/${ONGLETS[index.value]!.id}`)
+    if (etat.value?.groupe?.paye) confirmation.value = 'cadeau'
+    return
+  }
   if (route.query.paye !== '1') return
   const session = typeof route.query.session_id === 'string' ? route.query.session_id : ''
   history.replaceState(history.state, '', `/g/${gid}/${ONGLETS[index.value]!.id}`)
@@ -453,6 +461,10 @@ async function attendrePaiement() {
       <template v-else-if="confirmation === 'ok'">
         C’est débloqué, pour vous et pour tout le monde sur cette liste.
       </template>
+      <template v-else-if="confirmation === 'cadeau'">
+        C’est débloqué{{ cadeauDe ? ` — un cadeau de ${cadeauDe}` : ' — un beau cadeau' }}, pour vous
+        et pour tout le monde sur cette liste.
+      </template>
       <template v-else>
         Le paiement est passé, mais la confirmation tarde. Rechargez la page
         dans une minute ; si rien ne change, écrivez-nous, rien n’est perdu.
@@ -468,7 +480,7 @@ async function attendrePaiement() {
   padding: 13px 16px; border-radius: 15px; background: var(--carte);
   border: 1px solid var(--trait); box-shadow: var(--ombre); font-size: .9rem;
   animation: monte-paiement .22s cubic-bezier(.2,.8,.3,1); }
-.paiement.ok { background: color-mix(in srgb, var(--menthe) 45%, var(--carte));
+.paiement.ok, .paiement.cadeau { background: color-mix(in srgb, var(--menthe) 45%, var(--carte));
   color: var(--encre); }
 .paiement.lent { background: color-mix(in srgb, var(--peche) 45%, var(--carte));
   color: var(--encre); }

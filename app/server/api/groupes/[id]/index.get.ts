@@ -20,11 +20,16 @@ export default defineEventHandler(async (e) => {
   const [groupe, membres, av, vetos, dejaPris, favoris] = await Promise.all([
     // Les codes d'invitation ne vont qu'a ceux qui decident (voir
     // groupes/index.get.ts) : un observateur ne fait entrer personne.
+    // Debloquee par un cadeau : on dit de qui, s'il l'a signe.
     q1(`select cast(id as text) as id, nom,
                case when ?2 then code_invitation end as code_invitation,
                nb_vetos_max, favoris_visibles, quota_swipe_jour,
                filtres, nom_famille, (paye_le is not null) as paye, paye_le, offert,
-               case when ?2 and paye_le is not null then code_observateur end as code_observateur
+               case when ?2 and paye_le is not null then code_observateur end as code_observateur,
+               exists (select 1 from cadeaux c where c.groupe_id = groupes.id and c.annule_le is null
+                          and groupes.paye_le is not null) as cadeau,
+               (select c.de_la_part from cadeaux c where c.groupe_id = groupes.id and c.annule_le is null
+                   and groupes.paye_le is not null order by c.utilise_le desc limit 1) as cadeau_de
           from groupes where id = ?1`, [gid, moi.role !== 'observateur']),
     q(`select m.user_id, u.pseudo, m.role, m.poids from membres m
          join utilisateurs u on u.id = m.user_id where m.groupe_id = ?1

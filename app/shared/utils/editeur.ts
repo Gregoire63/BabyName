@@ -62,7 +62,7 @@ export const EDITEUR = {
  * Stripe), c'est ce qui permet de savoir quel texte un acheteur a accepte.
  */
 export const VERSIONS_TEXTES = {
-  conditions: '2026-09-25',
+  conditions: '2026-09-27',
   confidentialite: '2026-09-27',
   accessibilite: '2026-09-25'
 } as const
@@ -145,7 +145,10 @@ export const CONSERVATION = {
   /** Un lien (ou un code) de connexion recu par e-mail : minutes de validite. */
   lienMinutes: 15,
   /** Pieces comptables (factures, paiements) : obligation legale. */
-  comptabiliteAns: 10
+  comptabiliteAns: 10,
+  /** Un code cadeau : valable ce nombre de mois apres l'achat ; inutilise,
+   *  il est efface a l'echeance (avec le nom et le mot de l'offrant). */
+  cadeauMois: 24
 } as const
 
 export const CNIL = {

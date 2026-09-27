@@ -69,7 +69,7 @@ export function estDoublon(err: unknown): boolean {
 const BOOLEENS = new Set([
   'favoris_visibles', 'offert', 'synchronisee', 'paye', 'a_une_cle', 'observateur',
   'creee_par_moi', 'debloquee', 'debloquee_par_moi', 'cle_acces_active',
-  'rangee_dans_un_trousseau'
+  'rangee_dans_un_trousseau', 'cadeau', 'expire'
 ])
 const JSONS = new Set(['filtres', 'transports'])
 

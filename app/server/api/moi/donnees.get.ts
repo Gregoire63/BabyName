@@ -32,7 +32,7 @@ function parTete(lignes: any[]) {
 export default defineEventHandler(async (e) => {
   const uid = await exigerUtilisateur(e)
 
-  const [compte, passkeys, listes, votes, vetos, dejaPris, favoris, duels, elo, classement, commentaires, quotas] =
+  const [compte, passkeys, listes, votes, vetos, dejaPris, favoris, duels, elo, classement, commentaires, quotas, cadeaux] =
     await Promise.all([
       q1(`select id, pseudo, email, email_verifie_le as email_verifie_le, cree_le, vu_le as derniere_activite,
                  cle_acces_hash is not null as cle_acces_active,
@@ -80,7 +80,12 @@ export default defineEventHandler(async (e) => {
            from membres m join commentaires c on c.groupe_id = m.groupe_id and c.user_id = m.user_id
           where m.user_id = ?1 order by c.groupe_id, c.ecrit_le`, [uid]),
       q(`select groupe_id, jour, n as gestes from quota_jour
-          where user_id = ?1 order by jour, groupe_id`, [uid])
+          where user_id = ?1 order by jour, groupe_id`, [uid]),
+      // Les cadeaux dont la personne s'est servie. Ceux qu'elle a OFFERTS ne
+      // sont liés à aucun compte (on offre sans compte) : c'est chez Stripe,
+      // sous l'e-mail du paiement, qu'ils se retrouvent.
+      q(`select groupe_id, de_la_part, message, utilise_le from cadeaux
+          where utilise_par = ?1 order by utilise_le`, [uid])
     ])
 
   const jour = new Date().toISOString().slice(0, 10)
@@ -102,6 +107,7 @@ export default defineEventHandler(async (e) => {
       valeurs_de_vote: 'non, neutre ou oui — « balayage » indique un « non » donné à toute une famille de prénoms d’un seul geste.',
       vetos: 'Les prénoms que vous avez bloqués en secret, avec leurs graphies (même prononciation) et votre motif.',
       deja_pris: 'Les prénoms que vous avez marqués « déjà pris » : ils appartiennent à la liste. Si vous effacez votre compte, ils y restent, sans votre nom ni votre note.',
+      cadeaux_recus: 'Les codes cadeaux dont vous vous êtes servi : de la part de qui, et le mot qui les accompagnait.',
       quotas: 'Nombre de prénoms jugés par jour sur les listes gratuites, une fois le lot de départ épuisé. Effacé automatiquement au bout de 62 jours.'
     },
     compte,
@@ -115,6 +121,7 @@ export default defineEventHandler(async (e) => {
     elo,
     classement_manuel: classement,
     commentaires,
-    quotas
+    quotas,
+    cadeaux_recus: cadeaux
   }
 })

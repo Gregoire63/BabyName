@@ -20,6 +20,9 @@ export const CLES_DEV = {
   greg: 'DEVG-REGX-2345', audrey: 'DEVA-DREY-2345', mamie: 'DEVM-AMIE-2345'
 }
 
+/** Le code cadeau du jeu d'essai (voir semerSiVide). */
+export const CADEAU_DEV = 'BEBE2345CADE'
+
 /**
  * La version du jeu d'essai. A monter a CHAQUE changement de ce fichier.
  *
@@ -28,7 +31,7 @@ export const CLES_DEV = {
  * gratuit » qu'un essai decrit. La version est gravee a la semaille ; le
  * demarrage et les outils de developpement disent quand elle est depassee.
  */
-export const VERSION_SEMENCE = 4
+export const VERSION_SEMENCE = 5
 
 /** Les comptes du jeu d'essai, tels que les outils de dev les montrent. */
 export const COMPTES_DEV = [
@@ -169,6 +172,12 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
       select ?1, value, 'Mathilde', ?2 from json_each(?3)`, [gid, audrey, JSON.stringify(['Matilde', 'Mathylde'])]],
     [`insert into commentaires (groupe_id, user_id, prenom, texte)
       values (?1, ?2, 'Louise', 'Un peu partout en ce moment, non ?')`, [gid, audrey]],
+    // Un code cadeau payé (pour de faux), pas encore utilisé : /?cadeau=…
+    // s'essaie tout de suite. Le code est écrit ici en clair, exprès : il
+    // n'existe que dans la base locale.
+    [`insert into cadeaux (code_hash, session_ref, paiement_ref, de_la_part, message, expire_le)
+      values (?1, 'cs_local_semence', null, 'Mamie', 'Pour choisir ensemble, sans vous fâcher.',
+              ${decale('+24 months')})`, [empreinteCadeau(CADEAU_DEV)]],
     // Audrey a une adresse verifiee : de quoi essayer le lien de connexion en
     // local (la boite de developpement recoit l'e-mail, voir « Mon compte »).
     [`update utilisateurs set email = 'audrey@exemple.test', email_verifie_le = ${MAINTENANT}
@@ -212,6 +221,7 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
     `  Cle de Greg   : ${CLES_DEV.greg}\n` +
     `  Cle d'Audrey  : ${CLES_DEV.audrey}\n` +
     `  Cle de Mamie  : ${CLES_DEV.mamie} (observatrice, code ob5e0bad)\n` +
+    `  Code cadeau   : ${cadeauLisible(CADEAU_DEV)} (/?cadeau=${CADEAU_DEV})\n` +
     '  Ouvrez-en une dans une fenetre privee pour voir le vote aveugle a deux.\n' +
     '  Pour repartir de zero : Mon compte -> Outils de developpement -> Base neuve.\n')
   return true

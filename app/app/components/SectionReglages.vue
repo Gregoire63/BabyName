@@ -98,6 +98,8 @@ const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
 const prix = (useRuntimeConfig().public.prixListe as string) || '6 €'
 const INCLUS = INCLUS_DEBLOCAGE
 const offerte = computed(() => !!(g.etat.value?.groupe as any)?.offert)
+const cadeau = computed(() => !!(g.etat.value?.groupe as any)?.cadeau)
+const cadeauDe = computed(() => (g.etat.value?.groupe as any)?.cadeau_de as string | null)
 const debloqueeLe = computed(() => {
   const d = (g.etat.value?.groupe as any)?.paye_le
   return d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
@@ -236,11 +238,19 @@ const filtresActifs = computed(() => {
         </template>
         <template v-else>
           <h2 id="titre-achat">Liste débloquée</h2>
+          <p v-if="cadeau" class="mini" style="margin:0">
+            <strong>{{ cadeauDe ? `Un cadeau de ${cadeauDe}` : 'Un cadeau' }}.</strong>
+          </p>
           <p class="mini doux" style="margin:0">
-            {{ offerte ? 'Offerte' : 'Débloquée' }}<template v-if="debloqueeLe"> le {{ debloqueeLe }}</template>,
+            {{ offerte || cadeau ? 'Offerte' : 'Débloquée' }}<template v-if="debloqueeLe"> le {{ debloqueeLe }}</template>,
             pour tous ses membres et sans limite de durée. Elle seule : vos
             autres listes restent gratuites.
           </p>
+          <!-- Le moment où l'on est content de ce qu'on a payé est celui où
+               l'on pense aux amis qui attendent un bébé. -->
+          <NuxtLink to="/offrir" class="lien mini" style="align-self:flex-start">
+            Offrir babyNamed à d’autres futurs parents
+          </NuxtLink>
         </template>
       </section>
 

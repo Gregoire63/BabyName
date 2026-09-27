@@ -62,6 +62,7 @@ serveur de dev parle toujours à la base locale — sauf si l'on ajoutait
 | Mamie | **observatrice** : 6 votes, dont un **non à Louise**, qui reste un accord |
 | en commun | 9 prénoms, plus des désaccords francs (Marius, Hector : Greg oui, Audrey non) pour remplir « À revoir » |
 | listes | « Notre liste » débloquée (code `dec0de00`), « Essai gratuit » et « Autre essai » au quota 3/jour pour taper dans le mur en trois swipes |
+| cadeau | un code payé pour de faux, **`BEBE-2345-CADE`**, de la part de Mamie : `/?cadeau=BEBE2345CADE` |
 | écrans | Accueil · Swipe · Classement (Communs · À revoir · Mes choix · Portrait) · La liste |
 
 Greg a exactement **12 oui**, soit le seuil du portrait de goûts, et Audrey
@@ -402,6 +403,7 @@ de connexion sont décrites dans « Connexion sans mot de passe ».
 |---|---|
 | `NUXT_STRIPE_SECRET_KEY` | une **clé restreinte** `rk_live_…` (Developers → API keys → Create restricted key) avec **une seule** permission : *Checkout Sessions → Write*. C'est tout ce que le serveur appelle (création et relecture de session) ; volée, elle ne permet ni rembourser, ni lire les clients, ni vider le compte. |
 | `NUXT_STRIPE_PRICE_ID` | `price_1UJWn1GaKiRYW6iYRjRPV7xn` |
+| `NUXT_STRIPE_PRICE_ID_CADEAU` | facultatif : un second produit, « babyNamed — liste à offrir », au même prix, pour lire les cadeaux à part dans les ventes. Vide : les cadeaux passent sur le prix de la liste. |
 | `NUXT_STRIPE_WEBHOOK_SECRET` | le `whsec_…` affiché à la création du webhook ci-dessous |
 | `NUXT_PUBLIC_SITE_URL` | déjà dans `wrangler.jsonc` : `https://babynamed.fr` |
 | `CRON_SECRET` | facultatif : ouvre `/api/admin/purger` pour lancer la purge à la main (`Authorization: Bearer …`). La purge de chaque nuit n'en a pas besoin. |
@@ -573,11 +575,47 @@ prélèvement jamais débloqué, rotation du secret qui rejetait tout), l'accord
 exigé avant paiement, la facture, et les re-verrouillages (remboursement
 total, litige perdu — mais pas un remboursement partiel ni un litige gagné).
 
-### Offrir une liste
+### Offrir babyNamed : les codes cadeaux
 
-Pas d'écran d'administration : c'est une surface d'attaque pour un geste
-qu'on fait trois fois par an. La console D1 suffit (*Storage & Databases →
-D1 → babynamed → Console*) :
+Quelqu'un paie pour quelqu'un d'autre — les grands-parents, une amie, les
+collègues. Le cadeau est aussi le meilleur canal d'acquisition : celui qui
+offre fait entrer un couple qui ne connaissait pas l'app.
+
+| Étape | Où | Ce qui se passe |
+|---|---|---|
+| Offrir | `/offrir`, **sans compte** (liens : accueil, carte « Liste débloquée », page de l'app, llms.txt) | nom et mot facultatifs, case d'accord, puis Stripe. Le code (12 caractères) est tiré à l'ouverture de la session et voyage dans ses métadonnées. |
+| Recevoir le code | `/offrir/merci?session_id=…` et la **facture** Stripe (champ « Code cadeau ») | le serveur relit la session, enregistre le cadeau s'il est payé (`livrerCadeau`, comme le webhook), rend le code et un lien `/?cadeau=…` à transmettre. |
+| L'ouvrir | le lien, ou le code tapé dans « Rejoindre une liste » ou « Débloquer » | le lien traverse la connexion ; la feuille « Un cadeau pour vous » dit de qui, le mot, et propose les listes **pas encore débloquées** ou une nouvelle (les questions habituelles, puis la liste arrive débloquée). |
+
+En base (`cadeaux`, migration 0003) : l'empreinte du code, jamais le code ;
+une ligne n'existe qu'une fois le paiement encaissé. Une liste débloquée par
+un cadeau a `paye_le`, `offert = 0` et **la référence du paiement du
+cadeau** : un remboursement total ou un litige perdu annule le code et,
+s'il a servi, re-verrouille la liste (`reprendrePaiement`) — aucun événement
+de webhook de plus à écouter.
+
+Règles, et pourquoi :
+
+- **Valable 2 ans** (`CONSERVATION.cadeauMois`) — aucune durée minimale en
+  droit français, mais elle doit être annoncée : elle l'est sur la page, la
+  facture et les conditions. Échu et inutilisé, il est effacé par la purge.
+- **Rétractation** : rien n'est fourni à l'achat, l'acheteur garde ses 14
+  jours tant que le code n'a pas servi ; en cochant, il demande le déblocage
+  dès l'utilisation et perd alors ce droit (art. L221-28 13°). Une demande
+  de rétractation : rembourser le paiement dans Stripe, le webhook annule le
+  code.
+- **Pas de code promo** sur un cadeau : un cadeau à 0 € serait un code à
+  revendre.
+- **Code perdu** : Stripe → Payments, chercher l'e-mail de l'acheteur → le
+  code est dans les métadonnées du paiement et sur la facture.
+
+En local : le jeu d'essai contient un code payé pour de faux,
+**`BEBE-2345-CADE`** (`/?cadeau=BEBE2345CADE`, « de la part de Mamie »),
+et `/offrir` a un bouton « Créer un code sans payer (base locale) ».
+
+Offrir soi-même, sans passer par la caisse — pas d'écran d'administration :
+c'est une surface d'attaque pour un geste qu'on fait trois fois par an. La
+console D1 suffit (*Storage & Databases → D1 → babynamed → Console*) :
 
 ```sql
 -- les listes, pour trouver la bonne

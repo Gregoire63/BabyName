@@ -31,6 +31,12 @@ export default defineEventHandler(async (e) => {
    */
   const DEBLOQUANTS = ['checkout.session.completed', 'checkout.session.async_payment_succeeded']
   if (DEBLOQUANTS.includes(ev?.type)) {
+    // Un cadeau n'a pas de liste : son paiement donne un code, que quelqu'un
+    // d'autre utilisera plus tard (livrerCadeau).
+    if (ev.data?.object?.metadata?.type === 'cadeau') {
+      const c = await livrerCadeau(ev.data.object)
+      return c.livre ? { ok: true, cadeau: true } : { ok: true, ignore: c.raison }
+    }
     const r = await livrer(ev.data?.object)
     return r.livre ? { ok: true, groupe: r.groupe, offert: r.offert } : { ok: true, ignore: r.raison }
   }
@@ -43,8 +49,9 @@ export default defineEventHandler(async (e) => {
   const REPRENANTS = ['charge.refunded', 'charge.dispute.closed']
   if (REPRENANTS.includes(ev?.type)) {
     const r = await reprendrePaiement(ev)
-    if (r.repris) console.info('[stripe] liste re-verrouillee', r.groupe, ev.type)
-    return r.repris ? { ok: true, reprise: r.groupe } : { ok: true, ignore: r.raison }
+    if (r.repris) console.info('[stripe] paiement defait', { liste: r.groupe ?? null, cadeau: !!r.cadeau }, ev.type)
+    return r.repris ? { ok: true, reprise: r.groupe ?? null, cadeau_annule: !!r.cadeau }
+      : { ok: true, ignore: r.raison }
   }
 
   // Tout autre evenement : 200, sinon Stripe le renverrait pendant trois jours.

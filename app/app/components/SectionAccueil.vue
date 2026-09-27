@@ -13,6 +13,10 @@ useHead({ title: 'Accueil' })
 
 const compteOuvert = ref(false)
 const rejoindreOuvert = ref(false)
+/** Le code cadeau qu'on regarde (feuille « Un cadeau pour vous »). */
+const cadeauOuvert = ref('')
+/** Le code cadeau qui créera la liste en cours de création (AssistantFiltres). */
+const cadeauPourNouvelle = ref('')
 
 const moi = useMoi()
 const groupes = ref<any[]>([])
@@ -54,10 +58,41 @@ const premierNom = computed(() =>
   premier.value ? trouverPrenom(catalogue.value, premier.value)?.l ?? '' : '')
 
 async function creer(filtres: Filtres) {
+  const query: Record<string, string> = premier.value ? { prenom: premier.value } : {}
+  // Une liste neuve offerte : le cadeau la crée, débloquée d'emblée. S'il ne
+  // peut plus servir (utilisé entre-temps sur un autre appareil…), la
+  // feuille du cadeau se rouvre et dit pourquoi.
+  if (cadeauPourNouvelle.value) {
+    const code = cadeauPourNouvelle.value
+    cadeauPourNouvelle.value = ''
+    try {
+      const r = await $fetch<any>('/api/cadeaux/utiliser',
+        { method: 'POST', body: { code, nouvelle: true, filtres } })
+      oublierCadeauEnAttente()
+      premier.value = ''
+      return navigateTo({ path: `/g/${r.groupe}/swipe`, query: { ...query, offerte: '1' } })
+    } catch {
+      assistant.value = false
+      cadeauOuvert.value = code
+      return
+    }
+  }
   const g = await $fetch<any>('/api/groupes', { method: 'POST', body: { filtres } })
-  const query = premier.value ? { prenom: premier.value } : undefined
   premier.value = ''
-  await navigateTo({ path: `/g/${g.id}/swipe`, query })
+  await navigateTo({ path: `/g/${g.id}/swipe`, query: Object.keys(query).length ? query : undefined })
+}
+
+/** « Créer une nouvelle liste » depuis la feuille du cadeau : les questions
+ *  habituelles d'abord, le cadeau ensuite (creer). */
+function nouvelleOfferte(code: string) {
+  cadeauOuvert.value = ''
+  cadeauPourNouvelle.value = code
+  assistant.value = true
+}
+
+function fermerCadeau() {
+  cadeauOuvert.value = ''
+  oublierCadeauEnAttente()
 }
 
 /**
@@ -78,10 +113,22 @@ onMounted(async () => {
   const code = normaliserCodeInvitation(q.code)
   const prenom = typeof q.prenom === 'string' ? q.prenom.trim().slice(0, 60) : ''
   const avecPrenom = prenom ? { prenom } : {}
+  // Un code cadeau (`/?cadeau=…`, le lien que l'acheteur a transmis) : gardé
+  // sur l'appareil le temps de la connexion (voir utils/cadeauEnAttente).
+  const cadeauLien = normaliserCodeCadeau(q.cadeau)
+  if (cadeauLien) retenirCadeauEnAttente(cadeauLien)
 
   if (!(await rafraichirMoi())) {
-    return navigateTo({ path: '/connexion', query: { ...(code ? { code } : {}), ...avecPrenom } },
+    return navigateTo({ path: '/connexion', query: {
+      ...(code ? { code } : {}), ...avecPrenom, ...(cadeauLien ? { cadeau: cadeauLien } : {}) } },
       { replace: true })
+  }
+  const cadeau = cadeauLien || lireCadeauEnAttente()
+  if (cadeau) {
+    // L'adresse redevient celle de l'accueil : recharger ne rouvre pas la feuille
+    // d'un cadeau déjà utilisé.
+    if (cadeauLien) history.replaceState(history.state, '', '/')
+    cadeauOuvert.value = cadeau
   }
   // Lien d'invitation : on entre directement, sans faire retaper le code.
   if (code) {
@@ -315,6 +362,17 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
         <BoutonInstaller class="large" />
 
+        <!-- Offrir : les futurs parents autour de soi sont le meilleur endroit
+             où trouver les suivants. Une page publique, sans compte. -->
+        <NuxtLink to="/offrir" class="carte large offrir">
+          <Etincelles :taille="18" couleur="var(--peche)" une />
+          <span style="flex:1;min-width:0">
+            <strong>Offrir babyNamed</strong>
+            <span class="mini doux" style="display:block">À des futurs parents : une liste débloquée, en lien ou en code</span>
+          </span>
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="fleche"><path d="m9 5 7 7-7 7" /></svg>
+        </NuxtLink>
+
         <!-- statistiques -->
         <template v-if="stats">
           <p class="section">Les naissances de {{ annee }}</p>
@@ -408,14 +466,21 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
     </button>
 
     <AssistantFiltres v-if="assistant" :premier="premierNom"
-                      @fermer="assistant = false" @valider="creer" />
-    <FeuilleRejoindre v-if="rejoindreOuvert" @fermer="rejoindreOuvert = false" />
+                      @fermer="assistant = false; cadeauPourNouvelle = ''" @valider="creer" />
+    <FeuilleRejoindre v-if="rejoindreOuvert" @fermer="rejoindreOuvert = false"
+                      @cadeau="c => { rejoindreOuvert = false; cadeauOuvert = c }" />
+    <FeuilleCadeau v-if="cadeauOuvert" :code="cadeauOuvert"
+                   @fermer="fermerCadeau" @nouvelle="nouvelleOfferte" />
     <FeuilleCompte v-if="compteOuvert" @fermer="compteOuvert = false" />
     <FichePrenom v-if="fiche" :p="fiche" @fermer="fiche = null" />
   </div>
 </template>
 
 <style scoped>
+.offrir { display: flex; align-items: center; gap: 12px; padding: 14px 16px; color: var(--texte);
+  text-decoration: none; }
+.offrir .fleche { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--doux);
+  stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .proteger { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%;
   text-align: left; font: inherit; color: var(--texte); cursor: pointer; padding: 13px 16px;
   margin: 0 0 12px; border-color: color-mix(in srgb, var(--peche) 70%, var(--trait));

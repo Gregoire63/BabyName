@@ -19,6 +19,7 @@
  *   se cree (le groupe est ecrit une instruction avant son premier membre).
  * - Les liens de connexion expires depuis un jour, et les compteurs de
  *   limites vieux de deux jours.
+ * - Les codes cadeaux jamais utilises, a leur echeance (CONSERVATION.cadeauMois).
  */
 // Les durees elles-memes vivent dans shared/utils/editeur.ts (CONSERVATION) :
 // la page /confidentialite les lit au meme endroit que la purge.
@@ -29,6 +30,7 @@ export interface BilanPurge {
   compteurs_anciens: number
   jetons_morts: number
   limites_anciennes: number
+  cadeaux_perimes: number
 }
 
 export async function purger(): Promise<BilanPurge> {
@@ -36,7 +38,7 @@ export async function purger(): Promise<BilanPurge> {
   // instruction, pas `changes` : D1 y ajoute les lignes emportees par les
   // cascades (votes, vetos, passkeys… d'un compte efface), et « 5 comptes
   // effaces » pour un seul serait faux.
-  const [comptes, listes, compteurs, liens, limites] = await lot([
+  const [comptes, listes, compteurs, liens, limites, cadeaux] = await lot([
     [`delete from utilisateurs where vu_le < ${decale('?1')} returning 1`,
       [`-${CONSERVATION.inactiviteMois} months`]],
     // Une liste sans membre n'appartient plus a personne. On attend un jour,
@@ -52,13 +54,22 @@ export async function purger(): Promise<BilanPurge> {
     [`delete from liens_connexion where expire_le < ${decale('-1 day')} returning 1`],
     // Les compteurs des limites d'essais : deux jours suffisent a toutes les
     // fenetres (la plus longue fait 24 h).
-    [`delete from limites where debut < ${decale('-2 days')} returning 1`]
+    [`delete from limites where debut < ${decale('-2 days')} returning 1`],
+    // Les cadeaux : un code jamais utilisé part à son échéance, avec le nom et
+    // le mot de l'offrant ; un code annulé (remboursé) un mois après ; un code
+    // utilisé reste attaché à sa liste (« un cadeau de… ») et part avec elle.
+    [`delete from cadeaux
+       where (utilise_le is null and expire_le < ${MAINTENANT})
+          or (annule_le is not null and annule_le < ${decale('-1 month')})
+          or (utilise_le is not null and groupe_id is null)
+      returning 1`]
   ])
   return {
     comptes_inactifs: comptes!.rows.length,
     listes_sans_membre: listes!.rows.length,
     compteurs_anciens: compteurs!.rows.length,
     jetons_morts: liens!.rows.length,
-    limites_anciennes: limites!.rows.length
+    limites_anciennes: limites!.rows.length,
+    cadeaux_perimes: cadeaux!.rows.length
   }
 }

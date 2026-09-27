@@ -23,14 +23,28 @@ export function normaliserCodeInvitation(brut: unknown): string {
   return n.length === LONGUEUR_CODE ? n : ''
 }
 
-/** Nettoyage PENDANT la saisie : tout ce qui ne peut figurer dans aucun des
- *  deux formats disparaît (I, L, O, U, ponctuation, espaces). */
-export function saisieCodeInvitation(brut: string): string {
-  return brut.toUpperCase().replace(/[^0-9A-HJKMNP-TV-Z]/g, '').slice(0, LONGUEUR_CODE)
-}
-
 /** Lisible à voix haute : « K7QMX 3XPD9 ». L'ancien format reste tel quel. */
 export function codeLisible(code: string | null | undefined): string {
   if (!code) return ''
   return code.length === LONGUEUR_CODE ? `${code.slice(0, 5)} ${code.slice(5)}` : code
+}
+
+/**
+ * Codes cadeaux : 12 caractères du même alphabet, lus par groupes de quatre
+ * (« K7QM-X3PD-9RTA »). 30^12, soit 5 × 10^17 valeurs : une valeur de six
+ * euros ne se devine pas. Plus longs qu'un code d'invitation (10) : c'est ce
+ * qui permet de taper l'un ou l'autre dans le même champ.
+ */
+export const LONGUEUR_CADEAU = 12
+
+/** Le code cadeau nu (sans tirets ni espaces), ou '' s'il ne peut pas en être un. */
+export function normaliserCodeCadeau(brut: unknown): string {
+  const n = [...String(brut ?? '').toUpperCase()].filter(c => ALPHABET_CODE.includes(c)).join('')
+  return n.length === LONGUEUR_CADEAU ? n : ''
+}
+
+/** Lisible et recopiable : « K7QM-X3PD-9RTA ». */
+export function cadeauLisible(code: string | null | undefined): string {
+  const n = normaliserCodeCadeau(code)
+  return n ? `${n.slice(0, 4)}-${n.slice(4, 8)}-${n.slice(8)}` : ''
 }

@@ -31,6 +31,9 @@ useHead({ title: 'Connexion' })
 const compteSupprime = computed(() => route.query.compte === 'supprime')
 
 const invitation = computed(() => normaliserCodeInvitation(route.query.code))
+/** Un code cadeau venu d'un lien : il attend de l'autre côté de la connexion. */
+const cadeau = computed(() => normaliserCodeCadeau(route.query.cadeau))
+const cadeauDe = ref('')
 
 /**
  * Le prénom venu d'une fiche publique (`?prenom=louise`). On le nomme ici,
@@ -48,6 +51,7 @@ function suite() {
   const query: Record<string, string> = {}
   if (invitation.value) query.code = invitation.value
   if (prenomDemande.value) query.prenom = prenomDemande.value
+  if (cadeau.value) query.cadeau = cadeau.value
   return navigateTo({ path: '/', query }, { replace: true })
 }
 
@@ -118,6 +122,14 @@ async function entrerComme(c: string) {
 onMounted(async () => {
   if (await rafraichirMoi()) return suite()
   passkeyPossible.value = passkeysPossibles()
+  if (cadeau.value) {
+    // Le lien de connexion par e-mail s'ouvre ailleurs, sans ce paramètre :
+    // l'appareil le garde (utils/cadeauEnAttente).
+    retenirCadeauEnAttente(cadeau.value)
+    $fetch<any>(`/api/cadeaux/verifier?code=${cadeau.value}`)
+      .then(v => { if (v?.valide && v.de_la_part) cadeauDe.value = v.de_la_part })
+      .catch(() => null)
+  }
   if (!prenomDemande.value) return
   // Le catalogue servira de toute facon juste apres : autant le charger ici.
   const cat = await chargerCatalogue().catch(() => null)
@@ -190,6 +202,10 @@ onBeforeUnmount(() => abandonnerPasskey())
         </p>
         <p v-if="invitation" class="attend">
           Une liste vous a été partagée : vous y entrez juste après.
+        </p>
+        <p v-if="cadeau" class="attend">
+          <strong>{{ cadeauDe ? `${cadeauDe} vous offre babyNamed` : 'Un cadeau vous attend' }}</strong> :
+          une liste débloquée. Un prénom suffit pour commencer, le cadeau suit.
         </p>
         <label class="pile" style="gap:6px">
           <span class="mini doux">Votre prénom, pour que l’autre vous reconnaisse</span>
