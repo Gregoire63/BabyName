@@ -177,10 +177,16 @@ const prix = (config.public.prixListe as string) || '6 €'
     Pour toute réclamation, écrivez d’abord à <a :href="`mailto:${e.email}`">{{ e.email }}</a>.
     Si la réponse ne vous satisfait pas, ou en l’absence de réponse sous deux mois, vous pouvez recourir
     gratuitement au médiateur de la consommation (art. L612-1 du Code de la consommation) :
-    <strong><ACompleter :v="e.mediateur.nom" quoi="nom du médiateur" /></strong>
-    <template v-if="e.mediateur.adresse">, {{ e.mediateur.adresse }}</template>
-    <template v-if="e.mediateur.site">, <a :href="e.mediateur.site" rel="noopener">{{ e.mediateur.site.replace(/^https?:\/\//, '') }}</a></template>
-    <template v-else>, <ACompleter quoi="site du médiateur" /></template>.
+    <!-- Sans médiateur (EDITEUR.mediateur vide) : « en cours de traitement ».
+         Tenable tant que la vente est fermée (pas de clés Stripe) ; à remplir
+         AVANT la première vente, qui l'exige (voir shared/utils/editeur.ts). -->
+    <template v-if="e.mediateur.nom">
+      <strong>{{ e.mediateur.nom }}</strong>
+      <template v-if="e.mediateur.adresse">, {{ e.mediateur.adresse }}</template>
+      <template v-if="e.mediateur.site">, <a :href="e.mediateur.site" rel="noopener">{{ e.mediateur.site.replace(/^https?:\/\//, '') }}</a></template>
+      <template v-else>, <ACompleter quoi="site du médiateur" /></template>.
+    </template>
+    <template v-else>en cours de traitement.</template>
   </p>
 
   <h2>10. Droit applicable</h2>

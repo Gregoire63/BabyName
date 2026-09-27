@@ -44,7 +44,9 @@ export const EDITEUR = {
    * Mediateur de la consommation — obligatoire pour vendre a des particuliers
    * (art. L612-1 du Code de la consommation), meme pour 6 €. Adhesion a un
    * mediateur agree (liste sur economie.gouv.fr/mediation-conso), puis ses
-   * coordonnees ici.
+   * coordonnees ici. Tant qu'il est vide, les conditions disent « en cours de
+   * traitement » : a remplir AVANT d'ouvrir la vente (cles Stripe), puisque le
+   * site doit donner ses coordonnees des la premiere vente.
    */
   mediateur: { nom: '', adresse: '', site: '' },
 
@@ -189,9 +191,10 @@ export const CNIL = {
  * Ce qui BLOQUE la vente : l'identite du vendeur. Sans SIRET, adresse et
  * telephone, la facture Stripe et les conditions ne disent pas qui vend —
  * on ne vend pas. Le mediateur, lui, est obligatoire aussi mais ne bloque
- * pas le paiement : il s'affiche en rouge partout ou il manque, et /api/sante
- * le liste, parce qu'une adhesion prend quelques jours et qu'il faut pouvoir
- * tester la caisse en production entre-temps (code promo a 100 %).
+ * pas le paiement : les conditions disent « en cours de traitement » tant
+ * qu'il manque, et /api/sante le liste, parce qu'une adhesion prend quelques
+ * jours et qu'il faut pouvoir tester la caisse en production entre-temps
+ * (code promo a 100 %).
  */
 export function mentionsBloquantes(e = EDITEUR): string[] {
   return mentionsManquantes(e).filter(m => ['siret', 'adresse', 'telephone', 'numero_tva'].includes(m))
