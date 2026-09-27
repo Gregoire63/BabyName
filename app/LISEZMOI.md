@@ -378,7 +378,7 @@ Le compte Stripe « BabyNames » a déjà son catalogue, créé le 25 septembre 
 
 | | |
 |---|---|
-| Produit | `prod_VKB9yYrGETljLP` — « babyNames — liste débloquée » : **à renommer** « babyNamed — liste débloquée » (c'est ce nom que la page de paiement et la facture affichent) |
+| Produit | `prod_VKB9yYrGETljLP` — « babyNamed — liste débloquée » (renommé le 27 septembre 2026 : c'est ce nom que la page de paiement et la facture affichent) |
 | Prix | `price_1UJWn1GaKiRYW6iYRjRPV7xn` — 6 € **TTC**, paiement unique, clé `babynames_liste` (une clé interne : elle peut rester) |
 | Produit cadeau | `prod_VKwNmWd4gQ4IBg` — « babyNamed — liste à offrir » (créé le 27 septembre 2026) : les cadeaux se lisent à part dans les ventes |
 | Prix cadeau | `price_1UKGV2GaKiRYW6iYqpmXEHlM` — 6 € **TTC** (inclusive), paiement unique, clé `babynamed_cadeau` |
