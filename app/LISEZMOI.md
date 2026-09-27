@@ -143,8 +143,56 @@ Paramètres `?1`, `?2`… ; une contrainte d'unicité se reconnaît avec
 Limites du plan gratuit (voir « Héberger sur Cloudflare ») : 5 millions de
 lignes lues et 100 000 écrites par jour, 500 Mo par base. D1 compte les
 lignes **parcourues**, pas renvoyées : une requête qui balaie une table sans
-index coûte toute la table. D'où les clés primaires qui commencent par la
-liste (`groupe_id`, `user_id`, …) et les index de la migration.
+index coûte toute la table, et chaque index d'une table est une ligne écrite
+de plus. D'où les clés primaires qui commencent par la liste (`groupe_id`,
+`user_id`, …) — et les bulletins.
+
+### Les votes : un bulletin par personne et par liste
+
+Une ligne par vote coûtait trop cher en lignes : un swipe en écrivait trois
+(la table et deux index), plus quatre par graphie du même prénom, plus le
+quota — 5,5 en moyenne, 19 sur un prénom à cinq graphies — et la page des
+accords relisait les votes de la liste pour chaque accord.
+
+Depuis la migration 0005, les votes d'un membre sur une liste tiennent en
+**une ligne** (`bulletins`) : deux objets JSON, `positifs` (oui, neutres) et
+`negatifs` (non), chaque entrée `"Chloé": [valeur, instant, balayage?]`, plus
+les compteurs du quota (`depart`, `jour`, `n_jour`).
+
+- **Un vote = une instruction** (`SQL_VOTER`, `server/utils/votes.ts`) : les
+  graphies, le balayage d'une famille et le quota s'y décident en SQL, sans
+  faire transiter le bulletin par le Worker. Une ligne écrite, graphies
+  comprises.
+- **Les lectures se font dans le Worker**, sur le JSON (accords, votes
+  visibles, écartés, export) : en SQL, `json_each` compterait chaque prénom
+  comme une ligne lue. Les accords ne lisent que les `positifs` des
+  décideurs — les non, qui sont la plupart des votes, ne sont pas parcourus.
+- Le **départ consommé** = l'archive (`gestes_depart` d'`utilisateurs` et de
+  `groupes`, alimentée par le déclencheur quand un bulletin disparaît) + la
+  somme des bulletins. Le **filet** ne garde que le dernier jour de chaque
+  liste : le quota ne lit que le jour même.
+
+Mesuré en local (même moteur que D1) sur une liste de trois membres, environ
+2 000 prénoms jugés chacun (lignes lues / écrites) :
+
+| | avant | après |
+|---|---|---|
+| un swipe, liste débloquée | 13 / 5,5 | 22 / 1 |
+| un swipe à cinq graphies | 18 / 19 | 29 / 1 |
+| un swipe, liste gratuite | 18 / 5 à 9 | 45 / 1 |
+| accueil (`/api/groupes`) | 17 700 | 80 |
+| la liste (`/api/groupes/1`) | 4 900 | 61 |
+| les votes visibles | 12 400 | 16 |
+| les accords | 956 000 | 30 |
+
+Sur le plan gratuit : environ **100 000 swipes par jour** au lieu de
+18 000 (les écritures bornent), et ouvrir une liste ne coûte plus un
+cinquième du budget quotidien de lectures, mais 190 lignes.
+
+À surveiller : le temps de calcul du Worker (10 ms par requête sur le plan
+gratuit). `/api/groupes/:id/votes` renvoie tous les votes visibles : au-delà
+de quelques milliers de prénoms jugés par membre, c'est la requête la plus
+lourde — elle l'était déjà.
 
 ## Travailler sur la vraie base
 
@@ -255,7 +303,8 @@ Dans cet ordre, avant d'annoncer la nouvelle adresse :
    `DATABASE_URL_UNPOOLED`), puis
    `npx wrangler d1 execute DB --remote --config wrangler.jsonc --file .data/neon-vers-d1.sql`,
    et **effacer** `.data/neon-vers-d1.sql` (il contient des adresses e-mail).
-   Comptes, listes, votes, vetos, commentaires et passkeys suivent ; les
+   Comptes, listes, votes (rangés en bulletins), vetos, commentaires et
+   passkeys suivent ; les
    passkeys créées sur `vercel.app` ne valent pas sur `babynamed.fr` : on
    revient par la clé d'accès ou l'e-mail, puis on en recrée une.
 2. Vérifier sur `babynamed.fr` : `/api/sante`, une connexion, un vote.
@@ -396,7 +445,13 @@ au moment où l'envie de continuer était la plus forte.
 
 ```sql
 -- qui arrive au bout du départ, et combien de listes se vendent
-select (select count(*) from utilisateurs where gestes_depart >= 150)          as au_bout_du_depart,
+-- (départ consommé = archive du compte + ses bulletins, migration 0005)
+select (select count(*) from (
+          select u.id from utilisateurs u
+            left join membres m on m.user_id = u.id
+            left join bulletins b on b.groupe_id = m.groupe_id and b.user_id = m.user_id
+           group by u.id
+          having max(u.gestes_depart) + coalesce(sum(b.depart), 0) >= 150)) as au_bout_du_depart,
        (select count(*) from utilisateurs)                                     as comptes,
        (select count(*) from groupes where paye_le is not null and not offert) as listes_vendues,
        (select count(*) from groupes)                                          as listes;

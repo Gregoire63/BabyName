@@ -67,7 +67,7 @@ const c = CONSERVATION
     <h3>Les compteurs de la version gratuite</h3>
     <dl>
       <dt>Données</dt>
-      <dd>Le nombre de prénoms jugés sur les listes gratuites : au total (pour le lot de départ), et par jour.</dd>
+      <dd>Le nombre de prénoms jugés sur les listes gratuites : au total (pour le lot de départ), et le dernier jour de tri (pour le nombre par jour).</dd>
       <dt>Pourquoi</dt>
       <dd>Appliquer les limites de la version gratuite : le lot de départ, puis le nombre par jour.</dd>
       <dt>Base légale</dt>
@@ -184,7 +184,7 @@ const c = CONSERVATION
       <li><strong>Une liste</strong> dont il ne reste plus aucun membre est effacée, qu’elle ait été débloquée ou non.</li>
       <li><strong>Codes cadeaux</strong> : un code jamais utilisé est effacé {{ c.cadeauMois }} mois après l’achat, avec le nom et le mot de celui qui l’a offert ; un code annulé, un mois après ; un code utilisé reste attaché à la liste qu’il a débloquée (« un cadeau de… ») et disparaît avec elle.</li>
       <li><strong>Prénoms « déjà pris »</strong> : ils appartiennent à la liste. Si vous effacez votre compte, ceux que vous avez ajoutés y restent pour les autres membres, sans votre nom ni votre note.</li>
-      <li><strong>Compteurs de la version gratuite</strong> : le total, avec le compte ; le détail par jour, {{ c.quotaJours }} jours.</li>
+      <li><strong>Compteurs de la version gratuite</strong> : le total, avec le compte ; celui du jour, jusqu’au jour de tri suivant, et {{ c.quotaJours }} jours au plus.</li>
       <li><strong>Cookie de connexion</strong> : {{ c.sessionJours }} jours, renouvelés à chaque connexion. <em>Mon compte → Déconnecter mes autres appareils</em> les annule tous d’un coup, sauf celui de l’appareil en main.</li>
       <li><strong>Adresse e-mail et passkeys</strong> : tant que votre compte existe, ou jusqu’à ce que vous les retiriez dans <em>Mon compte</em>.</li>
       <li><strong>Liens et codes par e-mail</strong> (connexion, inscription) : valables {{ c.lienMinutes }} minutes, une seule fois ; effacés le lendemain de leur expiration, avec l’adresse et le prénom d’une inscription jamais confirmée.</li>

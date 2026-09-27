@@ -12,8 +12,9 @@
  *   premiere annee tiennent largement dedans ; au-dela, on garde des votes
  *   sur des prenoms pour un enfant deja nomme. L'activite se note a chaque
  *   ouverture (voir NOTER_ACTIVITE).
- * - 62 jours pour les compteurs de gestes : le quota ne lit que le mois en
- *   cours, deux mois couvrent toujours le mois precedent en entier.
+ * - 62 jours pour le compteur du filet quotidien : chaque bulletin ne garde
+ *   que son dernier jour (le quota ne lit que le jour meme), et celui d'une
+ *   liste delaissee s'efface au bout de deux mois.
  * - Une liste sans membre n'appartient plus a personne : elle part. On
  *   attend un jour, pour ne jamais attraper une liste a l'instant ou elle
  *   se cree (le groupe est ecrit une instruction avant son premier membre).
@@ -36,7 +37,7 @@ export interface BilanPurge {
 export async function purger(): Promise<BilanPurge> {
   // Un seul lot : tout ou rien. On compte les lignes RENVOYEES par chaque
   // instruction, pas `changes` : D1 y ajoute les lignes emportees par les
-  // cascades (votes, vetos, passkeys… d'un compte efface), et « 5 comptes
+  // cascades (bulletins, vetos, passkeys… d'un compte efface), et « 5 comptes
   // effaces » pour un seul serait faux.
   const [comptes, listes, compteurs, liens, limites, cadeaux] = await lot([
     [`delete from utilisateurs where vu_le < ${decale('?1')} returning 1`,
@@ -47,7 +48,8 @@ export async function purger(): Promise<BilanPurge> {
        where cree_le < ${decale('-1 day')}
          and not exists (select 1 from membres m where m.groupe_id = groupes.id)
       returning 1`],
-    [`delete from quota_jour where jour < date('now', ?1) returning 1`, [`-${CONSERVATION.quotaJours} days`]],
+    [`update bulletins set jour = null, n_jour = 0 where jour < date('now', ?1) returning 1`,
+      [`-${CONSERVATION.quotaJours} days`]],
     // Les liens de connexion : quinze minutes de vie, un jour de grace (pour
     // qu'un « lien expire » se distingue d'un « lien inconnu » le temps de
     // lire l'e-mail), puis plus rien.

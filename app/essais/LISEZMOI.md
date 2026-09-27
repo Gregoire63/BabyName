@@ -66,7 +66,7 @@ d'achat le dit.
 | `essai-seo` | ce que lisent les moteurs et les IA : page de l'app statique (WebApplication, FAQ) aux limites **lues dans le schéma**, llms.txt au bon domaine, robots.txt qui ferme `/?…` sans écarter les robots d'IA, boutons en nofollow, mentions légales sur chaque fiche, lastmod stable, coquille lisible sans JavaScript |
 | `essai-prenom` | le prénom d'une fiche publique (`?prenom=`) traverse la connexion et la création de liste, et arrive **en première carte, même hors des filtres** ; épinglé jusqu'au jugement ; déjà jugé, en accord ou sous veto, on le dit sans le rejouer ; **le code d'invitation traverse l'inscription, même par le lien de l'e-mail** ; le bouton retour ne boucle pas |
 | `essai-portrait` | le portrait parle sur 12 oui et **se tait** sur 5 |
-| `essai-classement` | les désaccords, et le changement d'avis qui fait passer un prénom en commun |
+| `essai-classement` | les désaccords, et le changement d'avis qui fait passer un prénom en commun ; **remettre une famille écartée** d'un geste (le non donné un par un reste) |
 | `essai-veto` `essai-carte` `essai-nav` `essai-fond` `essai-glisse` `essai-chargement` `essai-sw` | vetos, carte, navigation, transitions, squelettes, service worker |
 
 ## Le jeu d'essai

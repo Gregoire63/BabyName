@@ -64,8 +64,8 @@ watch(() => props.actif, a => { if (a) chargerFamilles() }, { immediate: true })
 
 async function remettre(prenoms: string[]) {
   remise.value = prenoms[0] ?? ''
-  await $fetch(`/api/groupes/${g.gid}/vote`,
-    { method: 'DELETE', body: { prenoms } }).catch(() => null)
+  await $fetch(`/api/groupes/${g.gid}/remettre`,
+    { method: 'POST', body: { prenoms } }).catch(() => null)
   const s = new Set(g.dejaVotes.value)
   for (const p of prenoms) s.delete(p)
   g.dejaVotes.value = s

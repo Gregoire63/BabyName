@@ -15,10 +15,13 @@
  *
  * Ce qui est copié : comptes, listes, membres, votes, vetos (chacun avec ses
  * graphies, prises dans le catalogue, comme un veto posé aujourd'hui), favoris,
- * commentaires, compteurs du jour, passkeys (et les tables mortes duels, Elo,
- * classement manuel, si elles ont des lignes). Ce qui ne l'est pas : les liens
- * de connexion en cours (quinze minutes de vie) et les compteurs de limites —
- * rien qui manque à personne.
+ * commentaires, passkeys (et les tables mortes duels, Elo, classement manuel,
+ * si elles ont des lignes). Les votes arrivent en BULLETINS, un par membre et
+ * par liste (migration 0005), avec le dernier compteur du filet quotidien ;
+ * les compteurs de départ de Neon (gestes_depart) deviennent les archives que
+ * la migration décrit. Ce qui ne l'est pas : les liens de connexion en cours
+ * (quinze minutes de vie) et les compteurs de limites — rien qui manque à
+ * personne.
  *
  * Les identifiants sont gardés tels quels (comptes, listes) : les sessions
  * ouvertes restent valables si NUXT_SESSION_SECRET ne change pas, et les
@@ -73,20 +76,84 @@ const TABLES = [
     offert: 'bool', paiement_ref: '', nom_famille: '', code_observateur: '', quota_depart: 'int',
     quota_depart_liste: 'int', quota_par_jour: 'int', gestes_depart: 'int' }],
   ['membres', { groupe_id: 'int', user_id: '', role: '', poids: '', rejoint_le: '' }],
-  ['votes', { groupe_id: 'int', user_id: '', prenom: '', valeur: 'int', vote_le: '', balayage: '' }],
+  // les votes et le compteur du jour, en bulletins : voir `bulletins()` plus bas
+  ['bulletins', null],
   ['vetos', { groupe_id: 'int', user_id: '', prenom: '', motif: '', pose_le: '' }],
   ['favoris', { groupe_id: 'int', user_id: '', prenom: '' }],
   ['duels', { id: 'int', groupe_id: 'int', user_id: '', prenom_a: '', prenom_b: '', gagnant: '', joue_le: '' }],
   ['elo', { groupe_id: 'int', user_id: '', prenom: '', score: '', n_duels: 'int' }],
   ['classement_manuel', { groupe_id: 'int', user_id: '', prenom: '', position: 'int' }],
   ['commentaires', { id: 'int', groupe_id: 'int', user_id: '', prenom: '', texte: '', ecrit_le: '' }],
-  ['quota_jour', { groupe_id: 'int', user_id: '', jour: '', n: 'int' }],
   ['passkeys', { id: '', user_id: '', cle_publique: '', compteur: 'int', transports: 'json', nom: '',
     synchronisee: 'bool', cree_le: '', utilisee_le: '' }]
 ]
 
-// Le jour du quota est une date sans heure : on la lit en texte, sans fuseau.
-const LECTURE = { quota_jour: `select groupe_id, user_id, to_char(jour, 'YYYY-MM-DD') as jour, n from quota_jour` }
+/**
+ * Les votes de Neon, une ligne par vote, rangés en bulletins : une ligne par
+ * membre et par liste, `positifs` (oui, neutres) et `negatifs` (non), chaque
+ * entrée [valeur, instant en secondes, balayage ?] — le format de la
+ * migration 0005. Plus le dernier jour du filet (quota_jour) : le quota ne
+ * lit que le jour même.
+ */
+async function bulletins() {
+  const existe = async t => (await client.query(`select to_regclass($1) as t`, [`public.${t}`])).rows[0].t
+  const colonnes = async t => (await client.query(
+    `select column_name from information_schema.columns where table_schema = 'public' and table_name = $1`,
+    [t])).rows.map(r => r.column_name)
+  const parMembre = new Map()
+  const bulletin = (gid, uid) => {
+    const cle = `${gid}|${uid}`
+    if (!parMembre.has(cle)) parMembre.set(cle, { gid, uid, positifs: {}, negatifs: {}, nb: 0, maj: null, jour: null, n: 0 })
+    return parMembre.get(cle)
+  }
+  let votes = 0
+  if (await existe('votes')) {
+    const avecBalayage = (await colonnes('votes')).includes('balayage')
+    const { rows } = await client.query(
+      `select groupe_id, user_id, prenom, valeur, vote_le${avecBalayage ? ', balayage' : ''}
+         from votes order by groupe_id, user_id, vote_le`)
+    for (const v of rows) {
+      const b = bulletin(Number(v.groupe_id), v.user_id)
+      const instant = Math.floor(new Date(v.vote_le).getTime() / 1000)
+      const entree = v.balayage ? [Number(v.valeur), instant, v.balayage] : [Number(v.valeur), instant]
+      if (!Object.hasOwn(b.positifs, v.prenom) && !Object.hasOwn(b.negatifs, v.prenom)) b.nb++
+      ;(Number(v.valeur) > 0 ? b.positifs : b.negatifs)[v.prenom] = entree
+      const le = new Date(v.vote_le).toISOString()
+      if (!b.maj || le > b.maj) b.maj = le
+      votes++
+    }
+  }
+  let compteurs = 0
+  if (await existe('quota_jour')) {
+    // Le jour du quota est une date sans heure : on la lit en texte, sans fuseau.
+    const { rows } = await client.query(
+      `select distinct on (groupe_id, user_id) groupe_id, user_id, to_char(jour, 'YYYY-MM-DD') as jour, n
+         from quota_jour order by groupe_id, user_id, jour desc`)
+    for (const r of rows) { const b = bulletin(Number(r.groupe_id), r.user_id); b.jour = r.jour; b.n = Number(r.n); compteurs++ }
+  }
+  // Une instruction D1 ne dépasse pas 100 Ko : un gros bulletin arrive en
+  // plusieurs morceaux, recollés par json_patch.
+  const morceaux = (objet) => {
+    const out = []; let courant = {}; let taille = 2
+    for (const [k, v] of Object.entries(objet)) {
+      const t = JSON.stringify(k).length + JSON.stringify(v).length + 2
+      if (taille + t > 30_000 && Object.keys(courant).length) { out.push(courant); courant = {}; taille = 2 }
+      courant[k] = v; taille += t
+    }
+    out.push(courant)
+    return out
+  }
+  for (const b of parMembre.values()) {
+    const pos = morceaux(b.positifs), neg = morceaux(b.negatifs)
+    const cle = `groupe_id = ${litteral(b.gid, 'int')} and user_id = ${litteral(b.uid)}`
+    lignes.push(`insert into bulletins (groupe_id, user_id, nb, jour, n_jour, maj_le, positifs, negatifs) values (`
+      + [litteral(b.gid, 'int'), litteral(b.uid), b.nb, litteral(b.jour), b.n, litteral(b.maj ?? new Date().toISOString()),
+         litteral(pos[0], 'json'), litteral(neg[0], 'json')].join(', ') + ');')
+    for (const m of pos.slice(1)) lignes.push(`update bulletins set positifs = json_patch(positifs, ${litteral(m, 'json')}) where ${cle};`)
+    for (const m of neg.slice(1)) lignes.push(`update bulletins set negatifs = json_patch(negatifs, ${litteral(m, 'json')}) where ${cle};`)
+  }
+  bilan.push(`bulletins: ${parMembre.size}  (votes : ${votes}, compteurs du jour : ${compteurs})`)
+}
 
 // Les graphies (même prononciation), depuis le catalogue embarqué : un veto
 // copié emporte les siennes, comme un veto posé aujourd'hui (migration 0002).
@@ -105,6 +172,7 @@ const graphiesDe = nom => (parSon.get(sonDe.get(nom)) ?? []).filter(x => x !== n
 const lignes = ['-- Copie de Neon vers D1 — genere par scripts/neon-vers-d1.mjs. A effacer apres import.']
 const bilan = []
 for (const [table, colonnes] of TABLES) {
+  if (table === 'bulletins') { await bulletins(); continue }
   const existe = await client.query(`select to_regclass($1) as t`, [`public.${table}`])
   if (!existe.rows[0].t) { bilan.push(`${table}: absente`); continue }
   const noms = Object.keys(colonnes)
@@ -113,7 +181,7 @@ for (const [table, colonnes] of TABLES) {
     `select column_name from information_schema.columns where table_schema = 'public' and table_name = $1`,
     [table])).rows.map(r => r.column_name)
   const cols = noms.filter(n => presentes.includes(n))
-  const { rows } = await client.query(LECTURE[table] ?? `select ${cols.join(', ')} from ${table}`)
+  const { rows } = await client.query(`select ${cols.join(', ')} from ${table}`)
   // Une adresse jamais prouvée (celles du tout premier lien magique, que plus
   // rien ne lit) ne passe pas : minimisation, et elle bloquerait l'adresse
   // le jour où son titulaire voudrait la vérifier (unicité).

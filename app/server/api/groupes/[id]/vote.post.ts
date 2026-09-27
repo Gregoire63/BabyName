@@ -1,5 +1,12 @@
-import type { Instruction } from '../../../utils/db'
-
+/**
+ * Un vote : le prénom jugé, ses graphies et le quota, en UN aller-retour et
+ * UNE ligne écrite (le bulletin du membre, voir server/utils/votes.ts).
+ *
+ * Le lot : le bulletin s'il n'existe pas encore ; le vote, qui ne s'écrit que
+ * si le quota le permet et le compte en même temps ; les votes des autres sur
+ * ce prénom ; l'état du quota après. Le quota est en base, pas dans le
+ * navigateur — voir server/utils/quota.ts.
+ */
 export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
@@ -9,18 +16,6 @@ export default defineEventHandler(async (e) => {
     throw createError({ statusCode: 400, statusMessage: 'vote_invalide' })
   }
   prenomValide(prenom)
-
-  // Le quota d'abord : on ne consomme un geste que si on va vraiment écrire,
-  // et on n'écrit rien si le geste n'a pas pu être consommé. Le compteur est
-  // en base, pas dans le navigateur — voir server/utils/quota.ts.
-  const quota = await consommerGeste(gid, moi.user_id)
-  if (!quota) {
-    const etat = await quotaEtat(gid, moi.user_id)
-    throw createError({
-      statusCode: 402, statusMessage: 'quota_atteint',
-      data: { quota: etat }
-    })
-  }
 
   // balayage : racine commune quand le non vient d'un « écarter la famille ».
   // Renseigné seulement pour un non — écarter est le seul geste collectif qui
@@ -32,40 +27,23 @@ export default defineEventHandler(async (e) => {
   // variantes : les autres graphies du MEME prénom (Elyo, Élio, Hélio). Elles
   // ne sont pas d'autres prénoms qu'on écarterait au passage, c'est le même
   // qu'on ne veut pas juger dix fois. Ça vaut pour les trois verdicts.
-  const autres = prenomsValides(variantes, 40).filter(v => v !== prenom)
+  const graphies = prenomsValides(variantes, 40).filter(v => v !== prenom)
 
-  // Le prénom montré sur la carte est jugé explicitement : il s'écrit sans
-  // condition et sans racine — c'est LUI qu'on regardait.
-  const ecritures: Instruction[] = [[
-    `insert into votes (groupe_id, user_id, prenom, valeur, balayage)
-     values (?1, ?2, ?3, ?4, ?5)
-     on conflict (groupe_id, user_id, prenom)
-     do update set valeur = excluded.valeur, vote_le = ${MAINTENANT},
-                   balayage = excluded.balayage
-             where ?5 is null`,
-    [gid, moi.user_id, prenom, valeur, racine]]]
+  const jour = jourParis()
+  const [, vote, autres, refus] = await lot([
+    [SQL_BULLETIN, [gid, moi.user_id]],
+    [SQL_VOTER, [gid, moi.user_id, prenom, entreesDuVote(prenom!, valeur, racine, graphies), racine, jour]],
+    [SQL_VOTES_DU_PRENOM, [gid, cheminPrenom(prenom!) + '[0]']],
+    [SQL_QUOTA_SI_REFUS, [gid, moi.user_id, jour, 0]]
+  ])
 
-  // Les autres graphies suivent, mais JAMAIS au prix d'un jugement porté un
-  // par un : le « where votes.balayage is not null » ne laisse un vote
-  // collectif écraser qu'un autre vote collectif. Sans lui, un non individuel
-  // prendrait la marque du groupe et disparaîtrait en le défaisant — et
-  // changer d'avis sur le groupe laisserait les variantes sur l'ancien
-  // verdict, ce qui est l'incohérence inverse.
-  if (autres.length) {
-    const marque = (racine ?? `ph:${prenom}`).slice(0, 40)
-    ecritures.push([
-      `insert into votes (groupe_id, user_id, prenom, valeur, balayage)
-       select ?1, ?2, value, ?3, ?4 from json_each(?5)
-       where true
-       on conflict (groupe_id, user_id, prenom)
-       do update set valeur = excluded.valeur, vote_le = ${MAINTENANT},
-                     balayage = excluded.balayage
-               where votes.balayage is not null`,
-      [gid, moi.user_id, valeur, marque, autres]])
+  // Rien d'écrit : le quota a dit non, et rien n'a été compté.
+  const ecrit = vote!.rows[0]
+  if (!ecrit) {
+    throw createError({ statusCode: 402, statusMessage: 'quota_atteint',
+      data: { quota: etatQuota(refus!.rows[0]) } })
   }
-  // Un seul lot : le prénom et ses graphies s'écrivent ensemble.
-  await lot(ecritures)
 
-  // On renvoie les votes des autres sur CE prénom : légitime, on vient de voter.
-  return { ok: true, quota, votes: await votesVisibles(gid, moi.user_id, [prenom]) }
+  // Les votes des autres sur CE prénom : légitime, on vient de voter.
+  return { ok: true, quota: etatApresVote(ecrit.quota), votes: votesDuPrenom(prenom!, autres!.rows) }
 })

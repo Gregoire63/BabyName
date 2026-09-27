@@ -39,13 +39,15 @@ export default defineEventHandler(async (e) => {
   }
 
   if (action === 'nouvelle-journee') {
-    const r = await b.ecrire(`delete from quota_jour where jour >= ?1`, [jourParis()])
+    // Le filet vit dans les bulletins (jour, n_jour) : on l'oublie.
+    const r = await b.ecrire(`update bulletins set jour = null, n_jour = 0 where jour >= ?1`, [jourParis()])
     return { ok: true, compteurs_effaces: r.changes }
   }
 
   if (action === 'quotas-a-zero') {
+    // Le depart compte dans les bulletins ET dans les archives (migration 0005).
     await b.lot([
-      ['delete from quota_jour'],
+      ['update bulletins set depart = 0, jour = null, n_jour = 0'],
       ['update utilisateurs set gestes_depart = 0'],
       ['update groupes set gestes_depart = 0']
     ])

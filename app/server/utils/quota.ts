@@ -17,8 +17,8 @@
  *
  * TROIS CHOIX QUI COMMANDENT LE RESTE :
  *
- * 1. On compte les GESTES, pas les lignes de `votes` : un swipe écrit jusqu'à
- *    seize lignes (une par graphie du même son).
+ * 1. On compte les GESTES, pas les prénoms : un swipe juge d'un coup toutes
+ *    les graphies du même son (Chloé, Cloé, Khloé…), et c'est un geste.
  *
  * 2. Le quota est celui de la PERSONNE, sur toutes ses listes non débloquées ;
  *    c'est la LISTE qui se débloque en payant. Une liste payée ne consomme
@@ -34,6 +34,10 @@
  * `quota_depart_liste`, `quota_par_jour`) : on peut en offrir une plus large.
  * Le jour est celui de Paris, pas d'UTC : un filet qui revient à deux heures
  * du matin passe pour un bug.
+ *
+ * Les compteurs vivent dans les bulletins (migration 0005), là où le vote
+ * s'écrit : compter un geste ne coûte aucune ligne de plus. Le filet ne garde
+ * que le dernier jour de chaque liste — le quota ne lit que le jour même.
  */
 export interface Quota {
   paye: boolean
@@ -53,99 +57,89 @@ export interface Quota {
   reste: number
 }
 
-interface Reglages {
+/**
+ * Les colonnes de l'état du quota, lues sur la liste `g` (groupes g).
+ * `personne` et `jour` : les paramètres de la requête qui les emploie ;
+ * `tout` : 1 pour compter aussi les départs d'une liste débloquée (écran de
+ * la liste), 0 sinon — la réponse d'un vote sur une liste débloquée n'en a
+ * pas l'usage, et ce sont les votes les plus nombreux : les `case` ne lisent
+ * alors que la liste. Chaque ligne lue compte (D1).
+ *
+ * Consommé = archive + bulletins (migration 0005) : `gestes_depart` des
+ * utilisateurs et des groupes ne garde plus que ce qu'avaient consommé les
+ * bulletins disparus ; le reste se lit dans les bulletins, où le vote l'a
+ * compté (SQL_VOTER, dans votes.ts, qui lit ces mêmes colonnes).
+ */
+export const colonnesQuota = (personne: string, jour: string, tout: string) => `
+       (g.paye_le is not null) as paye,
+       g.quota_depart as depart, g.quota_depart_liste as "departListe", g.quota_par_jour as jour,
+       case when g.paye_le is null or ${tout} then
+         g.gestes_depart + coalesce((select sum(x.depart) from bulletins x where x.groupe_id = g.id), 0)
+       else g.gestes_depart end as "faitListe",
+       case when g.paye_le is null or ${tout} then
+         (select u.gestes_depart from utilisateurs u where u.id = ${personne})
+         + coalesce((select sum(x.depart) from membres m
+                       join bulletins x on x.groupe_id = m.groupe_id and x.user_id = m.user_id
+                      where m.user_id = ${personne}), 0)
+       else 0 end as "faitDepart",
+       case when g.paye_le is null then
+         coalesce((select sum(x.n_jour) from membres m
+                     join bulletins x on x.groupe_id = m.groupe_id and x.user_id = m.user_id
+                     join groupes y on y.id = x.groupe_id
+                    where m.user_id = ${personne} and x.jour = ${jour} and y.paye_le is null), 0)
+       else 0 end as "faitJour"`
+
+/** L'état du quota. ?1 la liste, ?2 la personne, ?3 le jour de Paris, ?4 `tout`. */
+export const SQL_QUOTA = `select ${colonnesQuota('?2', '?3', '?4')} from groupes g where g.id = ?1`
+
+/** Le même, dans le lot d'un vote : lu seulement si le vote n'a rien écrit
+ *  (`changes()`, la dernière écriture du lot) — sinon le vote l'a déjà rendu. */
+export const SQL_QUOTA_SI_REFUS = `${SQL_QUOTA} and changes() = 0`
+
+interface LigneQuota {
   paye: boolean
   depart: number
   departListe: number
   jour: number
   faitListe: number
+  faitDepart: number
+  faitJour: number
 }
 
-async function reglages(gid: number): Promise<Reglages> {
-  const g = await q1<Reglages>(
-    `select (paye_le is not null) as paye,
-            quota_depart as depart, quota_depart_liste as "departListe",
-            quota_par_jour as jour, gestes_depart as "faitListe"
-       from groupes where id = ?1`, [gid])
+/** Une ligne de SQL_QUOTA, mise en forme pour l'app. Pas de ligne : la liste
+ *  n'existe plus. */
+export function etatQuota(g: LigneQuota | null | undefined): Quota {
   if (!g) throw createError({ statusCode: 404, statusMessage: 'groupe_introuvable' })
-  return g
-}
-
-/**
- * Ce que la personne a déjà consommé : son départ (à vie, tant que le compte
- * existe) et son filet du jour, sur TOUTES ses listes non débloquées.
- */
-async function comptes(uid: string): Promise<{ depart: number; jour: number }> {
-  const r = await q1<{ depart: number; jour: number }>(
-    `select u.gestes_depart as depart,
-            coalesce((select sum(qj.n)
-                        from quota_jour qj join groupes g on g.id = qj.groupe_id
-                       where qj.user_id = u.id and qj.jour = ?2
-                         and g.paye_le is null), 0) as jour
-       from utilisateurs u where u.id = ?1`, [uid, jourParis()])
-  return { depart: r?.depart ?? 0, jour: r?.jour ?? 0 }
-}
-
-function etat(g: Reglages, c: { depart: number; jour: number }): Quota {
   if (g.paye) {
     return {
       paye: true, phase: 'illimite',
-      depart: { limite: g.depart, fait: c.depart, liste_limite: g.departListe,
+      depart: { limite: g.depart, fait: g.faitDepart, liste_limite: g.departListe,
                 liste_fait: g.faitListe, reste: Infinity },
       limite_jour: g.jour, fait_jour: 0, reste_jour: Infinity, reste: Infinity
     }
   }
-  const departReste = Math.max(0, Math.min(g.depart - c.depart, g.departListe - g.faitListe))
-  const resteJour = Math.max(0, g.jour - c.jour)
+  const departReste = Math.max(0, Math.min(g.depart - g.faitDepart, g.departListe - g.faitListe))
+  const resteJour = Math.max(0, g.jour - g.faitJour)
   return {
     paye: false, phase: departReste > 0 ? 'depart' : 'jour',
-    depart: { limite: g.depart, fait: c.depart, liste_limite: g.departListe,
+    depart: { limite: g.depart, fait: g.faitDepart, liste_limite: g.departListe,
               liste_fait: g.faitListe, reste: departReste },
-    limite_jour: g.jour, fait_jour: c.jour, reste_jour: resteJour,
+    limite_jour: g.jour, fait_jour: g.faitJour, reste_jour: resteJour,
     reste: departReste + resteJour
   }
 }
 
-/** L'état du quota, sans rien consommer. */
-export async function quotaEtat(gid: number, uid: string): Promise<Quota> {
-  const [g, c] = await Promise.all([reglages(gid), comptes(uid)])
-  return etat(g, c)
+/** L'état après un vote écrit, depuis ce que le vote a lu avant d'écrire
+ *  (le `returning` de SQL_VOTER) : un geste de plus, au départ ou au filet. */
+export function etatApresVote(json: string): Quota {
+  const q = JSON.parse(json) as LigneQuota & { mode: 'paye' | 'depart' | 'jour' }
+  const depart = q.mode === 'depart' ? 1 : 0
+  return etatQuota({ ...q, paye: !!q.paye, faitListe: q.faitListe + depart,
+    faitDepart: q.faitDepart + depart, faitJour: q.faitJour + (q.mode === 'jour' ? 1 : 0) })
 }
 
-/**
- * Consomme un geste. Renvoie l'état APRÈS, ou `null` si plus rien ne reste
- * aujourd'hui — auquel cas rien n'a été compté : une tentative refusée ne doit
- * pas manger le filet du lendemain.
- *
- * Le départ d'abord, puis le filet. Le départ se prend en UN lot qui
- * vérifie les deux plafonds (personne, liste) et incrémente les deux
- * compteurs ensemble — ou aucun : la liste d'abord, sous condition des deux
- * plafonds ; la personne ensuite, seulement si la liste vient de bouger
- * (`changes()` : les lignes touchées par l'instruction précédente du lot).
- * Deux onglets ouverts au même instant peuvent passer un geste de trop ; ça
- * ne vaut pas un verrou.
- */
-export async function consommerGeste(gid: number, uid: string): Promise<Quota | null> {
-  const g = await reglages(gid)
-  if (g.paye) return etat(g, { depart: 0, jour: 0 })
-
-  const [, personne] = await lot([
-    [`update groupes set gestes_depart = gestes_depart + 1
-       where id = ?2 and gestes_depart < quota_depart_liste
-         and (select gestes_depart from utilisateurs where id = ?1) < quota_depart`, [uid, gid]],
-    [`update utilisateurs set gestes_depart = gestes_depart + 1
-       where id = ?1 and changes() = 1 returning 1 as n`, [uid]]
-  ])
-  if (personne!.rows.length) return quotaEtat(gid, uid)
-
-  // Plus de départ : le filet du jour.
-  if (g.jour <= 0) return null
-  const c = await comptes(uid)
-  if (c.jour >= g.jour) return null
-  await ecrire(`insert into quota_jour (groupe_id, user_id, jour, n)
-                values (?1, ?2, ?3, 1)
-                on conflict (groupe_id, user_id, jour)
-                do update set n = quota_jour.n + 1`,
-    [gid, uid, jourParis()])
-  return quotaEtat(gid, uid)
+/** L'état du quota, sans rien consommer. Consommer, c'est voter : le geste se
+ *  compte dans la même instruction que le vote (SQL_VOTER). */
+export async function quotaEtat(gid: number, uid: string): Promise<Quota> {
+  return etatQuota(await q1<LigneQuota>(SQL_QUOTA, [gid, uid, jourParis(), 1]))
 }

@@ -32,11 +32,15 @@ function parTete(lignes: any[]) {
 export default defineEventHandler(async (e) => {
   const uid = await exigerUtilisateur(e)
 
-  const [compte, passkeys, listes, votes, vetos, dejaPris, favoris, duels, elo, classement, commentaires, quotas, cadeaux] =
+  const [compte, passkeys, listes, bulletins, vetos, dejaPris, favoris, duels, elo, classement, commentaires, cadeaux] =
     await Promise.all([
+      // Le lot de depart consomme : l'archive du compte, plus ses bulletins
+      // (migration 0005).
       q1(`select id, pseudo, email, email_verifie_le as email_verifie_le, cree_le, vu_le as derniere_activite,
                  cle_acces_hash is not null as cle_acces_active,
-                 gestes_depart as prenoms_juges_du_lot_de_depart
+                 gestes_depart + coalesce((select sum(b.depart) from membres m
+                                             join bulletins b on b.groupe_id = m.groupe_id and b.user_id = m.user_id
+                                            where m.user_id = ?1), 0) as prenoms_juges_du_lot_de_depart
             from utilisateurs where id = ?1`, [uid]),
       // Les passkeys : leur nom et leurs dates. Pas la cle publique — elle ne
       // dit rien de vous, et ne sert qu'a verifier une signature.
@@ -54,9 +58,10 @@ export default defineEventHandler(async (e) => {
           where m.user_id = ?1 order by g.id`, [uid]),
       // Par liste : chaque requete ci-dessous part des listes de la personne
       // (ses cles primaires commencent par la liste), pas de toute la table.
-      q(`select v.groupe_id, v.prenom, v.valeur, v.vote_le, v.balayage
-           from membres m join votes v on v.groupe_id = m.groupe_id and v.user_id = m.user_id
-          where m.user_id = ?1 order by v.groupe_id, v.vote_le`, [uid]),
+      // Les bulletins de la personne : ses votes, et son compteur du jour.
+      q(`select b.groupe_id, b.positifs, b.negatifs, b.jour, b.n_jour
+           from membres m join bulletins b on b.groupe_id = m.groupe_id and b.user_id = m.user_id
+          where m.user_id = ?1 order by b.groupe_id`, [uid]),
       q(`select t.groupe_id, t.prenom, coalesce(t.tete, t.prenom) as tete, t.motif, t.pose_le
            from membres m join vetos t on t.groupe_id = m.groupe_id and t.user_id = m.user_id
           where m.user_id = ?1 order by t.groupe_id, t.pose_le`, [uid]),
@@ -79,14 +84,25 @@ export default defineEventHandler(async (e) => {
       q(`select c.groupe_id, c.prenom, c.texte, c.ecrit_le
            from membres m join commentaires c on c.groupe_id = m.groupe_id and c.user_id = m.user_id
           where m.user_id = ?1 order by c.groupe_id, c.ecrit_le`, [uid]),
-      q(`select groupe_id, jour, n as gestes from quota_jour
-          where user_id = ?1 order by jour, groupe_id`, [uid]),
       // Les cadeaux dont la personne s'est servie. Ceux qu'elle a OFFERTS ne
       // sont liés à aucun compte (on offre sans compte) : c'est chez Stripe,
       // sous l'e-mail du paiement, qu'ils se retrouvent.
       q(`select groupe_id, de_la_part, message, utilise_le from cadeaux
           where utilise_par = ?1 order by utilise_le`, [uid])
     ])
+
+  // Une ligne par vote, comme avant les bulletins : liste par liste, dans
+  // l'ordre où ils ont été donnés.
+  const votes = bulletins.flatMap((b: any) =>
+    [...Object.entries(lireVotes(b.positifs)), ...Object.entries(lireVotes(b.negatifs))]
+      .sort((x, y) => x[1][1] - y[1][1])
+      .map(([prenom, [valeur, instant, balayage]]) => ({
+        groupe_id: b.groupe_id, prenom, valeur: VALEUR[valeur as 0 | 1 | 2] ?? valeur,
+        vote_le: new Date(instant * 1000).toISOString(), balayage: balayage ?? null
+      })))
+  const quotas = bulletins.filter((b: any) => b.jour && b.n_jour > 0)
+    .map((b: any) => ({ groupe_id: b.groupe_id, jour: b.jour, gestes: b.n_jour }))
+    .sort((x: any, y: any) => x.jour.localeCompare(y.jour) || x.groupe_id - y.groupe_id)
 
   const jour = new Date().toISOString().slice(0, 10)
   setHeader(e, 'content-type', 'application/json; charset=utf-8')
@@ -108,12 +124,12 @@ export default defineEventHandler(async (e) => {
       vetos: 'Les prénoms que vous avez bloqués en secret, avec leurs graphies (même prononciation) et votre motif.',
       deja_pris: 'Les prénoms que vous avez marqués « déjà pris » : ils appartiennent à la liste. Si vous effacez votre compte, ils y restent, sans votre nom ni votre note.',
       cadeaux_recus: 'Les codes cadeaux dont vous vous êtes servi : de la part de qui, et le mot qui les accompagnait.',
-      quotas: 'Nombre de prénoms jugés par jour sur les listes gratuites, une fois le lot de départ épuisé. Effacé automatiquement au bout de 62 jours.'
+      quotas: `Le nombre de prénoms jugés le dernier jour de tri, sur chaque liste gratuite, une fois le lot de départ épuisé : le jour suivant le remplace. Effacé automatiquement au bout de ${CONSERVATION.quotaJours} jours.`
     },
     compte,
     passkeys,
     listes,
-    votes: votes.map((v: any) => ({ ...v, valeur: VALEUR[v.valeur] ?? v.valeur })),
+    votes,
     vetos: parTete(vetos),
     deja_pris: parTete(dejaPris),
     favoris,

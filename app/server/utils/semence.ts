@@ -31,7 +31,7 @@ export const CADEAU_DEV = 'BEBE2345CADE'
  * gratuit » qu'un essai decrit. La version est gravee a la semaille ; le
  * demarrage et les outils de developpement disent quand elle est depassee.
  */
-export const VERSION_SEMENCE = 6
+export const VERSION_SEMENCE = 7
 
 /** Les comptes du jeu d'essai, tels que les outils de dev les montrent. */
 export const COMPTES_DEV = [
@@ -144,14 +144,10 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
     // précédent, « ob5e0bad », contenait un o et n'ouvrait rien.
     [`update groupes set code_observateur = 'ab5e0bad' where id = ?1`, [gid]],
     [`insert into membres (groupe_id, user_id, role) values (?1, ?2, 'observateur')`, [gid, mamie]],
-    voter(gid, greg, GOUTS_GREG),
-    voter(gid, audrey, GOUTS_AUDREY),
-    voter(gid, mamie, GOUTS_MAMIE),
     // Un balayage de famille cote Greg, en plus de ses non individuels.
-    [`insert into votes (groupe_id, user_id, prenom, valeur, balayage)
-      select ?1, ?2, value, 0, ?3 from json_each(?4) where true
-      on conflict (groupe_id, user_id, prenom) do nothing`,
-      [gid, greg, BALAYAGE.racine, BALAYAGE.prenoms]],
+    bulletin(gid, greg, GOUTS_GREG, BALAYAGE),
+    bulletin(gid, audrey, GOUTS_AUDREY),
+    bulletin(gid, mamie, GOUTS_MAMIE),
     [`insert into favoris (groupe_id, user_id, prenom) values (?1, ?2, 'Alma'), (?1, ?2, 'Nine')
       on conflict do nothing`, [gid, greg]],
     // Un veto de chaque cote : celui de Greg doit apparaitre dans SES choix,
@@ -199,7 +195,7 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
              vu_le = ${decale('-25 months')}, email = 'fantome@exemple.invalid'
        where id = ?1`, [fantome]],
     [`insert into membres (groupe_id, user_id, role) values (?1, ?2, 'parent')`, [gf, fantome]],
-    [`insert into votes (groupe_id, user_id, prenom, valeur) values (?1, ?2, 'Louise', 2)`, [gf, fantome]],
+    bulletin(gf, fantome, { oui: ['Louise'], neutre: [], non: [] }),
     [`insert into liens_connexion (id, email, user_id, but, code_hash, expire_le, cree_le)
       values ('lien-expire-de-fantome', 'fantome@exemple.invalid', ?1, 'connexion', 'x',
               ${decale('-3 days')}, ${decale('-3 days')})`, [fantome]],
@@ -208,9 +204,9 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
     [`insert into liens_connexion (id, email, user_id, but, code_hash, expire_le, cree_le)
       values ('lien-expire-d-audrey', 'audrey@exemple.test', ?1, 'connexion', 'x',
               ${decale('-3 days')}, ${decale('-3 days')})`, [audrey]],
-    // Un compteur de gestes de plus de deux mois cote Greg : la purge le retire,
-    // et le quota du jour ne le voit pas.
-    [`insert into quota_jour (groupe_id, user_id, jour, n) values (?1, ?2, date('now', '-70 days'), 3)`,
+    // Un compteur du filet vieux de plus de deux mois cote Greg : la purge
+    // l'efface, et le quota du jour ne le voit pas.
+    [`insert into bulletins (groupe_id, user_id, jour, n_jour) values (?1, ?2, date('now', '-70 days'), 3)`,
       [g3, greg]],
     [MARQUEUR],
     [`delete from _semence`],
@@ -240,10 +236,25 @@ async function creerListe(b: Outils, sql: string, params: any[]): Promise<number
   return Number((await b.q1<{ id: number }>(sql, params))!.id)
 }
 
-/** Les votes d'un membre, en une instruction : oui, neutre, non. */
-function voter(gid: number, uid: string, gouts: { oui: string[]; neutre: string[]; non: string[] }): Instruction {
-  const lignes = [...gouts.oui.map(p => [p, 2]), ...gouts.neutre.map(p => [p, 1]), ...gouts.non.map(p => [p, 0])]
-  return [`insert into votes (groupe_id, user_id, prenom, valeur)
-           select ?1, ?2, json_extract(value, '$[0]'), json_extract(value, '$[1]') from json_each(?3) where true
-           on conflict (groupe_id, user_id, prenom) do nothing`, [gid, uid, lignes]]
+/**
+ * Le bulletin d'un membre (migration 0005) : tous ses votes, en une ligne.
+ * Le premier verdict donne a un prenom l'emporte — comme l'ancien
+ * « on conflict do nothing » : le non individuel de Greg a Kevin survit au
+ * balayage de la famille.
+ */
+function bulletin(gid: number, uid: string, gouts: { oui: string[]; neutre: string[]; non: string[] },
+  balayage?: { racine: string; prenoms: string[] }): Instruction {
+  const instant = Math.floor(Date.now() / 1000)
+  const positifs: Record<string, (number | string)[]> = {}
+  const negatifs: Record<string, (number | string)[]> = {}
+  const poser = (p: string, v: number, racine?: string) => {
+    if (Object.hasOwn(positifs, p) || Object.hasOwn(negatifs, p)) return
+    ;(v > 0 ? positifs : negatifs)[p] = racine ? [v, instant, racine] : [v, instant]
+  }
+  for (const p of gouts.oui) poser(p, 2)
+  for (const p of gouts.neutre) poser(p, 1)
+  for (const p of gouts.non) poser(p, 0)
+  for (const p of balayage?.prenoms ?? []) poser(p, 0, balayage!.racine)
+  return [`insert into bulletins (groupe_id, user_id, nb, positifs, negatifs) values (?1, ?2, ?3, ?4, ?5)`,
+    [gid, uid, Object.keys(positifs).length + Object.keys(negatifs).length, positifs, negatifs]]
 }

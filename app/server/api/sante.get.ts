@@ -42,7 +42,7 @@ export default defineEventHandler(async () => {
       `select m.name as t, p.name as c
          from sqlite_master m join pragma_table_info(m.name) p
         where m.type = 'table'
-          and m.name in ('votes', 'utilisateurs', 'groupes', 'passkeys', 'liens_connexion', 'limites', 'quota_jour',
+          and m.name in ('bulletins', 'utilisateurs', 'groupes', 'passkeys', 'liens_connexion', 'limites',
                          'vetos', 'deja_pris', 'cadeaux')`)
     // Effacer un compte ne doit pas effacer les listes qu'il a creees (donc
     // les votes de l'autre parent) : la cle vers le createur passe a NULL.
@@ -53,14 +53,15 @@ export default defineEventHandler(async () => {
       joignable: true, moteur: 'd1', tables: tables.length,
       migrations: {
         appliquees,
-        'votes.balayage': a('votes', 'balayage'),
+        // Les votes en bulletins, un par membre et par liste (migration 0005).
+        'bulletins': a('bulletins', 'positifs') && a('bulletins', 'negatifs') && a('bulletins', 'nb'),
         'utilisateurs.cle_acces_hash': a('utilisateurs', 'cle_acces_hash'),
         'groupes.paye_le': a('groupes', 'paye_le'),
         'groupes.offert': a('groupes', 'offert'),
         'groupes.code_observateur': a('groupes', 'code_observateur'),
-        'quota_jour': a('quota_jour', 'n'),
         'groupes.paiement_ref': a('groupes', 'paiement_ref'),
-        'quota.depart': a('groupes', 'quota_depart') && a('utilisateurs', 'gestes_depart'),
+        'quota.depart': a('groupes', 'quota_depart') && a('utilisateurs', 'gestes_depart')
+          && a('bulletins', 'depart') && a('bulletins', 'n_jour'),
         'connexion.passkeys_et_liens': a('utilisateurs', 'session_gen') && a('passkeys', 'id')
           && a('liens_connexion', 'id') && a('limites', 'cle'),
         'rgpd.effacement_sans_cascade': String(rgpd?.regle ?? '').toUpperCase() === 'SET NULL',

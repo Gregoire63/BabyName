@@ -9,6 +9,7 @@ export default defineEventHandler(async (e) => {
        from commentaires c join utilisateurs u on u.id = c.user_id
       where c.groupe_id = ?1 and c.prenom = ?2
         and (c.user_id = ?3
-             or exists (select 1 from votes v where v.groupe_id = ?1 and v.user_id = ?3 and v.prenom = ?2))
-      order by c.ecrit_le`, [gid, prenom, moi.user_id])
+             or exists (select 1 from bulletins b where b.groupe_id = ?1 and b.user_id = ?3
+                          and (json_type(b.positifs, ?4) is not null or json_type(b.negatifs, ?4) is not null)))
+      order by c.ecrit_le`, [gid, prenom, moi.user_id, cheminPrenom(prenom)])
 })

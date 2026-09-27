@@ -60,7 +60,8 @@ export function useVerdicts() {
    * le monde s'est prononce. C'est la liste qui manquait — sans elle, un « non »
    * pose en trois secondes enterrait un prenom que l'autre adorait.
    *
-   * Oui + neutre n'est PAS un desaccord : c'est deja un commun (v_matchs).
+   * Oui + neutre n'est PAS un desaccord : c'est deja un commun (`accords`,
+   * server/utils/votes.ts).
    * Un veto non plus : il est volontaire et definitif.
    */
   const aRevoir = computed(() => tous.value.filter(v => {

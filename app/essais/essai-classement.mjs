@@ -62,6 +62,19 @@ await sec.locator('.groupe .entete', { hasText: 'Non' }).click()
 await page.waitForTimeout(500)
 dit(await sec.locator('.famille').count() >= 1, 'les familles écartées sont dans « Non »')
 await page.waitForTimeout(400); await page.screenshot({ path: '/tmp/g4-choix.png' })
+// Remettre la famille « kevi » d'un geste : ses prénoms reviennent en jeu, le
+// non donné un par un à Kevin reste.
+const famille = sec.locator('.famille', { hasText: 'Kevyn' })
+await famille.getByRole('button', { name: /^Remettre les/ }).click()
+await page.waitForTimeout(1200)
+const mesVotes = await page.evaluate(async () => {
+  const r = await fetch('/api/groupes/1/votes').then(x => x.json())
+  const moi = (await fetch('/api/groupes/1').then(x => x.json())).moi.user_id
+  return r.votes.filter(v => v.user_id === moi).map(v => v.prenom)
+})
+dit(!mesVotes.includes('Kevyn') && !mesVotes.includes('Kevan') && mesVotes.includes('Kevin')
+    && await sec.locator('.famille', { hasText: 'Kevyn' }).count() === 0,
+    'remettre une famille : Kevyn et Kevan reviennent en jeu, le non donné à Kevin reste')
 
 // ---------- 5. A revoir, vu par Greg --------------------------------------
 await sec.locator('.segment button', { hasText: 'À revoir' }).click()

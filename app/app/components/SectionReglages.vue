@@ -67,8 +67,8 @@ async function partager() {
  * Un membre de plus n'est pas un spectateur de plus.
  *
  * « Commun » veut dire que TOUT LE MONDE a juge le prenom et que personne n'a
- * dit non (voir la vue v_matchs : `having count(*) = nombre de membres` et
- * `min(valeur) > 0`). Inviter une troisieme personne vide donc les accords
+ * dit non (voir `accords`, dans server/utils/votes.ts : chaque decideur a une
+ * entree positive). Inviter une troisieme personne vide donc les accords
  * jusqu'a ce qu'elle ait rattrape les memes prenoms, et lui donne un droit de
  * veto de fait sur chacun.
  *
