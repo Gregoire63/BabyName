@@ -146,6 +146,39 @@ dit(/Aimé par Mamie/.test(await carteLouise.innerText()), 'la carte de Louise l
 dit(await greg.getByRole('button', { name: /^J’aime / }).count() === 0, 'les parents, eux, n’ont pas de bouton cœur')
 dit(!/manquent à Mamie/.test(await greg.locator('.pager > section:nth-child(2)').innerText()),
     'et les accords ne se disent pas « incomplets » à cause d’elle : ils ne l’attendent pas')
+// =================== SES MOTS SUR LES ACCORDS ============================
+// Un cœur ne dit pas pourquoi. Mamie laisse un mot sous Louise ; la carte
+// repliée des parents le signale — sinon il dort sous un prénom que personne
+// ne pense à déplier.
+const nbMots = (liste, nom) => liste.find(c => c.prenom === nom)?.nb_commentaires ?? -1
+// Le jeu d'essai en porte déjà un (Audrey : « Un peu partout en ce moment, non ? »).
+const avantMots = nbMots(await communsDe(greg), 'Louise')
+const motsAttendus = new RegExp(`${avantMots + 1} commentaires?`)
+await mamie.goto(`${BASE}/g/${gid}/classement`, { waitUntil: 'networkidle' })
+await mamie.waitForSelector('.segment button', { timeout: 20000 })
+await mamie.locator('button.deplier', { hasText: /^Louise$/ }).click()
+const champMot = mamie.getByRole('textbox', { name: 'Votre avis sur Louise' })
+await champMot.waitFor({ timeout: 10000 })
+await champMot.fill('Comme mon arrière-grand-mère, elle serait ravie.')
+await mamie.getByRole('button', { name: 'Dire' }).click()
+await mamie.waitForTimeout(1200)
+const carteLouiseM = mamie.locator('article.carte').filter({ has: mamie.locator('h2', { hasText: /^Louise$/ }) })
+dit(/Mamie — Comme mon arrière-grand-mère/.test(await carteLouiseM.innerText()),
+    'Mamie peut laisser un mot sur un accord : il s’affiche signé')
+dit(motsAttendus.test(await carteLouiseM.innerText()), 'et le compte de sa carte suit tout de suite')
+cG = await communsDe(greg)
+dit(nbMots(cG, 'Louise') === avantMots + 1,
+    `les parents voient un mot de plus sur Louise (${avantMots} → ${nbMots(cG, 'Louise')})`)
+await greg.goto(`${BASE}/g/${gid}/classement`, { waitUntil: 'networkidle' })
+await greg.waitForSelector('.segment button', { timeout: 20000 })
+await greg.waitForTimeout(800)
+const louiseG = greg.locator('article.carte').filter({ has: greg.locator('h2', { hasText: /^Louise$/ }) })
+dit(motsAttendus.test(await louiseG.innerText()) && !/arrière-grand-mère/.test(await louiseG.innerText()),
+    `sur la carte repliée : « ${avantMots + 1} commentaires », sans le texte`)
+await greg.locator('button.deplier', { hasText: /^Louise$/ }).click()
+await greg.waitForTimeout(1200)
+dit(/Mamie — Comme mon arrière-grand-mère/.test(await louiseG.innerText()), 'déplié, Greg lit le mot de Mamie')
+
 // Vote à l'aveugle : un autre observateur ne voit les cœurs qu'après son propre avis.
 const papi = await faireOnglet()
 await papi.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
@@ -159,9 +192,11 @@ const rP = await pApi('/api/groupes/rejoindre', { code: 'ab5e0bad' })
 let cP = await communsDe(papi)
 dit(eP?.utilisateur && rP?.role === 'observateur', 'Papi entre par le lien des observateurs, comme observateur')
 dit(!coeursSur(cP, 'Louise').length, 'Papi, observateur arrivé après, ne voit pas le cœur de Mamie avant d’avoir jugé Louise')
+dit(nbMots(cP, 'Louise') === 0, 'ni qu’elle a laissé un mot : même règle')
 await pApi(`/api/groupes/${gid}/vote`, { prenom: 'Louise', valeur: 1 })
 cP = await communsDe(papi)
 dit(coeursSur(cP, 'Louise').join() === 'Mamie', 'son avis donné, il le voit')
+dit(nbMots(cP, 'Louise') === avantMots + 1, 'et les mots aussi')
 
 // =================== LE LIEN LUI-MÊME ====================================
 const inconnu = await faireOnglet()

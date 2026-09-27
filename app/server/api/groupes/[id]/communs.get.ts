@@ -11,6 +11,10 @@
  * Vote à l'aveugle, comme partout : on ne voit les cœurs des autres qu'après
  * avoir donné son propre avis sur ce prénom. Un parent l'a toujours donné
  * (c'est un accord) ; un observateur, pas forcément.
+ *
+ * `nb_commentaires` suit la même règle que commentaires.get.ts : la carte
+ * repliée dit « 1 mot », sinon le mot de Mamie dort sous un prénom que
+ * personne ne pense à déplier.
  */
 export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
@@ -28,7 +32,12 @@ export default defineEventHandler(async (e) => {
                                       and w.prenom = m.prenom and w.user_id = ?2)
                       order by v.vote_le) x) as coeurs,
             exists (select 1 from votes w where w.groupe_id = m.groupe_id and w.prenom = m.prenom
-                      and w.user_id = ?2 and w.valeur = 2) as j_aime
+                      and w.user_id = ?2 and w.valeur = 2) as j_aime,
+            (select count(*) from commentaires k
+              where k.groupe_id = m.groupe_id and k.prenom = m.prenom
+                and (k.user_id = ?2
+                     or exists (select 1 from votes w where w.groupe_id = m.groupe_id
+                                  and w.prenom = m.prenom and w.user_id = ?2))) as nb_commentaires
        from v_matchs m where m.groupe_id = ?1
       order by m.score desc, m.nb_oui desc`, [gid, moi.user_id])
 })

@@ -26,7 +26,13 @@ async function commenter() {
   brouillon.value = ''
   commentaires.value = await $fetch(
     `/api/groupes/${g.gid}/commentaires?prenom=${encodeURIComponent(p)}`)
+  // Le compte de la carte repliée suit, sans recharger toute la liste.
+  const c = communs.value.find((x: any) => x.prenom === p)
+  if (c) c.nb_commentaires = commentaires.value.length
 }
+
+/** « 1 commentaire », « 3 commentaires » : de quoi savoir qu'il faut déplier. */
+const motsLisibles = (n: number) => `${n} commentaire${n > 1 ? 's' : ''}`
 
 /** Un accord qu'on retire après coup — le bébé de la cousine est né entre-
  *  temps. La même feuille que sur la carte : déjà pris, ou en secret. */
@@ -99,6 +105,7 @@ const enRetard = computed(() => {
           </h2>
           <p class="mini doux" style="margin:3px 0 0">
             {{ c.nb_oui }} oui<span v-if="c.nb_neutres"> · {{ c.nb_neutres }} neutre</span>
+            <span v-if="c.nb_commentaires" class="mots"> · {{ motsLisibles(c.nb_commentaires) }}</span>
             <template v-if="g.parNom.value.get(c.prenom)?.m">
               · « {{ g.parNom.value.get(c.prenom)!.m }} »</template>
           </p>
@@ -148,6 +155,8 @@ const enRetard = computed(() => {
 .deplier:focus-visible { outline: none; }
 .entete:has(.deplier:focus-visible) { outline: 3px solid var(--focus); outline-offset: 4px; border-radius: 10px; }
 .coeurs { display: flex; align-items: center; gap: 5px; color: var(--texte); }
+/* Un mot à lire : il se remarque dans la ligne grise, sans crier. */
+.mots { color: var(--texte); font-weight: 700; }
 .coeurs svg { width: 13px; height: 13px; flex: none; fill: var(--oui); }
 /* Au-dessus du calque cliquable de l'en-tête. */
 .coeur { position: relative; z-index: 1; flex: none; width: 44px; height: 44px; border-radius: 999px;
