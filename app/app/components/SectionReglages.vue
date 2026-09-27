@@ -335,7 +335,7 @@ const filtresActifs = computed(() => {
             les initiales qu’on n’avait pas vues.
           </p>
           <div class="ligne">
-            <input v-model="nomFamille" class="champ" style="flex:1" aria-label="Nom de famille"
+            <input id="champ-nom-famille" v-model="nomFamille" class="champ" style="flex:1" aria-label="Nom de famille"
                    placeholder="Votre nom" autocapitalize="words"
                    autocorrect="off" spellcheck="false"
                    @keyup.enter="enregistrerNomFamille">

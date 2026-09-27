@@ -130,7 +130,7 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
       </section>
     </template>
 
-    <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec"
+    <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec" :revoir="false"
                 @fermer="match = null" />
   </div>
 </template>

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useGroupeCourant } from '~/composables/etatGroupe'
+import { useVerdicts } from '~/composables/useVerdicts'
+import { tester } from '~/composables/useNomComplet'
+
 /**
  * Le moment ou tout le monde a dit oui sur le meme prenom.
  *
@@ -7,7 +11,12 @@
  * logo, rien d'autre — pas de confettis multicolores qui n'appartiennent a
  * aucune identite.
  */
-const props = defineProps<{ prenom: string; avec: string[] }>()
+const props = withDefaults(defineProps<{
+  prenom: string
+  avec: string[]
+  /** Proposer « ce qui vous sépare » — pas quand on est déjà dans À revoir. */
+  revoir?: boolean
+}>(), { revoir: true })
 const emit = defineEmits<{ fermer: []; communs: [] }>()
 
 // Positions fixees une fois : un re-rendu ne doit pas faire sauter l'effet.
@@ -38,6 +47,55 @@ onMounted(() => {
   requestAnimationFrame(() => { entre.value = true })
 })
 
+/**
+ * Ce que la liste débloquée ajoute à CE moment-là.
+ *
+ * Un accord est le pic de l'envie : le seul moment où l'app vient de rendre
+ * son service. On y propose les deux fonctions qui le prolongent exactement —
+ * le prénom avec votre nom de famille, et ce qui vous sépare encore — sans
+ * cacher qu'elles sont payantes. Liste débloquée : elles s'ouvrent. Sinon :
+ * la feuille « Débloquer », qui les décrit.
+ *
+ * Pas le blocage : il est gratuit, et il retire des prénoms — le contraire de
+ * ce moment.
+ */
+const g = useGroupeCourant()
+const { aRevoir } = useVerdicts()
+const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
+// Un observateur donne son avis ; il ne décide pas, et n'achète pas pour les autres.
+const decideur = computed(() => g.etat.value?.moi?.role !== 'observateur')
+const nomFamille = computed(() => {
+  const n = (g.etat.value?.groupe as any)?.nom_famille
+  return paye.value && typeof n === 'string' ? n.trim() : ''
+})
+const essai = computed(() => nomFamille.value ? tester(props.prenom, nomFamille.value) : null)
+const niveau = computed(() => !essai.value ? ''
+  : essai.value.accroche ? 'accroche'
+  : essai.value.remarques.some(r => r.gravite === 'attention') ? 'attention' : 'bien')
+const separent = computed(() => props.revoir ? aRevoir.value.length : 0)
+
+/** Fermer la fête, puis ouvrir la suite : la fête rend le focus en partant,
+ *  la suite le reprend. Dans l'autre ordre, la fête le volerait. */
+function puis(suite: () => void) {
+  emit('fermer')
+  nextTick(suite)
+}
+function essayerNom() {
+  if (!paye.value) return puis(() => g.ouvrirDebloquer())
+  puis(() => {
+    g.allerA('reglages')
+    // Le pager glisse jusqu'à « La liste » : on attend qu'il y soit.
+    setTimeout(() => {
+      const champ = document.getElementById('champ-nom-famille') as HTMLInputElement | null
+      champ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      champ?.focus({ preventScroll: true })
+    }, 450)
+  })
+}
+function voirPourquoi() {
+  puis(() => paye.value ? g.allerA('classement', 'revoir') : g.ouvrirDebloquer())
+}
+
 const qui = computed(() => {
   const n = props.avec
   if (!n.length) return ''
@@ -63,6 +121,24 @@ const qui = computed(() => {
       <div class="actions">
         <button class="btn btn-1" @click="emit('fermer')">Continuer à trier</button>
         <button class="btn btn-0" @click="emit('communs')">Voir nos accords</button>
+      </div>
+
+      <div v-if="decideur" class="plus">
+        <!-- Débloquée, avec le nom : la réponse tout de suite, comme sur les cartes. -->
+        <div v-if="essai" class="essai-nom" :class="niveau">
+          <p class="complet"><strong>{{ prenom }} {{ nomFamille }}</strong><span>{{ essai.initiales }}</span></p>
+          <p class="remarques">{{ essai.remarques.map(r => r.court).join(' · ') }}</p>
+        </div>
+        <button v-else type="button" class="offre" @click="essayerNom">
+          <span>{{ paye ? `Essayer ${prenom} avec votre nom de famille`
+                        : `${prenom} avec votre nom de famille : comment ça sonne ?` }}</span>
+          <em v-if="!paye" class="tag">liste débloquée</em>
+        </button>
+        <button v-if="separent" type="button" class="offre" @click="voirPourquoi">
+          <span>{{ separent }} prénom{{ separent > 1 ? 's' : '' }} vous
+            {{ separent > 1 ? 'séparent' : 'sépare' }} : voir pourquoi</span>
+          <em v-if="!paye" class="tag">liste débloquée</em>
+        </button>
       </div>
     </div>
   </div>
@@ -95,6 +171,32 @@ const qui = computed(() => {
 @keyframes monter { from { transform: translateY(10px); opacity: 0 } }
 .actions .btn { width: 100%; }
 .qui { margin: 2px 0 0; font-size: 1.05rem; color: var(--doux); }
+
+/* La suite payante : sous les deux boutons, plus discrète qu'eux — la fête
+   reste la fête. */
+.plus { display: flex; flex-direction: column; gap: 8px; margin-top: 18px;
+  width: 100%; max-width: 300px; animation: monter .4s ease .55s backwards; }
+.offre { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 10px 12px; text-align: left; cursor: pointer;
+  border: 1px solid var(--trait); border-radius: var(--r-s); background: var(--carte);
+  color: var(--texte); font: inherit; font-size: .88rem; font-weight: 650; line-height: 1.3; }
+.offre:hover { border-color: color-mix(in srgb, var(--texte) 30%, var(--trait)); }
+.tag { flex: none; font-style: normal; font-size: .7rem; font-weight: 800; white-space: nowrap;
+  padding: 3px 8px; border-radius: 99px; color: var(--texte);
+  background: color-mix(in srgb, var(--peche) 55%, transparent); }
+.essai-nom { border-radius: var(--r-s); padding: 9px 12px; display: flex; flex-direction: column;
+  gap: 2px; text-align: left; border: 1px solid var(--trait); background: var(--carte); }
+.essai-nom p { margin: 0; }
+.essai-nom .complet { display: flex; justify-content: space-between; gap: 8px; font-size: .95rem; }
+.essai-nom .complet strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.essai-nom .complet span { font-size: .74rem; color: var(--doux); font-weight: 700; flex: none; }
+.essai-nom .remarques { font-size: .8rem; line-height: 1.35; }
+.essai-nom.bien { border-color: color-mix(in srgb, var(--oui) 40%, var(--trait)); }
+.essai-nom.bien .remarques { color: var(--oui); }
+.essai-nom.attention { background: color-mix(in srgb, var(--peche) 30%, var(--carte)); }
+.essai-nom.accroche { border-color: color-mix(in srgb, var(--non) 50%, var(--trait));
+  background: color-mix(in srgb, var(--non) 10%, var(--carte)); }
+.essai-nom.accroche .remarques { color: var(--non); font-weight: 650; }
 .indice { margin-top: 18px; color: var(--doux); }
 
 .goutte { position: absolute; top: -8%; animation-name: tomber;
@@ -108,6 +210,6 @@ const qui = computed(() => {
 /* Une animation qui donne la nausee n'est pas une fete. */
 @media (prefers-reduced-motion: reduce) {
   .goutte { display: none; }
-  .coeur, .fete, .nom, .actions { animation: none; }
+  .coeur, .fete, .nom, .actions, .plus { animation: none; }
 }
 </style>
