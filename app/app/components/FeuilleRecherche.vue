@@ -42,14 +42,20 @@ const trouves = computed<Prenom[]>(() => {
   return [...debut.sort(parFrequence), ...dedans.sort(parFrequence)].slice(0, 25)
 })
 
+/** Retiré du jeu : « Déjà pris » se dit (c'est tout son principe), un
+ *  blocage secret ne dit que « Bloqué », jamais par qui. */
+const retire = (nom: string) => g.parDejaPris.value.has(nom) ? 'Déjà pris'
+  : g.vetos.value.has(nom) ? 'Bloqué' : null
+
 const etat = (nom: string) => {
-  if (g.vetos.value.has(nom)) return { t: 'Bloqué', c: 'veto' }
+  const r = retire(nom)
+  if (r) return { t: r, c: 'veto' }
   const v = parPrenom.value.get(nom)?.mien
   if (v === undefined || v === null) return null
   return { t: MOT[v], c: `v${v}` }
 }
 
-/** Un prénom bloqué ne revient pas en jeu : la ligne le dit, sans bouton. */
+/** Un prénom retiré du jeu n'y revient pas : la ligne le dit, sans bouton. */
 function choisir(p: Prenom, fermer: () => void) {
   if (g.vetos.value.has(p.l)) return
   emit('choisir', p.l)
@@ -90,7 +96,7 @@ function choisir(p: Prenom, fermer: () => void) {
           </button>
           <div v-else class="trouve bloque">
             <span class="nom">{{ p.l }}</span>
-            <span class="puce veto">Bloqué</span>
+            <span class="puce veto">{{ retire(p.l) }}</span>
           </div>
         </li>
       </ul>

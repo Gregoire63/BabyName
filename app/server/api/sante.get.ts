@@ -42,7 +42,8 @@ export default defineEventHandler(async () => {
       `select m.name as t, p.name as c
          from sqlite_master m join pragma_table_info(m.name) p
         where m.type = 'table'
-          and m.name in ('votes', 'utilisateurs', 'groupes', 'passkeys', 'liens_connexion', 'limites', 'quota_jour')`)
+          and m.name in ('votes', 'utilisateurs', 'groupes', 'passkeys', 'liens_connexion', 'limites', 'quota_jour',
+                         'vetos', 'deja_pris')`)
     // Effacer un compte ne doit pas effacer les listes qu'il a creees (donc
     // les votes de l'autre parent) : la cle vers le createur passe a NULL.
     const rgpd = await b.q1<{ regle: string }>(
@@ -62,7 +63,9 @@ export default defineEventHandler(async () => {
         'quota.depart': a('groupes', 'quota_depart') && a('utilisateurs', 'gestes_depart'),
         'connexion.passkeys_et_liens': a('utilisateurs', 'session_gen') && a('passkeys', 'id')
           && a('liens_connexion', 'id') && a('limites', 'cle'),
-        'rgpd.effacement_sans_cascade': String(rgpd?.regle ?? '').toUpperCase() === 'SET NULL'
+        'rgpd.effacement_sans_cascade': String(rgpd?.regle ?? '').toUpperCase() === 'SET NULL',
+        // « Déjà pris » et les graphies bloquées d'un coup (migration 0002).
+        'exclusions.deja_pris_et_graphies': a('vetos', 'tete') && a('deja_pris', 'tete')
       }
       // Pas de compte des listes vendues ici : cette route est publique, et
       // le nombre de clients n'a pas a l'etre. Il se lit dans la console D1.

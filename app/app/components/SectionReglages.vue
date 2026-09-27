@@ -325,6 +325,8 @@ const filtresActifs = computed(() => {
         </p>
       </section>
 
+      <CarteDejaPris />
+
       <section class="carte pile">
         <h2>Avec votre nom de famille</h2>
 
@@ -397,8 +399,8 @@ const filtresActifs = computed(() => {
       </section>
 
       <p class="mini doux" style="text-align:center;margin:6px 0 0">
-        Vos choix, vos gardés, vos écartés et vos prénoms bloqués sont dans
-        Classement · Mes choix. Votre compte (nom, connexion, données) est sur
+        Vos choix, vos gardés, vos écartés et vos prénoms bloqués en secret
+        sont dans Classement · Mes choix. Votre compte (nom, connexion, données) est sur
         l’accueil, sous votre nom.
       </p>
     </template>

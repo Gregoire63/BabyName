@@ -63,7 +63,7 @@ export const EDITEUR = {
  */
 export const VERSIONS_TEXTES = {
   conditions: '2026-09-25',
-  confidentialite: '2026-09-25',
+  confidentialite: '2026-09-27',
   accessibilite: '2026-09-25'
 } as const
 

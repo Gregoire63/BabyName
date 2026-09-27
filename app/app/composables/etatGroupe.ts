@@ -1,6 +1,20 @@
 import type { InjectionKey, Ref, ComputedRef } from 'vue'
 import type { Prenom, Filtres } from '~/composables/useCatalogue'
 
+/** Un prénom « déjà pris » : retiré pour toute la liste, et dit. */
+export interface EntreeDejaPris {
+  /** La graphie choisie. */
+  prenom: string
+  /** Les autres graphies, retirées avec elle. */
+  variantes: string[]
+  /** Qui le porte, pourquoi — visible de toute la liste. */
+  motif: string | null
+  /** Le nom affiché de qui l'a ajouté ; null si son compte a été effacé. */
+  auteur: string | null
+  mien: boolean
+  pose_le?: string
+}
+
 /**
  * Etat partage d'une liste. Les quatre onglets vivent simultanement dans le
  * meme pager : ils ne peuvent pas chacun recharger /api/groupes/:id. Un seul
@@ -15,13 +29,25 @@ export interface EtatGroupe {
   filtres: Ref<Filtres>
   dejaVotes: Ref<Set<string>>
   aimes: Ref<Prenom[]>
-  /** Tous les prenoms vetos du groupe : il faut les connaitre pour les
-   *  retirer de la pile. Qui les a poses ne sort pas du serveur. */
-  vetos: Ref<Set<string>>
-  /** Les miens, avec leur motif — les seuls que j'ai le droit de voir. */
-  mesVetos: Ref<{ prenom: string; motif: string | null }[]>
+  /** TOUT ce qui est retire du jeu, graphies comprises : les blocages
+   *  secrets (qui les a poses ne sort pas du serveur) et les deja pris. Il
+   *  faut les connaitre pour les retirer de la pile, des accords, de « A
+   *  revoir ». */
+  vetos: ComputedRef<Set<string>>
+  /** Mes blocages secrets, avec leur motif et leurs graphies — les seuls que
+   *  j'ai le droit de voir. */
+  mesVetos: Ref<{ prenom: string; motif: string | null; variantes: string[] }[]>
+  /** Bloquer en secret (le prenom et toutes ses graphies, un seul blocage). */
   poserVeto: (prenom: string, motif?: string) => Promise<void>
   retirerVeto: (prenom: string) => Promise<void>
+  /** Les prenoms deja pris de la liste, visibles de tous ses membres. */
+  dejaPris: Ref<EntreeDejaPris[]>
+  /** Chaque graphie d'un prenom deja pris → son entree. */
+  parDejaPris: ComputedRef<Map<string, EntreeDejaPris>>
+  ajouterDejaPris: (prenom: string, motif?: string) => Promise<void>
+  retirerDejaPris: (prenom: string) => Promise<void>
+  /** Les autres graphies d'un prenom (meme prononciation), filtres ignores. */
+  graphiesDe: (prenom: string) => string[]
   favoris: Ref<Set<string>>
   basculerFavori: (prenom: string) => Promise<void>
   /** Les prenoms sur lesquels tout le monde s'accorde. Charges avec le reste :
@@ -60,7 +86,8 @@ export const CLE_GROUPE = Symbol('groupe') as InjectionKey<EtatGroupe>
  */
 const CHAMPS = [
   'gid', 'etat', 'catalogue', 'parNom', 'origines', 'filtres', 'dejaVotes',
-  'aimes', 'vetos', 'mesVetos', 'poserVeto', 'retirerVeto', 'favoris',
+  'aimes', 'vetos', 'mesVetos', 'poserVeto', 'retirerVeto', 'dejaPris',
+  'parDejaPris', 'ajouterDejaPris', 'retirerDejaPris', 'graphiesDe', 'favoris',
   'basculerFavori', 'communs', 'rechargerCommuns', 'votes', 'rechargerVotes',
   'voter', 'pret', 'recharger', 'ouvrirFiche', 'ouvrirFiltres', 'allerA',
   'ouvrirDebloquer'

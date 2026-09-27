@@ -2,7 +2,7 @@
 import { chargerCatalogue, filtrer, filtresParDefaut, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
 import { marquerListeCourante } from '~/composables/useListeCourante'
-import { CLE_GROUPE, type EtatGroupe } from '~/composables/etatGroupe'
+import { CLE_GROUPE, type EtatGroupe, type EntreeDejaPris } from '~/composables/etatGroupe'
 
 const props = defineProps<{ depart?: string; segmentDepart?: string }>()
 
@@ -40,8 +40,23 @@ const origines = ref<string[]>([])
 const filtres = ref<Filtres>(filtresParDefaut())
 const dejaVotes = ref<Set<string>>(new Set())
 const aimes = ref<Prenom[]>([])
-const vetos = ref<Set<string>>(new Set())
-const mesVetos = ref<{ prenom: string; motif: string | null }[]>([])
+/** Les prénoms bloqués en secret, par qui que ce soit (graphies comprises) :
+ *  le serveur ne dit pas qui. */
+const vetosSecrets = ref<Set<string>>(new Set())
+const mesVetos = ref<{ prenom: string; motif: string | null; variantes: string[] }[]>([])
+const dejaPris = ref<EntreeDejaPris[]>([])
+/** Chaque graphie d'un prénom déjà pris → son entrée. */
+const parDejaPris = computed(() => {
+  const m = new Map<string, EntreeDejaPris>()
+  for (const d of dejaPris.value) {
+    m.set(d.prenom, d)
+    for (const v of d.variantes) m.set(v, d)
+  }
+  return m
+})
+/** Tout ce qui est retiré du jeu, pour tout le monde : blocages secrets et
+ *  déjà pris. C'est ce qui sort de la pile, des accords et de « À revoir ». */
+const vetos = computed(() => new Set([...vetosSecrets.value, ...parDejaPris.value.keys()]))
 const favoris = ref<Set<string>>(new Set())
 const communs = ref<any[]>([])
 const votes = ref<any[]>([])
@@ -73,18 +88,55 @@ async function voter(prenom: string, valeur: 0 | 1 | 2) {
   await Promise.all([rechargerVotes(), rechargerCommuns()])
 }
 
-/** Poser un veto : definitif, limite, et invisible pour les autres. */
+/**
+ * Les autres graphies d'un prénom — TOUTES, filtres ignorés : un prénom
+ * retiré du jeu l'est quelle que soit son orthographe, y compris celles que
+ * les filtres cachent aujourd'hui et montreront demain.
+ */
+function graphiesDe(prenom: string): string[] {
+  return parNom.value.get(prenom)?.variantes ?? []
+}
+
+/** Bloquer en secret : compte, et invisible pour les autres. */
 async function poserVeto(prenom: string, motif?: string) {
-  await $fetch(`/api/groupes/${gid}/veto`, { method: 'POST', body: { prenom, motif } })
-  vetos.value = new Set([...vetos.value, prenom])
+  const variantes = graphiesDe(prenom)
+  await $fetch(`/api/groupes/${gid}/veto`, { method: 'POST', body: { prenom, motif, variantes } })
+  vetosSecrets.value = new Set([...vetosSecrets.value, prenom, ...variantes])
   await Promise.all([recharger(), rechargerCommuns()])
 }
 
 async function retirerVeto(prenom: string) {
   await $fetch(`/api/groupes/${gid}/veto?prenom=${encodeURIComponent(prenom)}`,
     { method: 'DELETE' })
-  const s = new Set(vetos.value); s.delete(prenom); vetos.value = s
+  const v = mesVetos.value.find(x => x.prenom === prenom)
+  const s = new Set(vetosSecrets.value)
+  for (const n of [prenom, ...(v?.variantes ?? [])]) s.delete(n)
+  vetosSecrets.value = s
   await Promise.all([recharger(), rechargerCommuns()])
+}
+
+/**
+ * « Déjà pris » : retiré pour toute la liste, et dit — sans quota.
+ *
+ * Fini dès que le serveur a dit oui : la liste locale suit tout de suite, et
+ * le rechargement (accords, pile) se fait derrière. On en tape souvent
+ * plusieurs d'affilée ; attendre le rechargement laissait le champ plein une
+ * demi-seconde, et le prénom suivant s'écrivait par-dessus.
+ */
+async function ajouterDejaPris(prenom: string, motif?: string) {
+  const variantes = graphiesDe(prenom)
+  await $fetch(`/api/groupes/${gid}/deja-pris`, { method: 'POST', body: { prenom, motif, variantes } })
+  const moi = etat.value?.membres?.find((m: any) => m.user_id === etat.value?.moi?.user_id)
+  dejaPris.value = [...dejaPris.value,
+    { prenom, variantes, motif: motif ?? null, auteur: moi?.pseudo ?? null, mien: true }]
+  Promise.all([recharger(), rechargerCommuns()]).catch(() => null)
+}
+
+async function retirerDejaPris(prenom: string) {
+  await $fetch(`/api/groupes/${gid}/deja-pris?prenom=${encodeURIComponent(prenom)}`,
+    { method: 'DELETE' })
+  dejaPris.value = dejaPris.value.filter(d => d.prenom !== prenom)
+  Promise.all([recharger(), rechargerCommuns()]).catch(() => null)
 }
 
 async function basculerFavori(prenom: string) {
@@ -109,8 +161,9 @@ async function recharger() {
     // sache pourquoi. On l'oublie.
     filtres.value = { ...filtresParDefaut(), ...e.groupe.filtres, recherche: '' }
   }
-  vetos.value = new Set(e.vetos)
+  vetosSecrets.value = new Set(e.vetos)
   mesVetos.value = e.mes_vetos ?? []
+  dejaPris.value = e.deja_pris ?? []
   favoris.value = new Set(e.mes_favoris)
 
   const moiId = e.moi.user_id
@@ -199,7 +252,8 @@ function flechesPager(e: KeyboardEvent) {
 
 const partage: EtatGroupe = {
   gid, etat, catalogue, parNom, origines, filtres, dejaVotes, aimes, vetos,
-  mesVetos, poserVeto, retirerVeto, favoris, basculerFavori,
+  mesVetos, poserVeto, retirerVeto, dejaPris, parDejaPris, ajouterDejaPris,
+  retirerDejaPris, graphiesDe, favoris, basculerFavori,
   communs, rechargerCommuns, votes, rechargerVotes, voter,
   pret, recharger, ouvrirFiche, ouvrirFiltres, allerA, ouvrirDebloquer
 }

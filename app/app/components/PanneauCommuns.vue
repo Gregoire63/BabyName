@@ -10,7 +10,6 @@ const communs = computed(() => g.communs.value)
 const ouvert = ref<string | null>(null)
 const commentaires = ref<any[]>([])
 const brouillon = ref('')
-const erreur = ref('')
 
 async function ouvrir(prenom: string) {
   if (ouvert.value === prenom) { ouvert.value = null; return }
@@ -29,18 +28,11 @@ async function commenter() {
     `/api/groupes/${g.gid}/commentaires?prenom=${encodeURIComponent(p)}`)
 }
 
-async function veto(prenom: string) {
-  erreur.value = ''
-  try {
-    await $fetch(`/api/groupes/${g.gid}/veto`, { method: 'POST', body: { prenom } })
-    await g.rechargerCommuns()
-    await g.recharger()
-  } catch (e: any) {
-    erreur.value = e?.data?.statusMessage === 'quota_veto_atteint'
-      ? 'Vos blocages sont tous utilisés : retirez-en un dans Mes choix pour en poser un autre.'
-      : 'Impossible de bloquer ce prénom.'
-  }
-}
+/** Un accord qu'on retire après coup — le bébé de la cousine est né entre-
+ *  temps. La même feuille que sur la carte : déjà pris, ou en secret. */
+const ecarterPour = ref<string | null>(null)
+/** Un observateur ne bloque rien : il n'a pas le bouton. */
+const jObserve = computed(() => g.etat.value?.moi?.role === 'observateur')
 
 /** Qui traîne : un commun ne sort que si tout le monde a voté dessus. */
 const enRetard = computed(() => {
@@ -58,7 +50,6 @@ const enRetard = computed(() => {
       {{ enRetard.manque }} votes manquent à {{ enRetard.pseudo }} — la liste reste incomplète
       tant qu’il n’a pas rattrapé.
     </p>
-    <p v-if="erreur" class="rappel mini">{{ erreur }}</p>
 
     <div v-if="!communs.length" class="vide">
       <Etincelles :taille="34" couleur="var(--menthe)" />
@@ -98,12 +89,14 @@ const enRetard = computed(() => {
         </div>
         <div class="ligne" style="justify-content:space-between">
           <button class="btn btn-0 mini" @click="g.ouvrirFiche(c.prenom)">Plus d’informations</button>
-          <button class="btn btn-0 mini" style="color:var(--non)" @click="veto(c.prenom)">
+          <button v-if="!jObserve" class="btn btn-0 mini" style="color:var(--non)"
+                  :aria-label="`Bloquer ${c.prenom}`" @click="ecarterPour = c.prenom">
             Bloquer
           </button>
         </div>
       </div>
     </article>
+    <FeuilleEcarter v-if="ecarterPour" :prenom="ecarterPour" @fermer="ecarterPour = null" />
   </div>
 </template>
 

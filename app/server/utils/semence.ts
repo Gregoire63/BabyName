@@ -28,7 +28,7 @@ export const CLES_DEV = {
  * gratuit » qu'un essai decrit. La version est gravee a la semaille ; le
  * demarrage et les outils de developpement disent quand elle est depassee.
  */
-export const VERSION_SEMENCE = 3
+export const VERSION_SEMENCE = 4
 
 /** Les comptes du jeu d'essai, tels que les outils de dev les montrent. */
 export const COMPTES_DEV = [
@@ -95,6 +95,8 @@ const GOUTS_MAMIE = {
 // Ecartes « d'un geste » : c'est ce qui remplit le bloc des familles dans
 // Parametres, et ce qui permet de verifier qu'un non individuel y survit.
 const BALAYAGE = { racine: 'kevi', prenoms: ['Kevin', 'Kevyn', 'Kevan'] }
+/** Les autres graphies de Jayden dans le catalogue (même prononciation). */
+const GRAPHIES_JAYDEN = ['Jaïden', 'Jaydenn', 'Jahyden', 'Jaiden', 'Jhayden', 'Jaydhen', 'Jaïdenn', 'Jaÿden']
 
 /** Seme une base vide. Renvoie vrai si elle l'etait. */
 export async function semerSiVide(b: Outils): Promise<boolean> {
@@ -110,7 +112,7 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
   // Elle est creee la PREMIERE : les essais comptent sur son id, 1.
   const gid = await creerListe(b,
     `insert into groupes (nom, code_invitation, cree_par, quota_swipe_jour, nb_vetos_max, paye_le, paye_par)
-     values ('Notre liste', 'dec0de00', ?1, 20, 3, ${MAINTENANT}, ?1) returning id`, [greg])
+     values ('Notre liste', 'dec0de00', ?1, 20, ?2, ${MAINTENANT}, ?1) returning id`, [greg, BLOCAGES_SECRETS])
 
   // Une seconde liste, gratuite et au quota minuscule, pour pouvoir taper
   // dans le mur en quelques swipes plutot qu'en cent soixante-cinq : 3 de
@@ -120,13 +122,13 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
   const g2 = await creerListe(b,
     `insert into groupes (nom, code_invitation, cree_par, quota_swipe_jour, nb_vetos_max,
                           quota_depart, quota_depart_liste, quota_par_jour)
-     values ('Essai gratuit', 'dec0de01', ?1, 3, 2, 3, 4, 2) returning id`, [greg])
+     values ('Essai gratuit', 'dec0de01', ?1, 3, ?2, 3, 4, 2) returning id`, [greg, BLOCAGES_SECRETS])
   // Une troisieme, gratuite elle aussi : elle sert a verifier qu'on ne gagne
   // pas un depart de plus en creant une liste de plus.
   const g3 = await creerListe(b,
     `insert into groupes (nom, code_invitation, cree_par, quota_swipe_jour, nb_vetos_max,
                           quota_depart, quota_depart_liste, quota_par_jour)
-     values ('Autre essai', 'dec0de02', ?1, 3, 2, 3, 4, 2) returning id`, [greg])
+     values ('Autre essai', 'dec0de02', ?1, 3, ?2, 3, 4, 2) returning id`, [greg, BLOCAGES_SECRETS])
 
   const l: Instruction[] = [
     [`insert into membres (groupe_id, user_id, role) values (?1, ?2, 'parent')`, [g3, greg]],
@@ -148,11 +150,23 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
     [`insert into favoris (groupe_id, user_id, prenom) values (?1, ?2, 'Alma'), (?1, ?2, 'Nine')
       on conflict do nothing`, [gid, greg]],
     // Un veto de chaque cote : celui de Greg doit apparaitre dans SES choix,
-    // celui d'Audrey ne doit apparaitre nulle part pour lui.
-    [`insert into vetos (groupe_id, user_id, prenom, motif) values (?1, ?2, 'Jayden', 'mon ex')
+    // celui d'Audrey ne doit apparaitre nulle part pour lui. Celui d'Audrey
+    // emporte ses graphies (Jaïden, Jaiden… : ce que fait l'app depuis la
+    // migration 0002, la liste vient du catalogue) ; celui de Greg est un
+    // veto d'avant, sans tete — il doit continuer de marcher.
+    [`insert into vetos (groupe_id, user_id, prenom, motif, tete) values (?1, ?2, 'Jayden', 'mon ex', 'Jayden')
       on conflict do nothing`, [gid, audrey]],
+    [`insert or ignore into vetos (groupe_id, user_id, prenom, tete)
+      select ?1, ?2, value, 'Jayden' from json_each(?3)`, [gid, audrey, JSON.stringify(GRAPHIES_JAYDEN)]],
     [`insert into vetos (groupe_id, user_id, prenom, motif) values (?1, ?2, 'Brandon', 'non')
       on conflict do nothing`, [gid, greg]],
+    // Un prenom « deja pris », pose par Audrey avec sa note : Greg doit le
+    // voir, avec qui et pourquoi, et pouvoir l'en retirer ; Mamie le voit
+    // sans pouvoir y toucher.
+    [`insert into deja_pris (groupe_id, prenom, tete, user_id, motif)
+      values (?1, 'Mathilde', 'Mathilde', ?2, 'ma sœur')`, [gid, audrey]],
+    [`insert or ignore into deja_pris (groupe_id, prenom, tete, user_id)
+      select ?1, value, 'Mathilde', ?2 from json_each(?3)`, [gid, audrey, JSON.stringify(['Matilde', 'Mathylde'])]],
     [`insert into commentaires (groupe_id, user_id, prenom, texte)
       values (?1, ?2, 'Louise', 'Un peu partout en ce moment, non ?')`, [gid, audrey]],
     // Audrey a une adresse verifiee : de quoi essayer le lien de connexion en

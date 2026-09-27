@@ -25,6 +25,9 @@ const GROUPES = [
 const gardes = computed(() => [...g.favoris.value])
 const vetos = computed(() => g.mesVetos.value)
 const retrait = ref('')
+const vetosMax = computed(() => g.etat.value?.groupe?.nb_vetos_max ?? BLOCAGES_SECRETS)
+const vetosRestants = computed(() => Math.max(0, vetosMax.value - vetos.value.length))
+const nbDejaPris = computed(() => g.dejaPris.value.length)
 
 async function retirerVeto(prenom: string) {
   retrait.value = prenom
@@ -94,6 +97,10 @@ async function remettre(prenoms: string[]) {
             <Etincelles v-if="g.favoris.value.has(p.prenom)" :taille="12"
                         couleur="var(--peche)" une />
           </button>
+          <!-- Un oui qui n'aboutira pas : sans ce mot, on cherchait pourquoi
+               il avait quitté les accords. -->
+          <span v-if="g.parDejaPris.value.has(p.prenom)" class="puce pris"
+                :title="g.parDejaPris.value.get(p.prenom)?.motif ?? undefined">déjà pris</span>
           <span v-for="a in p.autres" :key="a.pseudo" class="puce" :class="`a${a.valeur}`">
             {{ a.pseudo }} · {{ MOT[a.valeur] }}
           </span>
@@ -152,9 +159,9 @@ async function remettre(prenoms: string[]) {
       </button>
       <template v-if="ouvert === -2">
         <p class="mini doux" style="margin:0">
-          Ils ne deviendront jamais communs, quoi que votent les autres. Personne
-          d’autre ne voit que c’est vous qui les avez bloqués, et vous pouvez
-          retirer un blocage à tout moment.
+          Bloqués en secret, avec leurs graphies : ils ne deviendront jamais
+          communs, et personne d’autre ne sait que c’est vous. Il vous en reste
+          {{ vetosRestants }} sur {{ vetosMax }} ; un blocage se retire à tout moment.
         </p>
         <p v-if="!vetos.length" class="mini doux" style="margin:0">
           Aucun prénom bloqué.
@@ -162,6 +169,8 @@ async function remettre(prenoms: string[]) {
         <div v-for="v in vetos" :key="v.prenom" class="rangee">
           <button class="nom" @click="g.ouvrirFiche(v.prenom)">
             {{ v.prenom }}
+            <span v-if="v.variantes?.length" class="graphies"
+                  :title="v.variantes.join(', ')">+ {{ v.variantes.length }} graphie{{ v.variantes.length > 1 ? 's' : '' }}</span>
             <em v-if="v.motif" class="motif">{{ v.motif }}</em>
           </button>
           <button class="btn btn-0 mini doux" :disabled="retrait === v.prenom"
@@ -169,6 +178,11 @@ async function remettre(prenoms: string[]) {
             {{ retrait === v.prenom ? '…' : 'Retirer' }}
           </button>
         </div>
+        <!-- L'autre façon de retirer un prénom, celle qu'on dit : elle vit
+             dans les réglages de la liste, puisqu'elle est à tout le monde. -->
+        <button class="btn btn-0 mini vers-pris" @click="g.allerA('reglages')">
+          Déjà pris dans la liste{{ nbDejaPris ? ` (${nbDejaPris})` : '' }} : visibles de tous, sans limite
+        </button>
       </template>
     </section>
   </div>
@@ -183,6 +197,9 @@ async function remettre(prenoms: string[]) {
 .pastille.v2 { background: var(--oui); }
 .pastille.v1 { background: var(--encre); }
 .pastille.v0 { background: var(--non); }
+.puce.pris { background: color-mix(in srgb, var(--non) 18%, transparent); }
+.graphies { font-size: .7rem; font-weight: 500; color: var(--doux); margin-left: 4px; }
+.vers-pris { align-self: flex-start; text-align: left; }
 .pastille.veto { background: var(--non); box-shadow: 0 0 0 3px color-mix(in srgb, var(--non) 25%, transparent); }
 .motif { font-style: normal; font-size: .72rem; color: var(--doux); font-weight: 500; }
 

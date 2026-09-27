@@ -52,6 +52,9 @@ const SCHEMA = readdirSync(MIGRATIONS).filter(f => f.endsWith('.sql')).sort()
 const defaut = (col, repli) => Number(SCHEMA.match(new RegExp(`${col}\\s+\\w+\\s+not null default (\\d+)`))?.[1] ?? repli)
 const QUOTA_DEPART = defaut('quota_depart', 150)
 const QUOTA_JOUR = defaut('quota_par_jour', 15)
+// Les blocages secrets : la constante que l'app applique, pas une copie.
+const BLOCAGES = Number(readFileSync(resolve(RACINE, 'shared/utils/exclusions.ts'), 'utf8')
+  .match(/BLOCAGES_SECRETS = (\d+)/)?.[1] ?? 5)
 
 // ---------------------------------------------------------------- données
 const d = JSON.parse(readFileSync(resolve(PUBLIC, 'data/catalogue.json'), 'utf8'))
@@ -438,7 +441,9 @@ urls.unshift('/prenoms/')
  */
 const FAQ = [
   ['Mon ou ma partenaire voit-il mes votes ?',
-   'Seulement sur les prénoms qu’il ou elle a déjà jugés soi-même. Avant, rien : c’est le vote à l’aveugle. Un « non » n’est jamais annoncé, et personne ne sait qui a bloqué un prénom.'],
+   'Seulement sur les prénoms qu’il ou elle a déjà jugés soi-même. Avant, rien : c’est le vote à l’aveugle. Un « non » n’est jamais annoncé, et personne ne sait qui a bloqué un prénom en secret.'],
+  ['Et les prénoms déjà pris dans la famille ?',
+   `Ajoutez-les une fois à la liste « Déjà pris » : la cousine, le fils des amis, quelqu’un qu’on connaît trop. Ils sortent du tri pour tout le monde, avec toutes leurs graphies (Chloé emporte Cloé et Khloé), sans limite. Pour un prénom qu’on préfère ne pas expliquer, chacun a aussi ${BLOCAGES} blocages secrets.`],
   ['Faut-il installer une application ?',
    'Non. babyNamed s’ouvre dans le navigateur, sur téléphone comme sur ordinateur, et s’ajoute à l’écran d’accueil si vous le souhaitez. Votre partenaire rejoint votre liste par un simple lien.'],
   ['Est-ce vraiment gratuit ?',

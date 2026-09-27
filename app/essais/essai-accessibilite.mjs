@@ -197,6 +197,10 @@ if (await veto.count()) {
   await veto.first().click()
   await page.waitForSelector('[role="dialog"]')
   await auditer('Bloquer un prénom')
+  // Une raison choisie : la note apparaît, avec sa visibilité dans son nom.
+  await page.locator('[role="dialog"]').getByText('Déjà pris', { exact: true }).click()
+  await page.waitForTimeout(300)
+  await auditer('Bloquer un prénom (déjà pris, note ouverte)')
   await page.keyboard.press('Escape')
   await page.waitForTimeout(600)
 }
@@ -234,6 +238,14 @@ await auditer('Classement · Portrait')
 await page.getByRole('button', { name: /La liste/ }).click()
 await page.waitForTimeout(900)
 await auditer('La liste (réglages)')
+// « Déjà pris » : l'autocomplétion ouverte, puis un prénom choisi.
+await page.locator('#champ-deja-pris').fill('lou')
+await page.waitForTimeout(400)
+await auditer('Déjà pris (propositions)')
+await page.locator('section[aria-labelledby="titre-deja-pris"] .suggestion').first().click()
+await page.waitForTimeout(300)
+await auditer('Déjà pris (prénom choisi, note ouverte)')
+await page.locator('#champ-deja-pris').fill('')
 
 // L'offre s'audite sur une liste gratuite, par le chemin reel : le mur du
 // quota (3 de depart puis 2 par jour sur « Essai gratuit »), trie au clavier.

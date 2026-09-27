@@ -118,6 +118,8 @@ await bVeto.click()
 await page.waitForSelector('.feuille-corps', { timeout: 6000 })
 dit((await page.locator('.feuille-corps h2').first().innerText()) === 'Bloquer ce prénom',
     'la confirmation s’ouvre')
+// Deux raisons (déjà pris, en secret) : ici, le blocage secret.
+await page.locator('.feuille-corps').getByText('En secret', { exact: true }).click()
 dit(await page.locator('.feuille-corps input.champ').count() === 1, 'avec un champ commentaire')
 await page.waitForTimeout(600)
 await page.screenshot({ path: '/tmp/v3-veto.png' })

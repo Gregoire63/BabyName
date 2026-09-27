@@ -17,6 +17,12 @@ export function prenomValide(brut: unknown): string {
   return p
 }
 
+/** Une note libre (le motif d'un blocage, qui porte un prénom déjà pris) :
+ *  du texte, 200 caractères au plus, rien si vide. */
+export function noteLibre(brut: unknown): string | null {
+  return typeof brut === 'string' ? brut.trim().slice(0, 200) || null : null
+}
+
 /** Une liste de prénoms : chacun valide, `max` au plus, doublons retirés. */
 export function prenomsValides(brut: unknown, max: number): string[] {
   if (!Array.isArray(brut)) return []

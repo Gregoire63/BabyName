@@ -249,8 +249,11 @@ function epingler(demande: string, depuisAdresse: boolean) {
     if (!depuisAdresse) return
     const moi = g.etat.value?.moi?.user_id
     const v = g.votes.value.find((x: any) => x.user_id === moi && x.prenom === p.l)?.valeur
+    const pris = g.parDejaPris.value.get(p.l)
     dire(g.communs.value.some((c: any) => c.prenom === p.l)
       ? `${p.l} est déjà dans vos accords.`
+      : pris
+        ? `${p.l} est déjà pris${pris.motif ? ` (${pris.motif})` : ''} : la liste l’a retiré du jeu.`
       : g.vetos.value.has(p.l)
         ? `${p.l} : prénom bloqué dans cette liste.`
         : v === 0 || v === 1 || v === 2
@@ -333,38 +336,13 @@ const quotaAtteint = computed(() =>
  */
 const echange = ref(false)
 
-// --- veto ----------------------------------------------------------------
-// Definitif et limite : ca ne se pose pas d'un geste, d'ou la confirmation.
+// --- bloquer : déjà pris, ou en secret -------------------------------------
+// Ça ne se pose pas d'un geste : la feuille demande pourquoi (FeuilleEcarter).
 const vetoPour = ref<Prenom | null>(null)
-const motifVeto = ref('')
-const erreurVeto = ref('')
-const envoiVeto = ref(false)
-
-const vetosMax = computed(() => g.etat.value?.groupe?.nb_vetos_max ?? 3)
-const vetosRestants = computed(() => Math.max(0, vetosMax.value - g.mesVetos.value.length))
 
 function demanderVeto() {
   if (!carte.value) return
-  motifVeto.value = ''
-  erreurVeto.value = ''
   vetoPour.value = carte.value
-}
-
-async function confirmerVeto(fermer: () => void) {
-  const p = vetoPour.value
-  if (!p || envoiVeto.value) return
-  envoiVeto.value = true
-  erreurVeto.value = ''
-  try {
-    await g.poserVeto(p.l, motifVeto.value.trim() || undefined)
-    fermer()
-  } catch (e: any) {
-    erreurVeto.value = e?.data?.statusMessage === 'quota_veto_atteint'
-      ? `Vos ${vetosMax.value} blocages sont utilisés : retirez-en un dans Classement › Mes choix pour en poser un autre.`
-      : e?.data?.statusMessage === 'deja_veto'
-        ? 'Ce prénom est déjà bloqué.'
-        : 'Le blocage n’a pas pu être posé.'
-  } finally { envoiVeto.value = false }
 }
 
 /** La ligne de contexte sous le nom de la liste : ou j'en suis, ce qui reste. */
@@ -905,36 +883,7 @@ async function confirmerFamille() {
       </div>
     </Transition>
 
-    <!-- « Veto » ne se comprenait pas : on BLOQUE un prénom. Le mot technique
-         reste dans le code et l'API (vetos, poserVeto) ; l'écran dit ce qui
-         arrive. -->
-    <Feuille v-if="vetoPour" titre="Bloquer ce prénom" @fermer="vetoPour = null">
-      <p style="margin:0 0 4px">
-        <strong style="font-size:1.35rem">{{ vetoPour.l }}</strong>
-      </p>
-      <p class="mini doux" style="margin:0 0 12px">
-        Un prénom bloqué ne sera <strong>jamais</strong> dans vos accords, quoi que
-        votent les autres. Personne d’autre ne saura que c’est vous, et vous seul
-        pourrez retirer ce blocage (Classement › Mes choix).
-      </p>
-      <input v-model="motifVeto" class="champ" maxlength="200"
-             aria-label="Pourquoi le bloquer ? (facultatif, visible de vous seul)"
-             placeholder="Pourquoi ? (pour vous, facultatif)">
-      <p class="mini doux" style="margin:10px 0 0">
-        Il vous reste <strong>{{ vetosRestants }}</strong>
-        blocage{{ vetosRestants > 1 ? 's' : '' }} sur {{ vetosMax }}.
-      </p>
-      <p v-if="erreurVeto" class="mini" role="alert" style="color:var(--non);margin:8px 0 0">
-        {{ erreurVeto }}
-      </p>
-
-      <template #pied="{ fermer }">
-        <button class="btn btn-1 rouge-plein" :disabled="envoiVeto || !vetosRestants"
-                @click="confirmerVeto(fermer)">
-          {{ envoiVeto ? 'Un instant…' : `Bloquer ${vetoPour.l}` }}
-        </button>
-      </template>
-    </Feuille>
+    <FeuilleEcarter v-if="vetoPour" :prenom="vetoPour.l" @fermer="vetoPour = null" />
 
     <FeuilleRecherche v-if="rechercheOuverte" @fermer="rechercheOuverte = false"
                       @choisir="epinglerChoisi" />
@@ -1045,10 +994,6 @@ async function confirmerFamille() {
 .fondu-enter-active, .fondu-leave-active { transition: opacity .25s, translate .25s; }
 .fondu-enter-from, .fondu-leave-to { opacity: 0; translate: 0 8px; }
 
-/* var(--fond) et pas du blanc : en sombre, le rouge s'eclaircit et le blanc
-   dessus tombait sous 3:1. */
-.rouge-plein { background: var(--non); border-color: var(--non); color: var(--fond); }
-.rouge-plein:disabled { opacity: .5; }
 
 .voile-confirme { position: fixed; inset: 0; z-index: 65; background-color: rgba(26,35,78,.42);
   backdrop-filter: blur(3px); display: flex; align-items: flex-end;

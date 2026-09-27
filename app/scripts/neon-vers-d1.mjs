@@ -13,7 +13,8 @@
  *   3. npx wrangler d1 execute DB --remote --config wrangler.jsonc --file .data/neon-vers-d1.sql
  *   4. Effacer .data/neon-vers-d1.sql : il contient des adresses e-mail.
  *
- * Ce qui est copié : comptes, listes, membres, votes, vetos, favoris,
+ * Ce qui est copié : comptes, listes, membres, votes, vetos (chacun avec ses
+ * graphies, prises dans le catalogue, comme un veto posé aujourd'hui), favoris,
  * commentaires, compteurs du jour, passkeys (et les tables mortes duels, Elo,
  * classement manuel, si elles ont des lignes). Ce qui ne l'est pas : les liens
  * de connexion en cours (quinze minutes de vie) et les compteurs de limites —
@@ -24,7 +25,7 @@
  * passkeys suivent… à condition que le domaine soit le même (elles sont liées
  * à babyname-five.vercel.app tant qu'elles ont été créées là).
  */
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -48,6 +49,9 @@ await client.connect()
 function litteral(v, type) {
   if (v === null || v === undefined) return 'null'
   if (type === 'bool') return v ? '1' : '0'
+  // Les blocages secrets sont passés de 2 à 5 (migration 0002, qui relève les
+  // listes déjà en base — mais celles-ci arrivent APRÈS elle).
+  if (type === 'blocages') return String(Math.max(Number(v) || 0, 5))
   if (type === 'json') return texte(JSON.stringify(v))
   if (v instanceof Date) return texte(v.toISOString())
   if (typeof v === 'number') return Number.isFinite(v) ? String(v) : 'null'
@@ -64,7 +68,7 @@ const texte = (s) => `'${s.replace(/'/g, "''")}'`
 const TABLES = [
   ['utilisateurs', { id: '', email: '', email_verifie_le: '', pseudo: '', cree_le: '', vu_le: '',
     cle_acces_hash: '', gestes_depart: 'int', session_gen: 'int', webauthn_id: '' }],
-  ['groupes', { id: 'int', nom: '', code_invitation: '', cree_par: '', cree_le: '', nb_vetos_max: 'int',
+  ['groupes', { id: 'int', nom: '', code_invitation: '', cree_par: '', cree_le: '', nb_vetos_max: 'blocages',
     favoris_visibles: 'bool', quota_swipe_jour: 'int', filtres: 'json', paye_le: '', paye_par: '',
     offert: 'bool', paiement_ref: '', nom_famille: '', code_observateur: '', quota_depart: 'int',
     quota_depart_liste: 'int', quota_par_jour: 'int', gestes_depart: 'int' }],
@@ -83,6 +87,20 @@ const TABLES = [
 
 // Le jour du quota est une date sans heure : on la lit en texte, sans fuseau.
 const LECTURE = { quota_jour: `select groupe_id, user_id, to_char(jour, 'YYYY-MM-DD') as jour, n from quota_jour` }
+
+// Les graphies (même prononciation), depuis le catalogue embarqué : un veto
+// copié emporte les siennes, comme un veto posé aujourd'hui (migration 0002).
+// Sans elles, bloquer Chloé laissait passer Cloé.
+const cat = JSON.parse(readFileSync(resolve(RACINE, 'public/data/catalogue.json'), 'utf8'))
+const parSon = new Map()
+const sonDe = new Map()
+for (let k = 0; k < cat.n; k++) {
+  const son = cat.cols.gp ? cat.cols.gp[k] : k
+  sonDe.set(cat.cols.l[k], son)
+  if (!parSon.has(son)) parSon.set(son, [])
+  parSon.get(son).push(cat.cols.l[k])
+}
+const graphiesDe = nom => (parSon.get(sonDe.get(nom)) ?? []).filter(x => x !== nom)
 
 const lignes = ['-- Copie de Neon vers D1 — genere par scripts/neon-vers-d1.mjs. A effacer apres import.']
 const bilan = []
@@ -110,6 +128,17 @@ for (const [table, colonnes] of TABLES) {
     const paquet = rows.slice(i, i + 200)
       .map(r => `(${cols.map(c => litteral(r[c], colonnes[c])).join(', ')})`)
     lignes.push(`insert into ${table} (${cols.join(', ')}) values\n${paquet.join(',\n')};`)
+  }
+  if (table === 'vetos' && rows.length) {
+    // Chaque veto devient la tête de ses graphies. Une graphie déjà bloquée
+    // par ailleurs est ignorée, comme dans l'app.
+    lignes.push(`update vetos set tete = prenom where tete is null;`)
+    const graphies = rows.flatMap(r => graphiesDe(r.prenom).map(g =>
+      `(${litteral(r.groupe_id, 'int')}, ${litteral(r.user_id)}, ${litteral(g)}, ${litteral(r.prenom)})`))
+    for (let i = 0; i < graphies.length; i += 200) {
+      lignes.push(`insert or ignore into vetos (groupe_id, user_id, prenom, tete) values\n${graphies.slice(i, i + 200).join(',\n')};`)
+    }
+    if (graphies.length) bilan.push(`  (graphies bloquées avec eux : ${graphies.length})`)
   }
 }
 await client.end()

@@ -21,8 +21,10 @@ export default defineEventHandler(async (e) => {
     try {
       // Un lot : la liste et son premier membre, ensemble ou pas du tout.
       const [g] = await lot([
-        [`insert into groupes (nom, code_invitation, cree_par, filtres)
-          values (?1, ?2, ?3, ?4) returning id`, [n, code, uid, JSON.stringify(f)]],
+        // Le nombre de blocages secrets est pose ici, pas par la valeur par
+        // defaut de la colonne (migration 0002).
+        [`insert into groupes (nom, code_invitation, cree_par, filtres, nb_vetos_max)
+          values (?1, ?2, ?3, ?4, ?5) returning id`, [n, code, uid, JSON.stringify(f), BLOCAGES_SECRETS]],
         [`insert into membres (groupe_id, user_id, role)
           select id, ?2, 'parent' from groupes where code_invitation = ?1`, [code, uid]]
       ])

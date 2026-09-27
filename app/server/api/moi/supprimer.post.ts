@@ -10,7 +10,10 @@
  * Ce qui reste : les listes des AUTRES. L'autre parent garde les siennes, ses
  * votes, et le deblocage s'il avait eu lieu — effacer ses propres donnees ne
  * doit pas effacer celles de quelqu'un d'autre. (C'est ce que corrige le bloc
- * RGPD du schema : avant lui, effacer le createur effacait la liste.)
+ * RGPD du schema : avant lui, effacer le createur effacait la liste.) Les
+ * prenoms « deja pris » qu'il y a ajoutes restent aussi : ils sont a la liste.
+ * Ils perdent leur auteur et sa note (cle etrangere `set null` et trigger
+ * trg_deja_pris_sans_auteur, migration 0002).
  *
  * Confirmation tapee en toutes lettres : c'est irreversible, et un double
  * appui trop rapide sur un telephone ne doit pas suffire.

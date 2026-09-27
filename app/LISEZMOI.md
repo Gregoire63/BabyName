@@ -57,8 +57,8 @@ serveur de dev parle toujours à la base locale — sauf si l'on ajoutait
 
 | | |
 |---|---|
-| Greg | 27 votes, 2 gardés (Alma, Nine), une famille écartée d'un geste (`kevi`) et des non un par un |
-| Audrey | 19 votes, un veto sur Jayden, un commentaire sur Louise ; adresse vérifiée `audrey@exemple.test` (lien de connexion : la boîte de dev le reçoit) |
+| Greg | 27 votes, 2 gardés (Alma, Nine), une famille écartée d'un geste (`kevi`) et des non un par un ; un blocage secret sur Brandon, au format d'avant les graphies |
+| Audrey | 19 votes, un blocage secret sur Jayden (et ses 8 graphies), **Mathilde « déjà pris »** (« ma sœur »), un commentaire sur Louise ; adresse vérifiée `audrey@exemple.test` (lien de connexion : la boîte de dev le reçoit) |
 | Mamie | **observatrice** : 6 votes, dont un **non à Louise**, qui reste un accord |
 | en commun | 9 prénoms, plus des désaccords francs (Marius, Hector : Greg oui, Audrey non) pour remplir « À revoir » |
 | listes | « Notre liste » débloquée (code `dec0de00`), « Essai gratuit » et « Autre essai » au quota 3/jour pour taper dans le mur en trois swipes |
@@ -324,7 +324,7 @@ une fois à deux, et l'un des deux peut payer pour l'autre. Prix par défaut
 | Gratuit | Débloqué |
 |---|---|
 | les 19 608 prénoms, la recherche, les filtres | le tri sans plafond |
-| les accords, le classement, les vetos | l'essai avec le nom de famille |
+| les accords, le classement, « déjà pris » et les blocages secrets | l'essai avec le nom de famille |
 | origine, sens et courbe sur chaque fiche | la projection de classe complète |
 | le deuxième parent | le portrait de goûts et la divergence |
 | le volet « À revoir » | ce qui cause chaque désaccord |
@@ -665,6 +665,36 @@ nouvelle carte. `ref=seo` n'est lu par rien : l'app ne mesure pas d'audience.
 
 Les redirections **remplacent** l'entrée d'historique : sinon le bouton retour
 ramène sur le lien, qui renvoie aussitôt dans la liste.
+
+## Retirer un prénom : déjà pris, ou en secret
+
+Deux raisons, deux gestes. La feuille « Bloquer ce prénom »
+(`FeuilleEcarter.vue`, depuis la carte comme depuis un accord) demande
+laquelle, **sans rien cocher d'avance** : cocher « déjà pris » par défaut
+ferait publier « mon ex » à qui tape vite.
+
+| | Déjà pris | En secret |
+|---|---|---|
+| pour | la famille, les amis, quelqu'un qu'on connaît trop | un ex, ce qu'on ne veut pas expliquer |
+| qui le voit | toute la liste (observateurs compris), avec l'auteur et sa note | personne : le prénom disparaît, sans nom |
+| combien | sans quota (borne technique : 200 par liste) | `BLOCAGES_SECRETS` = 5 par personne et par liste |
+| qui le retire | tout décideur (celui d'un autre demande confirmation) | son auteur seul, dans Classement › Mes choix |
+| où | La liste › Déjà pris (on les tape AVANT de trier), ou la carte | la carte, ou un accord |
+| table | `deja_pris` | `vetos` |
+
+Les deux emportent les **graphies** (même prononciation, `gp` du catalogue) :
+une ligne par graphie, rattachées à leur `tete`. Avant, bloquer Chloé faisait
+arriver Cloé à la carte suivante, et chaque graphie coûtait un blocage — avec
+deux blocages, un ex prénommé Chloé ne se bloquait tout simplement pas. Le
+quota compte des têtes (trigger `trg_quota_veto`, migration 0002).
+
+Pas de blocages illimités, même en payant : un secret illimité, c'est un droit
+de censure invisible sur les goûts de l'autre, le contraire de ce que vend
+l'app. Ce qui s'explique passe par « déjà pris », dont la transparence tient
+lieu de limite.
+
+Un « déjà pris » appartient à la liste : effacer son compte le laisse en
+place, sans auteur ni note (`on delete set null` + `trg_deja_pris_sans_auteur`).
 
 ## Données personnelles (RGPD)
 

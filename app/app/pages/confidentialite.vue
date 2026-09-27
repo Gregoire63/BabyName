@@ -56,7 +56,7 @@ const c = CONSERVATION
     <h3>Vos listes</h3>
     <dl>
       <dt>Données</dt>
-      <dd>Le nom des listes et, si vous le saisissez, le nom de famille de l’enfant ; vos filtres de recherche ; vos votes (oui, neutre, non), prénoms bloqués (vetos) et leur motif, favoris, classements, duels et commentaires ; les membres et observateurs de chaque liste.</dd>
+      <dd>Le nom des listes et, si vous le saisissez, le nom de famille de l’enfant ; vos filtres de recherche ; vos votes (oui, neutre, non), prénoms bloqués en secret (vetos) et leur motif, prénoms « déjà pris » que vous ajoutez et leur note, favoris, classements, duels et commentaires ; les membres et observateurs de chaque liste.</dd>
       <dt>Pourquoi</dt>
       <dd>C’est le service lui-même : trier des prénoms à plusieurs et trouver ceux sur lesquels vous êtes d’accord.</dd>
       <dt>Base légale</dt>
@@ -126,7 +126,8 @@ const c = CONSERVATION
         <strong>Les membres d’une liste</strong> voient votre nom affiché, vos commentaires, le nombre de prénoms
         que vous avez jugés et les accords auxquels vous avez pris part. Votre vote sur un prénom ne leur est
         montré qu’une fois qu’ils ont voté sur ce même prénom : c’est le vote à l’aveugle. Personne ne voit qui
-        a bloqué un prénom.
+        a bloqué un prénom en secret. Un prénom « déjà pris », lui, est fait pour être vu : il s’affiche à
+        toute la liste, observateurs compris, avec votre nom et votre note.
       </li>
       <li><strong>L’éditeur</strong> a un accès technique à la base, pour la maintenance et l’assistance. Il ne le consulte pas en dehors de ces besoins.</li>
       <li><strong>Nos prestataires</strong>, uniquement pour ce qu’ils font pour nous :</li>
@@ -160,6 +161,7 @@ const c = CONSERVATION
     <ul>
       <li><strong>Compte et listes</strong> : tant que vous vous en servez. Effacés immédiatement si vous supprimez votre compte ; effacés automatiquement après <strong>{{ c.inactiviteMois }} mois</strong> sans ouvrir l’app.</li>
       <li><strong>Une liste</strong> dont il ne reste plus aucun membre est effacée, qu’elle ait été débloquée ou non.</li>
+      <li><strong>Prénoms « déjà pris »</strong> : ils appartiennent à la liste. Si vous effacez votre compte, ceux que vous avez ajoutés y restent pour les autres membres, sans votre nom ni votre note.</li>
       <li><strong>Compteurs de la version gratuite</strong> : le total, avec le compte ; le détail par jour, {{ c.quotaJours }} jours.</li>
       <li><strong>Cookie de connexion</strong> : {{ c.sessionJours }} jours, renouvelés à chaque connexion. <em>Mon compte → Déconnecter mes autres appareils</em> les annule tous d’un coup, sauf celui de l’appareil en main.</li>
       <li><strong>Adresse e-mail et passkeys</strong> : tant que votre compte existe, ou jusqu’à ce que vous les retiriez dans <em>Mon compte</em>.</li>

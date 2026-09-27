@@ -15,10 +15,24 @@
  */
 const VALEUR = ['non', 'neutre', 'oui'] as const
 
+/** Une ligne par graphie en base ; une entrée par prénom choisi dans l'export,
+ *  avec ses graphies. */
+function parTete(lignes: any[]) {
+  const out = new Map<string, any>()
+  for (const l of lignes) {
+    const cle = `${l.groupe_id}|${l.tete}`
+    const e = out.get(cle) ?? { groupe_id: l.groupe_id, prenom: l.tete, graphies: [] as string[],
+                                motif: null, pose_le: l.pose_le }
+    if (l.prenom === l.tete) { e.motif = l.motif; e.pose_le = l.pose_le } else e.graphies.push(l.prenom)
+    out.set(cle, e)
+  }
+  return [...out.values()]
+}
+
 export default defineEventHandler(async (e) => {
   const uid = await exigerUtilisateur(e)
 
-  const [compte, passkeys, listes, votes, vetos, favoris, duels, elo, classement, commentaires, quotas] =
+  const [compte, passkeys, listes, votes, vetos, dejaPris, favoris, duels, elo, classement, commentaires, quotas] =
     await Promise.all([
       q1(`select id, pseudo, email, email_verifie_le as email_verifie_le, cree_le, vu_le as derniere_activite,
                  cle_acces_hash is not null as cle_acces_active,
@@ -43,9 +57,13 @@ export default defineEventHandler(async (e) => {
       q(`select v.groupe_id, v.prenom, v.valeur, v.vote_le, v.balayage
            from membres m join votes v on v.groupe_id = m.groupe_id and v.user_id = m.user_id
           where m.user_id = ?1 order by v.groupe_id, v.vote_le`, [uid]),
-      q(`select t.groupe_id, t.prenom, t.motif, t.pose_le
+      q(`select t.groupe_id, t.prenom, coalesce(t.tete, t.prenom) as tete, t.motif, t.pose_le
            from membres m join vetos t on t.groupe_id = m.groupe_id and t.user_id = m.user_id
           where m.user_id = ?1 order by t.groupe_id, t.pose_le`, [uid]),
+      // Les prénoms « déjà pris » que la personne a ajoutés — y compris sur une
+      // liste qu'elle a quittée : ils appartiennent à la liste, pas au membre.
+      q(`select groupe_id, prenom, tete, motif, pose_le from deja_pris
+          where user_id = ?1 order by groupe_id, pose_le`, [uid]),
       q(`select f.groupe_id, f.prenom
            from membres m join favoris f on f.groupe_id = m.groupe_id and f.user_id = m.user_id
           where m.user_id = ?1 order by f.groupe_id, f.prenom`, [uid]),
@@ -82,13 +100,16 @@ export default defineEventHandler(async (e) => {
         'Vos données de paiement : babyNamed ne connaît que la date du déblocage. Le reste (carte, e-mail, facture) est chez Stripe.'
       ],
       valeurs_de_vote: 'non, neutre ou oui — « balayage » indique un « non » donné à toute une famille de prénoms d’un seul geste.',
+      vetos: 'Les prénoms que vous avez bloqués en secret, avec leurs graphies (même prononciation) et votre motif.',
+      deja_pris: 'Les prénoms que vous avez marqués « déjà pris » : ils appartiennent à la liste. Si vous effacez votre compte, ils y restent, sans votre nom ni votre note.',
       quotas: 'Nombre de prénoms jugés par jour sur les listes gratuites, une fois le lot de départ épuisé. Effacé automatiquement au bout de 62 jours.'
     },
     compte,
     passkeys,
     listes,
     votes: votes.map((v: any) => ({ ...v, valeur: VALEUR[v.valeur] ?? v.valeur })),
-    vetos,
+    vetos: parTete(vetos),
+    deja_pris: parTete(dejaPris),
     favoris,
     duels,
     elo,
