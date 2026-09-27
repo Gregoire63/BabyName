@@ -63,10 +63,12 @@ await page.waitForTimeout(700); await page.screenshot({ path: '/tmp/f1-compte.pn
 // la base est persistante, un nom en dur ne tiendrait qu'une fois.
 const neuf = 'Greg ' + Math.floor(Math.random() * 1000)
 await page.locator('.feuille-corps input.champ').fill(neuf)
-await page.getByRole('button', { name: 'Changer' }).click()
-await page.waitForTimeout(900)
+dit(await page.getByRole('button', { name: 'Changer' }).count() === 0, 'pas de bouton pour enregistrer le nom')
+await page.locator('.feuille-corps input.champ').press('Enter')      // Entrée quitte le champ : c'est enregistré
+await page.getByRole('status').filter({ hasText: 'Enregistré' }).waitFor({ timeout: 5000 }).catch(() => null)
+await page.waitForTimeout(400)
 dit((await page.locator('.qui span').innerText()).trim() === neuf,
-    `le renommage passe en base et remonte dans l’en-tête (« ${neuf} »)`)
+    `le nom s’enregistre en quittant le champ, passe en base et remonte dans l’en-tête (« ${neuf} »)`)
 await page.locator('.feuille-x').click()
 await page.waitForTimeout(600)
 dit(await page.locator('.feuille-corps').count() === 0, 'la feuille se ferme (animation jouée)')
@@ -113,7 +115,8 @@ dit(await sec.getByRole('button', { name: /Se déconnecter|générer une nouvell
     && await sec.locator('.cle').count() === 0,
     'plus aucune commande de compte dans les réglages de la liste')
 const texte = await sec.innerText()
-dit(/l’accueil, sous votre nom/.test(texte), 'et il dit où le compte est parti')
+dit(await sec.getByRole('button', { name: 'Passkeys, e-mail, mes données' }).count() === 1,
+    'le compte y a son entrée, « Mon compte », qui ouvre la feuille du compte')
 await page.waitForTimeout(700); await page.screenshot({ path: '/tmp/f4-laliste.png' })
 
 // ---------- 7. la sortie ---------------------------------------------------

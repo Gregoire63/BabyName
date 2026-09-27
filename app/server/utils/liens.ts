@@ -1,7 +1,8 @@
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
 
 /**
- * Les liens de connexion reçus par e-mail, et leur code à 6 chiffres.
+ * Les liens reçus par e-mail, et leur code à 6 chiffres : pour se connecter,
+ * pour confirmer l'adresse d'un compte, pour s'inscrire.
  *
  * Deux moyens pour la même preuve (« je lis cette boîte mail ») :
  *  - le LIEN, pour qui ouvre l'e-mail sur l'appareil où il veut entrer ;
@@ -15,13 +16,17 @@ import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto
  * d'un simple hachage). Un seul lien valable à la fois par adresse et par
  * but ; quinze minutes ; un seul usage ; cinq codes faux et le lien meurt.
  */
-export type ButLien = 'connexion' | 'verification'
+export type ButLien = 'connexion' | 'verification' | 'inscription'
 const ESSAIS_MAX = 5
 
 const hacher = (jeton: string) => createHash('sha256').update(jeton).digest('base64url')
 const signerCode = (code: string, email: string) => empreinteSignee(code, `code:${email}`)
 
-export async function creerLien(o: { email: string; userId: string; but: ButLien }) {
+/**
+ * Un lien vise un compte (`userId`) ; celui d'une inscription n'en a pas
+ * encore : il porte le prénom choisi (`pseudo`), et le compte naîtra de lui.
+ */
+export async function creerLien(o: { email: string; but: ButLien; userId?: string; pseudo?: string }) {
   const jeton = randomBytes(32).toString('base64url')
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
   // Le précédent lien pour la même adresse et le même but cesse de valoir :
@@ -30,9 +35,11 @@ export async function creerLien(o: { email: string; userId: string; but: ButLien
   await lot([
     [`update liens_connexion set utilise_le = ${MAINTENANT}
        where email = ?1 and but = ?2 and utilise_le is null`, [o.email, o.but]],
-    [`insert into liens_connexion (id, email, user_id, but, code_hash, expire_le)
-      values (?1, ?2, ?3, ?4, ?5, ${decale('?6')})`,
-      [hacher(jeton), o.email, o.userId, o.but, signerCode(code, o.email), `+${CONSERVATION.lienMinutes} minutes`]]
+    [`insert into liens_connexion (id, email, user_id, pseudo, but, code_hash, expire_le)
+      values (?1, ?2, ?3, ?4, ?5, ?6, ${decale('?7')})`,
+      [hacher(jeton), o.email, o.but === 'inscription' ? null : o.userId ?? null,
+        o.but === 'inscription' ? o.pseudo ?? null : null, o.but, signerCode(code, o.email),
+        `+${CONSERVATION.lienMinutes} minutes`]]
   ])
   return { jeton, code }
 }
@@ -40,31 +47,38 @@ export async function creerLien(o: { email: string; userId: string; but: ButLien
 /** Le jeton d'un lien : valable, il est consommé et dit pour qui. */
 export async function consommerJeton(jeton: string) {
   if (typeof jeton !== 'string' || !/^[A-Za-z0-9_-]{30,60}$/.test(jeton)) return null
-  return q1<{ email: string; user_id: string; but: ButLien }>(
+  return q1<{ email: string; user_id: string | null; pseudo: string | null; but: ButLien }>(
     `update liens_connexion set utilise_le = ${MAINTENANT}
       where id = ?1 and utilise_le is null and expire_le > ${MAINTENANT}
-      returning email, user_id, but`, [hacher(jeton)])
+      returning email, user_id, pseudo, but`, [hacher(jeton)])
 }
 
 export type ResultatCode =
-  | { ok: true; email: string; user_id: string }
+  | { ok: true; email: string; but: ButLien; user_id: string | null; pseudo: string | null }
   | { ok: false; raison: 'aucun' | 'faux' | 'epuise'; restants?: number }
 
-/** Le code tapé dans l'app, contre le dernier lien valable de l'adresse. */
-export async function consommerCode(email: string, but: ButLien, code: string): Promise<ResultatCode> {
+/**
+ * Le code tapé dans l'app, contre le dernier lien valable de l'adresse — pour
+ * l'un des buts donnés : l'écran d'inscription accepte aussi un code de
+ * connexion (l'adresse avait déjà un compte, voir inscription.post.ts), et
+ * inversement.
+ */
+export async function consommerCode(email: string, buts: ButLien | ButLien[], code: string): Promise<ResultatCode> {
   const propre = String(code ?? '').replace(/\D/g, '')
-  const l = await q1<{ id: string; code_hash: string; user_id: string }>(
-    `select id, code_hash, user_id from liens_connexion
-      where email = ?1 and but = ?2 and utilise_le is null and expire_le > ${MAINTENANT}
-      order by cree_le desc limit 1`, [email, but])
+  const liste = Array.isArray(buts) ? buts : [buts]
+  const l = await q1<{ id: string; code_hash: string; but: ButLien }>(
+    `select id, code_hash, but from liens_connexion
+      where email = ?1 and but in (${liste.map((_, i) => `?${i + 2}`).join(', ')})
+        and utilise_le is null and expire_le > ${MAINTENANT}
+      order by cree_le desc limit 1`, [email, ...liste])
   if (!l) return { ok: false, raison: 'aucun' }
   const attendu = Buffer.from(l.code_hash)
   const recu = Buffer.from(signerCode(propre, email))
   if (propre.length === 6 && attendu.length === recu.length && timingSafeEqual(attendu, recu)) {
-    const r = await q1<{ user_id: string }>(
+    const r = await q1<{ user_id: string | null; pseudo: string | null }>(
       `update liens_connexion set utilise_le = ${MAINTENANT}
-        where id = ?1 and utilise_le is null returning user_id`, [l.id])
-    return r ? { ok: true, email, user_id: r.user_id } : { ok: false, raison: 'aucun' }
+        where id = ?1 and utilise_le is null returning user_id, pseudo`, [l.id])
+    return r ? { ok: true, email, but: l.but, user_id: r.user_id, pseudo: r.pseudo } : { ok: false, raison: 'aucun' }
   }
   const e = await q1<{ essais: number }>(
     `update liens_connexion
@@ -109,5 +123,34 @@ export async function enregistrerEmail(userId: string, email: string) {
   }
   if (avant?.email && avant.email !== email) {
     await prevenir(alerteAdresse({ a: avant.email, pseudo: avant.pseudo, nouvelle: email }))
+  }
+}
+
+/**
+ * Une inscription prouvée (code ou lien) : le compte naît, adresse confirmée.
+ *
+ * L'adresse a pu trouver un compte entre la demande et la preuve (le même
+ * jour, sur un autre appareil) : on entre alors dans CELUI-LÀ. La boîte mail
+ * est prouvée, c'est la sienne ; en créer un second serait impossible
+ * (adresse unique) et inutile.
+ */
+export async function ouvrirCompteInscrit(email: string, pseudo: string) {
+  type Compte = { id: string; pseudo: string; gen: number }
+  const retrouver = () => q1<Compte>(
+    `update utilisateurs set vu_le = ${MAINTENANT} where email = ?1
+     returning id, pseudo, session_gen as gen`, [email])
+  const deja = await retrouver()
+  if (deja) return { ...deja, nouveau: false }
+  try {
+    const u = await q1<Compte>(
+      `insert into utilisateurs (pseudo, email, email_verifie_le) values (?1, ?2, ${MAINTENANT})
+       returning id, pseudo, session_gen as gen`, [pseudo, email])
+    if (!u) throw createError({ statusCode: 500, statusMessage: 'creation_impossible' })
+    return { ...u, nouveau: true }
+  } catch (err: any) {
+    if (!estDoublon(err)) throw err
+    const u = await retrouver()
+    if (!u) throw err
+    return { ...u, nouveau: false }
   }
 }

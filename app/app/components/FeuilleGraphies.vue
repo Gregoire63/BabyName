@@ -82,8 +82,7 @@ const barres = anneesBarres()
 <template>
   <Feuille :titre="`Les ${graphies.length} façons d’écrire ${p.l}`" @fermer="emit('fermer')">
     <p class="mini doux" style="margin:0">
-      Ils se disent pareil : une classe les entend comme un seul prénom. Votre
-      vote sur la carte vaut pour les {{ graphies.length }}.
+      Ils se disent pareil : votre vote vaut pour les {{ graphies.length }}.
     </p>
 
     <div ref="rangee" class="onglets-graphies" role="tablist" aria-label="Graphies"
@@ -129,12 +128,8 @@ const barres = anneesBarres()
         <p class="graphe-axe" aria-hidden="true"><span>1986</span><span>2025</span></p>
       </div>
       <div v-else-if="courant.nb" class="graphe">
-        <p class="graphe-tete">
-          <span>Bébés par an depuis {{ barres[0] }}</span>
-          <span>arrondis à 5 par l’Insee</span>
-        </p>
-        <BarresPrenom :key="courant.l" :valeurs="courant.nb" :an0="barres[0]" :hauteur="80" />
-        <p class="graphe-axe" aria-hidden="true"><span>{{ barres[0] }}</span><span>{{ barres[1] }}</span></p>
+        <p class="graphe-tete"><span>Naissances par an</span></p>
+        <BarresPrenom :key="courant.l" :valeurs="courant.nb" :an0="barres[0]" :hauteur="110" />
       </div>
       <p v-else class="mini doux" style="margin:0">
         Trop peu de naissances chaque année pour tracer une courbe.

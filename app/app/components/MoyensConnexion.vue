@@ -112,8 +112,7 @@ const dernier = (quoi: 'passkey' | 'email' | 'cle') => {
   <div class="pile" style="gap:14px">
     <p v-if="moyens === 0" class="mini alerte" style="margin:0">
       <strong>Ce compte n’existe que sur cet appareil.</strong> Ajoutez une passkey
-      ou une adresse e-mail : sans elles, un téléphone perdu ou remis à zéro, et
-      vos listes sont perdues pour vous.
+      ou une adresse e-mail pour ne pas le perdre.
     </p>
 
     <!-- passkeys -->
@@ -187,8 +186,7 @@ const dernier = (quoi: 'passkey' | 'email' | 'cle') => {
     <div v-if="moi?.a_une_cle" class="pile" style="gap:8px">
       <p class="sous-titre">Ancienne clé d’accès</p>
       <p class="mini doux" style="margin:0">
-        Encore active. Une passkey ou une adresse la remplacent : vous pouvez la
-        désactiver, il n’y aura plus de secret à garder sur un bout de papier.
+        Encore active. Une passkey ou une adresse la remplacent.
       </p>
       <template v-if="desactiverDemande">
         <p v-if="dernier('cle')" class="mini" style="margin:0;color:var(--non)">
@@ -209,9 +207,8 @@ const dernier = (quoi: 'passkey' | 'email' | 'cle') => {
       <p class="sous-titre">Vos appareils</p>
       <template v-if="partoutDemande">
         <p class="mini" style="margin:0">
-          Tous les appareils où vous êtes connecté, sauf celui-ci, devront se
-          reconnecter. À faire après un téléphone perdu — et vérifiez les
-          passkeys ci-dessus : retirez celles que vous ne reconnaissez pas.
+          Tous vos autres appareils devront se reconnecter. Après un téléphone
+          perdu, retirez aussi les passkeys que vous ne reconnaissez pas.
         </p>
         <div class="ligne">
           <button type="button" class="btn mini btn-danger" :disabled="!!occupe"

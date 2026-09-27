@@ -1,10 +1,15 @@
 /**
- * Envoyer un e-mail — ceux de la connexion, et rien d'autre.
+ * Envoyer un e-mail — ceux de l'inscription et de la connexion, et rien d'autre.
  *
- * Pas de SDK : un appel HTTP au prestataire nommé dans shared/utils/editeur.ts
- * (COURRIEL), avec la clé posée en secret du Worker. Aucune liste de diffusion, aucun
- * pixel de suivi, aucun lien réécrit : un lien de connexion qui passe par un
- * traceur de clics fuirait son jeton chez un tiers.
+ * Le prestataire est nommé dans shared/utils/editeur.ts (COURRIEL) :
+ *  - OVH : la boîte du domaine, en SMTP. Le Worker ouvre lui-même la
+ *    connexion (sockets TCP de Cloudflare, bibliothèque worker-mailer),
+ *    s'authentifie avec le mot de passe de la boîte (secret du Worker) et
+ *    envoie, chiffré jusqu'à OVH (port 465, TLS dès la connexion).
+ *  - Brevo ou Resend : un appel HTTP à leur API, avec la clé en secret.
+ * Aucune liste de diffusion, aucun pixel de suivi, aucun lien réécrit : un
+ * lien de connexion qui passe par un traceur de clics fuirait son jeton chez
+ * un tiers.
  *
  * En développement, sans clé, rien ne part : le message est rangé dans une
  * boîte locale (/api/dev/courriels, les outils de dev de « Mon compte ») et
@@ -18,8 +23,31 @@ function reglages() {
   const c = useRuntimeConfig()
   return {
     cle: String(c.emailCle ?? ''),
-    expediteur: String(c.emailExpediteur ?? '')
+    expediteur: String(c.emailExpediteur ?? ''),
+    smtp: String(c.emailSmtp ?? '')
   }
+}
+
+/**
+ * OVH, en SMTP. « serveur:port » : 465, TLS dès la connexion (ce que
+ * recommande OVH) ; 587, STARTTLS. Le compte est l'adresse de l'expéditeur.
+ * La bibliothèque n'est chargée qu'ici : elle s'appuie sur `cloudflare:sockets`,
+ * qui n'existe que dans le Worker (en développement, la boîte locale suffit).
+ */
+async function parSmtp(c: Courriel, de: { nom: string; email: string }, r: ReturnType<typeof reglages>) {
+  const [hote, portBrut] = r.smtp.split(':')
+  const port = Number(portBrut) || 465
+  if (!hote) throw createError({ statusCode: 503, statusMessage: 'courriel_non_configure' })
+  const { WorkerMailer } = await import('worker-mailer')
+  await WorkerMailer.send({
+    host: hote, port, secure: port === 465, startTls: port !== 465,
+    credentials: { username: de.email, password: r.cle },
+    authType: ['plain', 'login'],
+    socketTimeoutMs: 15_000, responseTimeoutMs: 15_000
+  }, {
+    from: { name: de.nom, email: de.email },
+    to: c.a, subject: c.sujet, text: c.texte, html: c.html
+  })
 }
 
 /** L'envoi est-il possible ? Sans lui, l'app ne propose pas le lien par e-mail. */
@@ -46,6 +74,18 @@ export async function envoyerCourriel(c: Courriel): Promise<void> {
     throw createError({ statusCode: 503, statusMessage: 'courriel_non_configure' })
   }
   const de = lireExpediteur(r.expediteur)
+  if (COURRIEL.fournisseur === 'ovh') {
+    try {
+      await parSmtp(c, de, r)
+    } catch (err: any) {
+      if (err?.statusCode) throw err
+      // Le détail (réponse du serveur SMTP) part dans les journaux, jamais au
+      // navigateur — et jamais le mot de passe, que la bibliothèque ne journalise pas.
+      console.error('[courriel] smtp', String(err?.message ?? err).slice(0, 300))
+      throw createError({ statusCode: 502, statusMessage: 'courriel_indisponible' })
+    }
+    return
+  }
   const reponse = COURRIEL.fournisseur === 'resend'
     ? await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -117,6 +157,32 @@ export function courrielVerification(o: { a: string; pseudo: string; lien: strin
       `${esc(o.pseudo)}, pour pouvoir retrouver votre compte babyNamed avec cette adresse :`,
       { texte: 'Confirmer mon adresse', lien: o.lien }, o.code,
       `Valable ${minutes} minutes. Si vous n’avez rien demandé, ignorez ce message : l’adresse ne sera pas enregistrée.`)
+  }
+}
+
+export function courrielInscription(o: { a: string; pseudo: string; lien: string; code: string }): Courriel {
+  const minutes = CONSERVATION.lienMinutes
+  const fin = `Valable ${minutes} minutes. Si vous n’avez rien demandé, ignorez ce message : aucun compte ne sera créé.`
+  return {
+    a: o.a,
+    sujet: `Votre inscription à babyNamed — code ${o.code}`,
+    texte: `Bonjour ${o.pseudo},\n\nPour créer votre compte babyNamed, ouvrez ce lien :\n${o.lien}\n\nOu tapez ce code dans l’app : ${o.code}\n\n${fin}\n`,
+    html: gabarit(`Bienvenue ${o.pseudo}`, 'Pour créer votre compte babyNamed :',
+      { texte: 'Créer mon compte', lien: o.lien }, o.code, fin)
+  }
+}
+
+/** Une inscription sur une adresse qui a déjà un compte : on y fait entrer. */
+export function courrielDejaInscrit(o: { a: string; pseudo: string; lien: string; code: string }): Courriel {
+  const minutes = CONSERVATION.lienMinutes
+  const fin = `Lien et code valent ${minutes} minutes, une seule fois. Si vous n’avez rien demandé, ignorez ce message : personne ne peut entrer sans eux.`
+  return {
+    a: o.a,
+    sujet: `Vous avez déjà un compte babyNamed — code ${o.code}`,
+    texte: `Bonjour ${o.pseudo},\n\nCette adresse a déjà un compte babyNamed : inutile d’en créer un second. Pour y entrer, ouvrez ce lien :\n${o.lien}\n\nOu tapez ce code dans l’app : ${o.code}\n\n${fin}\n`,
+    html: gabarit(`Bonjour ${o.pseudo}`,
+      'Cette adresse a déjà un compte babyNamed : inutile d’en créer un second. Pour y entrer :',
+      { texte: 'Me connecter', lien: o.lien }, o.code, fin)
   }
 }
 

@@ -766,8 +766,7 @@ async function confirmerFamille() {
       <div v-if="quotaAtteint && paye" class="vide">
         <Etincelles :taille="34" couleur="var(--peche)" />
         <h2>C’est assez pour aujourd’hui</h2>
-        <p>{{ plafond }} prénoms jugés. Trier à la chaîne abîme le jugement :
-           les vingt derniers ne valent pas les vingt premiers.</p>
+        <p>{{ plafond }} prénoms jugés : les suivants seront mieux jugés demain.</p>
         <button class="btn" @click="encore">Encore {{ PAS_BONUS }} quand même</button>
       </div>
 
@@ -795,8 +794,8 @@ async function confirmerFamille() {
           cette liste.
         </p>
         <p class="mini doux" style="margin:0">
-          Débloquer cette liste ({{ prixListe }}, une fois) : plus aucune limite
-          ici, pour tout le monde dedans. Vos autres listes restent gratuites.
+          Débloquer cette liste ({{ prixListe }}, une fois) : plus aucune limite, pour
+          tous ses membres.
         </p>
         <button class="btn btn-1" @click="g.ouvrirDebloquer()">Voir ce que ça ouvre</button>
       </div>
@@ -902,9 +901,8 @@ async function confirmerFamille() {
         <h2 id="titre-famille">Non à tous les « {{ prefixeBalayage }}… » ?</h2>
         <p id="texte-famille" class="mini doux" style="margin:0">
           Les {{ familleAEcarter.length }} prénoms qui commencent par
-          « {{ prefixeBalayage }} » passent en « non » d’un coup : vous ne les verrez
-          plus défiler un par un. Vous pourrez les remettre en jeu dans
-          Classement › Mes choix.
+          « {{ prefixeBalayage }} » passent en « non » d’un coup. Ils se remettent
+          en jeu dans Classement › Mes choix.
         </p>
         <div class="ligne noms">
           <span v-for="f in familleAEcarter" :key="f.l" class="puce">{{ f.l }}</span>

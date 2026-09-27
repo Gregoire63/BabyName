@@ -211,7 +211,8 @@ l'app ne fait jamais (page de paiement Stripe).
 4. **Les secrets** : *Worker → Settings → Variables and Secrets* (type
    *Secret*), ou `npx wrangler secret put NOM` :
    `NUXT_SESSION_SECRET` (le même qu'avant garde les sessions ouvertes… sur
-   l'ancien domaine seulement, donc au choix), `NUXT_EMAIL_CLE`,
+   l'ancien domaine seulement, donc au choix), `NUXT_EMAIL_CLE` (le mot de
+   passe de la boîte OVH qui envoie),
    `NUXT_STRIPE_SECRET_KEY`, `NUXT_STRIPE_WEBHOOK_SECRET`,
    `NUXT_STRIPE_PRICE_ID`, `NUXT_STRIPE_PRICE_ID_CADEAU`, et `CRON_SECRET`
    si l'on veut pouvoir lancer la purge à la main. Le reste (`NUXT_PUBLIC_SITE_URL`, prix, expéditeur) est
@@ -230,8 +231,10 @@ l'app ne fait jamais (page de paiement Stripe).
 9. **Stripe** : pointer le webhook sur `https://babynamed.fr/api/paiement/webhook`
    (même événements), et remplacer l'adresse du site dans *Settings →
    Business → Public details* (voir « Brancher Stripe »).
-10. **Brevo** : domaine `babynamed.fr` (enregistrements DKIM/DMARC dans le DNS
-    Cloudflare) — voir « Connexion sans mot de passe ».
+10. **L'e-mail** : la boîte OVH, son mot de passe en secret, DKIM et DMARC
+    dans le DNS Cloudflare — voir « Connexion sans mot de passe ». Sans lui,
+    personne ne peut s'inscrire.
+11. **Les sauvegardes** : voir « Sauvegardes chez OVH » ci-dessous.
 
 Avant le domaine, l'adresse d'essai `babynamed.<compte>.workers.dev` marche
 entièrement (connexion, passkeys, liens) : l'app prend l'adresse de la
@@ -266,6 +269,39 @@ wrangler, dans workerd — le même moteur que Cloudflare, base locale
 comprise (`.wrangler/state`). `npm run deploy` construit et déploie depuis le
 poste, sans passer par GitHub.
 
+### Sauvegardes chez OVH
+
+D1 garde 7 jours d'historique sur l'offre gratuite (*Time Travel*), dans le
+même compte Cloudflare que la base. Une copie **ailleurs** part donc chaque
+nuit sur l'hébergement gratuit d'OVH (100 Mo, compris avec le domaine) :
+GitHub Actions exporte la base, la compresse, la **chiffre** avec une clé
+publique `age`, et la dépose en SFTP dans `sauvegardes/`, hors de `www/`
+(jamais servie sur le web). On garde les 30 dernières nuits et la première
+de chacun des 12 derniers mois. Le script : `scripts/sauvegarde-ovh.sh`
+(comment restaurer, en tête) ; le calendrier :
+`.github/workflows/sauvegarde-base.yml`, à la racine du dépôt.
+
+Une fois :
+
+1. **La clé** : `age-keygen -o babynamed-sauvegarde.key` sur son ordinateur
+   (sous Windows : `winget install FiloSottile.age`).
+   La clé **privée** va dans le gestionnaire de mots de passe (sans elle, les
+   sauvegardes sont illisibles — c'est le but) ; la ligne `age1…` (publique)
+   devient la variable `AGE_DESTINATAIRE` du dépôt GitHub.
+2. **OVH** : *Hébergement → FTP-SSH* : activer le **SFTP** (le FTP simple
+   ferait passer le mot de passe en clair) ; noter serveur et identifiant.
+3. **Cloudflare** : un jeton d'API limité au compte et à D1 (*My Profile →
+   API Tokens → Custom token*, permission *Account → D1 → Edit* ; essayer
+   *Read* d'abord, garder *Edit* si l'export le refuse).
+4. **GitHub** → *Settings → Secrets and variables → Actions* : secrets
+   `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `OVH_SFTP_HOTE`,
+   `OVH_SFTP_UTILISATEUR`, `OVH_SFTP_MOT_DE_PASSE` ; variable
+   `AGE_DESTINATAIRE`. Puis *Actions → Sauvegarde de la base → Run workflow*
+   pour la première.
+
+L'export bloque la base quelques secondes (d'où 03:41 UTC) et compte dans
+les lignes lues du jour, une fois par nuit : négligeable.
+
 ## Référencement : moteurs et IA
 
 `npm run build` lance `scripts/seo.mjs` **avant** `nuxt build`. Il écrit dans
@@ -273,8 +309,8 @@ poste, sans passer par GitHub.
 
 | Sortie | Rôle |
 |---|---|
-| `prenom/<slug>/` | une fiche statique par prénom : sens (avec sa certitude), origine, courbe INSEE (ou, pour un petit prénom, ses bébés par an en barres, sans pourcentage), graphies, proches — 7 462 pages, dont les 859 sans sens ni origine en `noindex` et hors sitemap (constante `mince`) |
-| `prenoms/…` | le portail, les listes (tendances, rares, populaires, origines, lettres) |
+| `prenom/<slug>/` | une fiche statique par prénom : sens (avec sa certitude), origine, courbe INSEE (ou, pour un petit prénom, ses bébés par an en barres chiffrées, sans pourcentage), graphies, proches — 7 462 pages, dont les 859 sans sens ni origine en `noindex` et hors sitemap (constante `mince`) |
+| `prenoms/…` | le portail, les listes (tendances, rares, populaires, origines, lettres). Les pages de **classement** portent « Offrir babyNamed » en tête et en bas : qui cherche « prénoms de fille tendance » est souvent la sœur ou l'amie qui prépare un cadeau de naissance |
 | `choisir-un-prenom-a-deux/` | **la page de l'application** : fonctionnement, gratuit / payant, données, FAQ ; `WebApplication` + `FAQPage` en JSON-LD |
 | `sitemap.xml`, `robots.txt`, `llms.txt` | pour les robots |
 
@@ -585,7 +621,7 @@ offre fait entrer un couple qui ne connaissait pas l'app.
 
 | Étape | Où | Ce qui se passe |
 |---|---|---|
-| Offrir | `/offrir`, **sans compte** (liens : accueil, carte « Liste débloquée », page de l'app, llms.txt) | nom et mot facultatifs, case d'accord, puis Stripe. Le code (12 caractères) est tiré à l'ouverture de la session et voyage dans ses métadonnées. |
+| Offrir | une **feuille** (`FeuilleOffrir.vue`), ouverte sur place depuis l'accueil et les réglages ; `/offrir`, **sans compte**, l'ouvre d'elle-même (liens : pages de classement du référencement, en tête et en bas, page de l'app, llms.txt, retour d'un paiement annulé) | nom et mot facultatifs, case d'accord, puis Stripe. Le code (12 caractères) est tiré à l'ouverture de la session et voyage dans ses métadonnées. |
 | Recevoir le code | `/offrir/merci?session_id=…` et la **facture** Stripe (champ « Code cadeau ») | le serveur relit la session, enregistre le cadeau s'il est payé (`livrerCadeau`, comme le webhook), rend le code et un lien `/?cadeau=…` à transmettre. |
 | L'ouvrir | le lien, ou le code tapé dans « Rejoindre une liste » ou « Débloquer » | le lien traverse la connexion ; la feuille « Un cadeau pour vous » dit de qui, le mot, et propose les listes **pas encore débloquées** ou une nouvelle (les questions habituelles, puis la liste arrive débloquée). |
 
@@ -613,7 +649,7 @@ Règles, et pourquoi :
 
 En local : le jeu d'essai contient un code payé pour de faux,
 **`BEBE-2345-CADE`** (`/?cadeau=BEBE2345CADE`, « de la part de Mamie »),
-et `/offrir` a un bouton « Créer un code sans payer (base locale) ».
+et la feuille « Offrir » a un bouton « Créer un code sans payer (base locale) ».
 
 Offrir soi-même, sans passer par la caisse — pas d'écran d'administration :
 c'est une surface d'attaque pour un geste qu'on fait trois fois par an. La
@@ -783,54 +819,75 @@ retiré) au lieu de laisser une clé étrangère lever une `500`.
 
 ## Connexion sans mot de passe
 
-Plus de clé d'accès à recopier. La page `/connexion` n'a que deux onglets,
-**Inscription** (un prénom, et on entre) et **Connexion** ; après une
-déconnexion, on y revient sur Connexion (`?mode=connexion`). Pas d'étape
-entre l'inscription et le tri : l'accueil rappelle d'une ligne, tant que ce
-n'est pas fait, de quoi retrouver le compte ailleurs :
+Plus de clé d'accès à recopier, plus de mot de passe. La page `/connexion`
+n'a que deux onglets, et ce sont deux **liens magiques** :
 
-- **une passkey** (WebAuthn) : Face ID, empreinte ou code du téléphone. Elle
-  se range dans le trousseau (iCloud, Google, 1Password…) et suit sur les
-  autres appareils. La base ne garde que la clé **publique** ; rien de
-  biométrique ne quitte le téléphone. Vérification confiée à
-  `@simplewebauthn/server` (pas de cryptographie maison) ;
-- **un lien par e-mail, doublé d'un code à 6 chiffres**. Le code est
+- **Inscription** : un prénom et une adresse e-mail. Le compte ne naît qu'une
+  fois l'adresse prouvée, par le lien ou le code à 6 chiffres reçus
+  (`inscription.post.ts`) ; avant, seule la demande existe (quinze minutes,
+  `liens_connexion`, but « inscription »). Une adresse qui a déjà un compte
+  reçoit un lien de **connexion** à ce compte — l'écran répond pareil, il ne
+  dit à personne qui utilise l'app.
+- **Connexion** : l'adresse, et le même lien doublé d'un code. Le code est
   indispensable : l'app installée sur l'écran d'accueil a ses propres
   cookies, et le lien s'ouvrirait dans le navigateur, pas dans elle.
 
-Sans l'un ni l'autre, l'accueil affiche « Ce compte n'existe que sur cet
-appareil ». Les comptes d'avant gardent leur clé (« J'ai déjà une clé », en
-petit) jusqu'à ce qu'ils la désactivent dans *Mon compte*.
+Après l'un ou l'autre, à la **première connexion** d'un compte sans passkey,
+l'app la propose (`ProposerPasskey.vue`) : Face ID, empreinte ou code du
+téléphone, et plus d'e-mail à attendre la fois suivante. « Plus tard » est
+retenu trente jours sur l'appareil ; la passkey reste à un geste dans
+*Réglages → Mon compte* et sur l'accueil (*Mon compte*).
+
+- **La passkey** (WebAuthn) se range dans le trousseau (iCloud, Google,
+  1Password…) et suit sur les autres appareils. La base ne garde que la clé
+  **publique** ; rien de biométrique ne quitte le téléphone. Vérification
+  confiée à `@simplewebauthn/server` (pas de cryptographie maison).
+- Après une déconnexion, on revient sur l'onglet Connexion (`?mode=connexion`).
+- Les comptes d'avant gardent leur clé (« J'ai déjà une clé », en petit)
+  jusqu'à ce qu'ils la désactivent dans *Mon compte* ; sans adresse ni
+  passkey, l'accueil affiche « Ce compte n'existe que sur cet appareil ».
+- `/api/auth/entrer` (un compte d'un prénom, sans adresse) ne répond plus
+  qu'en **développement** : les essais et les outils de dev s'en servent.
 
 | Où | Quoi |
 |---|---|
+| `server/api/auth/inscription.post.ts` | la demande d'inscription (prénom + adresse) ; adresse déjà inscrite → lien de connexion |
+| `server/api/auth/lien*.ts`, `code.post.ts`, `email.*.ts` | lien + code (15 min, un seul usage, 5 codes faux et le lien meurt, empreintes seulement) ; le code accepte inscription et connexion |
 | `server/api/auth/passkey/*` | options et vérification (inscription, connexion) ; défi dans un cookie signé de 5 min |
-| `server/api/auth/lien*.ts`, `code.post.ts`, `email.*.ts` | lien + code (15 min, un seul usage, 5 codes faux et le lien meurt, empreintes seulement) |
-| `server/utils/liens.ts`, `courriel.ts` | création/consommation des liens ; envoi (Brevo ou Resend, sans SDK) |
-| `app/components/MoyensConnexion.vue`, `FormulaireEmail.vue` | *Mon compte → Se connecter* (passkey, adresse, ancienne clé), le formulaire adresse → code |
-| `app/pages/connexion/lien.vue` | le lien de l'e-mail : jeton après le `#`, effacé de l'adresse, **un bouton** avant de le consommer (les robots des messageries ouvrent les liens) |
+| `server/utils/liens.ts`, `courriel.ts` | création/consommation des liens, naissance du compte (`ouvrirCompteInscrit`) ; envoi (OVH en SMTP, ou Brevo/Resend par API) |
+| `app/components/FormulaireEmail.vue`, `ProposerPasskey.vue`, `MoyensConnexion.vue` | adresse → code (inscription, connexion, vérification) ; la passkey proposée ; *Mon compte → Se connecter* |
+| `app/pages/connexion/lien.vue` | le lien de l'e-mail : jeton après le `#`, effacé de l'adresse, **un bouton** avant de le consommer (les robots des messageries ouvrent les liens) ; l'invitation ou le prénom qu'on suivait sont repris (`utils/entreeEnAttente`) |
 
 **Le domaine, avant tout.** Une passkey est liée au domaine où elle est
 créée : `babynamed.fr`. En changer plus tard rend les passkeys existantes
-inutilisables. Il sert aussi à l'e-mail : `connexion@babynamed.fr`.
+inutilisables. Il sert aussi à l'e-mail : `contact@babynamed.fr`.
 
-**L'e-mail (Brevo)** — le prestataire est nommé dans
+**L'e-mail (la boîte OVH du domaine)** — le prestataire est nommé dans
 `shared/utils/editeur.ts` (`COURRIEL`), et la politique de confidentialité le
-cite d'elle-même :
+cite d'elle-même. Par défaut, la messagerie Zimbra comprise avec
+`babynamed.fr`, en SMTP depuis le Worker (sockets TCP de Cloudflare,
+bibliothèque `worker-mailer`, port 465 chiffré). Rien de plus à payer :
 
-1. Créer un compte Brevo (gratuit, 300 e-mails/jour), puis *Senders, Domains
-   & Dedicated IPs → Domains* : ajouter `babynamed.fr` et poser dans le DNS
-   Cloudflare les enregistrements DKIM/DMARC qu'il donne.
-2. *Transactional → Settings* : **couper le suivi des clics** (et des
-   ouvertures). Un lien de connexion réécrit par un traceur passerait par
-   un tiers, jeton compris.
-3. *SMTP & API → API keys* : créer une clé ; en secret du Worker,
-   `NUXT_EMAIL_CLE`. L'expéditeur, `NUXT_EMAIL_EXPEDITEUR`, est déjà dans
-   `wrangler.jsonc` (`babyNamed <connexion@babynamed.fr>`).
-4. `/api/sante` → `presence.courriel: true`.
+1. Dans l'espace client OVH, créer la boîte (par exemple
+   `contact@babynamed.fr`) et lui donner un mot de passe long, propre à elle.
+2. En secret du Worker : `npx wrangler secret put NUXT_EMAIL_CLE` → ce mot
+   de passe. L'adresse est `NUXT_EMAIL_EXPEDITEUR` dans `wrangler.jsonc`
+   (`babyNamed <contact@babynamed.fr>` : la boîte elle-même, OVH refuse
+   d'envoyer au nom d'une autre). Le serveur : `NUXT_EMAIL_SMTP`,
+   `ssl0.ovh.net:465` par défaut.
+3. DNS (zone Cloudflare) : les MX, le SPF et les deux CNAME **DKIM** d'OVH
+   (espace client → E-mails → DKIM) ; ajouter un DMARC
+   (`_dmarc` TXT `v=DMARC1; p=none; rua=mailto:contact@babynamed.fr`). Sans
+   DKIM, Gmail range les codes en indésirables.
+4. `/api/sante` → `presence.courriel: true` ; s'inscrire avec sa propre
+   adresse pour voir l'e-mail arriver.
 
-Pour Resend à la place : `COURRIEL.fournisseur = 'resend'` dans
-`editeur.ts` (la politique de confidentialité suit), même variables.
+Limites à connaître : les boîtes mutualisées d'OVH plafonnent l'envoi (de
+l'ordre de 200 e-mails par heure sur MX Plan ; OVH ne publie pas de chiffre
+pour Zimbra Starter). Au lancement, largement assez. Si ça coince (plafond,
+indésirables), Brevo (français, 300 e-mails par jour gratuits) est prêt :
+`COURRIEL.fournisseur = 'brevo'`, sa clé d'API dans `NUXT_EMAIL_CLE`, suivi
+des clics coupé ; Resend de même (`'resend'`).
 
 En local, rien ne part : les e-mails arrivent dans une boîte de
 développement (*Mon compte → Outils de développement*, ou

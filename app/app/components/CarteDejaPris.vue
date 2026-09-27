@@ -128,14 +128,7 @@ async function retirer(d: { prenom: string; mien: boolean }) {
            aria-labelledby="titre-deja-pris">
     <h2 id="titre-deja-pris">Déjà pris</h2>
     <p v-if="!jObserve" class="mini doux" style="margin:0">
-      Le prénom de la cousine, du fils des amis, de quelqu’un qu’on connaît
-      trop : il sort du tri pour toute la liste, avec ses graphies. Tout le
-      monde le voit, avec votre note, et chacun peut le remettre en jeu. Sans
-      limite.
-    </p>
-    <p v-else class="mini doux" style="margin:0">
-      Les prénoms que la liste a retirés du jeu : ils ne vous seront pas
-      proposés.
+      Celui de la cousine, du fils des amis : il sort du tri pour toute la liste.
     </p>
 
     <div v-if="!jObserve" class="ajout">
@@ -201,10 +194,6 @@ async function retirer(d: { prenom: string; mien: boolean }) {
       Aucun pour l’instant.
     </p>
 
-    <p v-if="!jObserve" class="mini doux" style="margin:0">
-      Un prénom qu’on préfère ne pas expliquer ? « Bloquer », sur sa carte,
-      puis « En secret ».
-    </p>
   </section>
 </template>
 

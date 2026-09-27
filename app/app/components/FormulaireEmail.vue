@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /**
- * L'adresse, puis le code : le même formulaire pour les deux usages.
+ * L'adresse, puis le code : le même formulaire pour les trois usages.
  *
+ *  - `inscription` : le prénom (`pseudo`, champ fourni par la page dans le
+ *    créneau `avant`) et l'adresse ; le compte naît du code ou du lien ;
  *  - `connexion` : recevoir un lien pour entrer sur cet appareil ;
  *  - `verification` : ajouter (ou changer) l'adresse du compte connecté.
  *
@@ -12,8 +14,8 @@
  * En connexion, le champ porte `autocomplete="username webauthn"` : le
  * clavier y propose aussi les passkeys du téléphone (voir connexion.vue).
  */
-const props = defineProps<{ but: 'connexion' | 'verification'; adresse?: string }>()
-const emit = defineEmits<{ fait: [email: string] }>()
+const props = defineProps<{ but: 'inscription' | 'connexion' | 'verification'; adresse?: string; pseudo?: string }>()
+const emit = defineEmits<{ fait: [email: string]; envoye: [email: string] }>()
 
 const email = ref(props.adresse ?? '')
 const code = ref('')
@@ -25,7 +27,7 @@ let minuteur: any = null
 const idEmail = useId()
 const idCode = useId()
 const champCode = ref<HTMLInputElement>()
-const minutes = CONSERVATION.lienMinutes
+const LIBELLES = { inscription: 'Créer mon compte', connexion: 'Recevoir un lien', verification: 'Envoyer la confirmation' }
 
 onBeforeUnmount(() => clearInterval(minuteur))
 
@@ -34,6 +36,7 @@ function message(err: any): string {
   const d = err?.data?.data
   switch (c) {
     case 'email_invalide': return 'Cette adresse n’a pas l’air complète.'
+    case 'pseudo_trop_court': return 'Votre prénom : deux lettres au moins.'
     case 'trop_d_essais': {
       const m = Math.max(1, Math.ceil((d?.reessayer_dans ?? 60) / 60))
       return `Trop d’essais d’un coup. Réessayez dans ${m} minute${m > 1 ? 's' : ''}.`
@@ -48,15 +51,22 @@ function message(err: any): string {
   }
 }
 
+const ROUTES = { inscription: '/api/auth/inscription', connexion: '/api/auth/lien', verification: '/api/auth/email' }
+
 async function envoyer() {
   if (envoi.value) return
   erreur.value = ''
+  if (props.but === 'inscription' && (props.pseudo ?? '').trim().length < 2) {
+    erreur.value = message({ statusMessage: 'pseudo_trop_court' })
+    return
+  }
   envoi.value = true
   try {
     const cible = email.value.trim()
-    await $fetch(props.but === 'connexion' ? '/api/auth/lien' : '/api/auth/email',
-      { method: 'POST', body: { email: cible } })
+    await $fetch(ROUTES[props.but], { method: 'POST',
+      body: props.but === 'inscription' ? { email: cible, pseudo: props.pseudo } : { email: cible } })
     envoye.value = cible
+    emit('envoye', cible)
     code.value = ''
     attente.value = 30
     clearInterval(minuteur)
@@ -98,24 +108,22 @@ function changer() { envoye.value = ''; code.value = ''; erreur.value = '' }
 
 <template>
   <div class="pile" style="gap:10px">
-    <template v-if="!envoye">
+    <!-- Un vrai formulaire : Entrée l'envoie depuis n'importe quel champ, et
+         les gestionnaires de mots de passe reconnaissent l'adresse. -->
+    <form v-if="!envoye" class="pile" style="gap:10px" novalidate @submit.prevent="envoyer">
+      <slot name="avant" />
       <label :for="idEmail" class="mini doux">Votre adresse e-mail</label>
-      <div class="ligne">
-        <input :id="idEmail" v-model="email" class="champ" style="flex:1" type="email"
-               inputmode="email" autocapitalize="off" spellcheck="false"
-               :autocomplete="but === 'connexion' ? 'username webauthn' : 'email'"
-               placeholder="vous@exemple.fr" @keyup.enter="envoyer">
-      </div>
-      <button type="button" class="btn btn-1" :disabled="envoi || !email.trim()" @click="envoyer">
-        {{ envoi ? 'Envoi…' : but === 'connexion' ? 'Recevoir un lien' : 'Envoyer la confirmation' }}
+      <input :id="idEmail" v-model="email" class="champ" type="email"
+             inputmode="email" autocapitalize="off" spellcheck="false"
+             :autocomplete="but === 'connexion' ? 'username webauthn' : 'email'"
+             placeholder="vous@exemple.fr">
+      <button type="submit" class="btn btn-1" :disabled="envoi || !email.trim()">
+        {{ envoi ? 'Envoi…' : LIBELLES[but] }}
       </button>
-      <p v-if="but === 'connexion'" class="mini doux" style="margin:0">
-        Un lien et un code, valables {{ minutes }} minutes. Pas de mot
-        de passe, pas de lettre d’information.
-      </p>
-    </template>
+      <slot name="apres" />
+    </form>
 
-    <template v-else>
+    <form v-else class="pile" style="gap:10px" @submit.prevent="valider">
       <p class="mini" style="margin:0" role="status">
         <template v-if="but === 'connexion'">
           Si un compte utilise <strong>{{ envoye }}</strong>, l’e-mail arrive dans la
@@ -129,8 +137,8 @@ function changer() { envoye.value = ''; code.value = ''; erreur.value = '' }
       <label :for="idCode" class="sr-only">Code à 6 chiffres reçu par e-mail</label>
       <input :id="idCode" ref="champCode" :value="code" class="champ code" inputmode="numeric"
              autocomplete="one-time-code" placeholder="123456" maxlength="7"
-             @input="saisir" @keyup.enter="valider">
-      <button type="button" class="btn btn-1" :disabled="envoi || code.length !== 6" @click="valider">
+             @input="saisir">
+      <button type="submit" class="btn btn-1" :disabled="envoi || code.length !== 6">
         {{ envoi ? 'Vérification…' : 'Valider le code' }}
       </button>
       <div class="ligne" style="justify-content:space-between;flex-wrap:wrap;gap:4px">
@@ -139,7 +147,7 @@ function changer() { envoye.value = ''; code.value = ''; erreur.value = '' }
         </button>
         <button type="button" class="btn btn-0 mini doux" @click="changer">Changer d’adresse</button>
       </div>
-    </template>
+    </form>
 
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
   </div>

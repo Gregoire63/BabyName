@@ -54,3 +54,43 @@ export async function onglet(nav) {
   })
   return { ctx, page: await ctx.newPage() }
 }
+
+/**
+ * La boîte aux lettres du développement (/api/dev/courriels) : le dernier
+ * e-mail reçu par `a` depuis `apres` (ms), qu'on attend un peu.
+ */
+export async function courrielPour(a, { apres = 0, delai = 10000 } = {}) {
+  const fin = Date.now() + delai
+  while (Date.now() < fin) {
+    const boite = await fetch(`${BASE}/api/dev/courriels`).then(r => r.json()).catch(() => [])
+    const m = boite.find(c => c.a === a && Date.parse(c.le) >= apres)
+    if (m) return m
+    await new Promise(r => setTimeout(r, 200))
+  }
+  return null
+}
+
+/**
+ * S'inscrire depuis /connexion, onglet Inscription : le prénom, l'adresse,
+ * puis le code reçu (ou, avec `parLien`, le lien de l'e-mail ouvert dans le
+ * même navigateur). La passkey, proposée juste après, est remise à plus tard
+ * (sauf `passkey: true` : on s'arrête sur la proposition). Rend l'e-mail reçu.
+ */
+export async function inscrire(page, pseudo, email, { parLien = false, passkey = false } = {}) {
+  const avant = Date.now() - 1000
+  await page.getByLabel('Votre prénom').fill(pseudo)
+  await page.getByLabel('Votre adresse e-mail').fill(email)
+  await page.getByRole('button', { name: 'Créer mon compte' }).click()
+  const m = await courrielPour(email, { apres: avant })
+  if (!m?.code) throw new Error(`aucun e-mail d’inscription pour ${email}`)
+  if (parLien) {
+    await page.goto(m.lien, { waitUntil: 'networkidle' })
+    await page.getByRole('button', { name: 'Continuer' }).click()
+  } else {
+    await page.locator('input[autocomplete="one-time-code"]').fill(m.code)
+  }
+  const plusTard = page.getByRole('button', { name: 'Plus tard' })
+  await plusTard.waitFor({ timeout: 15000 })
+  if (!passkey) await plusTard.click()
+  return m
+}

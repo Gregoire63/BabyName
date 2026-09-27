@@ -5,9 +5,10 @@ import { signalerNom, signalerPasskeysRestantes } from '~/composables/usePasskey
 /**
  * Le compte, au meme endroit que le nom sur lequel on a tape.
  *
- * C'etait au fond des reglages d'une liste, ce qui n'avait pas de sens : le
- * nom et les facons de se connecter ne dependent d'aucune liste. On touche
- * son nom sur l'accueil, on tombe sur ce qui le concerne.
+ * Le nom et les facons de se connecter ne dependent d'aucune liste : on
+ * touche son nom sur l'accueil, on tombe sur ce qui le concerne. Les Reglages
+ * d'une liste y menent aussi (« Mon compte ») : c'est la qu'on cherche la
+ * passkey.
  */
 const emit = defineEmits<{ fermer: [] }>()
 
@@ -93,17 +94,14 @@ async function supprimerCompte() {
 <template>
   <Feuille titre="Mon compte" @fermer="emit('fermer')">
     <section class="pile">
-      <label for="compte-nom" class="etiquette">Nom affiché</label>
       <div class="ligne">
-        <input id="compte-nom" v-model="nom" class="champ" style="flex:1" maxlength="40"
-               autocomplete="nickname" @keyup.enter="renommer">
-        <button class="btn mini" :disabled="!change" @click="renommer">
-          {{ enregistre ? 'Fait' : 'Changer' }}
-        </button>
+        <label for="compte-nom" class="etiquette" style="flex:1">Nom affiché</label>
+        <span class="mini doux" role="status">{{ enregistre ? 'Enregistré' : '' }}</span>
       </div>
-      <p class="mini doux" style="margin:0">
-        C’est ce que voient les autres membres de vos listes.
-      </p>
+      <!-- enregistré en quittant le champ (ou par Entrée) : pas de bouton -->
+      <input id="compte-nom" v-model="nom" class="champ" maxlength="40"
+             autocomplete="nickname" @blur="renommer"
+             @keyup.enter="($event.target as HTMLInputElement).blur()">
       <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
     </section>
 
@@ -121,9 +119,7 @@ async function supprimerCompte() {
     <section class="pile" aria-labelledby="compte-donnees">
       <h3 id="compte-donnees" class="etiquette">Mes données</h3>
       <p class="mini doux" style="margin:0">
-        Tout ce que babyNamed garde sur vous tient dans un fichier, que vous
-        pouvez emporter ailleurs.
-        <NuxtLink to="/confidentialite" class="lien">Ce qu’on en fait</NuxtLink>.
+        <NuxtLink to="/confidentialite" class="lien">Ce qu’on garde, et pourquoi</NuxtLink>.
       </p>
       <a class="btn mini telecharger" href="/api/moi/donnees" download>Télécharger mes données</a>
 

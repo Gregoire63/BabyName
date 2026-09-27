@@ -25,10 +25,10 @@
  *    rien, ni départ ni filet.
  *
  * 3. Le départ se compte AUSSI par liste (300 par défaut, deux personnes).
- *    Sans e-mail, un compte se crée en trois secondes : sans ce plafond,
- *    chaque nouveau compte invité dans la liste rapportait 150 prénoms. Un
- *    membre qui arrive sur une liste au départ épuisé passe directement au
- *    filet — comme tout le monde au bout de son départ.
+ *    Un compte se crée en une minute (une adresse e-mail à confirmer) : sans
+ *    ce plafond, chaque nouveau compte invité dans la liste rapportait 150
+ *    prénoms. Un membre qui arrive sur une liste au départ épuisé passe
+ *    directement au filet — comme tout le monde au bout de son départ.
  *
  * Les limites se lisent sur la liste où l'on swipe (`quota_depart`,
  * `quota_depart_liste`, `quota_par_jour`) : on peut en offrir une plus large.

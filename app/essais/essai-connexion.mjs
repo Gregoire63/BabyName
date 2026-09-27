@@ -1,9 +1,11 @@
 /**
  * Se connecter sans mot de passe — et ce qui protège les comptes.
  *
- *  1. Deux onglets, Inscription et Connexion. Nouveau compte : un prénom et
- *     on entre, plus de clé à recopier ; l'accueil rappelle d'une ligne de
- *     quoi retrouver le compte, et c'est de là qu'on crée une passkey
+ *  0. Deux onglets, Inscription et Connexion. S'inscrire : un prénom et une
+ *     adresse ; pas de compte avant le code (ou le lien) reçu ; une adresse
+ *     qui a déjà un compte reçoit de quoi y entrer, sans que l'écran le dise.
+ *  1. Un compte d'avant (sans adresse) : l'accueil rappelle d'une ligne de
+ *     quoi le retrouver, et c'est de là qu'on crée une passkey
  *     (authentificateur virtuel de Chrome) ; déconnecté, on revient sur
  *     l'onglet Connexion et avec elle ; retirée, elle ne sert plus.
  *  2. Lien par e-mail : le code (faux, puis bon), le lien (une seule fois),
@@ -13,13 +15,13 @@
  *     clé : elle n'ouvre plus rien.
  *  4. « Déconnecter mes autres appareils ».
  *  5. Ce qui se devine ne se devine plus : codes d'invitation (format long,
- *     essais limités), comptes à la chaîne.
+ *     essais limités), inscriptions à la chaîne.
  *  6. Une requête venue d'un autre site est refusée ; un observateur ne voit
  *     pas les codes ; les tailles sont bornées ; les en-têtes sont posés.
  *
  * Limites à leur valeur de production : voir essai-connexion.env.
  */
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, courrielPour, inscrire, BASE } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -57,16 +59,10 @@ async function seDeconnecter(page) {
   await page.waitForURL(/\/connexion/, { timeout: 15000 })
 }
 
-// =================== 1. UN NOUVEAU COMPTE, UNE PASSKEY =====================
+// =================== 0. S'INSCRIRE : UN PRÉNOM, UNE ADRESSE PROUVÉE ==========
 {
   const { ctx, page } = await nouvel()
-  const cdp = await ctx.newCDPSession(page)
-  await cdp.send('WebAuthn.enable')
-  const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
-    protocol: 'ctap2', transport: 'internal', hasResidentKey: true,
-    hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } })
-
-  await page.goto(`${LOCAL}/connexion`, { waitUntil: 'networkidle' })
+  await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
   const inscription = page.getByRole('tab', { name: 'Inscription' })
   const connexion = page.getByRole('tab', { name: 'Connexion' })
   dit(await page.getByRole('tab').count() === 2 && await inscription.getAttribute('aria-selected') === 'true',
@@ -78,15 +74,97 @@ async function seDeconnecter(page) {
     'les flèches passent d’un onglet à l’autre (motif ARIA)')
   dit(await page.locator('input[type="email"]').count() === 1, 'Connexion : l’e-mail, tout de suite')
   await page.keyboard.press('ArrowLeft')
-  await page.locator('input.champ').fill('Zoé')
+  const prenom = page.getByLabel('Votre prénom'), adresse = page.getByLabel('Votre adresse e-mail')
+  dit(await prenom.count() === 1 && await adresse.count() === 1, 'Inscription : un prénom et une adresse e-mail')
+
+  await prenom.fill('Z')
+  await adresse.fill('zoe@exemple.test')
   await page.getByRole('button', { name: 'Créer mon compte' }).click()
+  await page.getByRole('alert').waitFor({ timeout: 8000 })
+  dit(/deux lettres/.test(await page.getByRole('alert').innerText()), 'un prénom d’une lettre : on le dit, rien ne part')
+
+  await prenom.fill('Zoé')
+  const avant = Date.now() - 1000
+  await adresse.press('Enter')
+  await page.getByRole('status').filter({ hasText: 'zoe@exemple.test' }).waitFor({ timeout: 10000 })
+  const m = await courrielPour('zoe@exemple.test', { apres: avant })
+  dit(!!m && /inscription/i.test(m.sujet) && /^\d{6}$/.test(m.code) && /\/connexion\/lien#t=/.test(m.lien ?? ''),
+    `Entrée envoie ; l’e-mail d’inscription porte un lien et un code (« ${m?.sujet} »)`)
+  dit((await api(page, '/api/auth/moi')).j?.connecte === false, 'aucun compte tant que l’adresse n’est pas prouvée')
+  const faux = m.code === '000000' ? '111111' : '000000'
+  await page.locator('input[autocomplete="one-time-code"]').fill(faux)
+  await page.getByRole('alert').waitFor({ timeout: 8000 })
+  dit(/pas le bon code/.test(await page.getByRole('alert').innerText()), 'un code faux : refusé')
+  await page.locator('input[autocomplete="one-time-code"]').fill(m.code)
+  // Première connexion : la passkey est proposée, avant l'accueil.
+  await page.getByRole('heading', { name: 'Connexion plus rapide' }).waitFor({ timeout: 15000 })
+  const moi = (await api(page, '/api/auth/moi')).j?.utilisateur
+  dit(moi?.pseudo === 'Zoé' && moi.email === 'zoe@exemple.test', 'le bon code crée le compte, adresse confirmée')
+  dit(await page.getByRole('button', { name: 'Créer une passkey' }).count() === 1
+      && await page.getByRole('button', { name: 'Plus tard' }).count() === 1,
+    'première connexion : la passkey est proposée (Créer une passkey / Plus tard)')
+  await page.getByRole('button', { name: 'Plus tard' }).click()
   await page.waitForSelector('.bento', { timeout: 20000 })
-  // la page de connexion sort en fondu : on attend qu'il ne reste que l'accueil
   await page.waitForFunction(() => document.querySelectorAll('main').length === 1, null, { timeout: 5000 })
   const texte = await page.locator('main').innerText()
-  dit(!/clé d’accès|XXXX-/i.test(texte), 'nouveau compte : plus aucune clé à recopier')
+  dit(!/clé d’accès|XXXX-/i.test(texte) && await page.locator('.proteger').count() === 0,
+    'ni clé à recopier, ni rappel : l’adresse suffit pour revenir')
+  await ctx.close()
+}
+// Une adresse qui a déjà un compte : le même écran ; l'e-mail, lui, fait
+// entrer dans CE compte.
+{
+  const { ctx, page } = await nouvel()
+  await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+  const avant = Date.now() - 1000
+  await page.getByLabel('Votre prénom').fill('Autre')
+  await page.getByLabel('Votre adresse e-mail').fill('audrey@exemple.test')
+  await page.getByRole('button', { name: 'Créer mon compte' }).click()
+  const statut = page.getByRole('status').filter({ hasText: 'audrey@exemple.test' })
+  await statut.waitFor({ timeout: 10000 })
+  const m = await courrielPour('audrey@exemple.test', { apres: avant })
+  dit(/Un e-mail vient de partir/.test(await statut.innerText()) && /déjà un compte/.test(m?.sujet ?? ''),
+    'adresse déjà inscrite : l’écran répond pareil, l’e-mail le dit à qui le lit')
+  await page.locator('input[autocomplete="one-time-code"]').fill(m.code)
+  await page.getByRole('button', { name: 'Plus tard' }).click({ timeout: 15000 })
+  await page.waitForSelector('.bento', { timeout: 20000 })
+  dit((await api(page, '/api/auth/moi')).j?.utilisateur?.pseudo === 'Audrey',
+    'son code fait entrer dans le compte existant — pas de second compte')
+  await ctx.close()
+}
+// Par le lien de l'e-mail, ouvert dans le même navigateur.
+{
+  const { ctx, page } = await nouvel()
+  await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+  const m = await inscrire(page, 'Lou', 'lou@exemple.test', { parLien: true })
+  await page.waitForSelector('.bento', { timeout: 20000 })
+  const moi = (await api(page, '/api/auth/moi')).j?.utilisateur
+  dit(moi?.pseudo === 'Lou' && moi.email === 'lou@exemple.test', 'le lien de l’e-mail crée le compte, lui aussi')
+  const x = await nouvel()
+  await x.page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+  const r = await api(x.page, '/api/auth/code', { method: 'POST',
+    body: JSON.stringify({ email: 'lou@exemple.test', code: m.code }) })
+  dit(r.status === 400, 'lien ou code : une seule preuve, un seul compte')
+  await x.ctx.close(); await ctx.close()
+}
+
+// =================== 1. UN COMPTE D'AVANT, UNE PASSKEY =======================
+{
+  const { ctx, page } = await nouvel()
+  const cdp = await ctx.newCDPSession(page)
+  await cdp.send('WebAuthn.enable')
+  const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
+    protocol: 'ctap2', transport: 'internal', hasResidentKey: true,
+    hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } })
+
+  // Un compte d'un prénom, sans adresse, comme avant l'inscription par e-mail
+  // (la route ne répond plus qu'en développement).
+  await page.goto(`${LOCAL}/connexion`, { waitUntil: 'networkidle' })
+  await api(page, '/api/auth/entrer', { method: 'POST', body: JSON.stringify({ pseudo: 'Zoé' }) })
+  await page.goto(`${LOCAL}/`, { waitUntil: 'networkidle' })
+  await page.waitForSelector('.bento', { timeout: 20000 })
   dit(await page.locator('.proteger').count() === 1,
-    'un prénom et on entre ; l’accueil rappelle d’une ligne de quoi retrouver le compte')
+    'sans adresse ni passkey, l’accueil rappelle d’une ligne de quoi retrouver le compte')
 
   await page.locator('.proteger').click()
   await page.waitForSelector('.feuille-corps', { timeout: 8000 })
@@ -181,9 +259,20 @@ async function seDeconnecter(page) {
   dit(/pas le bon code \(encore 4 essais\)/.test(await page.getByRole('alert').innerText()),
     'un code faux : on le dit, avec les essais restants')
   await page.locator('input[autocomplete="one-time-code"]').fill(m1.code)
+  // Audrey n'a pas de passkey : proposée ; « Plus tard » est retenu sur l'appareil.
+  await page.getByRole('button', { name: 'Plus tard' }).click({ timeout: 15000 })
   await page.waitForSelector('.bento', { timeout: 20000 })
   dit((await api(page, '/api/auth/moi')).j?.utilisateur?.pseudo === 'Audrey',
     'le bon code connecte (c’est ce qui sert dans l’app installée)')
+
+  // « Plus tard » est retenu : un autre lien, ouvert sur le même appareil, mène droit à l'accueil.
+  await api(page, '/api/auth/lien', { method: 'POST', body: JSON.stringify({ email: 'audrey@exemple.test' }) })
+  const mBis = await dernierPour('audrey@exemple.test')
+  await page.goto(mBis.lien, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'Continuer' }).click()
+  await page.waitForSelector('.bento', { timeout: 20000 })
+  dit(await page.getByRole('heading', { name: 'Connexion plus rapide' }).count() === 0,
+    '« Plus tard » est retenu sur l’appareil : la passkey n’est pas reproposée')
 
   // Le lien, une seule fois.
   await seDeconnecter(page)
@@ -194,8 +283,11 @@ async function seDeconnecter(page) {
   await page.goto(m2.lien, { waitUntil: 'networkidle' })
   dit(page.url().endsWith('/connexion/lien'), `le jeton est effacé de l’adresse (${page.url().replace(BASE, '')})`)
   await page.getByRole('button', { name: 'Continuer' }).click()
+  // La déconnexion a vidé l'appareil, « Plus tard » compris : rien de la
+  // personne n'y reste. La passkey est donc reproposée.
+  await page.getByRole('button', { name: 'Plus tard' }).click({ timeout: 15000 })
   await page.waitForSelector('.bento', { timeout: 20000 })
-  dit(true, 'le lien connecte, après un geste (pas au premier chargement : un robot de messagerie ne le brûle pas)')
+  dit(true, 'le lien connecte, après un geste (pas au premier chargement : un robot de messagerie ne le brûle pas) ; la déconnexion avait effacé « Plus tard »')
   const { page: p2 } = await nouvel()
   await p2.goto(m2.lien, { waitUntil: 'networkidle' })
   await p2.getByRole('button', { name: 'Continuer' }).click()
@@ -302,14 +394,15 @@ async function seDeconnecter(page) {
   dit(rej.status === 200 && rej.j?.nom === 'Essai de code', 'le code lu à voix haute (espace, minuscules) passe')
   await ctx.close()
 
-  // Des comptes à la chaîne depuis la même adresse : 12 par heure.
+  // Des inscriptions à la chaîne depuis la même adresse IP : 12 par heure.
   const { page: p } = await nouvel()
   await p.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
   const crees = []
   for (let i = 0; i < 13; i++) {
-    crees.push((await api(p, '/api/auth/entrer', { method: 'POST', body: JSON.stringify({ pseudo: `Robot ${i}` }) })).status)
+    crees.push((await api(p, '/api/auth/inscription', { method: 'POST',
+      body: JSON.stringify({ pseudo: `Robot ${i}`, email: `robot${i}@exemple.test` }) })).status)
   }
-  dit(crees.includes(429), `création de comptes en rafale : freinée (${crees.join(',')})`)
+  dit(crees.includes(429), `inscriptions en rafale : freinées (${crees.join(',')})`)
 }
 
 // =================== 6. ORIGINE, OBSERVATEUR, TAILLES, EN-TÊTES ============

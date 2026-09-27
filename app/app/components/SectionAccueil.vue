@@ -13,6 +13,7 @@ useHead({ title: 'Accueil' })
 
 const compteOuvert = ref(false)
 const rejoindreOuvert = ref(false)
+const offrirOuvert = ref(false)
 /** Le code cadeau qu'on regarde (feuille « Un cadeau pour vous »). */
 const cadeauOuvert = ref('')
 /** Le code cadeau qui créera la liste en cours de création (AssistantFiltres). */
@@ -342,8 +343,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           <Etincelles class="deco" :taille="30" />
           <h2 class="titre">Commencez ici</h2>
           <p class="mini" style="margin:0;opacity:.85">
-            Quelques questions, et vous triez des prénoms à deux sans jamais voir
-            le vote de l’autre avant d’avoir donné le vôtre.
+            Chacun trie de son côté, sans voir le vote de l’autre.
           </p>
         </div>
 
@@ -363,15 +363,15 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <BoutonInstaller class="large" />
 
         <!-- Offrir : les futurs parents autour de soi sont le meilleur endroit
-             où trouver les suivants. Une page publique, sans compte. -->
-        <NuxtLink to="/offrir" class="carte large offrir">
+             où trouver les suivants. Une feuille, ici même (FeuilleOffrir). -->
+        <button type="button" class="carte large offrir" @click="offrirOuvert = true">
           <Etincelles :taille="18" couleur="var(--peche)" une />
           <span style="flex:1;min-width:0">
             <strong>Offrir babyNamed</strong>
-            <span class="mini doux" style="display:block">À des futurs parents : une liste débloquée, en lien ou en code</span>
+            <span class="mini doux" style="display:block">À des futurs parents : une liste débloquée</span>
           </span>
           <svg viewBox="0 0 24 24" aria-hidden="true" class="fleche"><path d="m9 5 7 7-7 7" /></svg>
-        </NuxtLink>
+        </button>
 
         <!-- statistiques -->
         <template v-if="stats">
@@ -396,8 +396,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           <div class="carte large colonne">
             <p class="etiquette">À surveiller</p>
             <p class="mini doux" style="margin:0 0 4px">
-              Rares aujourd’hui, en forte hausse : le profil du prénom qu’on croit
-              unique et qu’on retrouve en triple à la maternelle.
+              Rares aujourd’hui, en forte hausse.
             </p>
             <div class="ligne" style="flex-wrap:wrap;gap:7px">
               <button v-for="p in stats.guetter" :key="p.l" class="puce"
@@ -472,13 +471,14 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
     <FeuilleCadeau v-if="cadeauOuvert" :code="cadeauOuvert"
                    @fermer="fermerCadeau" @nouvelle="nouvelleOfferte" />
     <FeuilleCompte v-if="compteOuvert" @fermer="compteOuvert = false" />
+    <FeuilleOffrir v-if="offrirOuvert" @fermer="offrirOuvert = false" />
     <FichePrenom v-if="fiche" :p="fiche" @fermer="fiche = null" />
   </div>
 </template>
 
 <style scoped>
 .offrir { display: flex; align-items: center; gap: 12px; padding: 14px 16px; color: var(--texte);
-  text-decoration: none; }
+  text-decoration: none; width: 100%; text-align: left; font: inherit; cursor: pointer; }
 .offrir .fleche { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--doux);
   stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .proteger { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%;

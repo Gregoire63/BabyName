@@ -17,7 +17,7 @@ const c = CONSERVATION
     <div class="encadre">
       <p><strong>L’essentiel.</strong></p>
       <ul>
-        <li>On vous demande un prénom ou un pseudo. Pas de mot de passe, pas de numéro. Votre e-mail seulement si vous voulez recevoir des liens de connexion.</li>
+        <li>On vous demande un prénom ou un pseudo, et une adresse e-mail pour valider le compte. Pas de mot de passe, pas de numéro.</li>
         <li>Aucune publicité, aucune mesure d’audience, aucun cookie tiers. Rien n’est vendu ni loué.</li>
         <li>Votre compte s’efface quand vous le décidez, en un geste depuis l’app — et tout seul après {{ c.inactiviteMois }} mois sans l’ouvrir.</li>
         <li>Vous pouvez télécharger toutes vos données à tout moment : <em>Mon compte → Télécharger mes données</em>.</li>
@@ -42,12 +42,13 @@ const c = CONSERVATION
         <strong>vos passkeys</strong> — leur clé <em>publique</em>, leur nom (« Trousseau iCloud »), leurs dates
         de création et de dernière utilisation ; la clé privée, votre visage ou votre empreinte ne quittent
         jamais votre appareil ;
-        <strong>votre adresse e-mail</strong>, si vous la donnez, une fois confirmée ;
+        <strong>votre adresse e-mail</strong>, confirmée à l’inscription (un compte créé avant cette étape peut ne pas en avoir) ;
         pour les comptes d’avant les passkeys, l’empreinte de l’ancienne clé d’accès (jamais la clé elle-même).
       </dd>
       <dt>Pourquoi</dt>
       <dd>Vous reconnaître, et vous permettre de retrouver votre compte sur un autre appareil. L’adresse e-mail
-        ne sert qu’à vous envoyer les liens et codes de connexion que vous demandez : aucune lettre
+        ne sert qu’à valider votre inscription, à vous envoyer les liens et codes de connexion que vous
+        demandez et à vous prévenir d’un changement de sécurité sur le compte : aucune lettre
         d’information, aucune publicité.</dd>
       <dt>Base légale</dt>
       <dd>L’exécution du contrat que sont les <NuxtLink to="/conditions">conditions d’utilisation</NuxtLink> (art. 6.1.b du RGPD).</dd>
@@ -107,8 +108,9 @@ const c = CONSERVATION
     <dl>
       <dt>Données</dt>
       <dd>
-        Pour un lien ou un code envoyé par e-mail : l’adresse, le compte, et une empreinte du lien et du code
-        (jamais en clair), avec l’heure. Pour freiner ceux qui essaieraient de deviner un code ou de créer des
+        Pour un lien ou un code envoyé par e-mail : l’adresse, le compte — ou, pour une inscription pas encore
+        confirmée, le prénom choisi — et une empreinte du lien et du code (jamais en clair), avec l’heure.
+        Une inscription jamais confirmée ne crée aucun compte. Pour freiner ceux qui essaieraient de deviner un code ou de créer des
         comptes à la chaîne : des compteurs d’essais rattachés à une empreinte chiffrée de l’adresse IP, du
         compte ou de l’adresse e-mail — jamais à leur valeur en clair.
       </dd>
@@ -167,8 +169,12 @@ const c = CONSERVATION
         Resend, qui envoie les e-mails de connexion, est aussi une société américaine (clauses contractuelles
         types).
       </template>
-      <template v-else>
+      <template v-else-if="COURRIEL.fournisseur === 'brevo'">
         Les e-mails de connexion partent par Brevo, société française, depuis l’Union européenne.
+      </template>
+      <template v-else>
+        Les e-mails de connexion partent de la messagerie de babynamed.fr, chez OVH, société française,
+        depuis la France.
       </template>
     </p>
 
@@ -181,7 +187,7 @@ const c = CONSERVATION
       <li><strong>Compteurs de la version gratuite</strong> : le total, avec le compte ; le détail par jour, {{ c.quotaJours }} jours.</li>
       <li><strong>Cookie de connexion</strong> : {{ c.sessionJours }} jours, renouvelés à chaque connexion. <em>Mon compte → Déconnecter mes autres appareils</em> les annule tous d’un coup, sauf celui de l’appareil en main.</li>
       <li><strong>Adresse e-mail et passkeys</strong> : tant que votre compte existe, ou jusqu’à ce que vous les retiriez dans <em>Mon compte</em>.</li>
-      <li><strong>Liens et codes de connexion</strong> : valables {{ c.lienMinutes }} minutes, une seule fois ; effacés le lendemain de leur expiration.</li>
+      <li><strong>Liens et codes par e-mail</strong> (connexion, inscription) : valables {{ c.lienMinutes }} minutes, une seule fois ; effacés le lendemain de leur expiration, avec l’adresse et le prénom d’une inscription jamais confirmée.</li>
       <li><strong>Compteurs d’essais</strong> : deux jours au plus.</li>
       <li><strong>Pièces liées à un paiement</strong> (facture, paiement) : {{ c.comptabiliteAns }} ans, durée imposée par le Code de commerce (art. L123-22). Elles sont conservées par Stripe et dans notre comptabilité, pas dans l’app.</li>
       <li><strong>Journaux techniques</strong> : quelques jours au plus, chez l’hébergeur.</li>

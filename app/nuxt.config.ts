@@ -65,12 +65,13 @@ export default defineNuxtConfig({
   runtimeConfig: {
     sessionSecret: '',            // NUXT_SESSION_SECRET
 
-    // Les e-mails de connexion (lien + code). Le prestataire est nomme dans
-    // shared/utils/editeur.ts (COURRIEL) ; ici, seulement la cle et
-    // l'expediteur. Sans eux, l'app ne propose simplement pas le lien par
-    // e-mail — les passkeys marchent sans.
-    emailCle: '',                 // NUXT_EMAIL_CLE         (cle d'API du prestataire)
-    emailExpediteur: '',          // NUXT_EMAIL_EXPEDITEUR  (« babyNamed <connexion@babynamed.fr> »)
+    // Les e-mails d'inscription et de connexion (lien + code). Le prestataire
+    // est nomme dans shared/utils/editeur.ts (COURRIEL) ; ici, le secret et
+    // l'expediteur. Sans eux, personne ne peut s'inscrire : l'inscription se
+    // valide par e-mail.
+    emailCle: '',                 // NUXT_EMAIL_CLE         (OVH : mot de passe de la boite ; Brevo/Resend : cle d'API)
+    emailExpediteur: '',          // NUXT_EMAIL_EXPEDITEUR  (« babyNamed <contact@babynamed.fr> » : la boite elle-meme)
+    emailSmtp: 'ssl0.ovh.net:465', // NUXT_EMAIL_SMTP       (OVH : serveur:port ; 465 = TLS d'emblee, 587 = STARTTLS)
 
     // Stripe. Ces trois valeurs ne sont JAMAIS dans le dépôt : elles se posent
     // en secrets du Worker, et la clé secrète ne quitte jamais le serveur. Le navigateur ne voit que l'URL de paiement que

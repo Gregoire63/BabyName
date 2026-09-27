@@ -65,7 +65,7 @@ const onglets = page.locator('.feuille-corps [role="tab"]')
 const n = await onglets.count()
 dit(new RegExp(`Les ${n} façons d’écrire Elio`).test(titre), `titre : « ${titre} » (${n} onglets)`)
 dit(n >= 3, 'un onglet par graphie')
-dit(/vote sur la carte vaut pour/.test(await page.locator('.feuille-corps').innerText()),
+dit(/votre vote vaut pour les \d+/.test(await page.locator('.feuille-corps').innerText()),
   'la feuille dit, elle, que le vote vaut pour toutes')
 const etiquettes = await onglets.allInnerTexts()
 dit(etiquettes.every(t => /%/.test(t)) && /^Elio/.test(etiquettes[0]),

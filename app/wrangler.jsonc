@@ -23,14 +23,16 @@
     }
   ],
 
-  // Ce qui n'est pas secret. Les secrets (NUXT_SESSION_SECRET, NUXT_EMAIL_CLE,
+  // Ce qui n'est pas secret. Les secrets (NUXT_SESSION_SECRET, NUXT_EMAIL_CLE
+  // — le mot de passe de la boîte OVH —,
   // NUXT_STRIPE_SECRET_KEY, NUXT_STRIPE_WEBHOOK_SECRET, NUXT_STRIPE_PRICE_ID,
   // CRON_SECRET éventuel) se posent par `npx wrangler secret put NOM` ou dans
   // le tableau de bord (Worker → Settings → Variables and Secrets).
   "vars": {
     "NUXT_PUBLIC_SITE_URL": "https://babynamed.fr",
     "NUXT_PUBLIC_PRIX_LISTE": "6 €",
-    "NUXT_EMAIL_EXPEDITEUR": "babyNamed <connexion@babynamed.fr>"
+    // la boîte OVH qui envoie (son mot de passe : secret NUXT_EMAIL_CLE)
+    "NUXT_EMAIL_EXPEDITEUR": "babyNamed <contact@babynamed.fr>"
   },
 
   // La purge RGPD, chaque nuit : la MÊME expression que scheduledTasks dans

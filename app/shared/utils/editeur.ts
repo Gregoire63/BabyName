@@ -68,19 +68,24 @@ export const VERSIONS_TEXTES = {
 } as const
 
 /**
- * L'envoi des e-mails de connexion (lien + code). UN prestataire, nommé ici :
- * le serveur l'utilise (server/utils/courriel.ts) et la politique de
- * confidentialité le cite — changer l'un sans l'autre est impossible.
+ * L'envoi des e-mails d'inscription et de connexion (lien + code), et des
+ * alertes de sécurité. UN prestataire, nommé ici : le serveur l'utilise
+ * (server/utils/courriel.ts) et la politique de confidentialité le cite —
+ * changer l'un sans l'autre est impossible.
  *
- * Brevo par défaut : société française, données hébergées dans l'Union
- * européenne, 300 e-mails par jour gratuits. Resend est prévu aussi
- * (américain, clauses contractuelles types). La clé d'API, elle, ne vit que
- * dans les secrets du Worker : NUXT_EMAIL_CLE ; l'expéditeur dans
- * NUXT_EMAIL_EXPEDITEUR (« babyNamed <connexion@babynamed.fr> », domaine
- * vérifié chez le prestataire).
+ * OVH par défaut : la boîte e-mail du domaine (Zimbra, comprise avec
+ * babynamed.fr), en SMTP depuis le Worker — société française, serveurs en
+ * France, rien de plus à payer. Le mot de passe de la boîte ne vit que dans
+ * les secrets du Worker (NUXT_EMAIL_CLE), l'adresse dans NUXT_EMAIL_EXPEDITEUR
+ * (« babyNamed <contact@babynamed.fr> » : la boîte elle-même, OVH refuse
+ * d'envoyer au nom d'une autre). Le serveur SMTP : NUXT_EMAIL_SMTP.
+ *
+ * Brevo (français, 300 e-mails par jour gratuits) et Resend (américain)
+ * restent prévus, par API : une ligne à changer ici si OVH ne suffit plus
+ * (plafond d'envoi horaire des boîtes mutualisées, délivrabilité).
  */
 export const COURRIEL = {
-  fournisseur: 'brevo' as 'brevo' | 'resend'
+  fournisseur: 'ovh' as 'ovh' | 'brevo' | 'resend'
 }
 
 /** L'hebergeur (LCEN, art. 6 III : nom, adresse, telephone). */
@@ -107,21 +112,29 @@ export const DESTINATAIRES = [
     garantie: 'Certifié Data Privacy Framework UE–États-Unis ; clauses contractuelles types de la Commission européenne',
     lien: 'https://www.cloudflare.com/fr-fr/privacypolicy/'
   },
-  COURRIEL.fournisseur === 'brevo'
+  COURRIEL.fournisseur === 'ovh'
     ? {
-        nom: 'Brevo (Sendinblue SAS)',
-        role: 'Envoi des e-mails de connexion (uniquement si vous donnez une adresse)',
+        nom: 'OVH SAS',
+        role: 'Messagerie de babynamed.fr : envoi des e-mails d’inscription, de connexion et d’alerte',
         pays: 'France (Union européenne)',
-        garantie: 'Données traitées dans l’Union européenne',
-        lien: 'https://www.brevo.com/fr/legal/privacypolicy/'
+        garantie: 'Données hébergées et traitées dans l’Union européenne',
+        lien: 'https://www.ovhcloud.com/fr/personal-data-protection/'
       }
-    : {
-        nom: 'Resend, Inc.',
-        role: 'Envoi des e-mails de connexion (uniquement si vous donnez une adresse)',
-        pays: 'États-Unis',
-        garantie: 'Clauses contractuelles types de la Commission européenne',
-        lien: 'https://resend.com/legal/privacy-policy'
-      },
+    : COURRIEL.fournisseur === 'brevo'
+      ? {
+          nom: 'Brevo (Sendinblue SAS)',
+          role: 'Envoi des e-mails d’inscription, de connexion et d’alerte',
+          pays: 'France (Union européenne)',
+          garantie: 'Données traitées dans l’Union européenne',
+          lien: 'https://www.brevo.com/fr/legal/privacypolicy/'
+        }
+      : {
+          nom: 'Resend, Inc.',
+          role: 'Envoi des e-mails d’inscription, de connexion et d’alerte',
+          pays: 'États-Unis',
+          garantie: 'Clauses contractuelles types de la Commission européenne',
+          lien: 'https://resend.com/legal/privacy-policy'
+        },
   {
     nom: 'Stripe Payments Europe, Ltd.',
     role: 'Paiement (uniquement si vous débloquez une liste) : encaissement, reçu et facture, lutte contre la fraude',

@@ -65,7 +65,7 @@ const ecran = await texte()
 dit(/aujourd/i.test(ecran) && /départ/i.test(ecran),
     `l’écran dit pourquoi : « ${ecran.slice(0, 110)} »`)
 dit(/demain/i.test(ecran) && /jamais/i.test(ecran), 'et que ça repart demain : pas d’impasse')
-dit(/tout le monde dedans/i.test(ecran), 'et que débloquer profite à tous les membres')
+dit(/tous ses membres/i.test(ecran), 'et que débloquer profite à tous les membres')
 
 // ---------- une autre liste gratuite ne rend rien ------------------------
 await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })

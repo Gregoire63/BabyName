@@ -11,10 +11,11 @@
  *  - déjà en accord, déjà jugé, sous veto : on le dit, on ne le remet pas en
  *    jeu ; un slug inconnu ne casse rien ;
  *  - le bouton retour ne ramène pas dans la redirection ;
- *  - un invité sans compte garde son code à travers la connexion et arrive
- *    dans la liste partagée — il arrivait sur un accueil vide.
+ *  - un invité sans compte garde son code à travers l'inscription — même
+ *    par le lien de l'e-mail, qui s'ouvre sans lui — et arrive dans la
+ *    liste partagée (il arrivait sur un accueil vide).
  */
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, inscrire, BASE } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -40,8 +41,7 @@ const message = p => p.locator('.retour[role="status"]')
   await attend.waitFor({ timeout: 20000 }).catch(() => null)
   dit(await attend.count() === 1, 'la connexion annonce « Votre liste commencera par Louise »')
 
-  await page.locator('input.champ').fill('Léa')
-  await page.getByRole('button', { name: 'Créer mon compte' }).click()
+  await inscrire(page, 'Léa', 'lea.louise@exemple.test')
 
   const note = page.locator('.premier', { hasText: 'Louise' })
   await note.waitFor({ timeout: 20000 }).catch(() => null)
@@ -157,12 +157,13 @@ const message = p => p.locator('.retour[role="status"]')
     'le lien d’invitation garde son code jusqu’à la connexion')
   dit(await page.locator('.attend', { hasText: 'partagée' }).count() === 1,
     'et la connexion dit qu’une liste attend')
-  await page.locator('input.champ').fill('Paul')
-  await page.getByRole('button', { name: 'Créer mon compte' }).click()
+  // Le lien de l'e-mail s'ouvre dans un autre onglet, sans le code dans
+  // l'adresse : l'appareil l'a gardé (utils/entreeEnAttente).
+  await inscrire(page, 'Paul', 'paul.invite@exemple.test', { parLien: true })
   await page.waitForURL(/\/g\/[^/]+\/swipe/, { timeout: 20000 }).catch(() => null)
   const listes = await page.evaluate(() => fetch('/api/groupes').then(r => r.json()))
   dit(/\/g\/[^/]+\/swipe/.test(page.url()) && listes.some(l => l.nom === 'Essai gratuit'),
-    `nouveau compte : il entre directement dans la liste partagée (${page.url().replace(BASE, '')})`)
+    `nouveau compte, par le lien de l’e-mail : il entre directement dans la liste partagée (${page.url().replace(BASE, '')})`)
 }
 
 dit(erreurs.length === 0, `aucune erreur JS (${erreurs.length})`)

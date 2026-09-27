@@ -97,8 +97,7 @@ const selection = computed(() => {
       <template v-else-if="etape === 1">
         <h1>Plutôt répandu, ou plutôt rare ?</h1>
         <p class="doux">
-          Un prénom rare qui monte vite finit souvent en triple dans la classe.
-          Le filtre « rare » écarte aussi ceux-là.
+          « Rare » écarte aussi les prénoms rares qui montent vite.
         </p>
         <div class="choix">
           <button class="carte opt" @click="style('repandu')">
@@ -135,8 +134,7 @@ const selection = computed(() => {
       <template v-else>
         <h1>Une origine en tête ?</h1>
         <p class="doux">
-          Facultatif. Attention : beaucoup de prénoms n’ont pas d’origine documentée —
-          en choisir une les écarte tous.
+          Facultatif. Choisir une origine écarte les prénoms sans origine connue.
         </p>
         <div class="nuage">
           <button v-for="o in origines" :key="o" class="jeton"

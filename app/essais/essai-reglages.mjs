@@ -48,9 +48,8 @@ async function reglages(gid) {
 await reglages(gratuite.id)
 const carte = (await page.locator('.achat').innerText()).replace(/\s+/g, ' ')
 dit(/Débloquer cette liste/.test(carte) && /6\s?€/.test(carte), `liste gratuite : la carte d’achat et son prix`)
-dit(/pour cette liste seulement/i.test(carte) && /tous ses membres/.test(carte)
-    && /ni toute l’application/i.test(carte) && /autres listes restent gratuites/.test(carte),
-  'elle dit la portée : cette liste, ses membres — pas toute l’app')
+dit(/pour cette liste seulement/i.test(carte) && /tous ses membres/.test(carte) && /sans abonnement/.test(carte),
+  'elle dit la portée en une phrase : cette liste seulement, ses membres, une fois')
 await page.locator('.achat').getByRole('button', { name: /Voir le détail/ }).click()
 await page.waitForSelector('.feuille-corps', { timeout: 8000 })
 await page.waitForTimeout(400)
@@ -60,8 +59,8 @@ await page.keyboard.press('Escape'); await page.waitForTimeout(500)
 
 await reglages(payee.id)
 const carte2 = (await page.locator('.achat').innerText()).replace(/\s+/g, ' ')
-dit(/Liste débloquée/.test(carte2) && /autres listes restent gratuites/.test(carte2)
-    && await page.locator('.achat button').count() === 0,
+dit(/Liste débloquée/.test(carte2) && /tous ses membres/.test(carte2)
+    && await page.locator('.achat button', { hasText: /Débloquer|Voir le détail/ }).count() === 0,
   `liste débloquée : la carte le dit, sans rien à acheter (« ${carte2.slice(0, 70)}… »)`)
 
 // ---------- 2. le thème ---------------------------------------------------

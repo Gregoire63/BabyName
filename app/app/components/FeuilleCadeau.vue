@@ -90,9 +90,7 @@ async function debloquer(gid: string) {
         <p v-if="infos.message" class="mot">« {{ infos.message }} »</p>
       </div>
       <p class="mini doux" style="margin:12px 0 0">
-        Une liste débloquée, pour vous et la personne qui trie avec vous : le tri
-        sans limite, l’essai avec votre nom de famille, ce qui vous sépare, les
-        grands-parents en lecture seule. Valable jusqu’au {{ jusquau }}.
+        Une liste débloquée, pour vous deux. Valable jusqu’au {{ jusquau }}.
       </p>
 
       <h3 class="titre-bloc">Quelle liste débloquer ?</h3>

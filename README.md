@@ -9,7 +9,7 @@ python3 pipeline/enrich_wiktionary.py      # Wiktionnaire FR : sens        GRATU
 python3 pipeline/enrich_wiktionary_en.py   # Wiktionnaire EN : origine     GRATUIT
 python3 pipeline/merge_enrichissement.py   # -> data/build/prenoms_final.csv
 python3 pipeline/export_catalogue.py       # -> app/public/data/catalogue.json(.gz)
-python3 pipeline/test_syllabes.py          # 59/59 attendus
+python3 pipeline/test_syllabes.py          # 65/65 attendus
 python3 pipeline/test_phonetique.py        # 47/47 attendus
 python3 pipeline/test_wikitexte.py         # les gloses qui ont fini sur une carte
 ```

@@ -35,126 +35,144 @@ function cycler(o: string) {
       </button>
     </template>
 
-    <!-- Plus de champ « Chercher un prénom » ici : c'etait un filtre qui
-         vidait la pile de tout le reste, et il faisait doublon avec la loupe
-         du tri, qui amene le prenom en premiere carte. -->
-    <div class="pile">
-        <div>
-          <p class="titre">Sexe</p>
-          <div class="nuage">
-            <button v-for="s in (['f','m','fm'] as const)" :key="s" type="button" class="jeton"
-                    :class="{ in: modele.sexe.includes(s) }"
-                    :aria-pressed="modele.sexe.includes(s)"
-                    @click="bascule(modele.sexe as string[], s)">
-              {{ s === 'f' ? 'fille' : s === 'm' ? 'garçon' : 'mixte' }}
-            </button>
-          </div>
+    <!-- Des blocs nets, un réglage chacun : la feuille était une colonne de
+         petits titres gris et de cases par défaut, où rien ne se détachait. -->
+    <div class="blocs">
+      <section class="bloc" aria-labelledby="f-sexe">
+        <h3 id="f-sexe" class="titre">Sexe</h3>
+        <div class="trois">
+          <button v-for="s in (['f','m','fm'] as const)" :key="s" type="button" class="jeton tuile"
+                  :class="{ in: modele.sexe.includes(s) }"
+                  :aria-pressed="modele.sexe.includes(s)"
+                  @click="bascule(modele.sexe as string[], s)">
+            {{ s === 'f' ? 'fille' : s === 'm' ? 'garçon' : 'mixte' }}
+          </button>
         </div>
+      </section>
 
-        <div>
-          <p class="titre">Origine — 1 clic inclut, 2 excluent</p>
-          <div class="nuage">
-            <!-- Trois etats (rien, incluse, exclue) : la couleur seule ne les
-                 dit pas a un lecteur d'ecran, le texte cache si. -->
-            <button v-for="o in props.origines" :key="o" type="button" class="jeton"
-                    :class="etatOrigine(o)" @click="cycler(o)">
-              {{ o }}<span class="sr-only">{{ etatOrigine(o) === 'in' ? ' : incluse'
-                : etatOrigine(o) === 'out' ? ' : exclue' : ' : indifférente' }}</span>
-            </button>
-          </div>
-          <p class="mini doux" style="margin:7px 0 0">
-            Beaucoup de prénoms n’ont aucune origine documentée : inclure une origine les écarte tous.
-          </p>
+      <!-- Chaque curseur dit son rôle et sa valeur : deux curseurs côte à
+           côte sans rien pour les distinguer, on ne savait pas lequel était
+           le minimum. -->
+      <section class="bloc" aria-labelledby="f-long">
+        <div class="tete">
+          <h3 id="f-long" class="titre">Longueur</h3>
+          <span class="valeur">{{ modele.car[0] }}–{{ modele.car[1] }} lettres</span>
         </div>
+        <label class="borne">
+          <span>au moins</span>
+          <input v-model.number="modele.car[0]" type="range" min="2" :max="modele.car[1]"
+                 aria-label="Longueur minimale, en lettres">
+          <b>{{ modele.car[0] }}</b>
+        </label>
+        <label class="borne">
+          <span>au plus</span>
+          <input v-model.number="modele.car[1]" type="range" :min="modele.car[0]" max="14"
+                 aria-label="Longueur maximale, en lettres">
+          <b>{{ modele.car[1] }}</b>
+        </label>
+      </section>
 
-        <!-- Deux curseurs cote a cote sans rien pour les distinguer, on ne
-             savait pas lequel etait le minimum. Chacun porte desormais son
-             role et sa valeur. -->
-        <div class="regle">
-          <p class="titre">Longueur du prénom · en lettres</p>
-          <label class="borne">
-            <span>au moins</span>
-            <input v-model.number="modele.car[0]" type="range" min="2" :max="modele.car[1]"
-                   aria-label="Longueur minimale, en lettres">
-            <b>{{ modele.car[0] }}</b>
-          </label>
-          <label class="borne">
-            <span>au plus</span>
-            <input v-model.number="modele.car[1]" type="range" :min="modele.car[0]" max="14"
-                   aria-label="Longueur maximale, en lettres">
-            <b>{{ modele.car[1] }}</b>
-          </label>
+      <section class="bloc" aria-labelledby="f-syl">
+        <div class="tete">
+          <h3 id="f-syl" class="titre">Syllabes</h3>
+          <span class="valeur">{{ modele.syllabes[0] === modele.syllabes[1] ? modele.syllabes[0]
+            : `${modele.syllabes[0]}–${modele.syllabes[1]}` }}</span>
         </div>
+        <label class="borne">
+          <span>au moins</span>
+          <input v-model.number="modele.syllabes[0]" type="range" min="1" :max="modele.syllabes[1]"
+                 aria-label="Nombre minimal de syllabes">
+          <b>{{ modele.syllabes[0] }}</b>
+        </label>
+        <label class="borne">
+          <span>au plus</span>
+          <input v-model.number="modele.syllabes[1]" type="range" :min="modele.syllabes[0]" max="6"
+                 aria-label="Nombre maximal de syllabes">
+          <b>{{ modele.syllabes[1] }}</b>
+        </label>
+      </section>
 
-        <div class="regle">
-          <p class="titre">Nombre de syllabes</p>
-          <label class="borne">
-            <span>au moins</span>
-            <input v-model.number="modele.syllabes[0]" type="range" min="1" :max="modele.syllabes[1]"
-                   aria-label="Nombre minimal de syllabes">
-            <b>{{ modele.syllabes[0] }}</b>
-          </label>
-          <label class="borne">
-            <span>au plus</span>
-            <input v-model.number="modele.syllabes[1]" type="range" :min="modele.syllabes[0]" max="6"
-                   aria-label="Nombre maximal de syllabes">
-            <b>{{ modele.syllabes[1] }}</b>
-          </label>
+      <section class="bloc" aria-labelledby="f-orig">
+        <div class="tete">
+          <h3 id="f-orig" class="titre">Origines</h3>
+          <!-- la légende tient lieu de mode d'emploi -->
+          <span class="legende" aria-hidden="true">
+            <span class="jeton mini-jeton in">incluse</span>
+            <span class="jeton mini-jeton out">exclue</span>
+          </span>
         </div>
+        <div class="nuage">
+          <!-- Trois états (rien, incluse, exclue) : la couleur seule ne les
+               dit pas à un lecteur d'écran, le texte caché si. -->
+          <button v-for="o in props.origines" :key="o" type="button" class="jeton"
+                  :class="etatOrigine(o)" @click="cycler(o)">
+            {{ o }}<span class="sr-only">{{ etatOrigine(o) === 'in' ? ' : incluse'
+              : etatOrigine(o) === 'out' ? ' : exclue' : ' : indifférente' }}</span>
+          </button>
+        </div>
+        <p v-if="modele.origines_in.length" class="mini doux" style="margin:10px 0 0">
+          Les prénoms sans origine connue sont écartés.
+        </p>
+      </section>
 
-        <div class="pile" style="gap:9px">
-          <label class="ligne mini">
-            <input type="checkbox" :checked="modele.compose === false"
-                   @change="modele.compose = modele.compose === false ? null : false">
-            Pas de prénoms composés
-          </label>
-          <label class="ligne mini">
-            <input v-model="modele.sens_requis" type="checkbox">
-            Seulement ceux dont on connaît le sens
-          </label>
-          <label class="ligne mini">
-            <input v-model="modele.exclure_objet" type="checkbox">
-            Écarter ceux qui sont aussi un objet ou une marque
-          </label>
-          <label class="ligne mini">
-            <input v-model="modele.inclure_rares" type="checkbox">
+      <section class="bloc interrupteurs" aria-label="Autres filtres">
+        <label class="inter">
+          <span>Pas de prénoms composés</span>
+          <input type="checkbox" role="switch" :checked="modele.compose === false"
+                 @change="modele.compose = modele.compose === false ? null : false">
+        </label>
+        <label class="inter">
+          <span>Seulement ceux dont on connaît le sens</span>
+          <input v-model="modele.sens_requis" type="checkbox" role="switch">
+        </label>
+        <label class="inter">
+          <span>Écarter ceux qui sont aussi un objet ou une marque</span>
+          <input v-model="modele.exclure_objet" type="checkbox" role="switch">
+        </label>
+        <label class="inter">
+          <span>
             Inclure les prénoms très rares<template v-if="props.nbRares"> — + {{ props.nbRares.toLocaleString('fr-FR') }}</template>
-          </label>
-          <p class="mini doux" style="margin:-3px 0 0 24px">
-            Moins de 20 naissances en trois ans. Le catalogue les contient tous et
-            la loupe les trouve déjà : cette case les fait entrer dans le swipe.
-          </p>
-        </div>
+            <small>Moins de 20 naissances en trois ans</small>
+          </span>
+          <input v-model="modele.inclure_rares" type="checkbox" role="switch">
+        </label>
+      </section>
 
-        <button class="btn btn-0 mini doux" style="align-self:flex-start"
-                @click="avance = !avance">
-          {{ avance ? '− Moins d’options' : '+ Options fines' }}
-        </button>
+      <button type="button" class="deplier" :aria-expanded="avance" @click="avance = !avance">
+        <span>Options fines</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" :class="{ ouvert: avance }"><path d="m6 9 6 6 6-6" /></svg>
+      </button>
 
-        <template v-if="avance">
+      <template v-if="avance">
+        <section class="bloc">
           <label class="regle">
-            <span class="titre">Originalité minimale · {{ modele.originalite[0] }}/100</span>
+            <span class="tete"><span class="titre">Originalité minimale</span>
+              <span class="valeur">{{ modele.originalite[0] }}/100</span></span>
             <input v-model.number="modele.originalite[0]" type="range" min="0" max="100">
           </label>
-          <label class="regle">
-            <span class="titre">Risque d’explosion maximal · {{ modele.risque_max }}/100</span>
+          <label class="regle" style="margin-top:12px">
+            <span class="tete"><span class="titre">Risque d’explosion maximal</span>
+              <span class="valeur">{{ modele.risque_max }}/100</span></span>
             <input v-model.number="modele.risque_max" type="range" min="0" max="100">
           </label>
-          <div>
-            <p class="titre">Initiales à éviter</p>
-            <div class="nuage">
-              <button v-for="l in LETTRES" :key="l" type="button" class="jeton petit"
-                      :class="{ out: modele.initiales_out.includes(l) }"
-                      :aria-pressed="modele.initiales_out.includes(l)"
-                      :aria-label="`Éviter l’initiale ${l}`"
-                      @click="bascule(modele.initiales_out, l)">{{ l }}</button>
-            </div>
+        </section>
+        <section class="bloc" aria-labelledby="f-init">
+          <h3 id="f-init" class="titre">Initiales à éviter</h3>
+          <div class="nuage">
+            <button v-for="l in LETTRES" :key="l" type="button" class="jeton petit"
+                    :class="{ out: modele.initiales_out.includes(l) }"
+                    :aria-pressed="modele.initiales_out.includes(l)"
+                    :aria-label="`Éviter l’initiale ${l}`"
+                    @click="bascule(modele.initiales_out, l)">{{ l }}</button>
           </div>
-          <label class="ligne mini">
-            <input v-model="modele.revival_seulement" type="checkbox">
-            Seulement les prénoms d’avant 1970 qui remontent
+        </section>
+        <section class="bloc interrupteurs">
+          <label class="inter">
+            <span>Seulement les prénoms d’avant 1970 qui remontent</span>
+            <input v-model="modele.revival_seulement" type="checkbox" role="switch">
           </label>
-        </template>
+        </section>
+      </template>
     </div>
 
     <template #pied="{ fermer }">
@@ -166,19 +184,70 @@ function cycler(o: string) {
 </template>
 
 <style scoped>
-.titre { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--doux); margin: 0 0 7px; font-weight: 650; }
-.nuage { display: flex; flex-wrap: wrap; gap: 6px; }
-.jeton { border: 1px solid var(--trait); background: var(--carte); color: var(--doux);
-  border-radius: 999px; padding: 6px 12px; font: inherit; font-size: .78rem; cursor: pointer; }
-.jeton.petit { padding: 4px 9px; min-width: 32px; }
+.blocs { display: flex; flex-direction: column; gap: 12px; }
+.bloc { background: var(--fond); border: 1px solid var(--trait); border-radius: var(--r-s);
+  padding: 14px 14px 12px; }
+.tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  margin: 0 0 10px; }
+.tete .titre { margin: 0; }
+.titre { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--doux); margin: 0 0 10px; font-weight: 700; }
+.valeur { font-size: .86rem; font-weight: 800; color: var(--texte); font-variant-numeric: tabular-nums; }
+
+.trois { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.nuage { display: flex; flex-wrap: wrap; gap: 7px; }
+.jeton { border: 1px solid var(--trait); background: var(--carte); color: var(--texte);
+  border-radius: 999px; padding: 7px 13px; font: inherit; font-size: .8rem; font-weight: 600;
+  cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+.jeton.tuile { border-radius: 12px; padding: 11px 6px; font-size: .9rem; text-align: center; }
+.jeton.petit { padding: 5px 9px; min-width: 34px; }
 .jeton.in { background: var(--encre); border-color: var(--encre); color: var(--fond); }
 .jeton.out { background: color-mix(in srgb, var(--peche) 70%, transparent);
   border-color: transparent; color: var(--texte); text-decoration: line-through; }
-.regle input[type=range] { width: 100%; accent-color: var(--encre); flex: 1; min-width: 0; }
-.borne { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-.borne > span { font-size: .72rem; color: var(--doux); width: 64px; flex: none;
-  text-align: right; font-weight: 600; white-space: nowrap; }
-.borne > b { width: 22px; flex: none; text-align: center; font-variant-numeric: tabular-nums;
+.legende { display: inline-flex; gap: 5px; }
+.mini-jeton { padding: 2px 8px; font-size: .66rem; cursor: default; }
+
+/* les curseurs, à la couleur de l'app */
+.borne { display: flex; align-items: center; gap: 10px; }
+.borne + .borne { margin-top: 8px; }
+.borne > span { font-size: .74rem; color: var(--doux); width: 58px; flex: none; font-weight: 600;
+  white-space: nowrap; }
+.borne > b { width: 24px; flex: none; text-align: right; font-variant-numeric: tabular-nums;
   font-weight: 800; }
+input[type=range] { flex: 1; min-width: 0; width: 100%; height: 28px; margin: 0; background: none;
+  -webkit-appearance: none; appearance: none; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: var(--trait); }
+input[type=range]::-moz-range-track { height: 6px; border-radius: 999px; background: var(--trait); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px;
+  margin-top: -8px; border-radius: 50%; background: var(--carte); border: 2px solid var(--encre);
+  box-shadow: 0 1px 4px rgba(26,35,78,.25); }
+input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--carte);
+  border: 2px solid var(--encre); box-shadow: 0 1px 4px rgba(26,35,78,.25); }
+input[type=range]:focus-visible { outline: 2px solid var(--encre); outline-offset: 2px; border-radius: 999px; }
+.regle { display: block; }
+.regle .tete { margin-bottom: 4px; }
+
+/* les cases, en interrupteurs : une ligne par réglage, l'interrupteur à droite */
+.interrupteurs { padding: 2px 14px; }
+.inter { display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 12px 0; font-size: .88rem; font-weight: 600; cursor: pointer; }
+.inter + .inter { border-top: 1px solid var(--trait); }
+.inter small { display: block; font-size: .74rem; font-weight: 500; color: var(--doux); margin-top: 2px; }
+/* Le rond reste blanc, clair comme sombre ; « oui » est vert, comme partout. */
+.inter input { -webkit-appearance: none; appearance: none; flex: none; width: 44px; height: 26px;
+  border-radius: 999px; background: color-mix(in srgb, var(--doux) 38%, transparent);
+  position: relative; margin: 0; cursor: pointer; transition: background .18s; }
+.inter input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  transition: transform .18s; }
+.inter input:checked { background: var(--oui); }
+.inter input:checked::after { transform: translateX(18px); }
+.inter input:focus-visible { outline: 2px solid var(--encre); outline-offset: 2px; }
+
+.deplier { display: flex; align-items: center; justify-content: space-between; width: 100%;
+  border: 0; background: none; padding: 6px 4px; font: inherit; font-weight: 700; font-size: .88rem;
+  color: var(--doux); cursor: pointer; }
+.deplier svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4;
+  stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+.deplier svg.ouvert { transform: rotate(180deg); }
 </style>

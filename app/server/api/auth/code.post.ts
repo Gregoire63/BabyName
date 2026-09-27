@@ -1,5 +1,6 @@
 /**
- * Le code a 6 chiffres de l'e-mail, tape dans l'app.
+ * Le code a 6 chiffres de l'e-mail, tape dans l'app : connexion, inscription,
+ * ou adresse ajoutee a un compte (`but: 'verification'`).
  *
  * Un million de valeurs : sans frein, un script les essaierait toutes. Trois
  * freins s'empilent : cinq essais par lien (au-dela, il faut un nouvel
@@ -21,8 +22,17 @@ export default defineEventHandler(async (e) => {
     return { but: 'verification', email }
   }
 
-  const r = await consommerCode(email, 'connexion', String(code ?? ''))
+  // Connexion ou inscription, sans distinguer : une inscription sur une adresse
+  // qui a déjà un compte a reçu un code de CONNEXION (inscription.post.ts), et
+  // l'écran qui l'attend ne le sait pas — il ne doit pas le savoir.
+  const r = await consommerCode(email, ['connexion', 'inscription'], String(code ?? ''))
   if (!r.ok) throw createError({ statusCode: 400, statusMessage: `code_${r.raison}`, data: { restants: r.restants } })
+  if (r.but === 'inscription') {
+    const u = await ouvrirCompteInscrit(email, r.pseudo ?? '')
+    await oublierEssais('code-email', email)
+    poserSession(e, u.id, u.gen)
+    return { but: 'inscription', nouveau: u.nouveau, utilisateur: { id: u.id, pseudo: u.pseudo } }
+  }
   const u = await q1<{ id: string; pseudo: string; gen: number }>(
     `update utilisateurs set vu_le = ${MAINTENANT} where id = ?1 and email = ?2
      returning id, pseudo, session_gen as gen`, [r.user_id, email])

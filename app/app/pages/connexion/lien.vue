@@ -11,11 +11,14 @@
  * place et vous tomberiez sur « lien déjà utilisé ». Un bouton, aucun robot
  * ne le touche. Le même pour les deux sortes de liens : on ne sait pas
  * laquelle c'est avant de demander au serveur, qui la consomme en répondant.
+ *
+ * Inscription ou connexion, on repart là où on allait : la liste partagée ou
+ * le prénom qu'on suivait, que l'appareil a gardés (utils/entreeEnAttente).
  */
 useHead({ title: 'Connexion par lien' })
 
 const jeton = ref('')
-const etat = ref<'lecture' | 'pret' | 'envoi' | 'verifie' | 'invalide' | 'incomplet'>('lecture')
+const etat = ref<'lecture' | 'pret' | 'envoi' | 'verifie' | 'invalide' | 'incomplet' | 'passkey'>('lecture')
 const email = ref('')
 
 function lireJeton(): string {
@@ -36,10 +39,17 @@ async function valider() {
       return
     }
     await rafraichirMoi()
-    await navigateTo('/', { replace: true })
   } catch {
     etat.value = 'invalide'
+    return
   }
+  // Première connexion d'un compte sans passkey : on la propose d'abord.
+  if (fautProposerPasskey()) { etat.value = 'passkey'; return }
+  await continuer()
+}
+
+function continuer() {
+  return navigateTo({ path: '/', query: { ...reprendreEntree() } }, { replace: true })
 }
 
 onMounted(async () => {
@@ -59,13 +69,12 @@ onMounted(async () => {
     <div class="carte pile">
       <template v-if="etat === 'pret' || etat === 'envoi' || etat === 'lecture'">
         <h2>Continuer sur cet appareil ?</h2>
-        <p class="mini doux" style="margin:0">
-          Le lien de votre e-mail est valable une seule fois.
-        </p>
         <button type="button" class="btn btn-1" :disabled="etat !== 'pret'" @click="valider">
           {{ etat === 'envoi' ? 'Un instant…' : 'Continuer' }}
         </button>
       </template>
+
+      <ProposerPasskey v-else-if="etat === 'passkey'" @fini="continuer" />
 
       <template v-else-if="etat === 'verifie'">
         <h2>Adresse confirmée</h2>
@@ -100,9 +109,11 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.lien { height: 100%; overflow-y: auto; display: flex; flex-direction: column;
-  gap: 18px; max-width: 460px; margin: 0 auto;
-  padding: max(24px, env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom)); }
+.lien { height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+  /* toute la largeur défile (la barre au bord de la fenêtre, pas au milieu
+     de l'écran) ; la colonne, elle, garde 460 px */
+  padding: max(24px, env(safe-area-inset-top)) max(18px, calc(50% - 230px))
+    calc(28px + env(safe-area-inset-bottom)); }
 .haut { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .haut img { border-radius: 17px; }
 .haut h1 { font-size: 1.5rem; }

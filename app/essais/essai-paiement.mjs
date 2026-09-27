@@ -140,8 +140,11 @@ await page.waitForTimeout(1500)
 const bloc = page.locator('.carte', { hasText: 'Avec votre nom de famille' })
 dit(await bloc.count() > 0, 'la carte « avec votre nom de famille » est là')
 await bloc.locator('input.champ').fill('Arnaud')
-await bloc.getByRole('button', { name: /Enregistrer|Fait/ }).click()
-await page.waitForTimeout(1800)
+dit(await bloc.getByRole('button', { name: /Enregistrer|Fait/ }).count() === 0,
+    'pas de bouton « Enregistrer » : le nom s’enregistre en quittant le champ')
+await bloc.locator('input.champ').blur()
+await bloc.getByRole('status').filter({ hasText: 'Enregistré' }).waitFor({ timeout: 8000 })
+await page.waitForTimeout(600)
 dit(await page.locator('.essai').count() === 0,
     'les réglages ne listent plus de verdicts : on n’y saisit que le nom')
 

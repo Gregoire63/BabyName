@@ -49,9 +49,7 @@ async function entrer() {
 <template>
   <Feuille titre="Rejoindre une liste" @fermer="emit('fermer')">
     <p class="mini doux" style="margin:0 0 12px">
-      Demandez son code à la personne qui a créé la liste : dans les réglages
-      de sa liste, sous « Inviter quelqu’un ». Le plus simple reste le lien
-      qu’elle peut vous envoyer. Un code cadeau se tape ici aussi.
+      Le code d’une liste, ou un code cadeau.
     </p>
     <input ref="champ" :value="code" class="champ code" placeholder="Le code"
            aria-label="Code d’invitation ou code cadeau"

@@ -26,7 +26,7 @@ import { createServer } from 'node:http'
 import { createHmac } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, inscrire, BASE } from './navigateur.mjs'
 
 const WHSEC = process.env.NUXT_STRIPE_WEBHOOK_SECRET
 if (!WHSEC) { console.error('Lancer via relance.sh : essai-cadeau.env n’a pas été chargé.'); process.exit(2) }
@@ -112,9 +112,12 @@ const acheteur = await contexte()
 const p = acheteur.page
 await p.goto(`${BASE}/offrir`, { waitUntil: 'networkidle' })
 await p.waitForSelector('h1', { timeout: 30000 })
-dit(p.url().endsWith('/offrir') && (await p.locator('h1').innerText()).trim() === 'Offrir babyNamed',
-  'la page /offrir s’ouvre sans compte, sans passer par la connexion')
-const bouton = p.getByRole('button', { name: /^Offrir — 6/ })
+const feuilleOffrir = p.locator('.feuille-corps')
+await feuilleOffrir.waitFor({ timeout: 10000 })
+dit(p.url().endsWith('/offrir') && (await p.locator('h1').innerText()).trim() === 'Offrir babyNamed'
+    && (await feuilleOffrir.locator('h2').first().innerText()).trim() === 'Offrir babyNamed',
+  'la page /offrir s’ouvre sans compte, sans passer par la connexion — le formulaire dans une feuille')
+const bouton = feuilleOffrir.getByRole('button', { name: /^Offrir — 6/ })
 dit(await bouton.isDisabled(), 'le bouton attend la case d’accord, jamais pré-cochée')
 await auditer(p, null, 'La page Offrir')
 const avant = recus.length
@@ -198,8 +201,7 @@ await q.waitForURL(/\/connexion/, { timeout: 20000 })
 dit(new URL(q.url()).searchParams.get('cadeau') === code1, 'le lien du cadeau traverse la connexion')
 await q.waitForFunction(() => /Mamie Jo vous offre babyNamed/.test(document.body.innerText), null, { timeout: 10000 })
 dit(true, 'la connexion dit qui l’attend : « Mamie Jo vous offre babyNamed »')
-await q.getByPlaceholder('Greg').fill('Léa')
-await q.getByRole('button', { name: 'Créer mon compte' }).click()
+await inscrire(q, 'Léa', 'lea.cadeau@exemple.test')
 const feuille = q.locator('.feuille-corps')
 await q.waitForSelector('.feuille-corps .carte-cadeau', { timeout: 30000 })
 const txtF = (await feuille.innerText()).replace(/\s+/g, ' ')
@@ -244,13 +246,20 @@ await greg.page.waitForFunction(() => /Liste débloquée/.test(
   document.querySelector('section[aria-labelledby="titre-achat"]')?.textContent ?? ''), null, { timeout: 8000 })
 const txtA = (await achat.innerText()).replace(/\s+/g, ' ')
 dit(/Un cadeau de Tata Rose/.test(txtA) && /Offerte/.test(txtA), 'la carte de la liste le dit')
-dit(await achat.getByRole('link', { name: /Offrir babyNamed/ }).count() === 1,
+dit(await achat.getByRole('button', { name: /Offrir babyNamed/ }).count() === 1,
   'et propose d’offrir babyNamed à d’autres')
 
 const c3 = await cadeauPaye(greg.page, 'pi_cadeau_3')
 await greg.page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
 await greg.page.waitForSelector('.bento', { timeout: 20000 })
-dit(await greg.page.getByRole('link', { name: /Offrir babyNamed/ }).count() === 1, 'l’accueil propose d’offrir')
+const tuileOffrir = greg.page.getByRole('button', { name: /Offrir babyNamed/ })
+dit(await tuileOffrir.count() === 1, 'l’accueil propose d’offrir')
+await tuileOffrir.click()
+await greg.page.locator('.feuille-corps h2', { hasText: 'Offrir babyNamed' }).waitFor({ timeout: 8000 })
+dit(new URL(greg.page.url()).pathname === '/' && await greg.page.locator('.feuille-corps .accord').count() === 1,
+  'la tuile ouvre la feuille « Offrir » sur place, sans quitter l’accueil')
+await greg.page.keyboard.press('Escape')
+await greg.page.waitForSelector('.feuille-corps', { state: 'detached', timeout: 8000 })
 await greg.page.getByRole('button', { name: /Rejoindre une liste/ }).click()
 const fr = greg.page.locator('.feuille-corps')
 await fr.getByRole('textbox', { name: /code cadeau/ }).fill(c3.code)

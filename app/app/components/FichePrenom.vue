@@ -84,7 +84,7 @@ const lecture = computed(() => {
           <div>
             <h2 :id="idNom" class="nom">{{ p.l }}</h2>
             <p class="mini doux" style="margin:4px 0 0">
-              {{ sexeTexte }} · {{ p.y }} syllabe{{ p.y > 1 ? 's' : '' }} · {{ p.c }} lettres
+              {{ sexeTexte }}
             </p>
           </div>
           <button type="button" class="btn btn-0 rond" aria-label="Fermer la fiche" @click="fermer">
@@ -113,13 +113,8 @@ const lecture = computed(() => {
           </div>
         </section>
         <section v-else-if="p.nb" class="bloc">
-          <h3>Bébés par an depuis {{ barres[0] }}</h3>
-          <BarresPrenom :valeurs="p.nb" :an0="barres[0]" :hauteur="72" />
-          <div class="ligne mini doux" style="justify-content:space-between">
-            <span>{{ barres[0] }}</span>
-            <span>arrondis à 5 par l’Insee</span>
-            <span>{{ barres[1] }}</span>
-          </div>
+          <h3>Naissances par an</h3>
+          <BarresPrenom :valeurs="p.nb" :an0="barres[0]" :hauteur="110" />
         </section>
 
         <p class="lecture">{{ lecture }}</p>
@@ -130,16 +125,14 @@ const lecture = computed(() => {
 
           <template v-if="paye">
             <p class="mini doux" style="margin:0">
-              Calculé sur l'année de sa naissance<template v-if="p.ngp > 1">, toutes
-              graphies confondues — une classe entend le prénom, elle ne l'écrit
-              pas</template>.
+              L’année de sa naissance<template v-if="p.ngp > 1">, toutes graphies confondues</template>.
             </p>
           </template>
 
           <template v-else-if="manque">
             <p class="mini" style="margin:0">
-              Ce chiffre est celui d'un palmarès : une seule graphie, l'année
-              dernière. Pour ce prénom il tombe à côté —
+              Ce chiffre ne compte qu'une graphie, l'année dernière : pour ce
+              prénom il tombe à côté —
               <template v-if="manque.evolution">{{ manque.evolution }}</template>
               <template v-if="manque.evolution && manque.graphies"> et </template>
               <template v-if="manque.graphies">{{ manque.graphies }}</template>.
@@ -173,8 +166,7 @@ const lecture = computed(() => {
           Prénom d’avant 1970 qui remonte : il sonnera « ancien » à vos parents, neuf à ses camarades.
         </p>
         <p v-if="p.r > 30" class="note alerte">
-          Il grimpe et reste rare : il peut être partout dans cinq ans. C’est le profil typique
-          du prénom qu’on croit unique et qu’on retrouve en triple dans la classe.
+          Il grimpe et reste rare : il peut être partout dans cinq ans.
         </p>
         <p v-if="p.ob" class="note alerte">
           Homonyme repéré : {{ p.obn || 'un nom commun ou une marque' }}.

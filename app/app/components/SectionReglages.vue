@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
+import { passkeysPossibles, creerPasskey } from '~/composables/usePasskey'
 
 /**
  * Tout ce qui se regle : la liste d'abord, le compte ensuite. C'etait
@@ -12,6 +13,27 @@ const g = useGroupeCourant()
 // c'est là qu'on est quand on y pense.
 
 const copie = ref(false)
+const offrirOuvert = ref(false)
+
+/**
+ * Mon compte, depuis les réglages : la passkey d'abord (se connecter d'un
+ * geste), le reste dans la feuille du compte — la même que sur l'accueil,
+ * parce que le compte ne dépend d'aucune liste.
+ */
+const moi = useMoi()
+const compteOuvert = ref(false)
+const passkeyPossible = ref(false)
+onMounted(() => { passkeyPossible.value = passkeysPossibles() })
+const passkeyEnCours = ref(false)
+const passkeyMessage = ref('')
+async function creerPasskeyIci() {
+  if (passkeyEnCours.value) return
+  passkeyEnCours.value = true
+  passkeyMessage.value = ''
+  const r = await creerPasskey()
+  passkeyEnCours.value = false
+  passkeyMessage.value = r.ok ? 'Passkey créée : vous entrerez d’un geste.' : r.message
+}
 const renomme = ref(false)
 const nouveauNom = ref('')
 
@@ -24,13 +46,15 @@ const lien = computed(() => g.etat.value
 const nomChange = computed(() =>
   !!nouveauNom.value.trim() && nouveauNom.value !== g.etat.value?.groupe?.nom)
 
+/** Les noms s'enregistrent en quittant le champ (ou par Entrée) : pas de bouton. */
 async function renommer() {
   if (!nomChange.value) return
-  await $fetch(`/api/groupes/${g.gid}/nom`, { method: 'PUT', body: { nom: nouveauNom.value } })
+  await $fetch(`/api/groupes/${g.gid}/nom`, { method: 'PUT', body: { nom: nouveauNom.value.trim() } })
   renomme.value = true
   setTimeout(() => renomme.value = false, 1600)
   await g.recharger()
 }
+const quitter = (e: KeyboardEvent) => (e.target as HTMLInputElement).blur()
 
 async function partager() {
   const donnees = { title: 'babyNamed', text: 'Aide-moi à choisir un prénom', url: lien.value }
@@ -119,7 +143,7 @@ const nomChangeF = computed(() => {
 
 async function enregistrerNomFamille() {
   const gid = g.etat.value?.groupe?.id
-  if (!gid) return
+  if (!gid || !nomChangeF.value) return
   try {
     await $fetch(`/api/groupes/${gid}/nom-famille`, {
       method: 'PUT', body: { nom: nomFamille.value.trim() }
@@ -205,14 +229,12 @@ const filtresActifs = computed(() => {
       <TeteListe onglet="Réglages de cette liste" />
 
       <section class="carte pile">
-        <h2>Nom</h2>
         <div class="ligne">
-          <input v-model="nouveauNom" class="champ" style="flex:1" aria-label="Nom de la liste"
-                 @keyup.enter="renommer">
-          <button class="btn mini" :disabled="!nomChange" @click="renommer">
-            {{ renomme ? 'Fait' : 'Renommer' }}
-          </button>
+          <h2 style="flex:1">Nom</h2>
+          <span class="mini doux" role="status">{{ renomme ? 'Enregistré' : '' }}</span>
         </div>
+        <input v-model="nouveauNom" class="champ" aria-label="Nom de la liste" maxlength="60"
+               @blur="renommer" @keyup.enter="quitter">
       </section>
 
       <section class="carte pile achat" :class="{ debloquee: paye }" aria-labelledby="titre-achat">
@@ -222,9 +244,8 @@ const filtresActifs = computed(() => {
             <strong class="prix">{{ prix }}</strong>
           </div>
           <p class="mini" style="margin:0">
-            <strong>Une fois, pour cette liste seulement</strong> — et pour tous
-            ses membres. Ni abonnement, ni toute l’application : une autre liste
-            se débloque à part, et vos autres listes restent gratuites.
+            <strong>Pour cette liste seulement</strong>, et tous ses membres. Une
+            fois, sans abonnement.
           </p>
           <ul class="inclus-court">
             <li v-for="i in INCLUS" :key="i.titre">{{ i.titre }}</li>
@@ -233,7 +254,7 @@ const filtresActifs = computed(() => {
             Voir le détail — {{ prix }}
           </button>
           <p v-else class="mini doux" style="margin:0">
-            Un membre de la liste peut la débloquer ; vous en profiterez aussi.
+            Un membre de la liste peut la débloquer.
           </p>
         </template>
         <template v-else>
@@ -243,14 +264,14 @@ const filtresActifs = computed(() => {
           </p>
           <p class="mini doux" style="margin:0">
             {{ offerte || cadeau ? 'Offerte' : 'Débloquée' }}<template v-if="debloqueeLe"> le {{ debloqueeLe }}</template>,
-            pour tous ses membres et sans limite de durée. Elle seule : vos
-            autres listes restent gratuites.
+            pour tous ses membres.
           </p>
           <!-- Le moment où l'on est content de ce qu'on a payé est celui où
                l'on pense aux amis qui attendent un bébé. -->
-          <NuxtLink to="/offrir" class="lien mini" style="align-self:flex-start">
+          <button type="button" class="lien mini lien-bouton" style="align-self:flex-start"
+                  @click="offrirOuvert = true">
             Offrir babyNamed à d’autres futurs parents
-          </NuxtLink>
+          </button>
         </template>
       </section>
 
@@ -277,19 +298,12 @@ const filtresActifs = computed(() => {
               {{ copie ? 'Lien copié' : 'Partager le lien' }}
             </button>
           </div>
-          <p v-if="nbMembres < 2" class="mini doux" style="margin:0">
-            La personne que vous invitez jugera les mêmes prénoms de son côté,
-            sans voir vos réponses.
-          </p>
           <!-- Dit avant le partage, pas découvert après. -->
-          <div v-else class="avert pile">
+          <div v-if="nbMembres >= 2" class="avert pile">
             <p class="mini" style="margin:0">
-              <strong>Une troisième personne compterait dans les accords.</strong>
-              Un prénom n’est « en commun » que si <strong>tout le monde</strong>
-              l’a jugé et que <strong>personne</strong> n’a dit non : vos
-              <strong>{{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }}</strong>
-              passeraient en attente jusqu’à ce qu’elle ait jugé les mêmes prénoms,
-              et elle aurait le pouvoir de bloquer chacun d’eux.
+              <strong>Une troisième personne compterait dans les accords</strong> :
+              vos {{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }} attendraient
+              son avis, et elle pourrait bloquer chacun d’eux.
             </p>
             <button type="button" class="btn btn-0 mini" style="align-self:flex-start;padding-left:0"
                     @click="typeInvit = 'lecture'">
@@ -312,17 +326,9 @@ const filtresActifs = computed(() => {
             <button v-else class="btn" :disabled="demandeObs" @click="creerCodeObs">
               {{ demandeObs ? 'Un instant…' : 'Créer le lien en lecture seule' }}
             </button>
-            <p class="mini doux" style="margin:0">
-              Vous voyez son avis sur chaque prénom ; vos
-              {{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }} ne bougent pas.
-            </p>
           </template>
           <template v-else>
-            <p class="mini doux" style="margin:0">
-              Montrer votre liste à vos parents sans qu’ils puissent rien
-              bloquer : ils donnent leur avis, vos accords restent les vôtres.
-              C’est compris dans le déblocage de la liste.
-            </p>
+            <p class="mini doux" style="margin:0">Compris dans le déblocage de la liste.</p>
             <button class="btn btn-1" @click="g.ouvrirDebloquer()">
               Voir ce que ça ouvre
             </button>
@@ -341,33 +347,20 @@ const filtresActifs = computed(() => {
         <h2>Avec votre nom de famille</h2>
 
         <template v-if="paye">
-          <p class="mini doux" style="margin:0">
-            Chaque carte du tri montre ensuite le prénom avec votre nom, lu comme
-            on le <em>dit</em> : les voyelles qui se collent, les sons qui butent,
-            les initiales qu’on n’avait pas vues.
+          <input id="champ-nom-famille" v-model="nomFamille" class="champ" aria-label="Nom de famille"
+                 placeholder="Votre nom" autocapitalize="words" maxlength="60"
+                 autocorrect="off" spellcheck="false"
+                 @blur="enregistrerNomFamille" @keyup.enter="quitter">
+          <p class="mini doux" style="margin:0" role="status">
+            {{ enregistre ? 'Enregistré : chaque carte le montre avec le prénom.' : 'Chaque carte montre le prénom avec votre nom.' }}
           </p>
-          <div class="ligne">
-            <input id="champ-nom-famille" v-model="nomFamille" class="champ" style="flex:1" aria-label="Nom de famille"
-                   placeholder="Votre nom" autocapitalize="words"
-                   autocorrect="off" spellcheck="false"
-                   @keyup.enter="enregistrerNomFamille">
-            <button class="btn mini" :disabled="!nomChangeF"
-                    @click="enregistrerNomFamille">
-              {{ enregistre ? 'Fait' : 'Enregistrer' }}
-            </button>
-          </div>
         </template>
 
         <template v-else>
-          <p class="mini doux" style="margin:0">
-            « Ça donne quoi avec notre nom ? » — la question que tout le monde
-            pose à voix haute. On sait y répondre : on a la prononciation de
-            chaque prénom, donc les accroches qui ne se voient pas à l'écrit.
-          </p>
           <p class="mini" style="margin:0">
             <span class="exemple">Léa Arnaud</span> accroche,
-            <span class="exemple">Léa Bernard</span> coule. Rien dans
-            l'orthographe ne le montre.
+            <span class="exemple">Léa Bernard</span> coule : chaque prénom, essayé
+            avec votre nom.
           </p>
           <button class="btn btn-1" @click="g.ouvrirDebloquer()">
             Voir ce que ça ouvre
@@ -383,8 +376,7 @@ const filtresActifs = computed(() => {
           <span class="mini doux">{{ m.votes }} jugés</span>
         </div>
         <p v-if="retardataire" class="mini doux" style="margin:0">
-          Les accords attendent {{ retardataire.pseudo }} : un prénom
-          n’apparaît qu’une fois jugé par tout le monde.
+          Les accords attendent {{ retardataire.pseudo }}.
         </p>
       </section>
 
@@ -396,29 +388,38 @@ const filtresActifs = computed(() => {
         <div v-if="filtresActifs.length" class="ligne" style="flex-wrap:wrap;gap:6px">
           <span v-for="f in filtresActifs" :key="f" class="puce">{{ f }}</span>
         </div>
-        <p v-else class="mini doux" style="margin:0">
-          Aucun filtre. Le swipe laisse de côté les prénoms très rares — la
-          recherche, sous la loupe du swipe, les trouve.
+        <p v-else class="mini doux" style="margin:0">Aucun filtre.</p>
+      </section>
+
+      <section class="carte pile" aria-labelledby="titre-compte">
+        <h2 id="titre-compte">Mon compte</h2>
+        <p class="mini doux" style="margin:0">
+          {{ moi?.pseudo }}<template v-if="moi?.email"> · {{ moi.email }}</template>
+          · {{ moi?.passkeys ? `${moi.passkeys} passkey${moi.passkeys > 1 ? 's' : ''}` : 'aucune passkey' }}
         </p>
+        <button v-if="passkeyPossible && !moi?.passkeys" type="button" class="btn btn-1"
+                :disabled="passkeyEnCours" @click="creerPasskeyIci">
+          {{ passkeyEnCours ? 'Un instant…' : 'Créer une passkey' }}
+        </button>
+        <p v-if="passkeyMessage" class="mini" role="status" style="margin:0">{{ passkeyMessage }}</p>
+        <button type="button" class="btn" @click="compteOuvert = true">
+          Passkeys, e-mail, mes données
+        </button>
       </section>
 
       <section class="carte pile" aria-labelledby="titre-theme">
         <h2 id="titre-theme">Apparence</h2>
         <ChoixTheme />
-        <p class="mini doux" style="margin:0">Sur cet appareil, pour toutes vos listes.</p>
       </section>
-
-      <p class="mini doux" style="text-align:center;margin:6px 0 0">
-        Vos choix, vos gardés, vos écartés et vos prénoms bloqués en secret
-        sont dans Classement · Mes choix. Votre compte (nom, connexion, données) est sur
-        l’accueil, sous votre nom.
-      </p>
     </template>
+    <FeuilleOffrir v-if="offrirOuvert" @fermer="offrirOuvert = false" />
+    <FeuilleCompte v-if="compteOuvert" @fermer="compteOuvert = false" />
   </div>
 </template>
 
 <style scoped>
 .exemple { font-weight: 650; }
+.lien-bouton { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; }
 .achat { background: linear-gradient(160deg, color-mix(in srgb, var(--menthe) 38%, var(--carte)) 0%, var(--carte) 70%); }
 .achat.debloquee { background: color-mix(in srgb, var(--menthe) 26%, var(--carte)); }
 .prix { font-size: 1.25rem; font-weight: 800; }

@@ -72,8 +72,7 @@ function choisir(p: Prenom, fermer: () => void) {
              autocapitalize="off" autocorrect="off" spellcheck="false"
              @keyup.enter="trouves[0] && choisir(trouves[0], fermer)">
       <p id="recherche-aide" class="mini doux" style="margin:0">
-        Dans tout le catalogue, filtres ignorés. Touchez un prénom : il passe
-        en première carte.
+        Tout le catalogue, sans vos filtres.
       </p>
 
       <p v-if="recherche.trim().length >= 2 && !trouves.length" class="mini doux" role="status"

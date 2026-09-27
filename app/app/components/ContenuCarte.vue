@@ -112,13 +112,14 @@ const niveau = computed(() => !essai.value ? ''
       <span v-for="o in p.g" :key="o" class="puce">{{ o }}</span>
     </div>
 
-    <!-- Trois chiffres, chacun avec ce qu'il mesure : « 1 sur 194 » seul ne
-         disait pas de quoi. -->
+    <!-- Deux chiffres, chacun avec ce qu'il mesure : « 1 sur 194 » seul ne
+         disait pas de quoi. Pas les syllabes : chacun les compte en lisant
+         le prénom, et une machine qui compte de travers (Léandre) agace plus
+         qu'elle n'aide. -->
     <dl class="resume">
       <div><dt>des naissances</dt><dd>{{ frequenceLisible(p.f) }}</dd></div>
       <div v-if="fiable"><dt>par an</dt><dd :class="tendance">{{ pourcentAn(p.t) }}</dd></div>
       <div v-else><dt>bébé{{ bebesParAn(p) > 1 ? 's' : '' }} par an</dt><dd>≈ {{ bebesParAn(p) }}</dd></div>
-      <div><dt>syllabe{{ p.y > 1 ? 's' : '' }}</dt><dd>{{ p.y }}</dd></div>
     </dl>
 
     <p v-if="p.r > 30" class="alerte">
@@ -140,12 +141,8 @@ const niveau = computed(() => !essai.value ? ''
       <p class="graphe-axe" aria-hidden="true"><span>1986</span><span>2025</span></p>
     </div>
     <div v-else-if="p.nb" class="graphe">
-      <p class="graphe-tete" aria-hidden="true">
-        <span>Bébés par an depuis {{ barres[0] }}</span>
-        <span>arrondis à 5 par l’Insee</span>
-      </p>
+      <p class="graphe-tete" aria-hidden="true"><span>Naissances par an</span></p>
       <div class="graphe-corps"><BarresPrenom :valeurs="p.nb" :an0="barres[0]" remplir /></div>
-      <p class="graphe-axe" aria-hidden="true"><span>{{ barres[0] }}</span><span>{{ barres[1] }}</span></p>
     </div>
     </div>
 
@@ -203,7 +200,7 @@ const niveau = computed(() => !essai.value ? ''
 /* Une etymologie discutee ne doit pas se lire comme un fait. */
 .doute { font-style: normal; font-size: .74rem; color: var(--doux); }
 
-.resume { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.resume { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .resume > div { background: var(--fond); border: 1px solid var(--trait); border-radius: 13px;
   padding: 7px 9px; display: flex; flex-direction: column-reverse; gap: 1px; min-width: 0; }
 .resume dt { font-size: .68rem; color: var(--doux); font-weight: 600; }

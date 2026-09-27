@@ -1,0 +1,42 @@
+# Chaque nuit, une copie chiffrée de la base (D1) sur l'hébergement OVH.
+# Le travail est dans app/scripts/sauvegarde-ovh.sh (pourquoi, comment
+# restaurer) ; ici, seulement quand et avec quoi.
+#
+# À poser une fois dans GitHub → Settings → Secrets and variables → Actions :
+#   secrets    CLOUDFLARE_API_TOKEN  (jeton limité à D1), CLOUDFLARE_ACCOUNT_ID,
+#              OVH_SFTP_HOTE, OVH_SFTP_UTILISATEUR, OVH_SFTP_MOT_DE_PASSE
+#   variable   AGE_DESTINATAIRE (clé publique age, « age1… » : pas un secret)
+name: Sauvegarde de la base
+
+on:
+  schedule:
+    - cron: '41 3 * * *'   # 03:41 UTC, après la purge RGPD de 03:17 : l'export bloque la base quelques secondes
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sauvegarde-base
+  cancel-in-progress: false
+
+jobs:
+  sauvegarde:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: app/scripts/sauvegarde-ovh.sh
+          sparse-checkout-cone-mode: false
+      - name: Outils (age, lftp)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age lftp
+      - name: Exporter, chiffrer, déposer chez OVH
+        run: bash app/scripts/sauvegarde-ovh.sh
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          AGE_DESTINATAIRE: ${{ vars.AGE_DESTINATAIRE }}
+          OVH_SFTP_HOTE: ${{ secrets.OVH_SFTP_HOTE }}
+          OVH_SFTP_UTILISATEUR: ${{ secrets.OVH_SFTP_UTILISATEUR }}
+          LFTP_PASSWORD: ${{ secrets.OVH_SFTP_MOT_DE_PASSE }}

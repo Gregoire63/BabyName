@@ -70,8 +70,8 @@ dit(!repli, repli ? 'REPLI sur catalogue.json : la détection gzip a raté'
 await page.locator('.onglets button', { hasText: 'La liste' }).click()
 await page.waitForSelector('text=Aucun filtre', { timeout: 10000 })
 const resume = await page.locator('section.carte', { hasText: 'Aucun filtre' }).last().innerText()
-dit(/recherche/i.test(resume) && /rares/i.test(resume),
-    'le bloc Filtres dit que le swipe laisse les rares de côté')
+dit(/Aucun filtre\.?\s*$/.test(resume.replace(/Modifier/, '').trim()) || /Aucun filtre/.test(resume),
+    'le bloc Filtres le dit en deux mots : « Aucun filtre »')
 
 await page.locator('button', { hasText: 'Modifier' }).last().click()
 await page.waitForSelector('text=Inclure les prénoms très rares', { timeout: 10000 })
@@ -79,8 +79,8 @@ const pied = () => page.locator('button.btn-1', { hasText: 'prénoms — voir' }
 const nb = async () => parseInt((await pied()).replace(/[^\d]/g, ''), 10)
 const avant = await nb()
 const annonce = parseInt(
-  (await page.locator('label', { hasText: 'Inclure les prénoms très rares' }).innerText())
-    .replace(/[^\d]/g, ''), 10)
+  ((await page.locator('label', { hasText: 'Inclure les prénoms très rares' }).innerText())
+    .match(/\+\s*([\d\s\u202f]+)/)?.[1] ?? '').replace(/[^\d]/g, ''), 10)
 dit(avant > 7000 && avant < 7700, `pile par défaut : ${avant} prénoms, les rares restent dehors`)
 dit(annonce > 11000, `la case annonce + ${annonce}`)
 

@@ -38,12 +38,12 @@ const prix = (config.public.prixListe as string) || '6 €'
 
     <h2>3. Votre compte</h2>
     <p>
-      Un compte se crée avec un nom affiché. Il n’y a pas de mot de passe : pour retrouver votre compte sur
-      un autre appareil, vous pouvez créer une <strong>passkey</strong> (déverrouillée par le visage,
-      l’empreinte ou le code de votre téléphone) et/ou confirmer une <strong>adresse e-mail</strong>, qui
-      reçoit sur demande un lien et un code de connexion. Sans l’un ni l’autre, le compte n’existe que sur
-      l’appareil où il a été créé, et l’éditeur ne peut pas le retrouver pour vous. Les comptes créés avant
-      les passkeys gardent leur clé d’accès tant qu’ils ne la désactivent pas. Ne partagez ni vos codes ni
+      Un compte se crée avec un nom affiché et une <strong>adresse e-mail</strong>, confirmée par le lien ou
+      le code qu’elle reçoit. Il n’y a pas de mot de passe : cette adresse reçoit sur demande un lien et un
+      code de connexion, et vous pouvez aussi créer une <strong>passkey</strong> (déverrouillée par le
+      visage, l’empreinte ou le code de votre téléphone). Un compte plus ancien, sans adresse ni passkey,
+      n’existe que sur l’appareil où il a été créé, et l’éditeur ne peut pas le retrouver pour vous. Les
+      comptes créés avant les passkeys gardent leur clé d’accès tant qu’ils ne la désactivent pas. Ne partagez ni vos codes ni
       l’accès à votre boîte mail ; <em>Mon compte</em> permet de déconnecter tous vos autres appareils.
     </p>
     <p>

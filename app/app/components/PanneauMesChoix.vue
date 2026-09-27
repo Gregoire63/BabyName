@@ -159,9 +159,8 @@ async function remettre(prenoms: string[]) {
       </button>
       <template v-if="ouvert === -2">
         <p class="mini doux" style="margin:0">
-          Bloqués en secret, avec leurs graphies : ils ne deviendront jamais
-          communs, et personne d’autre ne sait que c’est vous. Il vous en reste
-          {{ vetosRestants }} sur {{ vetosMax }} ; un blocage se retire à tout moment.
+          Personne d’autre ne sait que c’est vous. Il vous en reste
+          {{ vetosRestants }} sur {{ vetosMax }}.
         </p>
         <p v-if="!vetos.length" class="mini doux" style="margin:0">
           Aucun prénom bloqué.

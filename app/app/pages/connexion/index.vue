@@ -6,9 +6,9 @@ import { passkeysPossibles, connecterPasskey, abandonnerPasskey } from '~/compos
 /**
  * Entrer : deux onglets, Inscription et Connexion — rien d'autre à comprendre.
  *
- *  - Inscription : un prénom, et on entre. Plus d'étape « pour retrouver
- *    votre compte » entre les deux : l'accueil le rappelle d'une ligne tant
- *    que le compte n'a ni passkey ni e-mail (SectionAccueil, `.proteger`).
+ *  - Inscription : un prénom et une adresse e-mail ; le compte naît du code
+ *    (ou du lien) reçu à cette adresse. Une adresse qui a déjà un compte
+ *    reçoit de quoi y entrer, et l'écran n'en dit rien (inscription.post.ts).
  *  - Connexion : l'e-mail (un lien, doublé d'un code pour l'app installée —
  *    le champ propose aussi les passkeys du téléphone), ou la passkey d'un geste.
  *  - Les comptes d'avant gardent leur clé d'accès, en petit en bas.
@@ -20,6 +20,8 @@ const route = useRoute()
 const pseudo = ref('')
 const cle = ref('')
 const mode = ref<'choix' | 'cle'>('choix')
+/** Entré par e-mail : la passkey est proposée avant de continuer (ProposerPasskey). */
+const proposerPasskey = ref(false)
 const ONGLETS = ['inscription', 'connexion'] as const
 const onglet = ref<'inscription' | 'connexion'>(route.query.mode === 'connexion' ? 'connexion' : 'inscription')
 const idOnglets = useId()
@@ -53,6 +55,8 @@ const prenomVu = ref('')
 
 /** Invitation et prénom suivent jusqu'à l'accueil, qui en fait l'entrée. */
 function suite() {
+  oublierEntree()
+  abandonnerPasskey()
   const query: Record<string, string> = {}
   if (invitation.value) query.code = invitation.value
   if (prenomDemande.value) query.prenom = prenomDemande.value
@@ -66,18 +70,20 @@ function messageErreur(e: any, defaut: string) {
     : defaut
 }
 
-async function creer() {
-  erreur.value = ''
-  if (pseudo.value.trim().length < 2) { erreur.value = 'Il faut au moins deux lettres.'; return }
-  envoi.value = true
-  try {
-    await $fetch<any>('/api/auth/entrer', { method: 'POST', body: { pseudo: pseudo.value } })
-    await rafraichirMoi()
-    abandonnerPasskey()
-    await suite()
-  } catch (e: any) {
-    erreur.value = messageErreur(e, 'Création impossible. Réessayez dans un instant.')
-  } finally { envoi.value = false }
+/**
+ * Entré par e-mail (inscription ou connexion) : à la première connexion d'un
+ * compte sans passkey, on la propose avant de continuer.
+ */
+async function entreParEmail() {
+  await rafraichirMoi()
+  if (fautProposerPasskey()) { proposerPasskey.value = true; return }
+  await suite()
+}
+
+/** Un e-mail est parti : si son lien s'ouvre dans un autre onglet, il saura
+ *  où mener (utils/entreeEnAttente). */
+function emailParti() {
+  retenirEntree({ code: invitation.value, prenom: prenomDemande.value })
 }
 
 async function avecPasskey() {
@@ -178,8 +184,19 @@ onBeforeUnmount(() => abandonnerPasskey())
       Votre compte et vos données ont été supprimés.
     </p>
 
+    <!-- entré par e-mail : la passkey, proposée une fois -->
+    <template v-if="proposerPasskey">
+      <div class="haut">
+        <img src="/logo.png" alt="" width="58" height="58">
+        <h1>babyNamed</h1>
+      </div>
+      <div class="carte">
+        <ProposerPasskey @fini="suite" />
+      </div>
+    </template>
+
     <!-- l'ancienne clé d'accès -->
-    <template v-if="mode === 'cle'">
+    <template v-else-if="mode === 'cle'">
       <div class="haut">
         <img src="/logo.png" alt="" width="58" height="58">
         <h1>Votre clé</h1>
@@ -194,8 +211,7 @@ onBeforeUnmount(() => abandonnerPasskey())
         </button>
         <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
         <p class="mini doux" style="margin:0">
-          Pour les comptes créés avant les passkeys. Une fois entré, ajoutez une
-          passkey ou votre e-mail dans « Mon compte » : la clé ne sera plus utile.
+          Pour les comptes créés avant les passkeys.
         </p>
         <button type="button" class="btn btn-0 doux" @click="versChoix">Retour</button>
       </div>
@@ -217,7 +233,7 @@ onBeforeUnmount(() => abandonnerPasskey())
       </p>
       <p v-if="cadeau" class="attend">
         <strong>{{ cadeauDe ? `${cadeauDe} vous offre babyNamed` : 'Un cadeau vous attend' }}</strong> :
-        une liste débloquée. Un prénom suffit pour commencer, le cadeau suit.
+        une liste débloquée.
       </p>
 
       <div class="carte pile">
@@ -233,33 +249,36 @@ onBeforeUnmount(() => abandonnerPasskey())
         <div :id="`${idOnglets}-panneau`" role="tabpanel" :aria-labelledby="`${idOnglets}-${onglet}`"
              class="pile" style="gap:12px">
           <template v-if="onglet === 'inscription'">
-            <label class="pile" style="gap:6px">
-              <span class="mini doux">Votre prénom, pour que l’autre vous reconnaisse</span>
-              <input v-model="pseudo" class="champ" placeholder="Greg" autocomplete="nickname"
-                     @keyup.enter="creer">
-            </label>
-            <button type="button" class="btn btn-1" :disabled="envoi" @click="creer">
-              {{ envoi ? 'Création…' : 'Créer mon compte' }}
-            </button>
-            <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
-            <!-- L'information au moment de la collecte (RGPD, art. 13) : courte
-                 ici, complete derriere le lien. -->
-            <p class="mini doux" style="margin:0">
-              Pas de mot de passe. En créant un compte, vous acceptez les
-              <NuxtLink to="/conditions" class="lien">conditions d’utilisation</NuxtLink>.
-              Seul ce prénom est demandé ; vos listes et vos votes servent à faire marcher
-              l’app, jamais à de la publicité —
-              <NuxtLink to="/confidentialite" class="lien">ce qu’on garde et pourquoi</NuxtLink>.
+            <FormulaireEmail v-if="courrielPossible !== false" but="inscription" :pseudo="pseudo"
+                             @envoye="emailParti" @fait="entreParEmail">
+              <template #avant>
+                <label :for="`${idOnglets}-prenom`" class="mini doux">Votre prénom</label>
+                <input :id="`${idOnglets}-prenom`" v-model="pseudo" class="champ" placeholder="Greg"
+                       autocomplete="given-name" maxlength="40">
+              </template>
+              <!-- L'information au moment de la collecte (RGPD, art. 13) : une
+                   ligne ici, le détail derrière le lien. -->
+              <template #apres>
+                <p class="mini doux" style="margin:0">
+                  En créant un compte, vous acceptez les
+                  <NuxtLink to="/conditions" class="lien">conditions</NuxtLink>.
+                  <NuxtLink to="/confidentialite" class="lien">Vos données</NuxtLink> ne servent
+                  qu’à faire marcher l’app.
+                </p>
+              </template>
+            </FormulaireEmail>
+            <p v-else class="mini doux" style="margin:0">
+              Les inscriptions ne sont pas encore ouvertes.
             </p>
           </template>
 
           <template v-else>
-            <FormulaireEmail v-if="courrielPossible" but="connexion" @fait="suite" />
+            <FormulaireEmail v-if="courrielPossible !== false" but="connexion" @envoye="emailParti" @fait="entreParEmail" />
             <button v-if="passkeyPossible" type="button" class="btn" :disabled="envoi" @click="avecPasskey">
               Se connecter avec une passkey
             </button>
             <p v-if="erreurPasskey" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreurPasskey }}</p>
-            <p v-if="!courrielPossible && !passkeyPossible" class="mini doux" style="margin:0">
+            <p v-if="courrielPossible === false && !passkeyPossible" class="mini doux" style="margin:0">
               Ce navigateur ne sait pas se servir d’une passkey. Ouvrez babyNamed sur le
               téléphone où vous l’avez créée, ou entrez avec votre clé.
             </p>
@@ -279,14 +298,17 @@ onBeforeUnmount(() => abandonnerPasskey())
 </template>
 
 <style scoped>
-.accueil { height: 100%; overflow-y: auto; display: flex; flex-direction: column;
-  gap: 18px; max-width: 460px; margin: 0 auto;
-  padding: max(24px, env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom)); }
-/* Centré quand ça tient, et qui défile depuis le HAUT quand ça ne tient pas :
-   `justify-content: center` coupait le logo sur un petit écran, sans qu'on
-   puisse remonter jusqu'à lui. */
-.accueil > :first-child { margin-top: auto; }
-.accueil > :last-child { margin-bottom: auto; }
+.accueil { height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+  /* toute la largeur défile (la barre au bord de la fenêtre, pas au milieu
+     de l'écran) ; la colonne, elle, garde 460 px */
+  padding: max(clamp(24px, 9vh, 96px), env(safe-area-inset-top)) max(18px, calc(50% - 230px))
+    calc(28px + env(safe-area-inset-bottom)); }
+/* Ancré en HAUT, pas centré : centré, tout sautait dès qu'un bloc arrivait
+   après coup (la bannière d'un prénom, les outils de dev) — en revenant des
+   conditions, le formulaire « arrivait par le bas ». Et sur un téléphone, le
+   clavier couvre le bas de l'écran : un formulaire en haut reste visible.
+   Le pied de page, lui, reste en bas. */
+.accueil > :last-child { margin-top: auto; }
 .haut { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .haut img { border-radius: 17px; }
 .haut h1 { font-size: 1.7rem; }

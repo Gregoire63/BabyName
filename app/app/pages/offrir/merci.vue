@@ -104,9 +104,7 @@ async function copier(quoi: 'lien' | 'code') {
           quelques jours). Il figure déjà sur la facture envoyée par e-mail.
         </p>
         <p v-else-if="c.statut === 'pret'" class="mini" style="margin:0">
-          Valable jusqu’au {{ jusquau }}, pour une liste : celle que les parents
-          ont commencée, ou une nouvelle. Il figure aussi sur la facture envoyée
-          par e-mail.
+          Valable jusqu’au {{ jusquau }}. Il figure aussi sur la facture.
         </p>
         <p v-if="c.de_la_part || c.message" class="mini doux" style="margin:0">
           Ils liront : <strong>{{ c.de_la_part ?? 'Quelqu’un' }}</strong> vous offre
@@ -123,9 +121,7 @@ async function copier(quoi: 'lien' | 'code') {
           {{ copie === 'code' ? 'Copié' : 'Copier le code seul' }}
         </button>
         <p class="mini doux" style="margin:0">
-          Le lien ouvre le cadeau d’un toucher. Le code seul, pour une carte écrite
-          à la main : il se tape dans l’app, sous « Rejoindre une liste » ou
-          « Débloquer ».
+          Le code seul se tape dans l’app, sous « Rejoindre une liste ».
         </p>
       </div>
 
@@ -137,9 +133,11 @@ async function copier(quoi: 'lien' | 'code') {
 </template>
 
 <style scoped>
-.accueil { height: 100%; overflow-y: auto; display: flex; flex-direction: column;
-  gap: 18px; max-width: 460px; margin: 0 auto;
-  padding: max(24px, env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom)); }
+.accueil { height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+  /* toute la largeur défile (la barre au bord de la fenêtre, pas au milieu
+     de l'écran) ; la colonne, elle, garde 460 px */
+  padding: max(24px, env(safe-area-inset-top)) max(18px, calc(50% - 230px))
+    calc(28px + env(safe-area-inset-bottom)); }
 .accueil:focus { outline: none; }
 .haut { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .haut img { border-radius: 17px; display: block; }

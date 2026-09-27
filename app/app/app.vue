@@ -271,6 +271,12 @@ button { font: inherit; color: inherit; }
 [data-sens="arriere"] .page-enter-from { transform: translateX(-22%); opacity: .55; }
 [data-sens="arriere"] .page-leave-to   { transform: translateX(100%); }
 
+/* la connexion et les pages légales : un fondu, une page après l'autre
+   (voir middleware/glisse.global.ts) */
+.fondu-enter-active { transition: opacity .18s ease-out; }
+.fondu-leave-active { transition: opacity .1s ease-in; }
+.fondu-enter-from, .fondu-leave-to { opacity: 0; }
+
 @media (prefers-reduced-motion: reduce) {
   .page-enter-active, .page-leave-active { transition-duration: .01ms; }
   [data-sens] .page-enter-from, [data-sens] .page-leave-to { transform: none; }

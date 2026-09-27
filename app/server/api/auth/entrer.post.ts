@@ -1,14 +1,12 @@
 /**
- * Creation d'un compte : un pseudo suffit.
+ * Un compte d'un prénom, sans adresse : en DÉVELOPPEMENT seulement.
  *
- * Plus de cle d'acces a noter : on revient par une passkey ou par un lien
- * recu par e-mail, que l'app propose juste apres (et dans « Mon compte »).
- *
- * Limitee par adresse IP : un compte se cree sans rien prouver, c'est ce qui
- * rend l'app agreable — et ce qui la rendrait facile a remplir de comptes
- * vides par un script.
+ * Les essais et les outils de dev s'en servent pour créer des comptes à la
+ * volée. En production la route répond 404 : un compte se crée par
+ * inscription.post.ts, adresse e-mail prouvée.
  */
 export default defineEventHandler(async (e) => {
+  if (!import.meta.dev) throw createError({ statusCode: 404, statusMessage: 'introuvable' })
   await limiter(e, 'entrer', ipDe(e), 12, 3600)
   const { pseudo } = await readBody<{ pseudo?: string }>(e) ?? {}
   const p = pseudoValide(pseudo)

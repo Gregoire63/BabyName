@@ -91,15 +91,13 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
     <div v-if="!aRevoir.length" class="vide">
       <Etincelles :taille="34" couleur="var(--menthe)" />
       <h2>Aucun désaccord</h2>
-      <p>Les prénoms où l’un dit oui et l’autre non arrivent ici. Il n’y en a
-         pas pour l’instant — ou vous n’avez pas encore jugé les mêmes.</p>
+      <p>Les prénoms où l’un dit oui et l’autre non arriveront ici.</p>
       <button class="btn" @click="g.allerA('swipe')">Aller trier</button>
     </div>
 
     <template v-else>
       <p class="mini doux" style="margin:0">
-        Un oui d’un côté, un non de l’autre. Rien n’est figé : chacun peut
-        changer son vote ici.
+        Un oui d’un côté, un non de l’autre. Chacun peut changer son vote ici.
       </p>
       <p v-if="silence" class="mini doux" style="margin:0">{{ silence }}</p>
       <button v-if="!paye" class="btn btn-0 mini" style="align-self:flex-start"

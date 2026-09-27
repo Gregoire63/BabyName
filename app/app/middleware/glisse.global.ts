@@ -18,17 +18,25 @@
  * avec history.replaceState, sans navigation. Seul le passage accueil <-> liste
  * glisse, et c'est bien le seul qui change de niveau.
  */
+const profondeur = (chemin: string) => chemin.startsWith('/g/') ? 1 : 0
+
 /**
- * Les pages legales sont un cran plus bas que tout : on y descend depuis
- * l'accueil comme depuis une liste, et « Retour » les renvoie vers la droite.
- * A la meme profondeur que l'accueil, revenir faisait arriver l'accueil par
- * la droite, comme si on avancait.
+ * La connexion et les pages légales ne glissent pas : un fondu, l'une APRÈS
+ * l'autre (`out-in`), dans les deux sens. Revenir des conditions à la
+ * connexion faisait arriver le formulaire d'un coup, par le bas, sur certains
+ * navigateurs — deux pages superposées le temps d'une image. Ici il n'y en a
+ * jamais deux à la fois, et rien ne bouge : on n'entre nulle part, on lit un
+ * texte et on revient.
  */
-const profondeur = (chemin: string) =>
-  estPageLegale(chemin) ? 2 : chemin.startsWith('/g/') ? 1 : 0
+const calme = (chemin: string) => estPageLegale(chemin) || chemin.startsWith('/connexion')
+const FONDU = { name: 'fondu', mode: 'out-in' } as const
 
 export default defineNuxtRouteMiddleware((vers, depuis) => {
   if (!import.meta.client || vers.fullPath === depuis.fullPath) return
+  if (calme(vers.path) || calme(depuis.path)) {
+    vers.meta.pageTransition = { ...FONDU }
+    return
+  }
   document.documentElement.dataset.sens =
     profondeur(vers.path) >= profondeur(depuis.path) ? 'avant' : 'arriere'
 })

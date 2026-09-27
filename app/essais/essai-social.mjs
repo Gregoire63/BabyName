@@ -151,8 +151,8 @@ await page.waitForTimeout(600)
 await page.locator('.onglets button', { hasText: 'La liste' }).click()
 await page.waitForSelector('text=Qui en est', { timeout: 10000 })
 const avert = await page.locator('.avert').first().innerText().catch(() => '')
-dit(/tout le monde/i.test(avert) && /personne/i.test(avert),
-    `la règle est dite avant d’inviter : « ${avert.replace(/\s+/g, ' ').slice(0, 100)} »`)
+dit(/troisième personne/i.test(avert) && /attendraient/i.test(avert),
+    `la conséquence est dite avant d’inviter, en une phrase : « ${avert.replace(/\s+/g, ' ').slice(0, 110)} »`)
 dit(/bloquer/i.test(avert), 'et le pouvoir de bloquer chaque prénom est nommé')
 dit(/accord/i.test(avert), 'et le nombre d’accords mis en attente est chiffré')
 

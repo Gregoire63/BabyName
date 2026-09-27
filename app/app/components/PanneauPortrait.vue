@@ -30,14 +30,9 @@ const manquants = computed(() => Math.max(0, MIN_OUI - (moi.value?.nOui ?? 0)))
     <template v-if="!paye">
       <section class="carte pile">
         <h2>Ce que vos oui disent de vous</h2>
-        <p class="mini doux" style="margin:0">
-          Après deux cents prénoms, personne ne sait dire ce qu'il a choisi.
-          Il y a pourtant un motif : une époque, une longueur, une finale, des
-          origines qui reviennent. On le lit dans vos votes.
-        </p>
         <p class="mini" style="margin:0">
-          Et surtout : <strong>là où vous n'êtes pas d'accord</strong>, mesuré
-          plutôt que deviné.
+          Une époque, une longueur, des origines qui reviennent — et
+          <strong>là où vous n'êtes pas d'accord</strong>.
         </p>
         <p class="exemple mini">
           « Vos oui ont eu leur heure vers 1948 — une génération avant le reste
@@ -102,10 +97,6 @@ const manquants = computed(() => Math.max(0, MIN_OUI - (moi.value?.nOui ?? 0)))
         </p>
       </section>
 
-      <p class="mini doux" style="text-align:center;margin:6px 0 0">
-        Calculé sur ce que vous avez vu, pas sur le catalogue : un penchant
-        n'en est un que si vous aviez le choix.
-      </p>
     </template>
   </div>
 </template>

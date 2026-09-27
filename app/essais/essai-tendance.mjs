@@ -61,11 +61,15 @@ async function epingler(slug, nom) {
 await epingler('ilaria', 'Ilaria')
 const resume = await plat(devant().locator('.resume'))
 dit(/bébés par an ≈ 18/.test(resume) && !/%/.test(resume), `Ilaria (55 bébés en trois ans) : « ${resume} »`)
-const barres = devant().locator('.graphe svg.barres')
+const barres = devant().locator('.graphe .barres')
 dit(await barres.count() === 1, 'ses bébés année par année, en barres')
 dit(/2011 à 2025, arrondies à 5/.test(await barres.getAttribute('aria-label') ?? ''),
   'et les barres se disent aux lecteurs d’écran')
-dit(/Bébés par an depuis 2011/.test(await plat(devant().locator('.graphe'))), 'la carte dit ce qu’elles comptent')
+const graphe = await plat(devant().locator('.graphe'))
+const valeurs = await barres.locator('.val').allInnerTexts()
+dit(/Naissances par an/.test(graphe) && /2011/.test(graphe) && /2025/.test(graphe) && valeurs.length >= 5
+    && valeurs.every(v => /^\d+$/.test(v) && Number(v) % 5 === 0),
+  `la carte dit ce qu’elles comptent : chaque barre porte son nombre, les années dessous (${valeurs.join(' ')})`)
 
 await page.getByRole('button', { name: 'Infos sur Ilaria' }).click()
 const fiche = page.locator('[role="dialog"]').last()
@@ -75,7 +79,7 @@ const texteFiche = await plat(fiche)
 dit(/environ 18 bébés par an, trop peu pour chiffrer une tendance/.test(texteFiche),
   'la fiche le dit en une phrase, sans pente inventée')
 dit(/Tendance trop peu de bébés/i.test(texteFiche) && !/%\/an/.test(texteFiche), 'et sa tuile « Tendance » aussi')
-dit(await fiche.locator('svg.barres').count() === 1, 'avec les mêmes barres')
+dit(await fiche.locator('.barres').count() === 1, 'avec les mêmes barres')
 await page.getByRole('button', { name: 'Fermer la fiche' }).click()
 await page.waitForTimeout(600)
 

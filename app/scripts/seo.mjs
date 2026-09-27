@@ -64,6 +64,10 @@ const CADEAU_ANS = Number(readFileSync(resolve(RACINE, 'shared/utils/editeur.ts'
 const d = JSON.parse(readFileSync(resolve(PUBLIC, 'data/catalogue.json'), 'utf8'))
 const c = d.cols
 const [AN0, AN1] = d.serie_annees ?? [1986, 2025]
+// Sous ce nombre de naissances en trois ans, la pente n'est que l'arrondi à 5
+// de l'INSEE : la fiche donne le nombre de bébés par an, pas un pourcentage.
+const SEUIL_TENDANCE = d.seuil_tendance ?? 60
+const [B0, B1] = d.barres_annees ?? [2011, 2025]
 const sansAccent = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 const slugDe = s => sansAccent(s).replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '')
 
@@ -74,7 +78,8 @@ for (let k = 0; k < d.n; k++) {
     f: c.f[k], n: c.n[k], t: c.t[k], p: c.p[k], o: c.o[k], q: !!(c.q && c.q[k]),
     y: c.y[k], i: c.i[k], gp: c.gp ? c.gp[k] : k,
     g: c.g[k].map(x => d.origines[x]), m: c.m[k], cf: c.cf ? c.cf[k] ?? null : null,
-    dm: c.dm[k] ?? [], sr: c.sr ? c.sr[k] : null, rv: !!c.rv[k]
+    dm: c.dm[k] ?? [], sr: c.sr ? c.sr[k] : null, rv: !!c.rv[k],
+    nb: c.nb?.[k] ? c.nb[k].map(x => x * 5) : null
   })
 }
 
@@ -99,7 +104,7 @@ for (const p of tous) {
 for (const e of pages.values()) e.sort((a, b) => b.n - a.n)
 const aPage = p => pages.has(p.slug)
 /**
- * Fiche MINCE : ni sens ni origine connus. Il ne reste que des chiffres (857
+ * Fiche MINCE : ni sens ni origine connus. Il ne reste que des chiffres (859
  * fiches, 35 naissances en trois ans en mediane) : la page existe pour qui y
  * arrive par un lien, mais on ne la presente pas a Google (noindex, follow)
  * et elle sort du sitemap. Des centaines de pages presque vides pesent sur
@@ -164,6 +169,8 @@ svg.courbe{width:100%;height:auto;display:block}
 .puces a,.puces span{display:inline-block;padding:6px 12px;border-radius:999px;background:var(--carte);border:1px solid var(--trait);text-decoration:none;font-weight:600;font-size:15px}
 .puces small{color:var(--doux);font-weight:500}
 .cta{margin:34px 0;text-align:center;background:var(--carte);border:1px solid var(--trait);border-radius:22px;padding:24px 18px}
+.offrir{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:16px 0 20px;padding:14px 16px;border-radius:18px;background:linear-gradient(135deg,var(--peche),var(--sable));color:var(--texte)}
+.offrir b{display:block;font-size:17px}.offrir span{display:block;font-size:14px;line-height:1.4}.offrir .b{flex:none}
 .cta p{margin:.3em 0 1em}
 table{width:100%;border-collapse:collapse;font-size:15px}td,th{padding:8px 6px;border-bottom:1px solid var(--trait);text-align:left}th{font-size:13px;color:var(--doux);font-weight:600}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}@media (max-width:560px){.o{display:none}td,th{padding:8px 4px}}
@@ -230,6 +237,25 @@ ${graduations.map((a, i) => `<text x="${x(a - AN0).toFixed(1)}" y="${H - 6}" fon
 </svg>`
 }
 
+// Les petits prénoms, sans courbe : leurs naissances année par année.
+function barres(p) {
+  if (!p.nb || !p.nb.some(v => v > 0)) return ''
+  const W = 640, H = 150, G = 34, B = 24, T = 16
+  const max = Math.max(...p.nb)
+  const pas = (W - G - 8) / p.nb.length
+  const y = v => T + (1 - v / max) * (H - T - B)
+  // Le nombre sur chaque barre, les années dessous : des barres muettes ne
+  // se lisent pas (même règle que BarresPrenom dans l'app).
+  const cx = i => (G + i * pas + pas / 2).toFixed(1)
+  const annees = p.nb.map((_, i) => B0 + i)
+    .filter(a => a === B0 || a === B1 || (a % 5 === 0 && a - B0 >= 3 && B1 - a >= 3))
+  return `<svg class="courbe" viewBox="0 0 ${W} ${H}" role="img" aria-label="Naissances de ${esc(p.l)} par an, de ${B0} à ${B1}, arrondies à 5 par l’INSEE : au plus ${max}">
+${p.nb.map((v, i) => v > 0 ? `<rect x="${(G + i * pas + pas * 0.17).toFixed(1)}" y="${y(v).toFixed(1)}" width="${(pas * 0.66).toFixed(1)}" height="${(H - B - y(v)).toFixed(1)}" fill="var(--menthe)" stroke="var(--encre)" stroke-width="1.5"/><text x="${cx(i)}" y="${(y(v) - 4).toFixed(1)}" font-size="11" font-weight="700" fill="var(--texte)" text-anchor="middle">${v}</text>` : '').join('')}
+<line x1="${G}" x2="${W - 8}" y1="${H - B}" y2="${H - B}" stroke="var(--trait)"/>
+${annees.map(a => `<text x="${cx(a - B0)}" y="${H - 6}" font-size="12" fill="var(--doux)" text-anchor="middle">${a}</text>`).join('')}
+</svg>`
+}
+
 // Prénoms proches : même sexe, origine commune, rareté et longueur voisines.
 const parSexe = { f: [], m: [], fm: [] }
 for (const e of pages.values()) parSexe[e[0].sexe].push(e[0])
@@ -275,7 +301,9 @@ function fiche(entrees) {
   const titre = p.m
     ? `${p.l} : signification, origine et popularité du prénom`
     : `${p.l} : origine et popularité du prénom`
-  const description = `${p.l}, prénom ${genre}${origines.length ? ` d’origine ${liste(origines)}` : ''}${p.m ? ` : « ${p.m} »` : ''}. ${nf(nTot)} naissances en France de ${AN1 - 2} à ${AN1}, tendance ${tendanceMot(p.t)}, graphies et prénoms proches.`
+  const fiable = p.n >= SEUIL_TENDANCE
+  const parAn = Math.max(1, Math.round(p.n / 3))
+  const description = `${p.l}, prénom ${genre}${origines.length ? ` d’origine ${liste(origines)}` : ''}${p.m ? ` : « ${p.m} »` : ''}. ${nf(nTot)} naissances en France de ${AN1 - 2} à ${AN1}${fiable ? `, tendance ${tendanceMot(p.t)}` : ''}, graphies et prénoms proches.`
 
   const corps = `
 <section class="hero"><h1>${esc(p.l)}</h1>
@@ -285,16 +313,20 @@ function fiche(entrees) {
 <div><b>${nf(nTot)}</b><span>naissances en ${AN1 - 2}-${AN1}</span></div>
 <div><b>${unSur(p.f)}</b><span>en France, filles et garçons</span></div>
 ${rang <= 2000 ? `<div><b>${rang}<sup>${rang === 1 ? 'er' : 'e'}</sup></b><span>prénom ${p.sexe === 'fm' ? 'le plus donné' : p.sexe === 'f' ? 'féminin' : 'masculin'}</span></div>` : ''}
-<div><b>${p.t > 0 ? '+' : p.t < 0 ? '−' : ''}${dec(Math.abs(p.t))} %/an</b><span>tendance récente : ${tendanceMot(p.t)}</span></div>
+${fiable
+  ? `<div><b>${p.t > 0 ? '+' : p.t < 0 ? '−' : ''}${dec(Math.abs(p.t))} %/an</b><span>tendance récente : ${tendanceMot(p.t)}</span></div>`
+  : `<div><b>≈ ${nf(parAn)}</b><span>bébé${parAn > 1 ? 's' : ''} par an</span></div>`}
 <div><b>${nf(p.o)}/100</b><span>originalité</span></div>
 </div>
 
 <h2>Signification et origine de ${esc(p.l)}</h2>
 <div class="carte"><p style="margin:0">${phraseSens}</p>${doute}</div>
 
-<h2>Popularité de ${esc(p.l)} depuis ${AN0}</h2>
-${courbe(p)}
-<p>${pic} Sur les dernières années, ${esc(p.l)} est ${tendanceMot(p.t)} (${p.t > 0 ? '+' : ''}${dec(p.t)} % par an). ${phraseClasse}</p>
+<h2>Popularité de ${esc(p.l)} depuis ${p.sr || !p.nb ? AN0 : B0}</h2>
+${p.sr ? courbe(p) : barres(p)}
+<p>${pic} ${fiable
+  ? `Sur les dernières années, ${esc(p.l)} est ${tendanceMot(p.t)} (${p.t > 0 ? '+' : ''}${dec(p.t)} % par an).`
+  : `Avec environ ${nf(parAn)} bébé${parAn > 1 ? 's' : ''} par an, ${esc(p.l)} reste trop peu donné pour dessiner une tendance fiable : l’INSEE arrondit chaque année à 5.`} ${phraseClasse}</p>
 
 ${groupe.length || autresGraphies.length ? `<h2>Même prononciation, autres graphies</h2>
 <ul class="puces">${[...autresGraphies, ...groupe.filter(x => !autresGraphies.includes(x))].slice(0, 20).map(x =>
@@ -314,6 +346,15 @@ ${cta(p)}
     fil: [{ n: `Lettre ${lettre.toUpperCase()}`, u: `/prenoms/lettre/${lettre}/` }, { n: p.l, u: url(p) }]
   })
 }
+
+/**
+ * Offrir : sur les pages de classement, en tête. Qui cherche « prénoms de
+ * fille tendance » n'est pas toujours le futur parent — c'est souvent la
+ * sœur, l'amie, la grand-mère qui prépare un cadeau de naissance.
+ */
+const offrir = `<aside class="offrir" aria-label="Offrir ${MARQUE}"><div><b>Un bébé en route autour de vous&nbsp;?</b>
+<span>Offrez ${MARQUE} aux futurs parents : une liste débloquée pour choisir le prénom à deux. ${esc(PRIX)}, un lien et un code, sans compte.</span></div>
+<a class="b p" rel="nofollow" href="/offrir">Offrir</a></aside>`
 
 // ---------------------------------------------------------------- listes
 function tableau(xs, colonne = 'tendance') {
@@ -396,7 +437,7 @@ for (const L of listes) {
   ecrire(L.chemin, page({
     chemin: L.chemin, titre: L.titre, description: L.description,
     fil: [{ n: L.h1, u: L.chemin }],
-    corps: `<section class="hero"><h1>${esc(L.h1)}</h1></section><p>${esc(L.intro)}</p>${tableau(L.xs, L.col)}${cta(null)}`
+    corps: `<section class="hero"><h1>${esc(L.h1)}</h1></section><p>${esc(L.intro)}</p>${offrir}${tableau(L.xs, L.col)}${cta(null)}${offrir}`
   }))
   urls.push(L.chemin)
 }
@@ -423,6 +464,7 @@ ecrire('/prenoms/', page({
   titre: `Prénoms : ${nf(pages.size)} fiches avec signification, origine et popularité`,
   description: `Signification, origine et courbe de popularité de ${nf(pages.size)} prénoms donnés en France, d’après les naissances INSEE. Tendances, prénoms rares, par origine.`,
   corps: `<section class="hero"><h1>Trouver un prénom</h1><p class="sous">${nf(pages.size)} prénoms donnés en France, avec leurs vrais chiffres.</p></section>
+${offrir}
 <h2>Par lettre</h2>${navLettres}
 <h2>Listes</h2><ul class="puces">
 ${listes.filter(L => !L.origine).map(L => `<li><a href="${L.chemin}">${esc(L.h1)}</a></li>`).join('')}</ul>
@@ -513,7 +555,7 @@ ecrire(APP, page({
 <p style="margin:.6em 0 0"><b>À offrir</b> : le même déblocage en cadeau, sans compte — un lien et un code à transmettre à des futurs parents, valables ${CADEAU_ANS} ans. <a href="/offrir" rel="nofollow">Offrir ${MARQUE}</a></p></div>
 
 <h2>Vos données</h2>
-<p>Un prénom ou un pseudo suffit pour commencer, et aucun mot de passe : on revient avec une passkey (Face ID, empreinte) ou un lien reçu par e-mail — l’adresse n’est demandée que si vous choisissez le lien. Aucune publicité, aucune mesure d’audience, aucun cookie tiers. Votre compte s’efface en un geste, et vos données se téléchargent à tout moment. <a href="/confidentialite">Ce qu’on garde et pourquoi</a>.</p>
+<p>Un prénom et une adresse e-mail, confirmée par un code, pour commencer ; aucun mot de passe : on revient avec un lien reçu par e-mail ou une passkey (Face ID, empreinte). Aucune publicité, aucune mesure d’audience, aucun cookie tiers. Votre compte s’efface en un geste, et vos données se téléchargent à tout moment. <a href="/confidentialite">Ce qu’on garde et pourquoi</a>.</p>
 
 <h2>Questions fréquentes</h2>
 ${FAQ.map(([q, r]) => `<h3>${esc(q)}</h3><p>${esc(r)}</p>`).join('\n')}

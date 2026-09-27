@@ -154,10 +154,13 @@ def syllables_fr(name: str) -> int:
             else:
                 nuclei += 1
                 i += 1
-        # -e / -es final muet (pas apres voyelle : Lea, Zoe gardent leur noyau)
+        # -e / -es final muet, sauf apres voyelle (Lea, Zoe gardent leur noyau)
+        # et apres obstruante+liquide : Le-an-dre, Am-bre, Syl-ves-tre se disent
+        # et se comptent avec leur e (on compte « ar-bre » deux syllabes).
         if len(word) > 2:
             tail = word[-2:] if word.endswith("es") else word[-1:]
-            if tail in ("e", "es") and word[-len(tail) - 1] not in VOWELS:
+            if tail in ("e", "es") and word[-len(tail) - 1] not in VOWELS \
+                    and word[-len(tail) - 2:-len(tail)] not in CLUSTERS:
                 nuclei -= 1
         total += max(nuclei, 1)
     return max(total, 1)
