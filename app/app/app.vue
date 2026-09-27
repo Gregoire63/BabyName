@@ -1,6 +1,10 @@
 <script setup lang="ts">
 onMounted(() => { rafraichirMoi() })
 
+// Les textes légaux, dans une feuille qui monte du bas : une pour toute l'app,
+// posée après la page pour passer par-dessus tout (voir useFeuilleLegale).
+const { ouverte: texteLegal, oublier: fermerTexteLegal } = useFeuilleLegale()
+
 // Chaque page donne son titre ; le nom de l'app suit (RGAA 8.6).
 useHead({
   // Le titre par defaut (nuxt.config) commence deja par le nom : on ne le
@@ -28,6 +32,7 @@ function allerAuContenu() {
        change d'ecran. -->
   <NuxtRouteAnnouncer />
   <NuxtPage />
+  <FeuilleLegale v-if="texteLegal" :chemin="texteLegal" @fermer="fermerTexteLegal" />
 </template>
 
 <style>
@@ -288,4 +293,23 @@ button { font: inherit; color: inherit; }
 .pager::-webkit-scrollbar { display: none; }
 .pager > section { flex: 0 0 100%; scroll-snap-align: start; overflow-y: auto;
   overscroll-behavior-y: contain; padding: max(18px, env(safe-area-inset-top)) 16px 84px; }
+
+/* ---------------------------------------------------------------------------
+   Les textes légaux : la même typographie en page (PageLegale) et en feuille
+   (FeuilleLegale).
+--------------------------------------------------------------------------- */
+.texte-legal { line-height: 1.6; }
+.texte-legal h2 { font-size: 1.12rem; margin: 30px 0 8px; }
+.texte-legal h3 { font-size: .98rem; margin: 20px 0 6px; }
+.texte-legal p { margin: 0 0 12px; }
+.texte-legal ul, .texte-legal ol { margin: 0 0 12px; padding-left: 22px; }
+.texte-legal li { margin: 0 0 6px; }
+.texte-legal a { text-decoration: underline; text-underline-offset: 3px; }
+.texte-legal .encadre { background: var(--carte); border: 1px solid var(--trait);
+  border-radius: var(--r-s); padding: 14px 16px; margin: 0 0 14px; }
+.texte-legal .encadre > :last-child { margin-bottom: 0; }
+.texte-legal dl { margin: 0 0 14px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.texte-legal dt { font-weight: 800; font-size: .82rem; color: var(--doux); margin-top: 8px;
+  text-transform: uppercase; letter-spacing: .04em; }
+.texte-legal dd { margin: 0; }
 </style>

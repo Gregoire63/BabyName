@@ -98,7 +98,7 @@ async function debloquer(gid: string) {
         <button v-for="g in aDebloquer" :key="g.id" type="button" class="choix"
                 :disabled="!!envoi" @click="debloquer(g.id)">
           <span class="nom">{{ envoi === g.id ? 'Un instant…' : `Débloquer « ${g.nom} »` }}</span>
-          <span class="mini doux">{{ g.mes_votes }} jugés · {{ g.nb_membres }} {{ g.nb_membres > 1 ? 'membres' : 'membre' }}</span>
+          <span class="mini doux">{{ g.mes_votes }} {{ pluriel(g.mes_votes, 'jugé', 'jugés') }} · {{ g.nb_membres }} {{ g.nb_membres > 1 ? 'membres' : 'membre' }}</span>
         </button>
         <button type="button" class="choix" :class="{ principal: !aDebloquer.length }"
                 :disabled="!!envoi" @click="emit('nouvelle', code)">
@@ -108,7 +108,7 @@ async function debloquer(gid: string) {
       </div>
       <p v-if="toutesPayees" class="mini doux" style="margin:10px 0 0">
         Vos listes sont déjà débloquées : ce cadeau peut en ouvrir une nouvelle,
-        ou attendre — le code reste valable jusqu’au {{ jusquau }}.
+        ou attendre : le code reste valable jusqu’au {{ jusquau }}.
       </p>
       <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:10px 0 0">{{ erreur }}</p>
     </template>

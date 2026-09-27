@@ -88,7 +88,7 @@ onMounted(async () => {
       <template v-else-if="etat === 'invalide'">
         <h2>Ce lien ne marche plus</h2>
         <p class="mini" style="margin:0" role="alert">
-          Il a déjà servi, ou ses 15 minutes sont passées — ou un e-mail plus
+          Il a déjà servi, ses 15 minutes sont passées, ou un e-mail plus
           récent l’a remplacé. Demandez-en un nouveau.
         </p>
         <NuxtLink to="/connexion" class="btn btn-1" style="text-align:center">Recevoir un nouveau lien</NuxtLink>

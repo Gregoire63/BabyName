@@ -18,14 +18,14 @@ déjà entamée. Le terminal affiche alors :
 ```
   Base de developpement semee (D1 simulee par wrangler, dossier .data/wrangler).
   Liste « Notre liste », code d'invitation dec0de00.
-  Cle de Greg   : DEVG-REGX-2345
-  Cle d'Audrey  : DEVA-DREY-2345
+  Cle de Paul   : DEVP-ARNA-2345
+  Cle d'Alice  : DEVP-ARNB-2345
   Cle de Mamie  : DEVM-AMIE-2345 (observatrice, code ab5e0bad)
 ```
 
 Sur <http://localhost:3000/connexion>, le bloc **Base locale — entrer comme**
-connecte d'un geste Greg, Audrey ou Mamie (en développement seulement).
-Ouvrez Audrey dans une fenêtre privée : le vote aveugle se teste à deux, sur
+connecte d'un geste Paul, Alice ou Mamie (en développement seulement).
+Ouvrez Alice dans une fenêtre privée : le vote aveugle se teste à deux, sur
 la même base.
 
 Aux lancements suivants, le terminal rappelle l'âge du jeu d'essai et les
@@ -57,15 +57,15 @@ serveur de dev parle toujours à la base locale — sauf si l'on ajoutait
 
 | | |
 |---|---|
-| Greg | 27 votes, 2 gardés (Alma, Nine), une famille écartée d'un geste (`kevi`) et des non un par un ; un blocage secret sur Brandon, au format d'avant les graphies |
-| Audrey | 19 votes, un blocage secret sur Jayden (et ses 8 graphies), **Mathilde « déjà pris »** (« ma sœur »), un commentaire sur Louise ; adresse vérifiée `audrey@exemple.test` (lien de connexion : la boîte de dev le reçoit) |
+| Paul | 27 votes, 2 gardés (Alma, Nine), une famille écartée d'un geste (`kevi`) et des non un par un ; un blocage secret sur Brandon, au format d'avant les graphies |
+| Alice | 19 votes, un blocage secret sur Jayden (et ses 8 graphies), **Mathilde « déjà pris »** (« ma sœur »), un commentaire sur Louise ; adresse vérifiée `alice@exemple.test` (lien de connexion : la boîte de dev le reçoit) |
 | Mamie | **observatrice** : 6 votes, dont un **non à Louise**, qui reste un accord |
-| en commun | 9 prénoms, plus des désaccords francs (Marius, Hector : Greg oui, Audrey non) pour remplir « À revoir » |
+| en commun | 9 prénoms, plus des désaccords francs (Marius, Hector : Paul oui, Alice non) pour remplir « À revoir » |
 | listes | « Notre liste » débloquée (code `dec0de00`), « Essai gratuit » et « Autre essai » au quota 3/jour pour taper dans le mur en trois swipes |
 | cadeau | un code payé pour de faux, **`BEBE-2345-CADE`**, de la part de Mamie : `/?cadeau=BEBE2345CADE` |
 | écrans | Accueil · Swipe · Classement (Communs · À revoir · Mes choix · Portrait) · La liste |
 
-Greg a exactement **12 oui**, soit le seuil du portrait de goûts, et Audrey
+Paul a exactement **12 oui**, soit le seuil du portrait de goûts, et Alice
 n'en a que 5 de visibles pour lui : c'est ce qui permet de vérifier que le
 portrait parle d'un côté et **se tait** de l'autre au lieu d'inventer.
 
@@ -88,7 +88,7 @@ sh essais/relance.sh essais/essai-paiement.mjs
 ```
 
 `essais/LISEZMOI.md` dit ce que chacun garde, et pourquoi les chiffres de la
-semence (12 oui pour Greg, 5 visibles pour Audrey) ne se changent pas à la
+semence (12 oui pour Paul, 5 visibles pour Alice) ne se changent pas à la
 légère.
 
 ## Si le dev refuse de démarrer
@@ -171,6 +171,9 @@ les compteurs du quota (`depart`, `jour`, `n_jour`).
   `groupes`, alimentée par le déclencheur quand un bulletin disparaît) + la
   somme des bulletins. Le **filet** ne garde que le dernier jour de chaque
   liste : le quota ne lit que le jour même.
+- `nb` compte les **prénoms jugés** (migration 0006) : le prénom de la carte,
+  ou chaque nom d'une famille écartée, pas les graphies qui l'ont suivi
+  (`ph:…`). Un swipe sur Louise, c'est « 1 jugé », pas 3.
 
 Mesuré en local (même moteur que D1) sur une liste de trois membres, environ
 2 000 prénoms jugés chacun (lignes lues / écrites) :
@@ -245,7 +248,7 @@ l'app ne fait jamais (page de paiement Stripe).
    Recopier l'identifiant affiché (`database_id`) dans `wrangler.jsonc`, à la
    place des zéros, et pousser. Ce n'est pas un secret.
 3. **Le Worker, relié au dépôt** : *Workers & Pages → Create → Import a
-   repository* → GitHub `Gregoire63/BabyName` :
+   repository* → le dépôt GitHub du projet :
 
    | | |
    |---|---|
@@ -946,11 +949,26 @@ indésirables), Brevo (français, 300 e-mails par jour gratuits) est prêt :
 `COURRIEL.fournisseur = 'brevo'`, sa clé d'API dans `NUXT_EMAIL_CLE`, suivi
 des clics coupé ; Resend de même (`'resend'`).
 
-En local, rien ne part : les e-mails arrivent dans une boîte de
+En local, sans clé, rien ne part : les e-mails arrivent dans une boîte de
 développement (*Mon compte → Outils de développement*, ou
-`/api/dev/courriels`). Audrey a une adresse vérifiée, `audrey@exemple.test`.
+`/api/dev/courriels`). Alice a une adresse vérifiée, `alice@exemple.test`.
 Les passkeys marchent sur `http://localhost:3000` (pas sur une adresse IP :
 WebAuthn refuse `127.0.0.1` comme domaine).
+
+**Recevoir les e-mails pour de vrai, en local** : une ligne dans `app/.env`
+(jamais commité), puis relancer `npm run dev` :
+
+```
+NUXT_EMAIL_CLE=le-mot-de-passe-de-contact@babynamed.fr
+```
+
+L'e-mail part par la même boîte OVH qu'en ligne (expéditeur
+`babyNamed <contact@babynamed.fr>` par défaut, serveur `ssl0.ovh.net:465`),
+et son lien ramène au serveur local : il suit l'adresse de la page d'où l'on
+a demandé le code. Sous `nuxt dev`, c'est `nodemailer` qui envoie (le Worker
+utilise `worker-mailer`, qui a besoin des sockets de Cloudflare) : après une
+mise à jour du dépôt, `npm install`. Le message reste aussi dans la boîte de
+développement.
 
 ## Sécurité
 

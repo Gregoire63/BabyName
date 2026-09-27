@@ -3,20 +3,21 @@
  * Les liens que la loi veut accessibles de partout : mentions legales,
  * confidentialite, conditions, accessibilite. Un seul composant, pose en bas
  * de l'accueil, de la connexion, du compte et des pages legales elles-memes.
+ *
+ * Chacun ouvre la feuille des textes legaux (FeuilleLegale), qui monte du bas
+ * par-dessus l'ecran : on lit sans le quitter. Le lien garde son adresse,
+ * pour qui l'ouvre dans un nouvel onglet ou sans JavaScript.
  */
 withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
-const LIENS = [
-  { to: '/confidentialite', t: 'Confidentialité' },
-  { to: '/conditions', t: 'Conditions' },
-  { to: '/mentions-legales', t: 'Mentions légales' },
-  { to: '/accessibilite', t: 'Accessibilité' }
-]
+const { ouvrir } = useFeuilleLegale()
 </script>
 
 <template>
   <nav class="pied-legal" :class="{ compact }" aria-label="Informations légales">
     <ul>
-      <li v-for="l in LIENS" :key="l.to"><NuxtLink :to="l.to" class="lien">{{ l.t }}</NuxtLink></li>
+      <li v-for="d in DOCS_LEGAUX" :key="d.chemin">
+        <a :href="d.chemin" class="lien" aria-haspopup="dialog" @click.prevent="ouvrir(d.chemin)">{{ d.court }}</a>
+      </li>
     </ul>
   </nav>
 </template>

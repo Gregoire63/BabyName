@@ -62,7 +62,7 @@ async function suivreFermeture(p, sel, declencher) {
 }
 
 // =================== 1. LA LOUPE, LES FILTRES ==============================
-const page = await entrer('DEVG-REGX-2345')
+const page = await entrer('DEVP-ARNA-2345')
 await page.locator('a.carte', { hasText: 'Notre liste' }).first().click()
 await devant(page).locator('.nom').first().waitFor({ timeout: 25000 })
 await page.waitForTimeout(500)
@@ -162,7 +162,7 @@ dit(await page.locator('.vide', { hasText: 'aujourd’hui' }).count() === 1
 // =================== 6. LE CLAVIER NE CACHE PLUS LA FEUILLE =================
 // Un iPhone simulé : le clavier se pose sur la page, seule la « vue visible »
 // rétrécit. La feuille doit tenir au-dessus.
-const iphone = await entrer('DEVG-REGX-2345', () => {
+const iphone = await entrer('DEVP-ARNA-2345', () => {
   const vv = new EventTarget()
   let hauteur = window.innerHeight
   Object.defineProperty(vv, 'height', { get: () => hauteur })

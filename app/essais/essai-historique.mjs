@@ -1,13 +1,14 @@
 /**
- * L'historique et le glissement entre pages.
+ * L'historique, les feuilles et le glissement entre pages.
  *
  * Ce qui se vérifie ici :
- *  - lire les pages légales en chaîne (conditions → confidentialité →
- *    mentions) ne demande qu'UN « Retour » pour revenir dans l'app — le
- *    bouton de la page comme celui du navigateur ;
- *  - les pages légales ne glissent pas : un fondu, une page APRÈS l'autre —
- *    jamais deux superposées (le formulaire de connexion arrivait « par le
- *    bas » en revenant des conditions) ;
+ *  - les textes légaux (conditions, confidentialité, mentions, accessibilité)
+ *    s'ouvrent dans une FEUILLE qui monte du bas et redescend en se fermant :
+ *    on les lit sans quitter l'écran, l'adresse ne change pas, l'historique
+ *    non plus ; les onglets et les liens d'un texte à l'autre restent dans la
+ *    feuille ;
+ *  - arrivé par un lien direct, un texte légal reste une page, dont le
+ *    « Retour » ramène à l'app ;
  *  - pendant le glissement vers une liste, la page qui bouge est opaque : on
  *    ne voit pas l'autre au travers ;
  *  - les onglets d'une liste n'empilent rien : un retour ramène à l'accueil.
@@ -20,32 +21,45 @@ const { page } = await onglet(nav)
 const erreurs = []
 page.on('pageerror', e => { erreurs.push(e.message); console.log('   [err]', e.message) })
 
-// =================== 0. DE LA CONNEXION AUX CONDITIONS, ET RETOUR ==========
-// Le formulaire arrivait d'un coup « par le bas » : il revient en fondu, et
-// ne bouge pas d'un pixel pendant qu'il apparaît.
-await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await page.locator('.accueil').getByRole('link', { name: 'conditions' }).first().click()
-await page.waitForURL(/\/conditions$/, { timeout: 8000 })
-await page.waitForTimeout(500)
-const retourConnexion = page.evaluate(() => new Promise(ok => {
-  const t0 = performance.now(), ys = []
-  let max = 0
+/** Relève le haut de la feuille, image après image, pendant `ms`. */
+const mouvement = (ms) => page.evaluate(duree => new Promise(ok => {
+  const t0 = performance.now(), tops = []
+  let vue = false, partie = false
   const tic = () => {
-    max = Math.max(max, document.querySelectorAll('.fondu-enter-active, .fondu-leave-active').length)
-    const c = document.querySelector('.accueil .carte')
-    if (c) ys.push(Math.round(c.getBoundingClientRect().y))
-    if (performance.now() - t0 < 1200) requestAnimationFrame(tic); else ok({ max, ys })
+    const f = document.querySelector('.feuille-corps')
+    if (f) { vue = true; tops.push(Math.round(f.getBoundingClientRect().top)) } else if (vue) partie = true
+    if (performance.now() - t0 < duree) requestAnimationFrame(tic); else ok({ tops, partie })
   }
   requestAnimationFrame(tic)
-}))
-await page.getByRole('button', { name: 'Retour' }).click()
-const r0 = await retourConnexion
-dit(new URL(page.url()).pathname === '/connexion' && r0.max === 1 && r0.ys.length > 0
-    && Math.max(...r0.ys) - Math.min(...r0.ys) <= 1,
-  `retour à la connexion : un fondu, le formulaire reste en place (y ${Math.min(...r0.ys)}–${Math.max(...r0.ys)})`)
+}), ms)
+const titreFeuille = () => page.locator('.feuille-corps h2').first().innerText().catch(() => '')
+const descend = t => t.length > 2 && t[t.length - 1] > t[0] + 40
+const monte = t => t.length > 2 && t[0] > t[t.length - 1] + 40
+
+// =================== 0. DE LA CONNEXION AUX CONDITIONS ======================
+// Les conditions se lisent dans une feuille, par-dessus la connexion : on ne
+// perd pas le formulaire, et on n'a rien à « retrouver » en revenant.
+await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+const hist0 = await page.evaluate(() => history.length)
+const yForm = Math.round((await page.locator('.accueil .carte').first().boundingBox()).y)
+const ouverture = mouvement(700)
+await page.locator('.accueil').getByRole('link', { name: 'conditions' }).first().click()
+const o0 = await ouverture
+dit(new URL(page.url()).pathname === '/connexion' && /Conditions générales/.test(await titreFeuille()),
+  `« conditions » ouvre une feuille, l’adresse reste /connexion (« ${await titreFeuille()} »)`)
+dit(monte(o0.tops), `la feuille monte du bas (${o0.tops[0]} → ${o0.tops[o0.tops.length - 1]} px)`)
+dit(await page.getByRole('dialog').count() === 1, 'une seule feuille, un vrai dialogue')
+const fermeture = mouvement(700)
+await page.locator('.feuille-corps').getByRole('button', { name: 'Fermer' }).click()
+const f0 = await fermeture
+dit(descend(f0.tops) && f0.partie && await page.locator('.feuille-corps').count() === 0,
+  `et redescend en se fermant (${f0.tops[0]} → ${f0.tops[f0.tops.length - 1]} px), puis disparaît`)
+dit(await page.evaluate(() => history.length) === hist0
+    && Math.round((await page.locator('.accueil .carte').first().boundingBox()).y) === yForm,
+  'l’historique n’a pas bougé, le formulaire non plus')
 
 await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVG-REGX-2345')
+await page.locator('input.champ').fill('DEVP-ARNA-2345')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
 await page.waitForTimeout(600)
@@ -77,56 +91,40 @@ async function pendantGlissement(declencher) {
 }
 const opaque = c => !!c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent'
 
-/** Relève, pendant un fondu, combien de pages sont là en même temps. */
-async function pendantFondu(declencher) {
-  const releve = page.evaluate(() => new Promise(ok => {
-    const t0 = performance.now()
-    let vu = false, max = 0, glisse = false
-    const tic = () => {
-      const f = document.querySelectorAll('.fondu-enter-active, .fondu-leave-active').length
-      if (f) vu = true
-      max = Math.max(max, f)
-      if (document.querySelector('.page-enter-active, .page-leave-active')) glisse = true
-      if (performance.now() - t0 < 1200) requestAnimationFrame(tic); else ok({ vu, max, glisse })
-    }
-    requestAnimationFrame(tic)
-  }))
-  await declencher()
-  return releve
-}
+// =================== 1. LES TEXTES LÉGAUX, D'UN ONGLET À L'AUTRE ============
+const hist1 = await page.evaluate(() => history.length)
+const ouv1 = mouvement(700)
+await pied('Mentions légales').click()
+const o1 = await ouv1
+dit(monte(o1.tops) && await titreFeuille() === 'Mentions légales' && chemin() === '/',
+  `le pied de l’accueil ouvre les mentions dans une feuille (« ${await titreFeuille()} », ${chemin()})`)
+dit(/06 69 36 57 34/.test(await page.locator('.feuille-corps').innerText()), 'le téléphone de l’éditeur y figure')
+await page.locator('.feuille-corps .onglets-legaux').getByRole('button', { name: 'Confidentialité' }).click()
+await page.waitForTimeout(300)
+dit(await titreFeuille() === 'Confidentialité'
+    && /L’essentiel/.test(await page.locator('.feuille-corps').innerText()),
+  'un onglet, et c’est la confidentialité, dans la même feuille')
+await page.locator('.feuille-corps .texte-legal').getByRole('link', { name: 'mentions légales' }).first().click()
+await page.waitForTimeout(300)
+dit(await titreFeuille() === 'Mentions légales' && chemin() === '/'
+    && await page.getByRole('dialog').count() === 1,
+  'un lien d’un texte vers l’autre change d’onglet, sans quitter la feuille ni l’accueil')
+const ferme1 = mouvement(700)
+await page.keyboard.press('Escape')
+const f1 = await ferme1
+dit(descend(f1.tops) && await page.locator('.feuille-corps').count() === 0,
+  'Échap la referme, en descendant')
+dit(await page.evaluate(() => history.length) === hist1, `aucune entrée d’historique (${hist1})`)
 
-// =================== 1. LES PAGES LEGALES EN CHAINE ======================
-const g1 = await pendantFondu(() => pied('Conditions').click())
-dit(g1.vu && g1.max === 1 && !g1.glisse,
-  `vers une page légale : un fondu, jamais deux pages à la fois (${JSON.stringify(g1)})`)
-await page.waitForURL(/\/conditions$/, { timeout: 8000 })
-await page.waitForTimeout(500)
-await pied('Confidentialité').click()
-await page.waitForURL(/\/confidentialite$/, { timeout: 8000 })
-await page.waitForTimeout(500)
-await page.locator('main#contenu').getByRole('link', { name: 'mentions légales' }).first().click()
-await page.waitForURL(/\/mentions-legales$/, { timeout: 8000 })
-await page.waitForTimeout(500)
-dit(await page.evaluate(() => history.length) <= 3,
-  `trois pages lues, une seule entrée d’historique pour elles (history.length = ${await page.evaluate(() => history.length)})`)
-
-const g2 = await pendantFondu(() => page.getByRole('button', { name: 'Retour' }).click())
+// Arrivé par un lien direct, c'est une page : son « Retour » ramène à l'app.
+await page.goto(`${BASE}/mentions-legales`, { waitUntil: 'networkidle' })
+dit(/Mentions légales/.test(await page.locator('main#contenu h1').innerText().catch(() => '')),
+  'l’adresse directe /mentions-legales reste une page')
+await page.getByRole('button', { name: 'Retour' }).click()
 await page.waitForURL(u => new URL(u).pathname === '/', { timeout: 8000 }).catch(() => null)
-dit(chemin() === '/', `un seul « Retour » ramène à l’accueil (${chemin()})`)
-dit(g2.vu && g2.max === 1 && !g2.glisse, `et le retour aussi, en fondu (${JSON.stringify(g2)})`)
+dit(chemin() === '/', `son « Retour » ramène à l’accueil (${chemin()})`)
 await page.waitForSelector('.bento', { timeout: 10000 })
 await page.waitForTimeout(500)
-
-// Le bouton du navigateur fait pareil.
-await pied('Conditions').click()
-await page.waitForURL(/\/conditions$/, { timeout: 8000 })
-await page.waitForTimeout(400)
-await pied('Accessibilité').click()
-await page.waitForURL(/\/accessibilite$/, { timeout: 8000 })
-await page.waitForTimeout(400)
-await page.goBack({ waitUntil: 'networkidle' })
-await page.waitForTimeout(700)
-dit(chemin() === '/', `le retour du navigateur aussi (${chemin()})`)
 
 // =================== 2. ENTRER DANS UNE LISTE ============================
 const g3 = await pendantGlissement(() =>

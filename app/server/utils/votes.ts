@@ -61,6 +61,10 @@ const parPrenom = <T extends { prenom: string }>(a: T, b: T) =>
  *   ?4 les entrées nouvelles, {"Chloé": [2, t], "Cloé": [2, t, "ph:Chloé"]}
  *   ?5 la racine d'un balayage de famille, ou null · ?6 le jour de Paris
  *
+ * `nb` compte les prénoms jugés pour eux-mêmes (migration 0006) : le prénom
+ * de la carte, ou chaque nom d'une famille écartée — pas les graphies qui
+ * l'ont suivi (« ph:… »). « 1 jugé » après un swipe sur Louise, pas 3.
+ *
  * Les règles d'avant (une ligne par vote) tiennent, entrée par entrée (`f`) :
  *  - le prénom jugé s'écrit, sauf dans un balayage de famille, qui ne touche
  *    pas à un prénom déjà jugé : on n'écarte que ce qu'on n'a pas regardé ;
@@ -90,7 +94,7 @@ e as materialized (
    where b.groupe_id = ?1 and b.user_id = ?2
 ),
 f as (
-  select k, ex is null as nouveau,
+  select k, ex,
          case when ex is not null
                    and (case when principal then ?5 is not null else json_array_length(ex) < 3 end)
               then ex else neuve end as entree
@@ -99,7 +103,9 @@ f as (
 c as materialized (
   select json_group_object(k, json(case when json_extract(entree, '$[0]') > 0 then entree end)) as pos,
          json_group_object(k, json(case when json_extract(entree, '$[0]') = 0 then entree end)) as neg,
-         sum(nouveau) as nouveaux
+         -- les prénoms jugés pour eux-mêmes, avant et après (migration 0006)
+         sum((coalesce(json_extract(entree, '$[2]'), '') not like 'ph:%')
+             - (ex is not null and coalesce(json_extract(ex, '$[2]'), '') not like 'ph:%')) as juges
     from f
 ),
 q as materialized (
@@ -113,7 +119,7 @@ q as materialized (
 update bulletins set
   positifs = json_patch(bulletins.positifs, c.pos),
   negatifs = json_patch(bulletins.negatifs, c.neg),
-  nb       = bulletins.nb + c.nouveaux,
+  nb       = bulletins.nb + c.juges,
   maj_le   = ${MAINTENANT},
   depart   = bulletins.depart + (q.mode = 'depart'),
   n_jour   = case when q.mode <> 'jour' then bulletins.n_jour
@@ -155,12 +161,15 @@ export function votesDuPrenom(prenom: string, lignes: { user_id: string; pseudo:
  * Retirer des prénoms de mes votes (« remettre » une famille écartée) : ils
  * retournent dans la pile. ?1 la liste, ?2 le membre, ?3 les prénoms (tableau
  * JSON), ?4 le même en objet de null ({"Kevin": null}) : json_patch efface.
+ * `nb` perd les prénoms jugés pour eux-mêmes, pas les graphies (« ph:… »).
  */
 export const SQL_REMETTRE = `
 update bulletins set
-  nb = nb - (select count(*) from json_each(?3) j
-              where json_type(bulletins.positifs, '$."' || j.value || '"') is not null
-                 or json_type(bulletins.negatifs, '$."' || j.value || '"') is not null),
+  nb = nb - (select count(*) from (
+               select coalesce(json_extract(bulletins.positifs, '$."' || j.value || '"'),
+                               json_extract(bulletins.negatifs, '$."' || j.value || '"')) as e
+                 from json_each(?3) j)
+              where e is not null and coalesce(json_extract(e, '$[2]'), '') not like 'ph:%'),
   positifs = json_patch(positifs, ?4),
   negatifs = json_patch(negatifs, ?4)
  where groupe_id = ?1 and user_id = ?2`

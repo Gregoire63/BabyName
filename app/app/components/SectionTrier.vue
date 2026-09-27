@@ -506,6 +506,18 @@ watch(carte, (c, avant) => {
 
 // --- actions --------------------------------------------------------------
 /**
+ * « Qui en est », dans les réglages, compte mes prénoms jugés : il suit chaque
+ * geste. Il restait sur le chiffre du chargement de la liste, et l'on lisait
+ * « 0 jugé » juste après avoir jugé. Un prénom, pas ses graphies : c'est ce
+ * que compte le serveur (migration 0006).
+ */
+function compterJuges(n: number) {
+  const moi = g.etat.value?.moi?.user_id
+  const a = (g.etat.value?.avancement ?? []).find((m: any) => m.user_id === moi)
+  if (a && n > 0) a.votes = (a.votes ?? 0) + n
+}
+
+/**
  * Ranger ce que le serveur vient de répondre dans les votes connus.
  *
  * Le tri ne rechargeait rien : après un geste, la loupe ne disait pas « Oui »
@@ -522,6 +534,7 @@ function rangerVotes(prenom: string, variantes: string[], valeur: number, revenu
   if (!moi) return
   const pseudo = (g.etat.value?.avancement ?? []).find((m: any) => m.user_id === moi.user_id)?.pseudo ?? ''
   const miens = new Set(g.votes.value.filter((v: any) => v.user_id === moi.user_id).map((v: any) => v.prenom))
+  if (!miens.has(prenom)) compterJuges(1)
   const suite = g.votes.value.filter((v: any) => v.prenom !== prenom)
   const surCeluiCi = revenus.filter((v: any) => v?.prenom === prenom && typeof v.valeur === 'number')
   if (!surCeluiCi.some((v: any) => v.user_id === moi.user_id)) {
@@ -614,7 +627,7 @@ async function voter(valeur: 0 | 1 | 2) {
   }
   // ON NE DIT JAMAIS QU'ON VOUS A REFUSE UN PRENOM.
   //
-  // Le bandeau annoncait « Audrey : non » juste apres votre oui. C'est une
+  // Le bandeau annoncait « Alice : non » juste apres votre oui. C'est une
   // mauvaise nouvelle servie au pire moment, sur un prenom que vous veniez
   // d'aimer, et ca punit celui qui swipe le plus. Au bout de trois, on trie
   // en se demandant ce que l'autre va en penser — c'est exactement ce que le
@@ -694,15 +707,17 @@ async function confirmerFamille() {
   const cibles = familleAEcarter.value
   familleAEcarter.value = null
   if (!cibles?.length) return
-  const s = new Set(g.dejaVotes.value)
+  const avant = g.dejaVotes.value
+  const s = new Set(avant)
   for (const c of cibles) s.add(c.l)
   g.dejaVotes.value = s
   // La racine part avec chaque vote : c'est elle qui permettra de remettre
   // exactement ce groupe-là, et pas un ensemble recalculé plus tard.
-  await Promise.all(cibles.map(c =>
+  const nouveaux = await Promise.all(cibles.map(c =>
     $fetch(`/api/groupes/${g.gid}/vote`,
       { method: 'POST', body: { prenom: c.l, valeur: 0, balayage: racineBalayage } })
-      .catch(() => null)))
+      .then(() => !avant.has(c.l)).catch(() => false)))
+  compterJuges(nouveaux.filter(Boolean).length)
 }
 </script>
 
@@ -794,7 +809,7 @@ async function confirmerFamille() {
           cette liste.
         </p>
         <p class="mini doux" style="margin:0">
-          Débloquer cette liste ({{ prixListe }}, une fois) : plus aucune limite, pour
+          Débloquer cette liste pour la vie ({{ prixListe }}) : plus aucune limite, pour
           tous ses membres.
         </p>
         <button class="btn btn-1" @click="g.ouvrirDebloquer()">Voir ce que ça ouvre</button>

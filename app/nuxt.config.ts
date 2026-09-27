@@ -16,7 +16,7 @@ export default defineNuxtConfig({
       htmlAttrs: { lang: 'fr' },
       // Le titre de la coquille : chaque page le remplace aussitot, mais c'est
       // lui que lisent les robots qui n'executent pas le JavaScript.
-      title: 'babyNamed — choisir le prénom de bébé à deux',
+      title: 'babyNamed : choisir le prénom de bébé à deux',
       meta: [
         // resizes-content : sur Android, le clavier redimensionne la page au
         // lieu de se poser dessus — les feuilles restent visibles. iPhone
@@ -26,7 +26,7 @@ export default defineNuxtConfig({
         { name: 'description', content: DESCRIPTION },
         { property: 'og:type', content: 'website' },
         { property: 'og:site_name', content: 'babyNamed' },
-        { property: 'og:title', content: 'babyNamed — choisir le prénom de bébé à deux' },
+        { property: 'og:title', content: 'babyNamed : choisir le prénom de bébé à deux' },
         { property: 'og:description', content: DESCRIPTION },
         { property: 'og:image', content: `${SITE}/icone-512.png` },
         { property: 'og:locale', content: 'fr_FR' }
@@ -36,7 +36,7 @@ export default defineNuxtConfig({
       // savoir ce qu'est l'app, et ou lire la suite.
       noscript: [{
         tagPosition: 'bodyOpen',
-        innerHTML: '<h1>babyNamed — choisir le prénom de bébé à deux</h1>'
+        innerHTML: '<h1>babyNamed : choisir le prénom de bébé à deux</h1>'
           + `<p>${DESCRIPTION}</p>`
           + '<p><a href="/choisir-un-prenom-a-deux/">Comment ça marche, prix et confidentialité</a> · '
           + '<a href="/prenoms/">Signification, origine et popularité des prénoms donnés en France</a></p>'
@@ -70,7 +70,9 @@ export default defineNuxtConfig({
     // l'expediteur. Sans eux, personne ne peut s'inscrire : l'inscription se
     // valide par e-mail.
     emailCle: '',                 // NUXT_EMAIL_CLE         (OVH : mot de passe de la boite ; Brevo/Resend : cle d'API)
-    emailExpediteur: '',          // NUXT_EMAIL_EXPEDITEUR  (« babyNamed <contact@babynamed.fr> » : la boite elle-meme)
+    // La boite elle-meme ; aussi posee dans wrangler.jsonc. Par defaut ici pour
+    // qu'en local il ne manque que la cle (app/.env : NUXT_EMAIL_CLE=…).
+    emailExpediteur: 'babyNamed <contact@babynamed.fr>', // NUXT_EMAIL_EXPEDITEUR
     emailSmtp: 'ssl0.ovh.net:465', // NUXT_EMAIL_SMTP       (OVH : serveur:port ; 465 = TLS d'emblee, 587 = STARTTLS)
 
     // Stripe. Ces trois valeurs ne sont JAMAIS dans le dépôt : elles se posent

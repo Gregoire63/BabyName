@@ -69,7 +69,7 @@ async function copier(quoi: 'lien' | 'code') {
 <template>
   <main id="contenu" class="accueil" tabindex="-1">
     <div class="haut">
-      <NuxtLink to="/" aria-label="babyNamed — accueil">
+      <NuxtLink to="/" aria-label="babyNamed, accueil">
         <img src="/logo.png" alt="" width="66" height="66">
       </NuxtLink>
       <h1>Votre cadeau</h1>
@@ -108,7 +108,7 @@ async function copier(quoi: 'lien' | 'code') {
         </p>
         <p v-if="c.de_la_part || c.message" class="mini doux" style="margin:0">
           Ils liront : <strong>{{ c.de_la_part ?? 'Quelqu’un' }}</strong> vous offre
-          babyNamed<template v-if="c.message"> — « {{ c.message }} »</template>
+          babyNamed<template v-if="c.message"> : « {{ c.message }} »</template>
         </p>
       </section>
 

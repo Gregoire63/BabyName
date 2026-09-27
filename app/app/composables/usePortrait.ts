@@ -144,7 +144,7 @@ function traitsDe(oui: Prenom[], juges: Prenom[]): Trait[] {
       out.push({
         axe: 'epoque', poids: d / 12,
         texte: a < b
-          ? `Vos oui ont eu leur heure vers ${Math.round(a)} — ${ampleur} avant le reste de votre liste.`
+          ? `Vos oui ont eu leur heure vers ${Math.round(a)}, ${ampleur} avant le reste de votre liste.`
           : `Vos oui sont plus récents que le reste de votre liste : leur sommet est vers ${Math.round(a)}, ${ampleur} après.`
       })
     }
@@ -157,7 +157,7 @@ function traitsDe(oui: Prenom[], juges: Prenom[]): Trait[] {
     out.push({
       axe: 'finale', poids: Math.abs(vOui - vVu) * 3,
       texte: vOui > vVu
-        ? `${Math.round(vOui * 100)} % de vos oui finissent sur une voyelle — c'est une préférence d'oreille, elle ne se voit pas à l'écrit.`
+        ? `${Math.round(vOui * 100)} % de vos oui finissent sur une voyelle : c'est une préférence d'oreille, elle ne se voit pas à l'écrit.`
         : `Vos oui finissent sur une consonne (${Math.round((1 - vOui) * 100)} %) : des prénoms qui s'arrêtent net plutôt qu'ils ne s'ouvrent.`
     })
   }

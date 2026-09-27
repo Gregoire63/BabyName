@@ -32,7 +32,7 @@ const entrer = async (cle) => {
   await page.getByRole('button', { name: 'Entrer' }).click()
   await page.waitForSelector('.bento', { timeout: 20000 })
 }
-await entrer('DEVG-REGX-2345')
+await entrer('DEVP-ARNA-2345')
 await page.locator('.bento .grande').first().click()
 await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 45000 })
 await page.waitForTimeout(600)
@@ -49,8 +49,8 @@ async function pileSur(nom) {
 }
 
 // ---------- 1. aucun refus n'est jamais annoncé -------------------------
-// Audrey a dit NON a Marius dans la semence. L'ancien bandeau annoncait
-// « Audrey : non » juste apres le oui de Greg.
+// Alice a dit NON a Marius dans la semence. L'ancien bandeau annoncait
+// « Alice : non » juste apres le oui de Paul.
 await pileSur('Ferdinand')
 const nom1 = await page.locator('.carte.fiche:not(.derriere) .nom').first().innerText().catch(() => '')
 await page.getByRole('button', { name: 'Oui' }).first().click()
@@ -63,7 +63,7 @@ dit(!/\bnon\b/i.test(bandeau), bandeau
 dit(bandeau.trim() === '', 'et rien du tout ne s’affiche, pas même un neutre')
 
 // ---------- 2. le match est un moment -----------------------------------
-// Audrey a dit OUI a Adele, Greg ne l'a pas encore jugee.
+// Alice a dit OUI a Adele, Paul ne l'a pas encore jugee.
 await pileSur('Adèle')
 await page.getByRole('button', { name: 'Oui' }).first().click()
 await page.waitForSelector('.fete', { timeout: 12000 })
@@ -98,13 +98,13 @@ dit(await page.locator('.fete').count() === 0 && await page.locator('.volets, .o
     '« Voir nos accords » ferme la fête et emmène au classement')
 
 // ---------- 2 bis. la suite de l'accord mène là où elle promet -------------
-// Audrey dit oui à trois prénoms que Greg n'a pas encore jugés : autant
+// Alice dit oui à trois prénoms que Paul n'a pas encore jugés : autant
 // d'accords à venir. Elle vote depuis son propre navigateur.
 const ctxA = await nav.newContext({ viewport: { width: 390, height: 844 } })
 const pageA = await ctxA.newPage()
 await pageA.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 await pageA.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await pageA.locator('input.champ').fill('DEVA-DREY-2345')
+await pageA.locator('input.champ').fill('DEVP-ARNB-2345')
 await pageA.getByRole('button', { name: 'Entrer' }).click()
 await pageA.waitForSelector('.bento', { timeout: 20000 })
 for (const p of ['Capucine', 'Apolline', 'Clémence']) {

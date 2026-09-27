@@ -43,26 +43,26 @@ async function ouvrirListe(p, nom) {
 }
 
 // =================== CÔTÉ COUPLE =========================================
-const greg = await faireOnglet()
-await entrer(greg, 'DEVG-REGX-2345')
-await ouvrirListe(greg, 'Notre liste')
-const gid = greg.url().split('/')[4]
+const paul = await faireOnglet()
+await entrer(paul, 'DEVP-ARNA-2345')
+await ouvrirListe(paul, 'Notre liste')
+const gid = paul.url().split('/')[4]
 
-const communs = await greg.evaluate(g =>
+const communs = await paul.evaluate(g =>
   fetch(`/api/groupes/${g}/communs`).then(r => r.json()), gid)
 const noms = (communs.communs ?? communs).map(c => c.prenom)
 dit(noms.includes('Louise'),
     `Louise reste un accord malgré le non de Mamie (${noms.length} accords : ${noms.slice(0, 5).join(', ')}…)`)
 dit(noms.includes('Anouk'), 'Anouk aussi — deux refus d’observateur, zéro accord perdu')
 
-const etat = await greg.evaluate(g => fetch(`/api/groupes/${g}`).then(r => r.json()), gid)
+const etat = await paul.evaluate(g => fetch(`/api/groupes/${g}`).then(r => r.json()), gid)
 const obs = etat.avancement.filter(m => m.role === 'observateur')
 dit(obs.length === 1 && obs[0].pseudo === 'Mamie',
     `l’avancement distingue l’observatrice : ${obs.map(o => `${o.pseudo} (${o.votes} jugés)`).join(', ')}`)
 
-await greg.goto(`${BASE}/g/${gid}/reglages`, { waitUntil: 'networkidle' })
-await greg.waitForTimeout(1500)
-const reglages = await plat(greg, '.pile')
+await paul.goto(`${BASE}/g/${gid}/reglages`, { waitUntil: 'networkidle' })
+await paul.waitForTimeout(1500)
+const reglages = await plat(paul, '.pile')
 dit(/Mamie/.test(reglages) && /observe/.test(reglages),
     'l’écran des réglages dit qui observe')
 dit(/ne compte pas dans vos accords|ne peut pas poser de veto/i.test(reglages),
@@ -71,7 +71,7 @@ dit(/ne compte pas dans vos accords|ne peut pas poser de veto/i.test(reglages),
 // L'avertissement « troisième personne » ne doit PAS se déclencher pour elle.
 const decideurs = etat.avancement.filter(m => m.role !== 'observateur').length
 dit(decideurs === 2, `deux décideurs comptés, pas trois (${decideurs})`)
-const texteAvert = await plat(greg, '.avert')
+const texteAvert = await plat(paul, '.avert')
 dit(/troisième personne/i.test(texteAvert),
     'l’avertissement parle encore d’une TROISIÈME personne — Mamie n’en est pas une')
 dit(!/Mamie/.test(texteAvert), 'et il ne la compte pas dedans')
@@ -116,7 +116,7 @@ dit(!/Les observateurs/.test(sesReglages),
 // Jeu d'essai : Mamie a dit oui à Jeanne, Suzanne et Colette, non à Louise.
 const communsDe = p => p.evaluate(g => fetch(`/api/groupes/${g}/communs`).then(r => r.json()), gid)
 const coeursSur = (liste, nom) => (liste.find(c => c.prenom === nom)?.coeurs ?? []).map(x => x.pseudo)
-let cG = await communsDe(greg)
+let cG = await communsDe(paul)
 dit(coeursSur(cG, 'Jeanne').join() === 'Mamie', 'son « oui » sur un accord devient un cœur : Jeanne, aimé par Mamie')
 dit(cG.some(c => c.prenom === 'Louise') && !coeursSur(cG, 'Louise').length,
     'son « non » ne s’affiche pas sur la courte liste du couple : pas de veto par la bande')
@@ -127,32 +127,32 @@ await retirerJeanne.waitFor({ timeout: 10000 })
 dit(await retirerJeanne.getAttribute('aria-pressed') === 'true', 'sur les accords, Mamie voit son cœur sur Jeanne')
 await mamie.getByRole('button', { name: 'J’aime Louise' }).click()
 await mamie.waitForTimeout(1200)
-cG = await communsDe(greg)
-dit(coeursSur(cG, 'Louise').join() === 'Mamie', 'un toucher, et Louise est aimée par Mamie — Greg le voit')
+cG = await communsDe(paul)
+dit(coeursSur(cG, 'Louise').join() === 'Mamie', 'un toucher, et Louise est aimée par Mamie — Paul le voit')
 await retirerJeanne.click()
 await mamie.waitForTimeout(1200)
-cG = await communsDe(greg)
+cG = await communsDe(paul)
 dit(!coeursSur(cG, 'Jeanne').length && cG.some(c => c.prenom === 'Jeanne'),
     'le cœur retiré disparaît ; Jeanne reste un accord')
 const votesM = await mamie.evaluate(g => fetch(`/api/groupes/${g}/votes`).then(r => r.json()), gid)
 const moiM = (await mamie.evaluate(g => fetch(`/api/groupes/${g}`).then(r => r.json()), gid)).moi.user_id
 dit(votesM.votes.find(v => v.prenom === 'Jeanne' && v.user_id === moiM)?.valeur === 1,
     'retirer son cœur la repasse en « neutre » : Jeanne ne revient pas dans sa pile')
-await greg.goto(`${BASE}/g/${gid}/classement`, { waitUntil: 'networkidle' })
-await greg.waitForSelector('.segment button', { timeout: 20000 })
-await greg.waitForTimeout(800)
-const carteLouise = greg.locator('article.carte').filter({ has: greg.locator('h2', { hasText: /^Louise$/ }) })
+await paul.goto(`${BASE}/g/${gid}/classement`, { waitUntil: 'networkidle' })
+await paul.waitForSelector('.segment button', { timeout: 20000 })
+await paul.waitForTimeout(800)
+const carteLouise = paul.locator('article.carte').filter({ has: paul.locator('h2', { hasText: /^Louise$/ }) })
 dit(/Aimé par Mamie/.test(await carteLouise.innerText()), 'la carte de Louise le dit aux parents : « Aimé par Mamie »')
-dit(await greg.getByRole('button', { name: /^J’aime / }).count() === 0, 'les parents, eux, n’ont pas de bouton cœur')
-dit(!/manquent à Mamie/.test(await greg.locator('.pager > section:nth-child(2)').innerText()),
+dit(await paul.getByRole('button', { name: /^J’aime / }).count() === 0, 'les parents, eux, n’ont pas de bouton cœur')
+dit(!/manquent à Mamie/.test(await paul.locator('.pager > section:nth-child(2)').innerText()),
     'et les accords ne se disent pas « incomplets » à cause d’elle : ils ne l’attendent pas')
 // =================== SES MOTS SUR LES ACCORDS ============================
 // Un cœur ne dit pas pourquoi. Mamie laisse un mot sous Louise ; la carte
 // repliée des parents le signale — sinon il dort sous un prénom que personne
 // ne pense à déplier.
 const nbMots = (liste, nom) => liste.find(c => c.prenom === nom)?.nb_commentaires ?? -1
-// Le jeu d'essai en porte déjà un (Audrey : « Un peu partout en ce moment, non ? »).
-const avantMots = nbMots(await communsDe(greg), 'Louise')
+// Le jeu d'essai en porte déjà un (Alice : « Un peu partout en ce moment, non ? »).
+const avantMots = nbMots(await communsDe(paul), 'Louise')
 const motsAttendus = new RegExp(`${avantMots + 1} commentaires?`)
 await mamie.goto(`${BASE}/g/${gid}/classement`, { waitUntil: 'networkidle' })
 await mamie.waitForSelector('.segment button', { timeout: 20000 })
@@ -163,21 +163,21 @@ await champMot.fill('Comme mon arrière-grand-mère, elle serait ravie.')
 await mamie.getByRole('button', { name: 'Dire' }).click()
 await mamie.waitForTimeout(1200)
 const carteLouiseM = mamie.locator('article.carte').filter({ has: mamie.locator('h2', { hasText: /^Louise$/ }) })
-dit(/Mamie — Comme mon arrière-grand-mère/.test(await carteLouiseM.innerText()),
+dit(/Mamie : Comme mon arrière-grand-mère/.test(await carteLouiseM.innerText()),
     'Mamie peut laisser un mot sur un accord : il s’affiche signé')
 dit(motsAttendus.test(await carteLouiseM.innerText()), 'et le compte de sa carte suit tout de suite')
-cG = await communsDe(greg)
+cG = await communsDe(paul)
 dit(nbMots(cG, 'Louise') === avantMots + 1,
     `les parents voient un mot de plus sur Louise (${avantMots} → ${nbMots(cG, 'Louise')})`)
-await greg.goto(`${BASE}/g/${gid}/classement`, { waitUntil: 'networkidle' })
-await greg.waitForSelector('.segment button', { timeout: 20000 })
-await greg.waitForTimeout(800)
-const louiseG = greg.locator('article.carte').filter({ has: greg.locator('h2', { hasText: /^Louise$/ }) })
+await paul.goto(`${BASE}/g/${gid}/classement`, { waitUntil: 'networkidle' })
+await paul.waitForSelector('.segment button', { timeout: 20000 })
+await paul.waitForTimeout(800)
+const louiseG = paul.locator('article.carte').filter({ has: paul.locator('h2', { hasText: /^Louise$/ }) })
 dit(motsAttendus.test(await louiseG.innerText()) && !/arrière-grand-mère/.test(await louiseG.innerText()),
     `sur la carte repliée : « ${avantMots + 1} commentaires », sans le texte`)
-await greg.locator('button.deplier', { hasText: /^Louise$/ }).click()
-await greg.waitForTimeout(1200)
-dit(/Mamie — Comme mon arrière-grand-mère/.test(await louiseG.innerText()), 'déplié, Greg lit le mot de Mamie')
+await paul.locator('button.deplier', { hasText: /^Louise$/ }).click()
+await paul.waitForTimeout(1200)
+dit(/Mamie : Comme mon arrière-grand-mère/.test(await louiseG.innerText()), 'déplié, Paul lit le mot de Mamie')
 
 // Vote à l'aveugle : un autre observateur ne voit les cœurs qu'après son propre avis.
 const papi = await faireOnglet()

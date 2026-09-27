@@ -25,7 +25,7 @@ const plat = async sel => (await page.locator(sel).first().innerText().catch(() 
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVG-REGX-2345')
+await page.locator('input.champ').fill('DEVP-ARNA-2345')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
 
@@ -62,7 +62,7 @@ await page.waitForTimeout(1200)
 
 const tout = await plat('.pile')
 const traits = await page.locator('.trait').allInnerTexts()
-dit(traits.length > 0, `${traits.length} traits calculés sur les 12 oui de Greg`)
+dit(traits.length > 0, `${traits.length} traits calculés sur les 12 oui de Paul`)
 for (const t of traits.slice(0, 6)) console.log('   [trait]', t.replace(/\s+/g, ' '))
 
 dit(/Sur 12 oui/.test(tout), 'le portrait dit sur combien de oui il s’appuie')
@@ -71,11 +71,11 @@ dit(/parmi \d+ prénoms jugés/.test(tout),
 dit(/ce qu'on vous a montré|ce qu’on vous a montré|vous avez vu/i.test(tout),
     'les phrases comparent explicitement au vu, jamais à un absolu')
 
-// ---- le silence : Audrey n'a que 5 oui visibles, on ne l'invente pas ----
-dit(/Audrey/.test(tout), 'Audrey a sa carte')
-const carteAudrey = await plat('.carte:has-text("Audrey")')
-dit(/pas encore assez|honnête/i.test(carteAudrey),
-    `et on y dit qu’il n’y a pas de quoi conclure : « ${carteAudrey.slice(0, 90)} »`)
+// ---- le silence : Alice n'a que 5 oui visibles, on ne l'invente pas ----
+dit(/Alice/.test(tout), 'Alice a sa carte')
+const carteAlice = await plat('.carte:has-text("Alice")')
+dit(/pas encore assez|honnête/i.test(carteAlice),
+    `et on y dit qu’il n’y a pas de quoi conclure : « ${carteAlice.slice(0, 90)} »`)
 dit(!/Là où ça coince/.test(tout),
     'aucune divergence n’est affirmée tant qu’une des deux personnes n’a pas assez jugé')
 
@@ -92,10 +92,10 @@ const verif = await page.evaluate(g => fetch(`/api/groupes/${g}/votes`)
     return par
   }), gid)
 console.log('   [votes visibles]', JSON.stringify(verif))
-dit(verif.Greg?.oui === 12,
-    `le serveur confirme 12 oui pour Greg (et ${verif.Audrey?.oui ?? 0} visibles pour Audrey)`)
-dit((verif.Audrey?.oui ?? 0) < 12,
-    'Audrey est bien sous le seuil : le silence du portrait est justifié, pas un bug')
+dit(verif.Paul?.oui === 12,
+    `le serveur confirme 12 oui pour Paul (et ${verif.Alice?.oui ?? 0} visibles pour Alice)`)
+dit((verif.Alice?.oui ?? 0) < 12,
+    'Alice est bien sous le seuil : le silence du portrait est justifié, pas un bug')
 
 console.log(`\n${ok.length} OK, ${ko.length} échecs`)
 dit(erreurs.length === 0, `aucune erreur JS (${erreurs.length})`)

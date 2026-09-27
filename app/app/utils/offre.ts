@@ -9,7 +9,7 @@
 export const INCLUS_DEBLOCAGE = [
   {
     titre: 'Le tri sans limite',
-    texte: 'Ni limite de départ, ni quota du jour, pour vous deux. Le rappel d’hygiène reste — juger deux cents prénoms d’affilée donne de moins bonnes décisions — mais il se passe.'
+    texte: 'Ni limite de départ, ni quota du jour, pour vous deux. Le rappel d’hygiène reste (juger deux cents prénoms d’affilée donne de moins bonnes décisions), mais il se passe.'
   },
   {
     titre: 'L’essai avec votre nom de famille',
@@ -21,7 +21,7 @@ export const INCLUS_DEBLOCAGE = [
   },
   {
     titre: 'Ce que vos oui disent de vous',
-    texte: 'Les origines qui reviennent, la longueur que vous préférez, le degré de rareté — pour chacun de vous, et là où vous divergez.'
+    texte: 'Les origines qui reviennent, la longueur que vous préférez, le degré de rareté, pour chacun de vous, et là où vous divergez.'
   },
   {
     titre: 'Pourquoi vous n’êtes pas d’accord',

@@ -31,11 +31,11 @@ const manquants = computed(() => Math.max(0, MIN_OUI - (moi.value?.nOui ?? 0)))
       <section class="carte pile">
         <h2>Ce que vos oui disent de vous</h2>
         <p class="mini" style="margin:0">
-          Une époque, une longueur, des origines qui reviennent — et
+          Une époque, une longueur, des origines qui reviennent, et
           <strong>là où vous n'êtes pas d'accord</strong>.
         </p>
         <p class="exemple mini">
-          « Vos oui ont eu leur heure vers 1948 — une génération avant le reste
+          « Vos oui ont eu leur heure vers 1948, une génération avant le reste
           de votre liste. »
         </p>
         <button class="btn btn-1" @click="g.ouvrirDebloquer()">
@@ -49,7 +49,7 @@ const manquants = computed(() => Math.max(0, MIN_OUI - (moi.value?.nOui ?? 0)))
         <h2>Encore {{ manquants }} oui</h2>
         <p class="mini doux" style="margin:0">
           Un portrait sur {{ moi?.nOui ?? 0 }} prénom{{ (moi?.nOui ?? 0) > 1 ? 's' : '' }}
-          gardés ne dirait rien de vrai — il dirait ce que le hasard a laissé
+          gardés ne dirait rien de vrai : il dirait ce que le hasard a laissé
           passer. À partir de {{ MIN_OUI }}, les écarts tiennent.
         </p>
         <button class="btn btn-1" @click="g.allerA('swipe')">Continuer à trier</button>
@@ -65,7 +65,7 @@ const manquants = computed(() => Math.max(0, MIN_OUI - (moi.value?.nOui ?? 0)))
         <p v-for="t in moi.traits" :key="t.axe" class="trait">{{ t.texte }}</p>
         <p v-if="!moi.traits.length" class="mini doux" style="margin:0">
           Vos oui ressemblent à ce qu'on vous a montré : pas de penchant
-          marqué. Ce n'est pas un défaut — ça veut dire que vos filtres font
+          marqué. Ce n'est pas un défaut : ça veut dire que vos filtres font
           déjà le travail.
         </p>
       </section>

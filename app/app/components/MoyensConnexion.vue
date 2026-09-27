@@ -154,7 +154,7 @@ const dernier = (quoi: 'passkey' | 'email' | 'cle') => {
     <div v-if="moi?.email || courrielPossible" class="pile" style="gap:8px">
       <p class="sous-titre">Adresse e-mail</p>
       <template v-if="moi?.email && !changeEmail">
-        <p class="mini" style="margin:0"><strong>{{ moi.email }}</strong> — les liens de connexion partent ici.</p>
+        <p class="mini" style="margin:0"><strong>{{ moi.email }}</strong> : les liens de connexion partent ici.</p>
         <template v-if="retirerEmailDemande">
           <p v-if="dernier('email')" class="mini" style="margin:0;color:var(--non)">
             C’est votre dernier moyen de revenir sur un autre appareil.

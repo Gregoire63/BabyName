@@ -118,17 +118,17 @@ async function seDeconnecter(page) {
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
   const avant = Date.now() - 1000
   await page.getByLabel('Votre prénom').fill('Autre')
-  await page.getByLabel('Votre adresse e-mail').fill('audrey@exemple.test')
+  await page.getByLabel('Votre adresse e-mail').fill('alice@exemple.test')
   await page.getByRole('button', { name: 'Créer mon compte' }).click()
-  const statut = page.getByRole('status').filter({ hasText: 'audrey@exemple.test' })
+  const statut = page.getByRole('status').filter({ hasText: 'alice@exemple.test' })
   await statut.waitFor({ timeout: 10000 })
-  const m = await courrielPour('audrey@exemple.test', { apres: avant })
+  const m = await courrielPour('alice@exemple.test', { apres: avant })
   dit(/Un e-mail vient de partir/.test(await statut.innerText()) && /déjà un compte/.test(m?.sujet ?? ''),
     'adresse déjà inscrite : l’écran répond pareil, l’e-mail le dit à qui le lit')
   await page.locator('input[autocomplete="one-time-code"]').fill(m.code)
   await page.getByRole('button', { name: 'Plus tard' }).click({ timeout: 15000 })
   await page.waitForSelector('.bento', { timeout: 20000 })
-  dit((await api(page, '/api/auth/moi')).j?.utilisateur?.pseudo === 'Audrey',
+  dit((await api(page, '/api/auth/moi')).j?.utilisateur?.pseudo === 'Alice',
     'son code fait entrer dans le compte existant — pas de second compte')
   await ctx.close()
 }
@@ -244,12 +244,12 @@ async function seDeconnecter(page) {
   const { ctx, page } = await nouvel()
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
   await page.getByRole('tab', { name: 'Connexion' }).click()
-  await page.locator('input[type="email"]').fill('audrey@exemple.test')
+  await page.locator('input[type="email"]').fill('alice@exemple.test')
   dit(await page.locator('input[type="email"]').getAttribute('autocomplete') === 'username webauthn',
     'le champ propose aussi les passkeys du téléphone')
   await page.getByRole('button', { name: 'Recevoir un lien' }).click()
-  await page.getByRole('status').filter({ hasText: 'audrey@exemple.test' }).waitFor({ timeout: 10000 })
-  const m1 = await dernierPour('audrey@exemple.test')
+  await page.getByRole('status').filter({ hasText: 'alice@exemple.test' }).waitFor({ timeout: 10000 })
+  const m1 = await dernierPour('alice@exemple.test')
   dit(!!m1 && /\/connexion\/lien#t=[A-Za-z0-9_-]{40,}$/.test(m1.lien) && /^\d{6}$/.test(m1.code),
     'l’e-mail porte un lien (jeton après le #) et un code à 6 chiffres')
 
@@ -259,15 +259,15 @@ async function seDeconnecter(page) {
   dit(/pas le bon code \(encore 4 essais\)/.test(await page.getByRole('alert').innerText()),
     'un code faux : on le dit, avec les essais restants')
   await page.locator('input[autocomplete="one-time-code"]').fill(m1.code)
-  // Audrey n'a pas de passkey : proposée ; « Plus tard » est retenu sur l'appareil.
+  // Alice n'a pas de passkey : proposée ; « Plus tard » est retenu sur l'appareil.
   await page.getByRole('button', { name: 'Plus tard' }).click({ timeout: 15000 })
   await page.waitForSelector('.bento', { timeout: 20000 })
-  dit((await api(page, '/api/auth/moi')).j?.utilisateur?.pseudo === 'Audrey',
+  dit((await api(page, '/api/auth/moi')).j?.utilisateur?.pseudo === 'Alice',
     'le bon code connecte (c’est ce qui sert dans l’app installée)')
 
   // « Plus tard » est retenu : un autre lien, ouvert sur le même appareil, mène droit à l'accueil.
-  await api(page, '/api/auth/lien', { method: 'POST', body: JSON.stringify({ email: 'audrey@exemple.test' }) })
-  const mBis = await dernierPour('audrey@exemple.test')
+  await api(page, '/api/auth/lien', { method: 'POST', body: JSON.stringify({ email: 'alice@exemple.test' }) })
+  const mBis = await dernierPour('alice@exemple.test')
   await page.goto(mBis.lien, { waitUntil: 'networkidle' })
   await page.getByRole('button', { name: 'Continuer' }).click()
   await page.waitForSelector('.bento', { timeout: 20000 })
@@ -276,10 +276,10 @@ async function seDeconnecter(page) {
 
   // Le lien, une seule fois.
   await seDeconnecter(page)
-  await page.locator('input[type="email"]').fill('audrey@exemple.test')
+  await page.locator('input[type="email"]').fill('alice@exemple.test')
   await page.getByRole('button', { name: 'Recevoir un lien' }).click()
-  await page.getByRole('status').filter({ hasText: 'audrey@exemple.test' }).waitFor({ timeout: 10000 })
-  const m2 = await dernierPour('audrey@exemple.test')
+  await page.getByRole('status').filter({ hasText: 'alice@exemple.test' }).waitFor({ timeout: 10000 })
+  const m2 = await dernierPour('alice@exemple.test')
   await page.goto(m2.lien, { waitUntil: 'networkidle' })
   dit(page.url().endsWith('/connexion/lien'), `le jeton est effacé de l’adresse (${page.url().replace(BASE, '')})`)
   await page.getByRole('button', { name: 'Continuer' }).click()
@@ -301,16 +301,16 @@ async function seDeconnecter(page) {
     'adresse inconnue : même réponse, aucun e-mail — on ne révèle pas qui a un compte')
 
   // Cinq codes faux : le lien meurt, même le bon code n'y fait plus rien.
-  await api(p2, '/api/auth/lien', { method: 'POST', body: JSON.stringify({ email: 'audrey@exemple.test' }) })
-  const m3 = await dernierPour('audrey@exemple.test')
+  await api(p2, '/api/auth/lien', { method: 'POST', body: JSON.stringify({ email: 'alice@exemple.test' }) })
+  const m3 = await dernierPour('alice@exemple.test')
   const autre = m3.code === '123456' ? '654321' : '123456'
   const statuts = []
   for (let i = 0; i < 5; i++) {
     statuts.push((await api(p2, '/api/auth/code', { method: 'POST',
-      body: JSON.stringify({ email: 'audrey@exemple.test', code: autre }) })).j?.statusMessage)
+      body: JSON.stringify({ email: 'alice@exemple.test', code: autre }) })).j?.statusMessage)
   }
   const apres = await api(p2, '/api/auth/code', { method: 'POST',
-    body: JSON.stringify({ email: 'audrey@exemple.test', code: m3.code }) })
+    body: JSON.stringify({ email: 'alice@exemple.test', code: m3.code }) })
   dit(statuts.at(-1) === 'code_epuise' && apres.status === 400,
     `cinq codes faux épuisent le lien ; le bon ne passe plus (${statuts.join(', ')} → ${apres.j?.statusMessage})`)
   await ctx.close()
@@ -319,25 +319,25 @@ async function seDeconnecter(page) {
 // =================== 3. UNE ADRESSE, PUIS PLUS DE CLÉ ======================
 {
   const { ctx, page } = await nouvel()
-  await entrerCle(page, 'DEVG-REGX-2345')
+  await entrerCle(page, 'DEVP-ARNA-2345')
   await ouvrirCompte(page)
   await page.getByRole('button', { name: 'Ajouter une adresse' }).click()
-  await page.locator('.feuille-corps input[type="email"]').fill('greg@exemple.test')
+  await page.locator('.feuille-corps input[type="email"]').fill('paul@exemple.test')
   await page.getByRole('button', { name: 'Envoyer la confirmation' }).click()
-  await page.getByRole('status').filter({ hasText: 'greg@exemple.test' }).waitFor({ timeout: 10000 })
+  await page.getByRole('status').filter({ hasText: 'paul@exemple.test' }).waitFor({ timeout: 10000 })
   const avantConfirmation = (await api(page, '/api/auth/moi')).j?.utilisateur?.email
-  const m = await dernierPour('greg@exemple.test')
+  const m = await dernierPour('paul@exemple.test')
   await page.locator('.feuille-corps input[autocomplete="one-time-code"]').fill(m.code)
   await page.getByText('Adresse confirmée').waitFor({ timeout: 10000 })
   const moi = (await api(page, '/api/auth/moi')).j?.utilisateur
-  dit(!avantConfirmation && moi?.email === 'greg@exemple.test',
+  dit(!avantConfirmation && moi?.email === 'paul@exemple.test',
     'l’adresse n’est enregistrée qu’une fois prouvée (code reçu)')
 
   await page.getByRole('button', { name: 'Désactiver la clé' }).click()
   await page.locator('.feuille-corps').getByRole('button', { name: 'Désactiver la clé' }).last().click()
   await page.getByText('Clé d’accès désactivée').waitFor({ timeout: 8000 })
   const r = await fetch(`${BASE}/api/auth/reprendre`, { method: 'POST',
-    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cle: 'DEVG-REGX-2345' }) })
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cle: 'DEVP-ARNA-2345' }) })
   dit(r.status === 403, 'l’ancienne clé désactivée n’ouvre plus rien')
   await ctx.close()
 }
@@ -345,8 +345,8 @@ async function seDeconnecter(page) {
 // =================== 4. DÉCONNECTER LES AUTRES APPAREILS ===================
 {
   const tel = await nouvel(), tab = await nouvel()
-  for (const x of [tel, tab]) await entrerCle(x.page, 'DEVA-DREY-2345')
-  dit((await api(tab.page, '/api/auth/moi')).j?.connecte === true, 'Audrey est connectée sur deux appareils')
+  for (const x of [tel, tab]) await entrerCle(x.page, 'DEVP-ARNB-2345')
+  dit((await api(tab.page, '/api/auth/moi')).j?.connecte === true, 'Alice est connectée sur deux appareils')
   await ouvrirCompte(tel.page)
   await tel.page.getByRole('button', { name: 'Déconnecter mes autres appareils' }).click()
   await tel.page.getByRole('button', { name: 'Déconnecter les autres' }).click()
@@ -362,12 +362,12 @@ async function seDeconnecter(page) {
 // suffit pas à s'installer en silence.
 {
   const { ctx, page } = await nouvel()
-  await entrerCle(page, 'DEVA-DREY-2345')
-  await api(page, '/api/auth/email', { method: 'POST', body: JSON.stringify({ email: 'audrey.bis@exemple.test' }) })
-  const m = await dernierPour('audrey.bis@exemple.test')
+  await entrerCle(page, 'DEVP-ARNB-2345')
+  await api(page, '/api/auth/email', { method: 'POST', body: JSON.stringify({ email: 'alice.bis@exemple.test' }) })
+  const m = await dernierPour('alice.bis@exemple.test')
   const conf = await api(page, '/api/auth/code', { method: 'POST',
-    body: JSON.stringify({ email: 'audrey.bis@exemple.test', code: m.code, but: 'verification' }) })
-  const alerte = (await boite()).find(c => c.a === 'audrey@exemple.test' && /a changé/.test(c.sujet))
+    body: JSON.stringify({ email: 'alice.bis@exemple.test', code: m.code, but: 'verification' }) })
+  const alerte = (await boite()).find(c => c.a === 'alice@exemple.test' && /a changé/.test(c.sujet))
   dit(conf.status === 200 && !!alerte, 'remplacer l’adresse d’un compte prévient l’ancienne')
   await ctx.close()
 }
@@ -388,7 +388,7 @@ async function seDeconnecter(page) {
     `dix codes faux, puis 429 : on ne balaie pas les codes (${statuts.join(',')})`)
   // Le code se tape aussi à voix haute, avec l'espace : « ABCDE FGHJK ».
   const { page: autre } = await nouvel()
-  await entrerCle(autre, 'DEVA-DREY-2345')
+  await entrerCle(autre, 'DEVP-ARNB-2345')
   const lisible = `${liste.j.code_invitation.slice(0, 5)} ${liste.j.code_invitation.slice(5)}`.toLowerCase()
   const rej = await api(autre, '/api/groupes/rejoindre', { method: 'POST', body: JSON.stringify({ code: lisible }) })
   dit(rej.status === 200 && rej.j?.nom === 'Essai de code', 'le code lu à voix haute (espace, minuscules) passe')
@@ -430,7 +430,7 @@ async function seDeconnecter(page) {
     { method: 'POST', body: JSON.stringify({ prenom: 'A'.repeat(500), valeur: 2 }) })
   dit(gros.status === 400, `un « prénom » de 500 caractères est refusé (HTTP ${gros.status})`)
   const { page: g } = await nouvel()
-  await entrerCle(g, 'DEVA-DREY-2345')
+  await entrerCle(g, 'DEVP-ARNB-2345')
   const filtres = await api(g, `/api/groupes/${notre.id}/filtres`,
     { method: 'PUT', body: JSON.stringify({ x: 'y'.repeat(9000) }) })
   dit(filtres.status === 413, `des filtres de 9 Ko sont refusés (HTTP ${filtres.status})`)

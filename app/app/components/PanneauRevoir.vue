@@ -55,7 +55,7 @@ const autresDecideurs = computed(() => (g.etat.value?.avancement ?? [])
   .filter((m: any) => m.role !== 'observateur' && m.user_id !== moiId.value)
   .map((m: any) => m.pseudo as string))
 const eux = computed(() => autresDecideurs.value.length === 1 ? autresDecideurs.value[0]! : '')
-/** « qu’Audrey » mais « que Greg » ; « d’Audrey », « de Greg ». */
+/** « qu’Alice » mais « que Paul » ; « d’Alice », « de Paul ». */
 const voyelle = (nom: string) => /^[aeiouyhàâäéèêëîïôöùûü]/i.test(nom)
 const que = (nom: string) => voyelle(nom) ? `qu’${nom}` : `que ${nom}`
 const de = (nom: string) => voyelle(nom) ? `d’${nom}` : `de ${nom}`
@@ -65,7 +65,7 @@ const groupes = computed(() => [
     aide: `${eux.value ? `${eux.value} a dit oui` : 'D’autres ont dit oui'} : si vous changez d’avis, le prénom peut rejoindre vos accords.`,
     liste: aRevoir.value.filter(v => v.mien === 0) },
   { cle: 'eux', titre: eux.value ? `Ceux ${que(eux.value)} n’a pas aimés` : 'Ceux que les autres n’ont pas aimés',
-    aide: `Vous avez dit oui ; c’est ${eux.value ? `du côté ${de(eux.value)}` : 'de leur côté'} que ça coince — à en parler.`,
+    aide: `Vous avez dit oui ; c’est ${eux.value ? `du côté ${de(eux.value)}` : 'de leur côté'} que ça coince : parlez-en.`,
     liste: aRevoir.value.filter(v => v.mien !== 0) }
 ].filter(gr => gr.liste.length))
 

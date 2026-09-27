@@ -20,7 +20,7 @@ import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
 
 const SECRET = process.env.CRON_SECRET
 if (!SECRET) { console.error('Lancer via relance.sh : essai-rgpd.env n’a pas été chargé.'); process.exit(2) }
-const CLE = { greg: 'DEVG-REGX-2345', audrey: 'DEVA-DREY-2345', mamie: 'DEVM-AMIE-2345', fantome: 'DEVF-ANTM-2345' }
+const CLE = { paul: 'DEVP-ARNA-2345', alice: 'DEVP-ARNB-2345', mamie: 'DEVM-AMIE-2345', fantome: 'DEVF-ANTM-2345' }
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -72,11 +72,11 @@ dit((await reprendre(CLE.fantome)) === 403, 'après la purge, la clé du compte 
 const p2 = await purger(`Bearer ${SECRET}`)
 dit(p2.status === 200 && Object.entries(p2.j).every(([k, v]) => k === 'ok' || v === 0),
     'rejouée, la purge ne trouve plus rien : elle est idempotente')
-dit((await reprendre(CLE.greg)) === 200, 'les comptes actifs sont intacts')
+dit((await reprendre(CLE.paul)) === 200, 'les comptes actifs sont intacts')
 
-// ================================================ 2. Export (Audrey)
-const A1 = await appareil(CLE.audrey)          // son telephone
-const A2 = await appareil(CLE.audrey)          // sa tablette, restee connectee
+// ================================================ 2. Export (Alice)
+const A1 = await appareil(CLE.alice)          // son telephone
+const A2 = await appareil(CLE.alice)          // sa tablette, restee connectee
 const seule = (await A1.api('/api/groupes', { method: 'POST', body: JSON.stringify({ nom: 'Rien qu’à moi' }) })).j
 await A1.page.evaluate(() => localStorage.setItem('trace-de-session', 'x'))
 await A1.page.reload({ waitUntil: 'networkidle' })
@@ -91,7 +91,7 @@ const [dl] = await Promise.all([
 dit(/^babynamed-mes-donnees-\d{4}-\d{2}-\d{2}\.json$/.test(dl.suggestedFilename()),
     `le bouton télécharge un fichier nommé (${dl.suggestedFilename()})`)
 const exp = JSON.parse(readFileSync(await dl.path(), 'utf8'))
-dit(exp.compte?.pseudo === 'Audrey' && exp.format === 'babynamed-export/1', 'le fichier est celui d’Audrey, format versionné')
+dit(exp.compte?.pseudo === 'Alice' && exp.format === 'babynamed-export/1', 'le fichier est celui d’Alice, format versionné')
 dit(exp.listes?.some(l => l.nom === 'Notre liste') && exp.listes?.some(l => l.nom === 'Rien qu’à moi'),
     'il contient ses deux listes')
 dit(exp.votes?.some(v => v.prenom === 'Louise' && v.valeur === 'oui'),
@@ -99,12 +99,12 @@ dit(exp.votes?.some(v => v.prenom === 'Louise' && v.valeur === 'oui'),
 dit(exp.commentaires?.some(c => /partout/.test(c.texte)) && exp.vetos?.some(v => v.prenom === 'Jayden'),
     'ses commentaires et ses vetos, motif compris')
 dit(!exp.votes?.some(v => v.prenom === 'Lucien'),
-    'aucun vote des autres membres (Lucien n’a été jugé que par Greg)')
+    'aucun vote des autres membres (Lucien n’a été jugé que par Paul)')
 const brut = JSON.stringify(exp)
 dit(!/cle_acces_hash|"[0-9a-f]{64}"/.test(brut), 'ni l’empreinte de sa clé d’accès')
-dit(!/Greg|Mamie/.test(brut), 'ni le nom des autres membres')
+dit(!/Paul|Mamie/.test(brut), 'ni le nom des autres membres')
 
-// ================================================ 3. Effacement (Audrey)
+// ================================================ 3. Effacement (Alice)
 const refus = await A1.api('/api/moi/supprimer', { method: 'POST', body: JSON.stringify({}) })
 dit(refus.status === 400, 'sans le mot de confirmation, le serveur refuse (au cas où l’écran serait contourné)')
 await A1.page.getByRole('button', { name: 'Supprimer mon compte' }).click()
@@ -124,7 +124,7 @@ dit(/supprimés/.test(statut), `l’écran le confirme : « ${statut} »`)
 dit(await A1.page.evaluate(() => localStorage.length) === 0, 'le stockage local du navigateur est vidé')
 const cookies1 = await A1.ctx.cookies()
 dit(!cookies1.some(c => c.name === 'pr_session' && c.value), 'le cookie de session est retiré')
-dit((await reprendre(CLE.audrey)) === 403, 'sa clé ne mène plus nulle part')
+dit((await reprendre(CLE.alice)) === 403, 'sa clé ne mène plus nulle part')
 
 // L'autre appareil : sa session survit dans le navigateur, pas dans la base.
 await A2.page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
@@ -134,19 +134,19 @@ const orpheline = await A2.api('/api/groupes')
 dit(orpheline.status === 401, `sa session orpheline reçoit 401, pas une erreur 500 (HTTP ${orpheline.status})`)
 
 // ================================================ 4. Les autres n'ont rien perdu
-const G = await appareil(CLE.greg)
+const G = await appareil(CLE.paul)
 const listesG = (await G.api('/api/groupes')).j
 const notre = listesG?.find(l => l.nom === 'Notre liste')
-dit(!!notre && notre.nb_membres === 2, `Greg garde « Notre liste », Mamie avec lui (${notre?.nb_membres} membres)`)
+dit(!!notre && notre.nb_membres === 2, `Paul garde « Notre liste », Mamie avec lui (${notre?.nb_membres} membres)`)
 const etatNotre = (await G.api(`/api/groupes/${notre?.id}`)).j
 dit(etatNotre?.groupe?.paye === true, 'et elle reste débloquée')
 const votesG = (await G.api(`/api/groupes/${notre?.id}/votes`)).j?.votes ?? []
-dit(votesG.some(v => v.prenom === 'Louise' && v.pseudo === 'Greg') && !votesG.some(v => v.pseudo === 'Audrey'),
-    'ses votes sont intacts, ceux d’Audrey ont disparu')
-dit((await G.api(`/api/groupes/${seule?.id}`)).status === 403, 'la liste perso d’Audrey n’existe plus pour personne')
+dit(votesG.some(v => v.prenom === 'Louise' && v.pseudo === 'Paul') && !votesG.some(v => v.pseudo === 'Alice'),
+    'ses votes sont intacts, ceux d’Alice ont disparu')
+dit((await G.api(`/api/groupes/${seule?.id}`)).status === 403, 'la liste perso d’Alice n’existe plus pour personne')
 
 // ================================================ 5. L'acheteur s'efface, la liste reste payee
-// Greg a paye « Notre liste ». Avant le schema RGPD, l'effacer echouait (cle
+// Paul a paye « Notre liste ». Avant le schema RGPD, l'effacer echouait (cle
 // etrangere sans regle) ; ou, s'il l'avait creee, effacait la liste de Mamie.
 const efface = await G.api('/api/moi/supprimer', { method: 'POST', body: JSON.stringify({ confirmation: 'SUPPRIMER' }) })
 dit(efface.status === 200, `effacer celui qui a créé ET payé la liste fonctionne (HTTP ${efface.status})`)

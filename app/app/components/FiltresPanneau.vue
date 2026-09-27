@@ -56,7 +56,7 @@ function cycler(o: string) {
       <section class="bloc" aria-labelledby="f-long">
         <div class="tete">
           <h3 id="f-long" class="titre">Longueur</h3>
-          <span class="valeur">{{ modele.car[0] }}–{{ modele.car[1] }} lettres</span>
+          <span class="valeur">{{ modele.car[0] }} à {{ modele.car[1] }} lettres</span>
         </div>
         <label class="borne">
           <span>au moins</span>
@@ -76,7 +76,7 @@ function cycler(o: string) {
         <div class="tete">
           <h3 id="f-syl" class="titre">Syllabes</h3>
           <span class="valeur">{{ modele.syllabes[0] === modele.syllabes[1] ? modele.syllabes[0]
-            : `${modele.syllabes[0]}–${modele.syllabes[1]}` }}</span>
+            : `${modele.syllabes[0]} à ${modele.syllabes[1]}` }}</span>
         </div>
         <label class="borne">
           <span>au moins</span>
@@ -131,7 +131,7 @@ function cycler(o: string) {
         </label>
         <label class="inter">
           <span>
-            Inclure les prénoms très rares<template v-if="props.nbRares"> — + {{ props.nbRares.toLocaleString('fr-FR') }}</template>
+            Inclure les prénoms très rares<template v-if="props.nbRares"> (+ {{ props.nbRares.toLocaleString('fr-FR') }})</template>
             <small>Moins de 20 naissances en trois ans</small>
           </span>
           <input v-model="modele.inclure_rares" type="checkbox" role="switch">
@@ -177,7 +177,7 @@ function cycler(o: string) {
 
     <template #pied="{ fermer }">
       <button class="btn btn-1" style="width:100%" @click="fermer">
-        {{ props.nb.toLocaleString('fr-FR') }} prénoms — voir
+        Voir les {{ props.nb.toLocaleString('fr-FR') }} prénoms
       </button>
     </template>
   </Feuille>

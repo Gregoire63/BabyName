@@ -26,7 +26,7 @@ async function creer() {
     Créer un code sans payer (base locale)
   </button>
   <p v-if="code" class="mini" style="margin:0">
-    <strong>{{ code }}</strong> —
+    <strong>{{ code }}</strong> :
     <NuxtLink :to="`/?cadeau=${code.replace(/-/g, '')}`" class="lien">l’ouvrir comme le destinataire</NuxtLink>
   </p>
   <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>

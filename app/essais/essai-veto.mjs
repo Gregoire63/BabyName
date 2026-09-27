@@ -23,7 +23,7 @@ async function entrer(cle) {
   return { ctx, page }
 }
 
-const { page } = await entrer('DEVG-REGX-2345')
+const { page } = await entrer('DEVP-ARNA-2345')
 
 // ---------- 1. le veto n'est plus public ----------------------------------
 const etat = await page.evaluate(() =>
@@ -31,7 +31,7 @@ const etat = await page.evaluate(() =>
 dit(Array.isArray(etat.vetos) && etat.vetos.every(v => typeof v === 'string'),
     `/api/groupes/1 ne renvoie que des prénoms vetos : ${JSON.stringify(etat.vetos)}`)
 dit(JSON.stringify(etat).indexOf('mon ex') === -1,
-    'le motif du veto d’Audrey ne sort pas du serveur')
+    'le motif du veto d’Alice ne sort pas du serveur')
 dit(etat.mes_vetos.length === 1 && etat.mes_vetos[0].prenom === 'Brandon',
     `mes_vetos ne contient que les miens : ${JSON.stringify(etat.mes_vetos)}`)
 
@@ -92,7 +92,7 @@ await cl.locator('.groupe .entete', { hasText: 'Prénoms bloqués' }).click()
 await page.waitForTimeout(400)
 const txtVetos = await cl.locator('.groupe').filter({ hasText: 'Prénoms bloqués' }).innerText()
 dit(/Brandon/.test(txtVetos) && /non/.test(txtVetos), 'mon veto et son motif y sont')
-dit(!/Jayden/.test(txtVetos), 'celui d’Audrey n’y est pas')
+dit(!/Jayden/.test(txtVetos), 'celui d’Alice n’y est pas')
 await page.screenshot({ path: '/tmp/v2-meschoix.png' })
 
 // ---------- 5. le veto depuis la carte de tri -----------------------------

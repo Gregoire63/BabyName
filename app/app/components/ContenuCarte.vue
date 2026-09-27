@@ -123,7 +123,7 @@ const niveau = computed(() => !essai.value ? ''
     </dl>
 
     <p v-if="p.r > 30" class="alerte">
-      Rare et en forte hausse — il peut être partout dans cinq ans.
+      Rare et en forte hausse : il peut être partout dans cinq ans.
     </p>
     <p v-else-if="p.rv" class="alerte">
       Prénom d’avant 1970 qui remonte.
@@ -161,7 +161,7 @@ const niveau = computed(() => !essai.value ? ''
       <!-- Sa place est toujours tenue, meme vide : « Bloquer » reste au meme
            endroit d'une carte a l'autre, le pouce n'a pas a le chercher. -->
       <button v-if="peutBloquer" type="button" class="btn outil" :class="{ vide: !famille }"
-              :aria-label="famille ? `Non aux ${famille.prefixe}… — ${famille.n} prénoms qui commencent par ${famille.prefixe}` : undefined"
+              :aria-label="famille ? `Non aux ${famille.prefixe}… : ${famille.n} prénoms qui commencent par ${famille.prefixe}` : undefined"
               :tabindex="famille ? undefined : -1"
               @click.stop="famille && emit('famille')">
         <svg viewBox="0 0 24 24" aria-hidden="true">

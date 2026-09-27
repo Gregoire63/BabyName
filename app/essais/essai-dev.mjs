@@ -32,9 +32,9 @@ await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 const bloc = page.locator('section.dev', { hasText: 'Base locale' })
 await bloc.waitFor({ timeout: 10000 }).catch(() => null)
 dit(await bloc.count() === 1, 'la connexion propose les comptes du jeu d’essai')
-await bloc.getByRole('button', { name: 'Greg' }).click()
+await bloc.getByRole('button', { name: 'Paul' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
-dit((await page.locator('.qui').innerText()).includes('Greg'), 'un geste, et on est Greg')
+dit((await page.locator('.qui').innerText()).includes('Paul'), 'un geste, et on est Paul')
 
 // =================== 2. L'ETAT DE LA BASE ================================
 await page.getByRole('button', { name: /Mon compte/ }).click()
@@ -45,7 +45,7 @@ const texte = (await outils.innerText()).replace(/\s+/g, ' ')
 dit(/Jeu d’essai v\d+, semé le/.test(texte) && !/Périmé/.test(texte),
   `l’âge du jeu d’essai est affiché (« ${texte.match(/Jeu d’essai[^.]*/)?.[0]} »)`)
 dit(/Notre liste/.test(texte) && /Essai gratuit/.test(texte), 'les listes y sont')
-dit(/DEVG-REGX-2345/.test(texte), 'et les clés')
+dit(/DEVP-ARNA-2345/.test(texte), 'et les clés')
 
 // =================== 3. LES QUOTAS =======================================
 await page.evaluate(async () => {
@@ -102,7 +102,7 @@ await page.locator('.outils-dev').getByRole('button', { name: 'Base neuve' }).cl
 await page.locator('.outils-dev').getByRole('button', { name: 'Tout effacer et resemer' }).click()
 await page.waitForURL(/\/connexion/, { timeout: 20000 }).catch(() => null)
 dit(/\/connexion/.test(page.url()), 'Base neuve : retour à la connexion')
-await page.locator('section.dev').getByRole('button', { name: 'Greg' }).click()
+await page.locator('section.dev').getByRole('button', { name: 'Paul' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
 const q3 = await quota(2)
 const g3 = (await api('/api/groupes/3')).json?.groupe

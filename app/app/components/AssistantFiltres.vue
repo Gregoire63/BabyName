@@ -152,7 +152,7 @@ const selection = computed(() => {
 
     <template #pied>
       <p class="compte">
-        <strong>{{ nb.toLocaleString('fr-FR') }}</strong> prénoms — {{ selection }}
+        <strong>{{ nb.toLocaleString('fr-FR') }}</strong> prénoms : {{ selection }}
       </p>
       <p v-if="nb < 40 && catalogue.length" class="mini" style="color:var(--non);margin:0">
         C’est très peu. Vous aurez fait le tour en une séance.

@@ -234,7 +234,7 @@ useHead({
   title: computed(() => {
     const nom = etat.value?.groupe?.nom
     const onglet = ONGLETS[index.value]?.t ?? ''
-    return nom ? `${onglet} — ${nom}` : onglet
+    return nom ? `${onglet} · ${nom}` : onglet
   })
 })
 
@@ -456,13 +456,13 @@ async function attendrePaiement() {
     <div v-if="confirmation" class="paiement" :class="confirmation"
          role="status" aria-live="polite" @click="confirmation = null">
       <template v-if="confirmation === 'attente'">
-        Paiement reçu — on débloque la liste…
+        Paiement reçu, on débloque la liste…
       </template>
       <template v-else-if="confirmation === 'ok'">
         C’est débloqué, pour vous et pour tout le monde sur cette liste.
       </template>
       <template v-else-if="confirmation === 'cadeau'">
-        C’est débloqué{{ cadeauDe ? ` — un cadeau de ${cadeauDe}` : ' — un beau cadeau' }}, pour vous
+        C’est débloqué{{ cadeauDe ? `, un cadeau de ${cadeauDe}` : ', un beau cadeau' }}, pour vous
         et pour tout le monde sur cette liste.
       </template>
       <template v-else>

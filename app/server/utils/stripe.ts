@@ -110,7 +110,7 @@ async function appel(chemin: string, corps: Record<string, any>) {
 function piedFacture(siteUrl: string, consentementLe: string): string {
   const e = EDITEUR
   const qui = [
-    `${e.marque} — ${e.nom}, ${e.forme.toLowerCase()}`,
+    `${e.marque}, ${e.nom}, ${e.forme.toLowerCase()}`,
     e.siret ? `SIRET ${e.siret}` : '',
     e.adresse
   ].filter(Boolean).join(' · ')
@@ -121,7 +121,7 @@ function piedFacture(siteUrl: string, consentementLe: string): string {
     mentionTva() + '.',
     `Contenu numérique fourni dès le paiement. Le ${jour}, vous avez demandé l’accès immédiat et renoncé à votre droit de rétractation (art. L221-28 13° du Code de la consommation).`,
     `Conditions générales, version du ${VERSIONS_TEXTES.conditions} : ${siteUrl}/conditions`,
-    e.mediateur.nom ? `Médiateur de la consommation : ${e.mediateur.nom} — ${e.mediateur.site}` : ''
+    e.mediateur.nom ? `Médiateur de la consommation : ${e.mediateur.nom}, ${e.mediateur.site}` : ''
   ].filter(Boolean).join('\n')
 }
 
@@ -143,7 +143,7 @@ const HABILLAGE = {
 function piedFactureCadeau(siteUrl: string, consentementLe: string, expireLe: string): string {
   const e = EDITEUR
   const qui = [
-    `${e.marque} — ${e.nom}, ${e.forme.toLowerCase()}`,
+    `${e.marque}, ${e.nom}, ${e.forme.toLowerCase()}`,
     e.siret ? `SIRET ${e.siret}` : '',
     e.adresse
   ].filter(Boolean).join(' · ')
@@ -157,7 +157,7 @@ function piedFactureCadeau(siteUrl: string, consentementLe: string, expireLe: st
       `Le ${jour(consentementLe)}, vous avez demandé que la liste soit débloquée dès l’utilisation du code, ` +
       `et reconnu perdre alors ce droit (art. L221-28 13°).`,
     `Conditions générales, version du ${VERSIONS_TEXTES.conditions} : ${siteUrl}/conditions`,
-    e.mediateur.nom ? `Médiateur de la consommation : ${e.mediateur.nom} — ${e.mediateur.site}` : ''
+    e.mediateur.nom ? `Médiateur de la consommation : ${e.mediateur.nom}, ${e.mediateur.site}` : ''
   ].filter(Boolean).join('\n')
 }
 
@@ -209,7 +209,7 @@ export async function creerSessionCadeau(opts: {
     // les codes promo restent réservés au déblocage d'une liste.
     allow_promotion_codes: false,
     payment_intent_data: {
-      description: `babyNamed — code cadeau ${lisible}`,
+      description: `babyNamed, code cadeau ${lisible}`,
       metadata: { ...meta, message: undefined }
     },
     ...(direct ? {
@@ -287,7 +287,7 @@ export async function creerSession(opts: {
     // « j'ai paye et rien ne s'est debloque », c'est la que l'on cherche.
     // (Sans effet pour un code a 100 % : aucun paiement n'est alors cree.)
     payment_intent_data: {
-      description: `babyNamed — liste ${opts.gid}`,
+      description: `babyNamed, liste ${opts.gid}`,
       metadata: meta
     },
     // Managed Payments refuse custom_text (verifie en live), et envoie lui-meme
@@ -311,7 +311,7 @@ export async function creerSession(opts: {
       invoice_creation: {
         enabled: true,
         invoice_data: {
-          description: `Déblocage de la liste n° ${opts.gid} sur babyNamed — accès immédiat, sans abonnement.`,
+          description: `Déblocage à vie de la liste n° ${opts.gid} sur babyNamed, accès immédiat.`,
           footer: piedFacture(opts.siteUrl, opts.consentementLe),
           custom_fields: [
             { name: 'Liste', value: `n° ${opts.gid}` },

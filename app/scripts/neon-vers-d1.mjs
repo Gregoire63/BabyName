@@ -116,7 +116,9 @@ async function bulletins() {
       const b = bulletin(Number(v.groupe_id), v.user_id)
       const instant = Math.floor(new Date(v.vote_le).getTime() / 1000)
       const entree = v.balayage ? [Number(v.valeur), instant, v.balayage] : [Number(v.valeur), instant]
-      if (!Object.hasOwn(b.positifs, v.prenom) && !Object.hasOwn(b.negatifs, v.prenom)) b.nb++
+      // nb : les prénoms jugés pour eux-mêmes, pas les graphies (migration 0006)
+      if (!Object.hasOwn(b.positifs, v.prenom) && !Object.hasOwn(b.negatifs, v.prenom)
+          && !String(v.balayage ?? '').startsWith('ph:')) b.nb++
       ;(Number(v.valeur) > 0 ? b.positifs : b.negatifs)[v.prenom] = entree
       const le = new Date(v.vote_le).toISOString()
       if (!b.maj || le > b.maj) b.maj = le

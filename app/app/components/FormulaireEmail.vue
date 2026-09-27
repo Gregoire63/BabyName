@@ -127,7 +127,7 @@ function changer() { envoye.value = ''; code.value = ''; erreur.value = '' }
       <p class="mini" style="margin:0" role="status">
         <template v-if="but === 'connexion'">
           Si un compte utilise <strong>{{ envoye }}</strong>, l’e-mail arrive dans la
-          minute. Ouvrez le lien — ou tapez le code ici :
+          minute. Ouvrez le lien, ou tapez le code ici :
         </template>
         <template v-else>
           Un e-mail vient de partir vers <strong>{{ envoye }}</strong>. Ouvrez le lien,

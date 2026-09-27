@@ -40,7 +40,7 @@ export default defineNuxtPlugin(() => {
         // repasse par lui et recree un cache. On revide une fois tout arrive.
         document.fonts?.ready.then(() => setTimeout(vider, 150))
         setTimeout(vider, 1200)
-        console.warn('[babyNamed] service worker desinstalle (developpement) — rechargez')
+        console.warn('[babyNamed] service worker desinstalle (developpement), rechargez')
       }).catch(() => { /* navigation privee */ })
     }
     return

@@ -21,7 +21,7 @@ onMounted(() => { ouvert.value = true })
     <!-- en tête : la feuille est fixe, et le pied reste le dernier élément -->
     <FeuilleOffrir v-if="ouvert" :annule="annule" @fermer="ouvert = false" />
     <div class="haut">
-      <NuxtLink to="/" aria-label="babyNamed — accueil">
+      <NuxtLink to="/" aria-label="babyNamed, accueil">
         <img src="/logo.png" alt="" width="66" height="66">
       </NuxtLink>
       <h1>Offrir babyNamed</h1>
@@ -29,7 +29,7 @@ onMounted(() => { ouvert.value = true })
     </div>
 
     <div class="pile actions">
-      <button type="button" class="btn btn-1" @click="ouvert = true">Offrir — {{ prix }}</button>
+      <button type="button" class="btn btn-1" @click="ouvert = true">Offrir ({{ prix }})</button>
       <NuxtLink to="/" class="btn btn-0 doux">Découvrir babyNamed</NuxtLink>
     </div>
 

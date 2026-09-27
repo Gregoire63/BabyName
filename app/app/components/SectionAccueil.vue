@@ -268,7 +268,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <img src="/logo.png" alt="" width="34" height="34">
         <h1 style="flex:1">babyNamed</h1>
         <!-- Le nom visible est dans le nom accessible (WCAG 2.5.3) : « Mon
-             compte : Greg » se dit et se commande a la voix par « Greg ». -->
+             compte : Paul » se dit et se commande a la voix par « Paul ». -->
         <button type="button" class="qui" :aria-label="`Mon compte : ${moi?.pseudo ?? ''}`"
                 @click="compteOuvert = true">
           <span>{{ moi?.pseudo ?? '…' }}</span>
@@ -316,7 +316,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <h2>Ça coince côté serveur</h2>
         <p class="mini" style="margin:0">{{ panne }}</p>
         <p class="mini doux" style="margin:0">
-          Votre session est intacte — c’est la liste qui n’a pas pu être lue.
+          Votre session est intacte : c’est la liste qui n’a pas pu être lue.
         </p>
         <button class="btn btn-1" @click="chargement = true; charger()">Réessayer</button>
         <button class="btn btn-0 doux" @click="compteOuvert = true">Mon compte</button>
@@ -330,7 +330,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           <p class="etiquette">Liste en cours</p>
           <h2 class="titre">{{ principale.nom }}</h2>
           <div class="ligne chiffres">
-            <span><strong>{{ principale.mes_votes }}</strong> jugés par vous</span>
+            <span><strong>{{ principale.mes_votes }}</strong> {{ pluriel(principale.mes_votes, 'jugé', 'jugés') }} par vous</span>
             <span><strong>{{ principale.nb_communs }}</strong> en commun</span>
             <span><strong>{{ principale.nb_membres }}</strong> {{ principale.nb_membres > 1 ? 'membres' : 'membre' }}</span>
           </div>
@@ -437,7 +437,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
             <div style="flex:1;min-width:0">
               <strong>{{ g.nom }}</strong>
               <p class="mini doux" style="margin:2px 0 0">
-                {{ g.mes_votes }} jugés · {{ g.nb_communs }} en commun ·
+                {{ g.mes_votes }} {{ pluriel(g.mes_votes, 'jugé', 'jugés') }} · {{ g.nb_communs }} en commun ·
                 {{ quandDernier(g.derniere_activite) }}
               </p>
             </div>
@@ -446,10 +446,10 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         </template>
 
         <p class="mini doux credit">
-          {{ stats?.total.toLocaleString('fr-FR') ?? '—' }} prénoms · fichier INSEE des prénoms,
+          {{ stats?.total.toLocaleString('fr-FR') ?? '…' }} prénoms · fichier INSEE des prénoms,
           millésime 2025 · <a href="/prenoms/" class="lien">toutes les fiches prénoms</a><br>
           <button type="button" class="version" @click="vider">
-            version {{ version }}{{ purge ? ' — rechargement…' : ' · toucher pour recharger à neuf' }}
+            version {{ version }}{{ purge ? ' · rechargement…' : ' · toucher pour recharger à neuf' }}
           </button>
         </p>
         <PiedLegal class="credit" />

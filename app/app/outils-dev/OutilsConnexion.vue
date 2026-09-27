@@ -15,7 +15,7 @@ onMounted(async () => {
 
 <template>
   <section v-if="comptes.length" class="carte pile dev" aria-labelledby="titre-dev">
-    <h2 id="titre-dev" class="mini">Base locale — entrer comme</h2>
+    <h2 id="titre-dev" class="mini">Base locale : entrer comme</h2>
     <div class="ligne" style="flex-wrap:wrap;gap:8px">
       <button v-for="c in comptes" :key="c.cle" type="button" class="btn mini"
               :title="c.role" :disabled="occupe" @click="emit('entrer', c.cle)">

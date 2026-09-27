@@ -206,7 +206,7 @@ ${jsonld.map(j => `<script type="application/ld+json">${JSON.stringify(j).replac
 ${corps}
 <footer>
 <p><a href="/prenoms/">Tous les prénoms</a> · <a href="/prenoms/tendance/filles/">Tendances filles</a> · <a href="/prenoms/tendance/garcons/">Tendances garçons</a> · <a href="/prenoms/rares/filles/">Rares filles</a> · <a href="/prenoms/rares/garcons/">Rares garçons</a> · <a href="${APP}">L’application</a></p>
-<p>Chiffres : INSEE, fichier des prénoms (naissances en France, ${AN0}–${AN1}). Origines et significations : Wiktionnaire et relecture ; quand le sens est incertain, la fiche le dit.</p>
+<p>Chiffres : INSEE, fichier des prénoms (naissances en France de ${AN0} à ${AN1}). Origines et significations : Wiktionnaire et relecture ; quand le sens est incertain, la fiche le dit.</p>
 <p><a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/conditions">Conditions</a> · <a href="/accessibilite">Accessibilité</a></p>
 </footer></div></body></html>`
 }
@@ -374,7 +374,7 @@ for (const [s, mot] of [['f', 'filles'], ['m', 'garcons']]) {
   listes.push({
     chemin: `/prenoms/tendance/${mot}/`,
     titre: `Prénoms de ${nom} tendance en ${AN1 + 1} : ceux qui montent vraiment`,
-    description: `Les 60 prénoms de ${nom} qui progressent le plus en France, calculés sur les naissances INSEE jusqu’en ${AN1} — pas une sélection au goût du jour.`,
+    description: `Les 60 prénoms de ${nom} qui progressent le plus en France, calculés sur les naissances INSEE jusqu’en ${AN1}, pas une sélection au goût du jour.`,
     h1: `Prénoms de ${nom} qui montent`,
     intro: `Classés par progression annuelle sur les dernières années de naissances INSEE, parmi les prénoms donnés au moins 150 fois de ${AN1 - 2} à ${AN1}. Un prénom qui monte vite peut devenir courant d’ici l’entrée à l’école : regardez aussi le nombre de naissances.`,
     xs: tend, col: 'tendance'
@@ -383,7 +383,7 @@ for (const [s, mot] of [['f', 'filles'], ['m', 'garcons']]) {
   const rares = tetes.filter(x => sexeOk(x, s) && !x.q && x.o >= 60 && x.m && x.cf === 2).sort((a, b) => b.n - a.n).slice(0, 80)
   listes.push({
     chemin: `/prenoms/rares/${mot}/`,
-    titre: `Prénoms de ${nom} rares (et qui ont du sens) — liste ${AN1 + 1}`,
+    titre: `Prénoms de ${nom} rares (et qui ont du sens) : liste ${AN1 + 1}`,
     description: `80 prénoms de ${nom} rares en France mais portés : originalité mesurée sur les naissances INSEE, signification vérifiée.`,
     h1: `Prénoms de ${nom} rares`,
     intro: `Des prénoms peu donnés en France (originalité ≥ 60/100, mesurée sur les naissances INSEE), dont la signification est établie. Classés du plus porté au plus confidentiel.`,
@@ -495,7 +495,7 @@ const FAQ = [
   ['Faut-il installer une application ?',
    'Non. babyNamed s’ouvre dans le navigateur, sur téléphone comme sur ordinateur, et s’ajoute à l’écran d’accueil si vous le souhaitez. Votre partenaire rejoint votre liste par un simple lien.'],
   ['Est-ce vraiment gratuit ?',
-   `Oui : on trie, on trouve ses accords et on choisit sans rien payer — ${QUOTA_DEPART} prénoms pour commencer, puis ${QUOTA_JOUR} par jour, sans jamais être bloqué. L’option à ${PRIX} TTC débloque une liste pour tous ses membres, en une fois : pas d’abonnement.`],
+   `Oui : on trie, on trouve ses accords et on choisit sans rien payer : ${QUOTA_DEPART} prénoms pour commencer, puis ${QUOTA_JOUR} par jour, sans jamais être bloqué. L’option à ${PRIX} TTC débloque une liste pour la vie, pour tous ses membres.`],
   ['D’où viennent les chiffres ?',
    `Du fichier des prénoms de l’INSEE : les naissances en France de ${AN0} à ${AN1}. Les significations viennent du Wiktionnaire, relues ; quand un sens est incertain, la fiche le dit au lieu de l’inventer.`],
   ['Peut-on être plus de deux ?',
@@ -505,19 +505,19 @@ const FAQ = [
 ecrire(APP, page({
   chemin: APP,
   ariane: [{ n: MARQUE, u: '/' }, { n: 'Choisir à deux', u: APP }],
-  titre: `Choisir un prénom à deux, sans s’influencer — l’application ${MARQUE}`,
+  titre: `Choisir un prénom à deux, sans s’influencer : l’application ${MARQUE}`,
   description: `Chacun trie les prénoms de son côté, sans voir l’avis de l’autre ; ${MARQUE} ne montre que ceux que vous aimez tous les deux. ${nf(d.n)} prénoms, chiffres INSEE. Gratuit, sans mot de passe.`,
   jsonld: [{
     '@context': 'https://schema.org', '@type': 'WebApplication',
     name: MARQUE, url: `${SITE}/`, inLanguage: 'fr-FR',
     applicationCategory: 'LifestyleApplication',
     operatingSystem: 'Navigateur web (téléphone et ordinateur)',
-    description: `Application pour choisir le prénom d’un bébé à deux : chacun juge les prénoms à l’aveugle, l’application montre les accords. ${nf(d.n)} prénoms, naissances INSEE ${AN0}–${AN1}.`,
+    description: `Application pour choisir le prénom d’un bébé à deux : chacun juge les prénoms à l’aveugle, l’application montre les accords. ${nf(d.n)} prénoms, naissances INSEE de ${AN0} à ${AN1}.`,
     isAccessibleForFree: true,
     offers: [
       { '@type': 'Offer', price: '0', priceCurrency: 'EUR', name: 'Gratuit' },
       { '@type': 'Offer', price: String(PRIX_NOMBRE), priceCurrency: 'EUR',
-        name: 'Déblocage d’une liste', description: 'Paiement unique, pour tous les membres de la liste' }
+        name: 'Déblocage d’une liste', description: 'Débloque la liste pour la vie, pour tous ses membres' }
     ]
   }, {
     '@context': 'https://schema.org', '@type': 'FAQPage',
@@ -525,14 +525,14 @@ ecrire(APP, page({
       acceptedAnswer: { '@type': 'Answer', text: r } }))
   }],
   corps: `<section class="hero"><h1>Choisir un prénom à deux, sans s’influencer</h1>
-<p class="sous">${MARQUE} trouve les prénoms sur lesquels vous êtes d’accord — sans que l’un décide pour l’autre.</p></section>
+<p class="sous">${MARQUE} trouve les prénoms sur lesquels vous êtes d’accord, sans que l’un décide pour l’autre.</p></section>
 
 <p>${MARQUE} est une application web gratuite pour choisir le prénom de votre bébé à deux. Chacun juge les prénoms de son côté, sans voir l’avis de l’autre ; l’application ne vous montre que ceux que vous aimez tous les deux.</p>
 
 <div class="chiffres">
-<div><b>${nf(d.n)}</b><span>prénoms, naissances INSEE ${AN0}–${AN1}</span></div>
+<div><b>${nf(d.n)}</b><span>prénoms, naissances INSEE de ${AN0} à ${AN1}</span></div>
 <div><b>0</b><span>mot de passe : passkey ou lien par e-mail</span></div>
-<div><b>Gratuit</b><span>option à ${esc(PRIX)} par liste, une fois</span></div>
+<div><b>Gratuit</b><span>option à ${esc(PRIX)} par liste, pour la vie</span></div>
 </div>
 
 <h2>Comment ça marche</h2>
@@ -551,8 +551,8 @@ ecrire(APP, page({
 
 <h2>Ce qui est gratuit, ce qui est payant</h2>
 <div class="carte"><p style="margin:0 0 .6em"><b>Gratuit</b> : ${QUOTA_DEPART} prénoms pour commencer, puis ${QUOTA_JOUR} par jour, sans jamais être bloqué ; tout le catalogue, la recherche, les fiches, les accords et le classement, le blocage d’un prénom, le deuxième parent.</p>
-<p style="margin:0"><b>${esc(PRIX)} TTC, une fois, par liste</b> — pour tous ses membres : le tri sans limite, l’essai avec votre nom de famille, le nombre d’enfants qui porteront le prénom dans une classe, le portrait de vos goûts, l’explication de vos désaccords, et les observateurs (les grands-parents donnent leur avis sans rien bloquer). Pas d’abonnement.</p>
-<p style="margin:.6em 0 0"><b>À offrir</b> : le même déblocage en cadeau, sans compte — un lien et un code à transmettre à des futurs parents, valables ${CADEAU_ANS} ans. <a href="/offrir" rel="nofollow">Offrir ${MARQUE}</a></p></div>
+<p style="margin:0"><b>${esc(PRIX)} TTC par liste, débloquée pour la vie</b>, pour tous ses membres : le tri sans limite, l’essai avec votre nom de famille, le nombre d’enfants qui porteront le prénom dans une classe, le portrait de vos goûts, l’explication de vos désaccords, et les observateurs (les grands-parents donnent leur avis sans rien bloquer).</p>
+<p style="margin:.6em 0 0"><b>À offrir</b> : le même déblocage en cadeau, sans compte : un lien et un code à transmettre à des futurs parents, valables ${CADEAU_ANS} ans. <a href="/offrir" rel="nofollow">Offrir ${MARQUE}</a></p></div>
 
 <h2>Vos données</h2>
 <p>Un prénom et une adresse e-mail, confirmée par un code, pour commencer ; aucun mot de passe : on revient avec un lien reçu par e-mail ou une passkey (Face ID, empreinte). Aucune publicité, aucune mesure d’audience, aucun cookie tiers. Votre compte s’efface en un geste, et vos données se téléchargent à tout moment. <a href="/confidentialite">Ce qu’on garde et pourquoi</a>.</p>
@@ -582,7 +582,7 @@ writeFileSync(resolve(SORTIE, 'llms.txt'), `# ${MARQUE}
 
 > Application web française pour choisir le prénom de son bébé à deux, sans s’influencer : chacun juge les prénoms de son côté, à l’aveugle, et l’application ne montre que ceux que tout le monde aime. ${nf(d.n)} prénoms, avec les naissances INSEE en France de ${AN0} à ${AN1}.
 
-- Gratuit : ${QUOTA_DEPART} prénoms pour commencer, puis ${QUOTA_JOUR} par jour, sans jamais être bloqué. Option à ${PRIX} TTC par liste, en une fois, pour tous ses membres (tri sans limite, essai avec le nom de famille, projection dans une classe, explication des désaccords, observateurs). Elle s'offre aussi, sans compte : un code cadeau valable ${CADEAU_ANS} ans (${SITE}/offrir).
+- Gratuit : ${QUOTA_DEPART} prénoms pour commencer, puis ${QUOTA_JOUR} par jour, sans jamais être bloqué. Option à ${PRIX} TTC par liste, débloquée pour la vie, pour tous ses membres (tri sans limite, essai avec le nom de famille, projection dans une classe, explication des désaccords, observateurs). Elle s'offre aussi, sans compte : un code cadeau valable ${CADEAU_ANS} ans (${SITE}/offrir).
 - Aucun mot de passe (passkey ou lien par e-mail, adresse facultative) ; aucune publicité, aucune mesure d’audience, aucun cookie tiers.
 - Dans le navigateur, sur téléphone ou ordinateur, installable sur l’écran d’accueil ; l’autre parent rejoint la liste par un lien.
 - Une fiche publique par prénom : signification (avec son niveau de certitude), origine, courbe des naissances depuis ${AN0}, tendance, graphies qui se prononcent pareil, prénoms proches.
@@ -628,4 +628,4 @@ Disallow: /?
 Sitemap: ${SITE}/sitemap.xml
 `)
 
-console.log(`[seo] ${pages.size} fiches, ${listes.length + lettres.length + 1} listes, page de l’app, llms.txt, sitemap ${urls.length + 1} URL — domaine ${SITE}`)
+console.log(`[seo] ${pages.size} fiches, ${listes.length + lettres.length + 1} listes, page de l’app, llms.txt, sitemap ${urls.length + 1} URL, domaine ${SITE}`)

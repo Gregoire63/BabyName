@@ -1,6 +1,8 @@
 <script setup lang="ts">
 /**
  * Le gabarit des pages legales : barre de retour, texte lisible, liens du bas.
+ * Dans l'app, ces textes s'ouvrent plutot en feuille (FeuilleLegale) ; les
+ * pages servent a qui arrive par un lien direct.
  *
  * Ces pages s'ouvrent sans compte (on doit pouvoir lire les conditions AVANT
  * de s'inscrire) et depuis n'importe ou — y compris un onglet ouvert depuis
@@ -16,10 +18,7 @@ function retour() {
   else navigateTo('/')
 }
 
-const depuis = computed(() => props.version
-  ? new Date(`${props.version}T12:00:00`).toLocaleDateString('fr-FR',
-      { day: 'numeric', month: 'long', year: 'numeric' })
-  : '')
+const depuis = computed(() => dateDeVersion(props.version))
 </script>
 
 <template>
@@ -35,7 +34,7 @@ const depuis = computed(() => props.version
       </NuxtLink>
     </header>
 
-    <main id="contenu" class="texte" tabindex="-1">
+    <main id="contenu" class="texte texte-legal" tabindex="-1">
       <h1>{{ titre }}</h1>
       <p v-if="version" class="maj">En vigueur depuis le {{ depuis }}.</p>
       <slot />
@@ -59,23 +58,11 @@ const depuis = computed(() => props.version
 .marque { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; }
 .marque img { border-radius: 7px; }
 
-.texte { max-width: 680px; margin: 0 auto; line-height: 1.6; }
+.texte { max-width: 680px; margin: 0 auto; }
 .texte:focus { outline: none; }
 .texte h1 { font-size: 1.6rem; margin: 10px 0 4px; }
 .maj { color: var(--doux); font-size: .85rem; margin: 0 0 18px; }
-.texte :deep(h2) { font-size: 1.12rem; margin: 30px 0 8px; }
-.texte :deep(h3) { font-size: .98rem; margin: 20px 0 6px; }
-.texte :deep(p) { margin: 0 0 12px; }
-.texte :deep(ul), .texte :deep(ol) { margin: 0 0 12px; padding-left: 22px; }
-.texte :deep(li) { margin: 0 0 6px; }
-.texte :deep(a) { text-decoration: underline; text-underline-offset: 3px; }
-.texte :deep(.encadre) { background: var(--carte); border: 1px solid var(--trait);
-  border-radius: var(--r-s); padding: 14px 16px; margin: 0 0 14px; }
-.texte :deep(.encadre > :last-child) { margin-bottom: 0; }
-.texte :deep(dl) { margin: 0 0 14px; display: grid; grid-template-columns: minmax(0, 1fr);
-  gap: 2px; }
-.texte :deep(dt) { font-weight: 800; font-size: .82rem; color: var(--doux); margin-top: 8px;
-  text-transform: uppercase; letter-spacing: .04em; }
-.texte :deep(dd) { margin: 0; }
+/* La typographie des textes eux-mêmes : .texte-legal, dans app.vue — la
+   feuille des textes légaux la partage. */
 .bas { max-width: 680px; margin: 34px auto 0; padding-top: 16px; border-top: 1px solid var(--trait); }
 </style>

@@ -30,7 +30,7 @@ const plat = async sel => (await page.locator(sel).first().innerText().catch(() 
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVG-REGX-2345')
+await page.locator('input.champ').fill('DEVP-ARNA-2345')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
 
@@ -58,7 +58,7 @@ await page.waitForTimeout(700)
 
 const feuille = await plat('.feuille-corps')
 dit(/6\s?€|€/.test(feuille), `le prix est affiché : « ${feuille.slice(0, 40)} »`)
-dit(/une fois|pas d’abonnement/i.test(feuille), 'il est dit que c’est un paiement unique')
+dit(/pour la vie/i.test(feuille) && !/abonnement/i.test(feuille), 'il est dit que ça débloque la liste pour la vie, sans parler d’abonnement')
 dit(/chaque liste se débloque à part/i.test(feuille) && /autres listes restent gratuites/i.test(feuille)
     && /Pas toute l’application/i.test(feuille),
     'il est dit que c’est CETTE liste qui se débloque, pas toute l’app')
@@ -72,7 +72,7 @@ dit(await page.locator('.feuille-corps input[type="tel"], .feuille-corps input[n
     'et aucun champ de saisie de paiement, même caché')
 
 // --- l'accord avant paiement (art. L221-28 13°) ------------------------------
-const payer = page.getByRole('button', { name: /Débloquer cette liste —/ })
+const payer = page.getByRole('button', { name: /Débloquer cette liste \(/ })
 dit(await page.locator('.feuille-corps input[type="checkbox"]:checked').count() === 0,
     'la case d’accord n’est jamais pré-cochée')
 dit(await payer.isDisabled(), 'sans elle, le bouton de paiement reste inactif')

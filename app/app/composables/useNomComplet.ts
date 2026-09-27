@@ -73,7 +73,7 @@ export function tester(prenom: string, nomFamille: string): VerdictNom | null {
   // 2. Même consonne de part et d'autre : on bafouille.
   if (!estVoyelle(p.fin) && p.fin === n.debut) {
     remarques.push({ gravite: 'accroche', court: 'même son de part et d’autre, ça bute',
-      texte: `Le prénom finit et le nom commence par le même son — ça bute.` })
+      texte: `Le prénom finit et le nom commence par le même son : ça bute.` })
   }
 
   // 3. Rime : les deux se terminent pareil, sur au moins deux sons.

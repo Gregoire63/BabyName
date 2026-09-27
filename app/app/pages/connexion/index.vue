@@ -17,6 +17,7 @@ import { passkeysPossibles, connecterPasskey, abandonnerPasskey } from '~/compos
  * là qu'on veut revenir, pas sur un second compte créé par erreur.
  */
 const route = useRoute()
+const { ouvrir: ouvrirLegal } = useFeuilleLegale()
 const pseudo = ref('')
 const cle = ref('')
 const mode = ref<'choix' | 'cle'>('choix')
@@ -253,7 +254,7 @@ onBeforeUnmount(() => abandonnerPasskey())
                              @envoye="emailParti" @fait="entreParEmail">
               <template #avant>
                 <label :for="`${idOnglets}-prenom`" class="mini doux">Votre prénom</label>
-                <input :id="`${idOnglets}-prenom`" v-model="pseudo" class="champ" placeholder="Greg"
+                <input :id="`${idOnglets}-prenom`" v-model="pseudo" class="champ" placeholder="Camille"
                        autocomplete="given-name" maxlength="40">
               </template>
               <!-- L'information au moment de la collecte (RGPD, art. 13) : une
@@ -261,8 +262,8 @@ onBeforeUnmount(() => abandonnerPasskey())
               <template #apres>
                 <p class="mini doux" style="margin:0">
                   En créant un compte, vous acceptez les
-                  <NuxtLink to="/conditions" class="lien">conditions</NuxtLink>.
-                  <NuxtLink to="/confidentialite" class="lien">Vos données</NuxtLink> ne servent
+                  <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions</a>.
+                  <a href="/confidentialite" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/confidentialite')">Vos données</a> ne servent
                   qu’à faire marcher l’app.
                 </p>
               </template>

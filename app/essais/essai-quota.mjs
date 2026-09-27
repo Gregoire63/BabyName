@@ -23,7 +23,7 @@ page.on('pageerror', e => { erreurs.push(e.message); console.log('   [err]', e.m
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVG-REGX-2345')
+await page.locator('input.champ').fill('DEVP-ARNA-2345')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
 
@@ -91,7 +91,7 @@ await page.waitForTimeout(1500)
 dit(/aujourd/i.test(await texte()), 'vider le localStorage ne rend rien — les compteurs sont en base')
 
 // ---------- un compte jetable ne rapporte pas un départ entier -----------
-// Le départ de la LISTE est de 4 et Greg en a pris 3 : le nouveau venu n'en
+// Le départ de la LISTE est de 4 et Paul en a pris 3 : le nouveau venu n'en
 // trouve qu'un, puis passe au filet (2) — 3 votes, pas 3 + 2.
 const { page: p2 } = await onglet(nav)
 await p2.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })

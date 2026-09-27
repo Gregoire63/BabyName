@@ -17,6 +17,7 @@ import { defineAsyncComponent } from 'vue'
  */
 defineProps<{ annule?: boolean }>()
 const emit = defineEmits<{ fermer: [] }>()
+const { ouvrir: ouvrirLegal } = useFeuilleLegale()
 
 const prix = (useRuntimeConfig().public.prixListe as string) || '6 €'
 const tva = mentionTva()
@@ -63,7 +64,7 @@ async function offrir() {
     </p>
 
     <p class="prix">
-      <strong>{{ prix }} TTC</strong><span class="doux">, une fois</span>
+      <strong>{{ prix }} TTC</strong><span class="doux"> : une liste débloquée pour la vie</span>
     </p>
     <p class="mini doux" style="margin:0">{{ tva }}.</p>
 
@@ -97,7 +98,7 @@ async function offrir() {
       <input v-model="accord" type="checkbox" aria-describedby="accord-offrir">
       <span>
         J’accepte les
-        <a href="/conditions" target="_blank" rel="noopener" class="lien">conditions générales de vente</a>
+        <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions générales de vente</a>
         et je demande que la liste soit débloquée dès l’utilisation du code.
         <span id="accord-offrir" class="doux">
           Tant qu’il n’a pas servi, je peux me rétracter pendant 14 jours ; son
@@ -112,7 +113,7 @@ async function offrir() {
 
     <template #pied>
       <button type="button" class="btn btn-1" style="width:100%" :disabled="envoi || !accord" @click="offrir">
-        {{ envoi ? 'Ouverture…' : `Offrir — ${prix}` }}
+        {{ envoi ? 'Ouverture…' : `Offrir (${prix})` }}
       </button>
       <p class="mini doux" style="margin:0;text-align:center">
         Paiement par Stripe. Le code s’affiche juste après, et arrive avec la facture.

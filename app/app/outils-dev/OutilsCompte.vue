@@ -115,7 +115,7 @@ async function gesteDev(action: string, groupe?: number, fait = 'Fait.') {
           <button type="button" class="btn btn-0 mini" @click="lireCourriels">Relire</button>
         </div>
         <p v-if="!courriels.length" class="mini doux" style="margin:0">
-          Aucun pour l’instant. Audrey a une adresse vérifiée : audrey@exemple.test.
+          Aucun pour l’instant. Alice a une adresse vérifiée : alice@exemple.test.
         </p>
         <p v-for="c in courriels.slice(0, 3)" :key="c.le" class="mini" style="margin:0">
           {{ c.a }} · code <code>{{ c.code }}</code> ·

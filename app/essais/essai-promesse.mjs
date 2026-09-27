@@ -20,7 +20,7 @@ page.on('console', m => { if (m.type() === 'error' && !/TUNNEL|favicon|fonts|pre
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVG-REGX-2345')
+await page.locator('input.champ').fill('DEVP-ARNA-2345')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
 await page.locator('.bento .grande').first().click()
@@ -82,7 +82,7 @@ const garder = sexeTete === 'f' ? 'garçon' : 'fille'
 for (const j of ['fille', 'garçon', 'mixte']) {
   if (j !== garder) await page.locator('.jeton', { hasText: j }).first().click()
 }
-await page.locator('button.btn-1', { hasText: 'prénoms — voir' }).click()
+await page.locator('button.btn-1', { hasText: /Voir les .* prénoms/ }).click()
 await page.waitForTimeout(700)
 const apresFiltre = (await devant()).trim()
 dit(apresFiltre !== avantFiltre,

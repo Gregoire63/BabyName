@@ -77,6 +77,20 @@ await page.goto(`${BASE}/connexion?prenom=louise&code=dec0de01`, { waitUntil: 'n
 await page.locator('.attend', { hasText: 'Louise' }).waitFor({ timeout: 20000 }).catch(() => null)
 await auditer('Connexion depuis une fiche et une invitation')
 
+// Les textes légaux s'ouvrent en feuille : un dialogue qui en est un.
+await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+await page.locator('nav.pied-legal').last().getByRole('link', { name: 'Confidentialité' }).click()
+await page.waitForSelector('.feuille-corps', { timeout: 5000 })
+await page.waitForTimeout(500)
+await auditer('Feuille des textes légaux')
+dit(await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')),
+  'la feuille des textes légaux prend le focus')
+await page.keyboard.press('Escape')
+await page.waitForTimeout(600)
+const focusRendu = await page.evaluate(() => document.activeElement?.textContent?.trim())
+dit(await page.locator('.feuille-corps').count() === 0 && focusRendu === 'Confidentialité',
+  `Échap la ferme et rend le focus au lien (« ${focusRendu} »)`)
+
 for (const [chemin, nom] of [['/confidentialite', 'Confidentialité'], ['/conditions', 'Conditions'],
                              ['/mentions-legales', 'Mentions légales'], ['/accessibilite', 'Accessibilité']]) {
   await page.goto(`${BASE}${chemin}`, { waitUntil: 'networkidle' })
@@ -89,7 +103,7 @@ for (const [chemin, nom] of [['/confidentialite', 'Confidentialité'], ['/condit
 // ============================================================ connecte
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.getByRole('textbox', { name: /clé d’accès/i }).fill('DEVG-REGX-2345')
+await page.getByRole('textbox', { name: /clé d’accès/i }).fill('DEVP-ARNA-2345')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
 await auditer('Accueil')
@@ -123,7 +137,7 @@ dit(await supprimer.isDisabled(), 'la suppression reste bloquée tant que SUPPRI
 await page.keyboard.press('Escape')
 await page.waitForTimeout(600)
 dit(await page.locator('[role="dialog"]').count() === 0, 'Échap ferme le dialogue')
-const rendu = await page.evaluate(() => document.activeElement?.textContent?.includes('Greg'))
+const rendu = await page.evaluate(() => document.activeElement?.textContent?.includes('Paul'))
 dit(!!rendu, 'à la fermeture, le focus revient sur le bouton qui l’avait ouvert')
 
 // --- rejoindre une liste -----------------------------------------------------
@@ -154,7 +168,7 @@ await page.locator('a', { hasText: 'Notre liste' }).first().click()
 await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 25000 })
 await page.waitForTimeout(700)
 await auditer('Tri (swipe)')
-dit(/Swipe — Notre liste/.test(await page.title()), `le titre suit l’onglet (« ${await page.title()} »)`)
+dit(/Swipe · Notre liste/.test(await page.title()), `le titre suit l’onglet (« ${await page.title()} »)`)
 dit(await page.evaluate(() => [...document.querySelectorAll('main#contenu > section')]
   .filter(s => s.inert).length === 2), 'les deux volets qu’on ne regarde pas sont inertes')
 
@@ -266,7 +280,7 @@ if (await mur.count()) {
   await mur.first().click()
   await page.waitForSelector('[role="dialog"]')
   await auditer('Achat (débloquer)')
-  const payer = page.getByRole('button', { name: /Débloquer cette liste —/ })
+  const payer = page.getByRole('button', { name: /Débloquer cette liste \(/ })
   dit(await payer.isDisabled(), 'sans la case d’accord, le paiement ne peut pas partir')
   await page.getByRole('checkbox', { name: /conditions générales de vente/ }).check()
   dit(!await payer.isDisabled(), 'la case cochée, le bouton s’active')

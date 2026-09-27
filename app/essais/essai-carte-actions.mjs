@@ -25,7 +25,7 @@ async function ouvrir(largeur, hauteur) {
   page.on('pageerror', e => { erreurs.push(e.message); console.log('   [err]', e.message) })
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
   await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await page.locator('input.champ').fill('DEVG-REGX-2345')
+  await page.locator('input.champ').fill('DEVP-ARNA-2345')
   await page.getByRole('button', { name: 'Entrer' }).click()
   await page.waitForSelector('.bento', { timeout: 20000 })
   await page.goto(`${BASE}/g/1/swipe`, { waitUntil: 'networkidle' })

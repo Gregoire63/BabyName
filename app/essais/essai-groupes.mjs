@@ -17,7 +17,7 @@ page.on('console', m => { if (m.type() === 'error' && !/TUNNEL|favicon|fonts|pre
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVG-REGX-2345')
+await page.locator('input.champ').fill('DEVP-ARNA-2345')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
 await page.locator('.bento .grande').first().click()
@@ -94,7 +94,7 @@ dit(variantesVues.length > 0, `${variantesVues.length} cartes sur 14 annoncent l
 
 // ---------- 3. le vote emporte tout le groupe, et rien ne revient -------
 // On ne demande pas au serveur « quels sont mes votes » : /votes renvoie aussi
-// ceux des autres membres, et un prenom juge par Audrey a parfaitement le
+// ceux des autres membres, et un prenom juge par Alice a parfaitement le
 // droit de rester dans MA pile. On verifie la propriete qui compte vraiment :
 // une prononciation jugee ne revient plus, sous aucune graphie.
 const groupeDe = (nom) => page.evaluate(async (n) => {

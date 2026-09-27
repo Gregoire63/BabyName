@@ -3,7 +3,7 @@
 #
 # Lancé chaque nuit par GitHub Actions (.github/workflows/sauvegarde-base.yml,
 # à la racine du dépôt) : export de la base Cloudflare, compression, chiffrement
-# avec la clé PUBLIQUE age de Greg, dépôt en SFTP dans un dossier hors de www/
+# avec la clé PUBLIQUE age du propriétaire, dépôt en SFTP dans un dossier hors de www/
 # (jamais servi sur le web), puis rotation.
 #
 # Pourquoi, alors que D1 a déjà son « Time Travel » ? Il remonte 7 jours sur
@@ -12,7 +12,7 @@
 # Ici, une copie ailleurs, chez un autre prestataire, sur 30 jours et 12 mois.
 #
 # Chiffrée avant de partir : OVH ne stocke que des octets illisibles. La clé
-# privée ne vit que chez Greg (gestionnaire de mots de passe) ; sans elle,
+# privée ne vit que chez le propriétaire (gestionnaire de mots de passe) ; sans elle,
 # personne — ni OVH, ni GitHub, ni quelqu'un qui volerait le mot de passe
 # SFTP — ne lit une sauvegarde.
 #

@@ -201,8 +201,8 @@ const filtresActifs = computed(() => {
   if (f.origines_in.length) out.push('origines : ' + f.origines_in.join(', '))
   if (f.origines_out.length) out.push('sans ' + f.origines_out.join(', '))
   if (f.compose === false) out.push('pas de composés')
-  if (f.syllabes[0] > 1 || f.syllabes[1] < 6) out.push(`${f.syllabes[0]}–${f.syllabes[1]} syllabes`)
-  if (f.car[0] > 2 || f.car[1] < 14) out.push(`${f.car[0]}–${f.car[1]} lettres`)
+  if (f.syllabes[0] > 1 || f.syllabes[1] < 6) out.push(`${f.syllabes[0]} à ${f.syllabes[1]} syllabes`)
+  if (f.car[0] > 2 || f.car[1] < 14) out.push(`${f.car[0]} à ${f.car[1]} lettres`)
   if (f.originalite[0] > 0) out.push(`originalité ≥ ${f.originalite[0]}`)
   if (f.risque_max < 100) out.push(`risque ≤ ${f.risque_max}`)
   if (f.sens_requis) out.push('sens connu')
@@ -244,14 +244,14 @@ const filtresActifs = computed(() => {
             <strong class="prix">{{ prix }}</strong>
           </div>
           <p class="mini" style="margin:0">
-            <strong>Pour cette liste seulement</strong>, et tous ses membres. Une
-            fois, sans abonnement.
+            <strong>Débloque cette liste pour la vie</strong>, pour tous ses
+            membres.
           </p>
           <ul class="inclus-court">
             <li v-for="i in INCLUS" :key="i.titre">{{ i.titre }}</li>
           </ul>
           <button v-if="!jObserve" class="btn btn-1" @click="g.ouvrirDebloquer()">
-            Voir le détail — {{ prix }}
+            Voir le détail ({{ prix }})
           </button>
           <p v-else class="mini doux" style="margin:0">
             Un membre de la liste peut la débloquer.
@@ -373,7 +373,7 @@ const filtresActifs = computed(() => {
         <div v-for="m in g.etat.value.avancement" :key="m.user_id" class="ligne">
           <span style="flex:1">{{ m.pseudo }}</span>
           <span v-if="m.role === 'observateur'" class="puce">observe</span>
-          <span class="mini doux">{{ m.votes }} jugés</span>
+          <span class="mini doux">{{ m.votes }} {{ pluriel(m.votes, 'jugé', 'jugés') }}</span>
         </div>
         <p v-if="retardataire" class="mini doux" style="margin:0">
           Les accords attendent {{ retardataire.pseudo }}.

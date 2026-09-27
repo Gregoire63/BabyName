@@ -2,7 +2,7 @@
  * Retirer un prénom du jeu : « déjà pris » (partagé) ou en secret (compté),
  * graphies comprises.
  *
- *  1. La liste › Déjà pris : Mathilde, posée par Audrey, s'affiche avec sa
+ *  1. La liste › Déjà pris : Mathilde, posée par Alice, s'affiche avec sa
  *     note et son auteur ; on ajoute Louise par l'autocomplétion, avec une
  *     note : elle quitte les accords, et la recherche la dit « Déjà pris ».
  *  2. Remettre en jeu le sien : un geste ; celui d'un autre : une
@@ -16,7 +16,7 @@
  *     pris » ; le serveur refuse le suivant.
  *  6. Mamie, observatrice : voit la liste, sans champ ni bouton ; le serveur
  *     refuse ses ajouts.
- *  7. Audrey efface son compte : Mathilde reste, sans auteur ni note.
+ *  7. Alice efface son compte : Mathilde reste, sans auteur ni note.
  */
 import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
 
@@ -40,10 +40,10 @@ const api = (page, chemin, methode = 'GET', corps) => page.evaluate(async ([c, m
   return { status: r.status, json }
 }, [chemin, methode, corps])
 
-const { page } = await entrer('DEVG-REGX-2345')
-const audrey = await entrer('DEVA-DREY-2345')
-// Un « déjà pris » d'Audrey de plus, pour la confirmation (étape 2).
-await api(audrey.page, '/api/groupes/1/deja-pris', 'POST',
+const { page } = await entrer('DEVP-ARNA-2345')
+const alice = await entrer('DEVP-ARNB-2345')
+// Un « déjà pris » d'Alice de plus, pour la confirmation (étape 2).
+await api(alice.page, '/api/groupes/1/deja-pris', 'POST',
   { prenom: 'Timothée', motif: 'le neveu', variantes: ['Timothé', 'Timoté'] })
 
 // ============ 1. La liste › Déjà pris ======================================
@@ -51,7 +51,7 @@ await page.goto(`${BASE}/g/1/reglages`, { waitUntil: 'networkidle' })
 const carte = page.locator('section[aria-labelledby="titre-deja-pris"]')
 await carte.waitFor({ timeout: 30000 })
 const texte0 = (await carte.innerText()).replace(/\s+/g, ' ')
-dit(/Mathilde/.test(texte0) && /ma sœur · Audrey/.test(texte0),
+dit(/Mathilde/.test(texte0) && /ma sœur · Alice/.test(texte0),
   'la carte « Déjà pris » montre Mathilde, la note et qui l’a ajoutée')
 dit(/\+ 2 graphies/.test(texte0), 'avec ses graphies comptées (Matilde, Mathylde)')
 
@@ -93,7 +93,7 @@ await carte.waitFor({ timeout: 30000 })
 await carte.getByRole('button', { name: 'Remettre Timothée en jeu' }).click()
 await page.waitForTimeout(400)
 const confirmer = carte.getByRole('button', { name: 'Confirmer : remettre Timothée en jeu' })
-dit(await confirmer.count() === 1, 'celui d’Audrey demande une confirmation')
+dit(await confirmer.count() === 1, 'celui d’Alice demande une confirmation')
 dit((await api(page, '/api/groupes/1')).json.deja_pris.some(d => d.prenom === 'Timothée'),
   'et reste en place tant qu’on n’a pas confirmé')
 await confirmer.click()
@@ -181,8 +181,8 @@ dit(await cloe.count() === 1 && (await cloe.locator('.puce').innerText()).trim()
 await page.keyboard.press('Escape'); await page.waitForTimeout(500)
 
 // Mes choix : la ligne montre les graphies ; un « oui » devenu « déjà pris »
-// (Audrey y met Jeanne) le dit, au lieu de disparaître des accords sans un mot.
-await api(audrey.page, '/api/groupes/1/deja-pris', 'POST', { prenom: 'Jeanne', motif: 'la marraine' })
+// (Alice y met Jeanne) le dit, au lieu de disparaître des accords sans un mot.
+await api(alice.page, '/api/groupes/1/deja-pris', 'POST', { prenom: 'Jeanne', motif: 'la marraine' })
 await page.goto(`${BASE}/g/1/classement`, { waitUntil: 'networkidle' })
 await page.waitForSelector('.segment button', { timeout: 30000 })
 const cl = page.locator('.pager > section:nth-child(2)')
@@ -191,7 +191,7 @@ await page.waitForTimeout(700)
 const jeanne = cl.locator('.groupe .rangee').filter({ has: page.locator('.nom', { hasText: /^\s*Jeanne\s*$/ }) })
 dit(await jeanne.count() === 1 && await jeanne.locator('.puce.pris').innerText() === 'déjà pris',
   'Mes choix › Oui : Jeanne porte « déjà pris »')
-await api(audrey.page, '/api/groupes/1/deja-pris?prenom=Jeanne', 'DELETE')
+await api(alice.page, '/api/groupes/1/deja-pris?prenom=Jeanne', 'DELETE')
 await cl.locator('.groupe .entete', { hasText: 'Prénoms bloqués' }).click()
 await page.waitForTimeout(400)
 const bloc = cl.locator('.groupe').filter({ hasText: 'Prénoms bloqués' })
@@ -235,8 +235,8 @@ const refusM2 = await api(mamie.page, '/api/groupes/1/deja-pris?prenom=Mathilde'
 dit(refusM.status === 403 && refusM2.status === 403, `le serveur refuse ses ajouts et retraits (${refusM.status}, ${refusM2.status})`)
 
 // ============ 7. Un compte effacé ==========================================
-const eff = await api(audrey.page, '/api/moi/supprimer', 'POST', { confirmation: 'SUPPRIMER' })
-dit(eff.status === 200, 'Audrey efface son compte')
+const eff = await api(alice.page, '/api/moi/supprimer', 'POST', { confirmation: 'SUPPRIMER' })
+dit(eff.status === 200, 'Alice efface son compte')
 const mathilde = (await api(page, '/api/groupes/1')).json.deja_pris.find(d => d.prenom === 'Mathilde')
 dit(!!mathilde && mathilde.auteur === null && mathilde.motif === null && mathilde.variantes.length === 2,
   `Mathilde reste à la liste, sans auteur ni note (${JSON.stringify(mathilde)})`)

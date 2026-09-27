@@ -11,6 +11,7 @@ import { signalerNom, signalerPasskeysRestantes } from '~/composables/usePasskey
  * passkey.
  */
 const emit = defineEmits<{ fermer: [] }>()
+const { ouvrir: ouvrirLegal } = useFeuilleLegale()
 
 const moi = useMoi()
 const nom = ref(moi.value?.pseudo ?? '')
@@ -119,7 +120,7 @@ async function supprimerCompte() {
     <section class="pile" aria-labelledby="compte-donnees">
       <h3 id="compte-donnees" class="etiquette">Mes données</h3>
       <p class="mini doux" style="margin:0">
-        <NuxtLink to="/confidentialite" class="lien">Ce qu’on garde, et pourquoi</NuxtLink>.
+        <a href="/confidentialite" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/confidentialite')">Ce qu’on garde, et pourquoi</a>.
       </p>
       <a class="btn mini telecharger" href="/api/moi/donnees" download>Télécharger mes données</a>
 

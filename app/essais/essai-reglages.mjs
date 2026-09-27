@@ -30,7 +30,7 @@ await ctx.addInitScript(() => {
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVG-REGX-2345')
+await page.locator('input.champ').fill('DEVP-ARNA-2345')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
 
@@ -48,8 +48,8 @@ async function reglages(gid) {
 await reglages(gratuite.id)
 const carte = (await page.locator('.achat').innerText()).replace(/\s+/g, ' ')
 dit(/Débloquer cette liste/.test(carte) && /6\s?€/.test(carte), `liste gratuite : la carte d’achat et son prix`)
-dit(/pour cette liste seulement/i.test(carte) && /tous ses membres/.test(carte) && /sans abonnement/.test(carte),
-  'elle dit la portée en une phrase : cette liste seulement, ses membres, une fois')
+dit(/débloque cette liste pour la vie/i.test(carte) && /tous ses membres/.test(carte) && !/abonnement/i.test(carte),
+  'elle dit la portée en une phrase : cette liste, pour la vie, pour tous ses membres')
 await page.locator('.achat').getByRole('button', { name: /Voir le détail/ }).click()
 await page.waitForSelector('.feuille-corps', { timeout: 8000 })
 await page.waitForTimeout(400)
@@ -62,6 +62,21 @@ const carte2 = (await page.locator('.achat').innerText()).replace(/\s+/g, ' ')
 dit(/Liste débloquée/.test(carte2) && /tous ses membres/.test(carte2)
     && await page.locator('.achat button', { hasText: /Débloquer|Voir le détail/ }).count() === 0,
   `liste débloquée : la carte le dit, sans rien à acheter (« ${carte2.slice(0, 70)}… »)`)
+
+// ---------- 1 bis. « Qui en est » suit les gestes ----------------------------
+// Il restait sur le chiffre du chargement : « 0 jugé » juste après avoir jugé.
+const juges = async () => parseInt((await page.locator('section', { hasText: 'Qui en est' })
+  .locator('.ligne', { hasText: 'Paul' }).innerText()).replace(/[^\d]/g, ''), 10)
+const avantSwipe = await juges()
+await page.locator('.onglets button', { hasText: 'Swipe' }).click()
+await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 20000 })
+await page.waitForTimeout(500)
+await page.getByRole('button', { name: 'Oui' }).first().click()
+await page.waitForTimeout(1500)
+await page.locator('.onglets button', { hasText: 'La liste' }).click()
+await page.waitForTimeout(700)
+const apresSwipe = await juges()
+dit(apresSwipe === avantSwipe + 1, `un swipe, et « Qui en est » compte un prénom de plus, sans recharger (${avantSwipe} → ${apresSwipe})`)
 
 // ---------- 2. le thème ---------------------------------------------------
 const fond = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor)

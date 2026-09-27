@@ -33,7 +33,7 @@ async function entrer(cle) {
 }
 
 // ---------- 1. l'accueil n'explique plus le millesime ----------------------
-const { ctx: c1, page } = await entrer('DEVG-REGX-2345')
+const { ctx: c1, page } = await entrer('DEVP-ARNA-2345')
 dit(await page.locator('.note').count() === 0, 'le laïus sur le millésime INSEE a disparu')
 // Les statistiques arrivent avec le catalogue, apres la liste des listes :
 // on attend la section plutot que de lire l'ecran a mi-chargement.
@@ -76,20 +76,20 @@ dit(!mesVotes.includes('Kevyn') && !mesVotes.includes('Kevan') && mesVotes.inclu
     && await sec.locator('.famille', { hasText: 'Kevyn' }).count() === 0,
     'remettre une famille : Kevyn et Kevan reviennent en jeu, le non donné à Kevin reste')
 
-// ---------- 5. A revoir, vu par Greg --------------------------------------
+// ---------- 5. A revoir, vu par Paul --------------------------------------
 await sec.locator('.segment button', { hasText: 'À revoir' }).click()
 await page.waitForTimeout(900)
 const noms = await sec.locator('.desaccord .nom').allInnerTexts()
-dit(noms.sort().join(',') === 'Hector,Marius', `désaccords vus par Greg : ${noms.join(', ')}`)
+dit(noms.sort().join(',') === 'Hector,Marius', `désaccords vus par Paul : ${noms.join(', ')}`)
 const avis = await sec.locator('.desaccord').first().innerText()
-dit(/Vous · Oui/.test(avis) && /Audrey · Non/.test(avis), 'qui a dit quoi est affiché')
-const groupesGreg = (await sec.locator('.titre-groupe').allInnerTexts()).map(t => t.replace(/\s+/g, ' ').trim())
-dit(groupesGreg.length === 1 && /^Ceux qu’Audrey n’a pas aimés/.test(groupesGreg[0]),
-    `vu par Greg, un seul groupe : « ${groupesGreg.join(' | ')} »`)
+dit(/Vous · Oui/.test(avis) && /Alice · Non/.test(avis), 'qui a dit quoi est affiché')
+const groupesPaul = (await sec.locator('.titre-groupe').allInnerTexts()).map(t => t.replace(/\s+/g, ' ').trim())
+dit(groupesPaul.length === 1 && /^Ceux qu’Alice n’a pas aimés/.test(groupesPaul[0]),
+    `vu par Paul, un seul groupe : « ${groupesPaul.join(' | ')} »`)
 await page.waitForTimeout(400); await page.screenshot({ path: '/tmp/g5-revoir.png' })
 
-// ---------- 6. Audrey change d'avis : le scenario de Greg -----------------
-const { page: p2 } = await entrer('DEVA-DREY-2345')
+// ---------- 6. Alice change d'avis : le scenario de Paul -----------------
+const { page: p2 } = await entrer('DEVP-ARNB-2345')
 await p2.locator('.bento .grande').first().click()
 await p2.waitForSelector('.onglets button', { timeout: 20000 })
 await p2.locator('.onglets button', { hasText: 'Classement' }).click()
@@ -98,10 +98,10 @@ const s2 = p2.locator('.pager > section:nth-child(2)')
 await s2.locator('.segment button', { hasText: 'À revoir' }).click()
 await p2.waitForTimeout(900)
 const vus = await s2.locator('.desaccord .nom').allInnerTexts()
-dit(vus.sort().join(',') === 'Hector,Marius', `Audrey voit les mêmes : ${vus.join(', ')}`)
-const groupesAudrey = (await s2.locator('.titre-groupe').allInnerTexts()).map(t => t.replace(/\s+/g, ' ').trim())
-dit(groupesAudrey.length === 1 && /^Ceux que vous n’avez pas aimés/.test(groupesAudrey[0]),
-    `vu par Audrey, rangés chez elle : « ${groupesAudrey.join(' | ')} »`)
+dit(vus.sort().join(',') === 'Hector,Marius', `Alice voit les mêmes : ${vus.join(', ')}`)
+const groupesAlice = (await s2.locator('.titre-groupe').allInnerTexts()).map(t => t.replace(/\s+/g, ' ').trim())
+dit(groupesAlice.length === 1 && /^Ceux que vous n’avez pas aimés/.test(groupesAlice[0]),
+    `vu par Alice, rangés chez elle : « ${groupesAlice.join(' | ')} »`)
 
 const carte = s2.locator('.desaccord').filter({ has: p2.locator('.nom:text-is("Marius")') })
 await carte.locator('.trio .v2').click()          // « finalement oui »

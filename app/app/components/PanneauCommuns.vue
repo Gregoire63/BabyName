@@ -82,7 +82,7 @@ const enRetard = computed(() => {
 <template>
   <div class="pile">
     <p v-if="enRetard" class="rappel mini">
-      {{ enRetard.manque }} votes manquent à {{ enRetard.pseudo }} — la liste reste incomplète
+      {{ enRetard.manque }} votes manquent à {{ enRetard.pseudo }} : la liste reste incomplète
       tant que {{ enRetard.pseudo }} n’a pas rattrapé.
     </p>
 
@@ -125,7 +125,7 @@ const enRetard = computed(() => {
 
       <div v-if="ouvert === c.prenom" class="pile" style="margin-top:14px;gap:10px">
         <div v-for="m in commentaires" :key="m.id" class="mini">
-          <strong>{{ m.pseudo }}</strong> — {{ m.texte }}
+          <strong>{{ m.pseudo }}</strong> : {{ m.texte }}
         </div>
         <p v-if="!commentaires.length" class="mini doux" style="margin:0">Aucun commentaire.</p>
         <div class="ligne">

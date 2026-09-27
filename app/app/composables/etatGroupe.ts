@@ -110,7 +110,7 @@ export function useGroupeCourant(): EtatGroupe {
     const manque = CHAMPS.filter(c => !(c in g))
     if (manque.length) {
       throw new Error(
-        `Etat de groupe incomplet : ${manque.join(', ')} — VueGroupe ne le(s) fournit pas.`)
+        `Etat de groupe incomplet : ${manque.join(', ')} : VueGroupe ne le(s) fournit pas.`)
     }
   }
   return g

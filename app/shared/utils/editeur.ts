@@ -24,9 +24,9 @@ export const EDITEUR = {
   /** 14 chiffres — verifie dans l'annuaire des entreprises (EI active, NAF 62.01Z). */
   siret: '920 575 578 00025',
   /** Adresse professionnelle : celle declaree pour l'entreprise (domicile ou domiciliation). */
-  adresse: '',
+  adresse: '10 rue Jean-Baptiste Croibier, 69200 Vénissieux',
   /** Exige par la LCEN (art. 6 III) pour une personne physique qui edite un site. */
-  telephone: '',
+  telephone: '06 69 36 57 34',
   email: 'gregoireraturatpro@gmail.com',
   directeurPublication: 'Grégoire Raturat',
 
@@ -108,8 +108,8 @@ export const DESTINATAIRES = [
   {
     nom: 'Cloudflare, Inc.',
     role: 'Hébergement de l’application, exécution du serveur et base de données (Cloudflare Workers et D1)',
-    pays: 'États-Unis (société) — base de données conservée dans l’Union européenne ; le serveur s’exécute au plus près de chaque visiteur',
-    garantie: 'Certifié Data Privacy Framework UE–États-Unis ; clauses contractuelles types de la Commission européenne',
+    pays: 'États-Unis (société), base de données conservée dans l’Union européenne ; le serveur s’exécute au plus près de chaque visiteur',
+    garantie: 'Certifié Data Privacy Framework entre l’UE et les États-Unis ; clauses contractuelles types de la Commission européenne',
     lien: 'https://www.cloudflare.com/fr-fr/privacypolicy/'
   },
   COURRIEL.fournisseur === 'ovh'

@@ -13,7 +13,7 @@ page.on('console', m => { if (m.type() === 'error' && !/TUNNEL|favicon|fonts/.te
 // ---------- connexion avec la vraie cle, contre la vraie base -------------
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVG-REGX-2345')
+await page.locator('input.champ').fill('DEVP-ARNA-2345')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForURL(u => !u.pathname.includes('connexion'), { timeout: 15000 })
 await page.waitForSelector('.bento', { timeout: 15000 })
@@ -61,7 +61,7 @@ await page.waitForTimeout(700); await page.screenshot({ path: '/tmp/f1-compte.pn
 
 // renommer pour de vrai, contre la base. Le nom change a chaque passage :
 // la base est persistante, un nom en dur ne tiendrait qu'une fois.
-const neuf = 'Greg ' + Math.floor(Math.random() * 1000)
+const neuf = 'Paul ' + Math.floor(Math.random() * 1000)
 await page.locator('.feuille-corps input.champ').fill(neuf)
 dit(await page.getByRole('button', { name: 'Changer' }).count() === 0, 'pas de bouton pour enregistrer le nom')
 await page.locator('.feuille-corps input.champ').press('Enter')      // Entrée quitte le champ : c'est enregistré

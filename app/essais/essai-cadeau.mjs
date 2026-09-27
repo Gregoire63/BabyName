@@ -117,7 +117,7 @@ await feuilleOffrir.waitFor({ timeout: 10000 })
 dit(p.url().endsWith('/offrir') && (await p.locator('h1').innerText()).trim() === 'Offrir babyNamed'
     && (await feuilleOffrir.locator('h2').first().innerText()).trim() === 'Offrir babyNamed',
   'la page /offrir s’ouvre sans compte, sans passer par la connexion — le formulaire dans une feuille')
-const bouton = feuilleOffrir.getByRole('button', { name: /^Offrir — 6/ })
+const bouton = feuilleOffrir.getByRole('button', { name: /^Offrir \(6/ })
 dit(await bouton.isDisabled(), 'le bouton attend la case d’accord, jamais pré-cochée')
 await auditer(p, null, 'La page Offrir')
 const avant = recus.length
@@ -167,7 +167,7 @@ dit(lu === `${code1.slice(0, 4)}-${code1.slice(4, 8)}-${code1.slice(8)}`, `payé
 const carte = (await p.locator('.code-carte').innerText()).replace(/\s+/g, ' ')
 const dans2ans = new Date(Date.now() + 730 * 86400e3).getFullYear()
 dit(new RegExp(`Valable jusqu’au .*${dans2ans}`).test(carte), `avec son échéance, dans deux ans (${carte.match(/jusqu’au [^,]+/)?.[0]})`)
-dit(/Mamie Jo vous offre babyNamed — « Pour vous deux/.test(carte), 'et ce que le destinataire lira')
+dit(/Mamie Jo vous offre babyNamed : « Pour vous deux/.test(carte), 'et ce que le destinataire lira')
 for (const nom of ['Envoyer le lien', 'Copier le message et le lien', 'Copier le code seul']) {
   dit(await p.getByRole('button', { name: nom }).count() === 1, `bouton « ${nom} »`)
 }
@@ -182,15 +182,15 @@ dit(v1?.valide === true && v1.de_la_part === 'Mamie Jo', 'le code vaut, au nom d
 
 // Un cadeau ne débloque jamais de liste à l'achat, même si la session en
 // désignait une (défense : c'est le déblocage d'une liste qu'on vendrait).
-const greg = await contexte()
-await greg.page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await greg.page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await greg.page.locator('input.champ').fill('DEVG-REGX-2345')
-await greg.page.getByRole('button', { name: 'Entrer' }).click()
-await greg.page.waitForSelector('.bento', { timeout: 30000 })
+const paul = await contexte()
+await paul.page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+await paul.page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
+await paul.page.locator('input.champ').fill('DEVP-ARNA-2345')
+await paul.page.getByRole('button', { name: 'Entrer' }).click()
+await paul.page.waitForSelector('.bento', { timeout: 30000 })
 r = await webhook('checkout.session.completed', { object: 'checkout.session', id: 'cs_test_faux', status: 'complete',
   payment_status: 'paid', client_reference_id: '3', metadata: { type: 'cadeau', groupe_id: '3' } })
-dit(r.status === 200 && (await api(greg.page, '/api/groupes/3')).j?.groupe?.paye === false,
+dit(r.status === 200 && (await api(paul.page, '/api/groupes/3')).j?.groupe?.paye === false,
   'une session de cadeau qui désignerait une liste ne la débloque pas')
 
 // ============ 3. Le destinataire, sans compte =============================
@@ -216,8 +216,8 @@ await q.getByRole('button', { name: 'Passer, je filtrerai après' }).click()
 await q.waitForURL(/\/g\/\d+\/swipe/, { timeout: 20000 })
 const gidLea = q.url().match(/\/g\/(\d+)\//)[1]
 await q.waitForSelector('.paiement', { timeout: 15000 })
-dit(/débloqué — un cadeau de Mamie Jo/.test(await q.locator('.paiement').innerText()),
-  'la liste s’ouvre, et le dit : « C’est débloqué — un cadeau de Mamie Jo »')
+dit(/débloqué, un cadeau de Mamie Jo/.test(await q.locator('.paiement').innerText()),
+  'la liste s’ouvre, et le dit : « C’est débloqué, un cadeau de Mamie Jo »')
 const gl = (await api(q, `/api/groupes/${gidLea}`)).j.groupe
 dit(gl.paye === true && gl.offert === false && gl.cadeau === true && gl.cadeau_de === 'Mamie Jo',
   'en base : payée (par un cadeau, pas « offerte » par un code promo), au nom de Mamie Jo')
@@ -230,64 +230,64 @@ r = await api(q, '/api/cadeaux/utiliser', 'POST', { code: code1, nouvelle: true 
 dit(r.status === 409 && r.j?.statusMessage === 'cadeau_utilise', 'et le serveur refuse une seconde liste')
 
 // ============ 4. Un code tapé : « Débloquer », « Rejoindre » ================
-const c2 = await cadeauPaye(greg.page, 'pi_cadeau_2', { de_la_part: 'Tata Rose' })
-await greg.page.goto(`${BASE}/g/2/reglages`, { waitUntil: 'networkidle' })
-await greg.page.getByRole('button', { name: /Voir le détail/ }).click()
-const fd = greg.page.locator('.feuille-corps')
+const c2 = await cadeauPaye(paul.page, 'pi_cadeau_2', { de_la_part: 'Tata Rose' })
+await paul.page.goto(`${BASE}/g/2/reglages`, { waitUntil: 'networkidle' })
+await paul.page.getByRole('button', { name: /Voir le détail/ }).click()
+const fd = paul.page.locator('.feuille-corps')
 await fd.getByRole('button', { name: 'Vous avez un code cadeau ?' }).click()
 await fd.getByRole('textbox', { name: 'Code cadeau' }).fill(c2.code.toLowerCase())
 await fd.getByRole('button', { name: 'Utiliser' }).click()
-await greg.page.waitForFunction(() => /un cadeau de Tata Rose/.test(document.querySelector('.feuille-corps')?.innerText ?? ''),
+await paul.page.waitForFunction(() => /un cadeau de Tata Rose/.test(document.querySelector('.feuille-corps')?.innerText ?? ''),
   null, { timeout: 10000 })
 dit(true, 'dans « Débloquer », le code (même en minuscules) débloque la liste : « un cadeau de Tata Rose »')
-await greg.page.waitForSelector('.feuille-corps', { state: 'detached', timeout: 8000 })
-const achat = greg.page.locator('section[aria-labelledby="titre-achat"]')
-await greg.page.waitForFunction(() => /Liste débloquée/.test(
+await paul.page.waitForSelector('.feuille-corps', { state: 'detached', timeout: 8000 })
+const achat = paul.page.locator('section[aria-labelledby="titre-achat"]')
+await paul.page.waitForFunction(() => /Liste débloquée/.test(
   document.querySelector('section[aria-labelledby="titre-achat"]')?.textContent ?? ''), null, { timeout: 8000 })
 const txtA = (await achat.innerText()).replace(/\s+/g, ' ')
 dit(/Un cadeau de Tata Rose/.test(txtA) && /Offerte/.test(txtA), 'la carte de la liste le dit')
 dit(await achat.getByRole('button', { name: /Offrir babyNamed/ }).count() === 1,
   'et propose d’offrir babyNamed à d’autres')
 
-const c3 = await cadeauPaye(greg.page, 'pi_cadeau_3')
-await greg.page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
-await greg.page.waitForSelector('.bento', { timeout: 20000 })
-const tuileOffrir = greg.page.getByRole('button', { name: /Offrir babyNamed/ })
+const c3 = await cadeauPaye(paul.page, 'pi_cadeau_3')
+await paul.page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
+await paul.page.waitForSelector('.bento', { timeout: 20000 })
+const tuileOffrir = paul.page.getByRole('button', { name: /Offrir babyNamed/ })
 dit(await tuileOffrir.count() === 1, 'l’accueil propose d’offrir')
 await tuileOffrir.click()
-await greg.page.locator('.feuille-corps h2', { hasText: 'Offrir babyNamed' }).waitFor({ timeout: 8000 })
-dit(new URL(greg.page.url()).pathname === '/' && await greg.page.locator('.feuille-corps .accord').count() === 1,
+await paul.page.locator('.feuille-corps h2', { hasText: 'Offrir babyNamed' }).waitFor({ timeout: 8000 })
+dit(new URL(paul.page.url()).pathname === '/' && await paul.page.locator('.feuille-corps .accord').count() === 1,
   'la tuile ouvre la feuille « Offrir » sur place, sans quitter l’accueil')
-await greg.page.keyboard.press('Escape')
-await greg.page.waitForSelector('.feuille-corps', { state: 'detached', timeout: 8000 })
-await greg.page.getByRole('button', { name: /Rejoindre une liste/ }).click()
-const fr = greg.page.locator('.feuille-corps')
+await paul.page.keyboard.press('Escape')
+await paul.page.waitForSelector('.feuille-corps', { state: 'detached', timeout: 8000 })
+await paul.page.getByRole('button', { name: /Rejoindre une liste/ }).click()
+const fr = paul.page.locator('.feuille-corps')
 await fr.getByRole('textbox', { name: /code cadeau/ }).fill(c3.code)
 await fr.getByRole('button', { name: 'Voir le cadeau' }).click()
-await greg.page.waitForSelector('.feuille-corps .carte-cadeau', { timeout: 10000 })
-const listesG = (await greg.page.locator('.feuille-corps .choix').allInnerTexts()).map(t => t.replace(/\s+/g, ' '))
+await paul.page.waitForSelector('.feuille-corps .carte-cadeau', { timeout: 10000 })
+const listesG = (await paul.page.locator('.feuille-corps .choix').allInnerTexts()).map(t => t.replace(/\s+/g, ' '))
 dit(listesG.some(t => /Débloquer « Autre essai »/.test(t)) && !listesG.some(t => /Notre liste|Essai gratuit/.test(t)),
   `tapé dans « Rejoindre », le code ouvre le cadeau — seules les listes pas encore débloquées sont proposées`)
-await greg.page.keyboard.press('Escape'); await greg.page.waitForTimeout(500)
+await paul.page.keyboard.press('Escape'); await paul.page.waitForTimeout(500)
 
 // ============ 5. Remboursements ==========================================
 const charge = (pi, champs) => ({ object: 'charge', payment_intent: pi, ...champs })
 r = await webhook('charge.refunded', charge('pi_cadeau_2', { refunded: false, amount_refunded: 100 }))
-dit((await api(greg.page, '/api/groupes/2')).j.groupe.paye === true, 'un remboursement partiel ne touche à rien')
+dit((await api(paul.page, '/api/groupes/2')).j.groupe.paye === true, 'un remboursement partiel ne touche à rien')
 r = await webhook('charge.refunded', charge('pi_cadeau_3', { refunded: true }))
 dit(r.status === 200 && r.j?.cadeau_annule === true, 'un cadeau pas encore utilisé, remboursé : annulé')
-dit((await api(greg.page, `/api/cadeaux/verifier?code=${c3.code}`)).j?.raison === 'cadeau_annule',
+dit((await api(paul.page, `/api/cadeaux/verifier?code=${c3.code}`)).j?.raison === 'cadeau_annule',
   'il n’ouvre plus rien')
 r = await webhook('charge.refunded', charge('pi_cadeau_2', { refunded: true }))
-dit(r.status === 200 && (await api(greg.page, '/api/groupes/2')).j.groupe.paye === false,
+dit(r.status === 200 && (await api(paul.page, '/api/groupes/2')).j.groupe.paye === false,
   'un cadeau utilisé, remboursé : la liste qu’il avait débloquée revient au gratuit')
 r = await webhook('charge.dispute.closed', { object: 'dispute', payment_intent: 'pi_cadeau_1', status: 'lost' })
 dit((await api(q, `/api/groupes/${gidLea}`)).j.groupe.paye === false, 'un litige perdu aussi')
 
 // ============ 6. Échu =====================================================
-const c4 = await cadeauPaye(greg.page, 'pi_cadeau_4')
-await api(greg.page, '/api/dev/base', 'POST', { action: 'vieillir-cadeaux' })
-r = await api(greg.page, '/api/cadeaux/utiliser', 'POST', { code: c4.code, groupe: 3 })
+const c4 = await cadeauPaye(paul.page, 'pi_cadeau_4')
+await api(paul.page, '/api/dev/base', 'POST', { action: 'vieillir-cadeaux' })
+r = await api(paul.page, '/api/cadeaux/utiliser', 'POST', { code: c4.code, groupe: 3 })
 dit(r.status === 409 && r.j?.statusMessage === 'cadeau_expire', 'un code échu n’ouvre plus rien')
 
 dit(erreurs.length === 0, `aucune erreur JS (${erreurs.length})`)

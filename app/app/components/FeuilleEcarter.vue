@@ -56,7 +56,7 @@ async function confirmer(fermer: () => void) {
   } catch (e: any) {
     const code = e?.data?.statusMessage
     erreur.value = code === 'quota_veto_atteint'
-      ? `Vos ${max.value} blocages secrets sont utilisés : retirez-en un dans Classement › Mes choix — ou dites-le : « déjà pris » n’a pas de limite.`
+      ? `Vos ${max.value} blocages secrets sont utilisés : retirez-en un dans Classement › Mes choix, ou dites-le : « déjà pris » n’a pas de limite.`
       : code === 'deja_veto' || code === 'deja_pris'
         ? `${props.prenom} est déjà retiré du jeu.`
         : code === 'deja_pris_plein'
@@ -91,7 +91,7 @@ async function confirmer(fermer: () => void) {
         <span class="texte">
           <strong>Déjà pris</strong>
           <span>La famille, des amis, quelqu’un qu’on connaît trop. Toute la
-            liste le voit, avec votre note — sans limite.</span>
+            liste le voit, avec votre note, sans limite.</span>
         </span>
       </label>
       <label class="raison" :class="{ choisie: nature === 'secret' }">
@@ -112,7 +112,7 @@ async function confirmer(fermer: () => void) {
            placeholder="Pourquoi ? (pour vous seul, facultatif)">
     <p v-if="nature === 'secret' && !restants" class="mini" style="margin:8px 0 0">
       Vos {{ max }} blocages secrets sont utilisés : retirez-en un dans
-      Classement › Mes choix — ou choisissez « déjà pris ».
+      Classement › Mes choix, ou choisissez « déjà pris ».
     </p>
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:8px 0 0">
       {{ erreur }}

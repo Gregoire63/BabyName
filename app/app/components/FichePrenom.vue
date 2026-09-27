@@ -132,7 +132,7 @@ const lecture = computed(() => {
           <template v-else-if="manque">
             <p class="mini" style="margin:0">
               Ce chiffre ne compte qu'une graphie, l'année dernière : pour ce
-              prénom il tombe à côté —
+              prénom il tombe à côté :
               <template v-if="manque.evolution">{{ manque.evolution }}</template>
               <template v-if="manque.evolution && manque.graphies"> et </template>
               <template v-if="manque.graphies">{{ manque.graphies }}</template>.
@@ -153,7 +153,7 @@ const lecture = computed(() => {
               {{ pourcentAn(p.t) }}/an</dd></div>
           <div v-else><dt>Tendance</dt><dd class="doux">trop peu de bébés</dd></div>
           <div><dt>Originalité</dt><dd>{{ p.o.toFixed(0) }}/100</dd></div>
-          <div><dt>Pic historique</dt><dd>{{ p.p || '—' }}<span v-if="p.p && p.p < 1986" class="mini doux"> (avant 1986)</span></dd></div>
+          <div><dt>Pic historique</dt><dd>{{ p.p || 'inconnu' }}<span v-if="p.p && p.p < 1986" class="mini doux"> (avant 1986)</span></dd></div>
           <div><dt>Naissances 3 ans</dt><dd>{{ p.n.toLocaleString('fr-FR') }}</dd></div>
           <div><dt>Risque d’explosion</dt>
             <dd :style="{ color: p.r > 40 ? 'var(--non)' : 'inherit' }">{{ p.r.toFixed(0) }}/100</dd></div>

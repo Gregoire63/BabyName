@@ -14,6 +14,10 @@
  * En développement, sans clé, rien ne part : le message est rangé dans une
  * boîte locale (/api/dev/courriels, les outils de dev de « Mon compte ») et
  * écrit dans la console. Les essais y lisent leurs liens et leurs codes.
+ * Avec la clé dans app/.env (NUXT_EMAIL_CLE, NUXT_EMAIL_EXPEDITEUR), il part
+ * vraiment, par la même boîte OVH qu'en ligne : on le reçoit, et son lien
+ * ramène au serveur local (il suit l'adresse de la requête). Il reste aussi
+ * dans la boîte locale.
  */
 export interface Courriel { a: string; sujet: string; texte: string; html: string }
 
@@ -31,13 +35,29 @@ function reglages() {
 /**
  * OVH, en SMTP. « serveur:port » : 465, TLS dès la connexion (ce que
  * recommande OVH) ; 587, STARTTLS. Le compte est l'adresse de l'expéditeur.
- * La bibliothèque n'est chargée qu'ici : elle s'appuie sur `cloudflare:sockets`,
- * qui n'existe que dans le Worker (en développement, la boîte locale suffit).
+ *
+ * Deux bibliothèques pour le même envoi, chargées seulement ici :
+ *  - dans le Worker, worker-mailer, qui s'appuie sur `cloudflare:sockets` ;
+ *  - sous `nuxt dev`, qui tourne dans Node et n'a pas ces sockets,
+ *    nodemailer (dépendance de développement : la branche disparaît du
+ *    Worker à la construction, `import.meta.dev` y valant faux).
  */
 async function parSmtp(c: Courriel, de: { nom: string; email: string }, r: ReturnType<typeof reglages>) {
   const [hote, portBrut] = r.smtp.split(':')
   const port = Number(portBrut) || 465
   if (!hote) throw createError({ statusCode: 503, statusMessage: 'courriel_non_configure' })
+  if (import.meta.dev) {
+    const nodemailer = (await import('nodemailer')).default
+    await nodemailer.createTransport({
+      host: hote, port, secure: port === 465, requireTLS: port !== 465,
+      auth: { user: de.email, pass: r.cle },
+      connectionTimeout: 15_000, greetingTimeout: 15_000, socketTimeout: 15_000
+    }).sendMail({
+      from: { name: de.nom, address: de.email },
+      to: c.a, subject: c.sujet, text: c.texte, html: c.html
+    })
+    return
+  }
   const { WorkerMailer } = await import('worker-mailer')
   await WorkerMailer.send({
     host: hote, port, secure: port === 465, startTls: port !== 465,
@@ -74,6 +94,12 @@ export async function envoyerCourriel(c: Courriel): Promise<void> {
     throw createError({ statusCode: 503, statusMessage: 'courriel_non_configure' })
   }
   const de = lireExpediteur(r.expediteur)
+  if (import.meta.dev) {
+    // Envoyé pour de vrai, et gardé aussi dans la boîte locale.
+    BOITE_DEV.unshift({ ...c, le: new Date().toISOString() })
+    BOITE_DEV.length = Math.min(BOITE_DEV.length, 30)
+    console.info(`[courriel] → ${c.a} · ${c.sujet} (envoi réel, ${COURRIEL.fournisseur})`)
+  }
   if (COURRIEL.fournisseur === 'ovh') {
     try {
       await parSmtp(c, de, r)
@@ -138,7 +164,7 @@ export function courrielConnexion(o: { a: string; pseudo: string; lien: string; 
   const minutes = CONSERVATION.lienMinutes
   return {
     a: o.a,
-    sujet: `Votre connexion à babyNamed — code ${o.code}`,
+    sujet: `Votre code de connexion à babyNamed : ${o.code}`,
     texte: `Bonjour ${o.pseudo},\n\nPour vous connecter à babyNamed sur cet appareil, ouvrez ce lien :\n${o.lien}\n\nOu tapez ce code dans l’app : ${o.code}\n\nLien et code valent ${minutes} minutes, une seule fois. Si vous n’avez rien demandé, ignorez ce message : personne ne peut entrer sans eux.\n`,
     html: gabarit(`Bonjour ${o.pseudo}`,
       'Pour vous connecter à babyNamed sur cet appareil :',
@@ -151,7 +177,7 @@ export function courrielVerification(o: { a: string; pseudo: string; lien: strin
   const minutes = CONSERVATION.lienMinutes
   return {
     a: o.a,
-    sujet: `Confirmez votre adresse — code ${o.code}`,
+    sujet: `Confirmez votre adresse, code ${o.code}`,
     texte: `Bonjour ${o.pseudo},\n\nPour pouvoir retrouver votre compte babyNamed avec cette adresse, confirmez-la :\n${o.lien}\n\nOu tapez ce code dans l’app : ${o.code}\n\nValable ${minutes} minutes. Si vous n’avez rien demandé, ignorez ce message : l’adresse ne sera pas enregistrée.\n`,
     html: gabarit('Confirmez votre adresse',
       `${esc(o.pseudo)}, pour pouvoir retrouver votre compte babyNamed avec cette adresse :`,
@@ -165,7 +191,7 @@ export function courrielInscription(o: { a: string; pseudo: string; lien: string
   const fin = `Valable ${minutes} minutes. Si vous n’avez rien demandé, ignorez ce message : aucun compte ne sera créé.`
   return {
     a: o.a,
-    sujet: `Votre inscription à babyNamed — code ${o.code}`,
+    sujet: `Votre code d’inscription à babyNamed : ${o.code}`,
     texte: `Bonjour ${o.pseudo},\n\nPour créer votre compte babyNamed, ouvrez ce lien :\n${o.lien}\n\nOu tapez ce code dans l’app : ${o.code}\n\n${fin}\n`,
     html: gabarit(`Bienvenue ${o.pseudo}`, 'Pour créer votre compte babyNamed :',
       { texte: 'Créer mon compte', lien: o.lien }, o.code, fin)
@@ -178,7 +204,7 @@ export function courrielDejaInscrit(o: { a: string; pseudo: string; lien: string
   const fin = `Lien et code valent ${minutes} minutes, une seule fois. Si vous n’avez rien demandé, ignorez ce message : personne ne peut entrer sans eux.`
   return {
     a: o.a,
-    sujet: `Vous avez déjà un compte babyNamed — code ${o.code}`,
+    sujet: `Vous avez déjà un compte babyNamed, code ${o.code}`,
     texte: `Bonjour ${o.pseudo},\n\nCette adresse a déjà un compte babyNamed : inutile d’en créer un second. Pour y entrer, ouvrez ce lien :\n${o.lien}\n\nOu tapez ce code dans l’app : ${o.code}\n\n${fin}\n`,
     html: gabarit(`Bonjour ${o.pseudo}`,
       'Cette adresse a déjà un compte babyNamed : inutile d’en créer un second. Pour y entrer :',

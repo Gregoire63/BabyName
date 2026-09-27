@@ -42,7 +42,7 @@ dit(sansNiCourbeNiBarres === 0, `chaque prénom de la pile a sa courbe ou ses ba
 
 // =================== LA CARTE D'UN PETIT PRÉNOM ==============================
 await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVG-REGX-2345')
+await page.locator('input.champ').fill('DEVP-ARNA-2345')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
 const liste = page.locator('a.carte', { hasText: 'Notre liste' }).first()

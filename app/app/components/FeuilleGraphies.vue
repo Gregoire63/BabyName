@@ -116,7 +116,7 @@ const barres = anneesBarres()
           <dd :class="tendance(courant.t)">{{ pourcentAn(courant.t) }}</dd></div>
         <div v-else><dt>bébé{{ bebesParAn(courant) > 1 ? 's' : '' }} par an</dt>
           <dd>≈ {{ bebesParAn(courant) }}</dd></div>
-        <div><dt>pic historique</dt><dd>{{ courant.p || '—' }}</dd></div>
+        <div><dt>pic historique</dt><dd>{{ courant.p || 'inconnu' }}</dd></div>
       </dl>
 
       <div v-if="courant.sr" class="graphe">

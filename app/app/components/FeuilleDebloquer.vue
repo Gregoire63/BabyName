@@ -13,6 +13,7 @@ import { defineAsyncComponent } from 'vue'
  */
 const g = useGroupeCourant()
 const emit = defineEmits<{ fermer: [] }>()
+const { ouvrir: ouvrirLegal } = useFeuilleLegale()
 
 const config = useRuntimeConfig()
 const prix = (config.public.prixListe as string) || '6 €'
@@ -40,7 +41,7 @@ const nomListe = computed(() => g.etat.value?.groupe?.nom ?? 'cette liste')
 // plus large ne doit pas afficher les limites par defaut.
 const quota = computed(() => g.etat.value?.quota)
 const GRATUIT = computed(() => [
-  `${quota.value?.depart?.limite ?? 150} prénoms pour commencer, puis ${quota.value?.limite_jour ?? 15} par jour — sans jamais être bloqué`,
+  `${quota.value?.depart?.limite ?? 150} prénoms pour commencer, puis ${quota.value?.limite_jour ?? 15} par jour, sans jamais être bloqué`,
   'Les 19 608 prénoms et la recherche complète',
   'Les accords et le classement',
   'L’origine, la signification et la courbe sur chaque fiche',
@@ -79,7 +80,7 @@ async function utiliserCadeau(fermer: () => void) {
     await $fetch('/api/cadeaux/utiliser', { method: 'POST', body: { code, groupe: Number(g.gid) } })
     await g.recharger()
     const de = g.etat.value?.groupe?.cadeau_de
-    merciCadeau.value = de ? `C’est débloqué — un cadeau de ${de}.` : 'C’est débloqué — un beau cadeau.'
+    merciCadeau.value = de ? `C’est débloqué, un cadeau de ${de}.` : 'C’est débloqué, un beau cadeau.'
     setTimeout(fermer, 1600)
   } catch (e: any) {
     const m = e?.data?.statusMessage
@@ -119,7 +120,7 @@ async function payer() {
   <Feuille titre="Débloquer cette liste" @fermer="emit('fermer')">
     <p style="margin:0 0 4px">
       <strong style="font-size:1.3rem">{{ prix }} TTC</strong>
-      <span class="doux"> pour cette liste, une fois — pas d’abonnement</span>
+      <span class="doux"> : débloque cette liste pour la vie</span>
     </p>
     <p class="mini doux" style="margin:0 0 6px">{{ tva }}.</p>
     <!-- Ce qu'on achète, sans ambiguïté : UNE liste, pas l'app. Quelqu'un qui
@@ -156,7 +157,7 @@ async function payer() {
       <input v-model="accord" type="checkbox" aria-describedby="accord-detail">
       <span>
         J’accepte les
-        <a href="/conditions" target="_blank" rel="noopener" class="lien">conditions générales de vente</a>
+        <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions générales de vente</a>
         et je demande l’accès immédiat à la liste débloquée.
         <span id="accord-detail" class="doux">
           Je renonce ainsi à mon droit de rétractation de 14 jours
@@ -170,7 +171,7 @@ async function payer() {
     <template #pied="{ fermer }">
       <button type="button" class="btn btn-1" style="width:100%" :disabled="envoi || !accord"
               :aria-describedby="accord ? undefined : 'accord-requis'" @click="payer">
-        {{ envoi ? 'Ouverture…' : `Débloquer cette liste — ${prix}` }}
+        {{ envoi ? 'Ouverture…' : `Débloquer cette liste (${prix})` }}
       </button>
       <p v-if="!accord" id="accord-requis" class="mini doux" style="margin:0;text-align:center">
         Cochez la case d’accord pour continuer.

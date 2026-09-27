@@ -15,7 +15,7 @@ const { miens } = useVerdicts()
 
 const GROUPES = [
   { v: 2 as const, t: 'Oui', d: 'Ceux que vous gardez.' },
-  { v: 1 as const, t: 'Neutre', d: 'Ni oui ni non — ils restent en jeu.' },
+  { v: 1 as const, t: 'Neutre', d: 'Ni oui ni non : ils restent en jeu.' },
   { v: 0 as const, t: 'Non', d: 'Écartés. Un autre avis peut les faire revenir.' }
 ]
 
@@ -141,7 +141,7 @@ async function remettre(prenoms: string[]) {
           Ceux que vous gardez sous le coude, quel que soit votre vote.
         </p>
         <p v-if="!gardes.length" class="mini doux" style="margin:0">
-          Aucun pour l’instant — l’étoile sur la carte de tri les met ici.
+          Aucun pour l’instant. L’étoile sur la carte de tri les met ici.
         </p>
         <div v-for="p in gardes" :key="p" class="rangee">
           <button class="nom" @click="g.ouvrirFiche(p)">{{ p }}</button>

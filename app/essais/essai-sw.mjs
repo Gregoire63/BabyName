@@ -10,7 +10,7 @@ const erreurs = []
 page.on('pageerror', e => erreurs.push(e.message))
 page.on('console', m => { if (m.type() === 'error') erreurs.push(m.text()) })
 
-// On reproduit l'etat de Greg : un worker deja installe sur l'origine,
+// On reproduit l'etat de Paul : un worker deja installe sur l'origine,
 // herite d'un `npm run preview` servi sur le meme port que le dev.
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 const pose = await page.evaluate(async () => {

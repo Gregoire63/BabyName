@@ -33,7 +33,7 @@ page.on('response', async r => {
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVG-REGX-2345')
+await page.locator('input.champ').fill('DEVP-ARNA-2345')
 await page.getByRole('button', { name: 'Entrer' }).click()
 await page.waitForSelector('.bento', { timeout: 20000 })
 await page.locator('.bento .grande').first().click()
@@ -75,7 +75,7 @@ dit(/Aucun filtre\.?\s*$/.test(resume.replace(/Modifier/, '').trim()) || /Aucun 
 
 await page.locator('button', { hasText: 'Modifier' }).last().click()
 await page.waitForSelector('text=Inclure les prénoms très rares', { timeout: 10000 })
-const pied = () => page.locator('button.btn-1', { hasText: 'prénoms — voir' }).innerText()
+const pied = () => page.locator('button.btn-1', { hasText: /Voir les .* prénoms/ }).innerText()
 const nb = async () => parseInt((await pied()).replace(/[^\d]/g, ''), 10)
 const avant = await nb()
 const annonce = parseInt(
@@ -94,7 +94,7 @@ await page.locator('label', { hasText: 'Inclure les prénoms très rares' })
           .locator('input[type=checkbox]').uncheck()
 await page.waitForTimeout(250)
 dit(await nb() === avant, 'décochée : on retrouve la pile d’avant')
-await page.locator('button.btn-1', { hasText: 'prénoms — voir' }).click()
+await page.locator('button.btn-1', { hasText: /Voir les .* prénoms/ }).click()
 await page.waitForTimeout(400)
 
 // ---------- 3 bis. le doute est dit, pas caché -----------------------------
