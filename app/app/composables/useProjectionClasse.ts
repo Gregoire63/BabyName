@@ -1,4 +1,4 @@
-import type { Prenom } from '~/composables/useCatalogue'
+import { tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 
 /**
  * « Il y en aura combien dans sa classe ? »
@@ -65,6 +65,17 @@ function facteurTendance(tendance: number): number {
 const arrondi = (x: number, d = 2) => Math.round(x * 10 ** d) / 10 ** d
 
 /**
+ * La pente du groupe, si elle veut dire quelque chose. Le groupe entier
+ * compte (Elyo + Élio + Hélio), mais sous une vingtaine de bebes par an la
+ * pente n'est que l'arrondi de l'INSEE : on ne la projette pas, et on ne
+ * l'ecrit pas (« il monte encore, +14 %/an »).
+ */
+function pente(p: Prenom): number {
+  const nGroupe = p.f > 0 && p.fgp > 0 ? p.n * p.fgp / p.f : p.n
+  return tendanceFiable({ n: nGroupe }) ? (p.tgp ?? p.t) : 0
+}
+
+/**
  * @param complet false = une seule graphie, au taux d'aujourd'hui (gratuit).
  *                true  = tout le groupe, projete a la naissance (debloque).
  */
@@ -72,7 +83,7 @@ export function projeter(p: Prenom, complet: boolean): Projection | null {
   const base = complet && p.fgp > 0 ? p.fgp : p.f
   if (!base || base <= 0) return null
 
-  const p10k = complet ? base * facteurTendance(p.tgp ?? p.t) : base
+  const p10k = complet ? base * facteurTendance(pente(p)) : base
   const q = Math.min(0.5, p10k / 10000)
   const autres = (CLASSE - 1) * q
   const pAuMoinsUn = 1 - Math.pow(1 - q, CLASSE - 1)
@@ -98,13 +109,13 @@ export function projeter(p: Prenom, complet: boolean): Projection | null {
 /** Ce que le calcul brut rate — de quoi juger l'offre sans l'avoir prise. */
 export function ecart(p: Prenom): Ecart | null {
   if (!p.f || p.f <= 0) return null
-  const ft = facteurTendance(p.tgp ?? p.t)
+  const ft = facteurTendance(pente(p))
   const fg = p.fgp > 0 ? p.fgp / p.f : 1
   const facteur = arrondi(ft * fg, 2)
 
   let evolution: string | null = null
-  if (ft >= 1.2) evolution = `il monte encore (+${Math.round((p.tgp ?? p.t))} %/an)`
-  else if (ft <= 0.85) evolution = `il recule (${Math.round((p.tgp ?? p.t))} %/an)`
+  if (ft >= 1.2) evolution = `il monte encore (+${Math.round(pente(p))} %/an)`
+  else if (ft <= 0.85) evolution = `il recule (${Math.round(pente(p))} %/an)`
 
   let graphies: string | null = null
   if (p.ngp > 1 && fg >= 1.15) {

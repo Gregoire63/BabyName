@@ -69,7 +69,11 @@ const poids = await page.evaluate(async () => {
   const r = await fetch('/data/catalogue.json.gz', { cache: 'reload' })
   return +(r.headers.get('content-length') ?? 0)
 })
-dit(poids > 0 && poids < 430000, `catalogue ${(poids / 1024).toFixed(0)} Ko sur le fil`)
+// Budget : 460 Ko. Le 27/09 il est passé de 430 à 460 pour de bonnes raisons —
+// une courbe pour les 794 prénoms qui ont eu un sommet (Aurélie, Stéphanie…)
+// et les barres des 3 849 petits prénoms de la pile (+44 Ko en tout). Pas
+// davantage sans une raison du même ordre.
+dit(poids > 0 && poids < 460000, `catalogue ${(poids / 1024).toFixed(0)} Ko sur le fil`)
 
 // ---------- 2. la pile ne montre plus les doublons -----------------------
 const noms = []

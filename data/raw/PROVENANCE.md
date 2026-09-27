@@ -79,13 +79,21 @@ feminins" : 9 152 pages. Recuperation du wikitexte par lots de 50
 (184 requetes), extraction de la section {{S|etymologie}} de la partie
 francaise : 4 725 pages en contiennent une.
 
-Parsing (pipeline/enrich_wiktionary.py) :
-  - modele {{etyl|CODE|fr|mot|translit|glose}} -> code ISO mappe sur le
-    vocabulaire ferme, glose reprise du dernier parametre en francais
-  - repli sur le texte libre ("De l'hebreu...", "Du latin...")
-  - prenoms composes resolus par leurs parties (Jean-Baptiste -> Jean + Baptiste)
+Parsing (pipeline/enrich_wiktionary.py, pipeline/wikitexte.py) :
+  - modeles lus avec leur structure (modeles niches, liens, parametres
+    nommes) : un decoupage au premier « | » laissait passer « {{transliterator »
+    ou « chevaux]] » jusqu'a la carte
+  - modele {{etyl|CODE|fr|mot|translit|sens}} -> code ISO mappe sur le
+    vocabulaire ferme ; sens = `sens=` ou 3e parametre libre, jamais le mot
+    source ni sa translitteration (Nicolas « Nicolaus »)
+  - page a plusieurs sens (prenom, commune, sigle) : seule la ligne « prénom »
+  - repli sur le texte libre ("De l'hebreu...", "Du latin...") ; une glose
+    hors modele seulement entre parentheses apres le mot, ou apres « signifiant »
+  - prenoms derives (« composé de Maëlle et de -line ») : origine seulement ;
+    les composes a trait d'union sont assembles par la fusion
 
-Resultat : 3 573 entrees exploitables, dont 1 082 composees.
+Resultat (27/09/2026) : 2 528 entrees exploitables, dont 65 derives.
+(Avant : 3 573, dont 1 082 composees, et 7 sens illisibles.)
 
 ## LIMITE STRUCTURELLE
 

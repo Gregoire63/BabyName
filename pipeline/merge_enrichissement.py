@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
 Assemble le CSV final en superposant les sources d'enrichissement,
-champ par champ. La premiere source qui renseigne un champ gagne.
+champ par champ. La premiere source qui renseigne un champ gagne (dans
+l'ordre de SOURCES, sauf pour les champs d'ORDRE_CHAMP : le sens).
 
-Ordre : manuel > wiktionnaire > llm
+Ordre : manuel > wiktionnaire (EN puis FR) > claude > llm
   - manuel       : saisi a la main, relu          (data/cache/enrich_manuel.jsonl)
-  - wiktionnaire : gratuit, source citable        (data/cache/enrich_wiktionary.jsonl)
+  - wiktionnaire : gratuit, source citable        (data/cache/enrich_wiktionary*.jsonl)
+  - claude       : bouche les trous, relu         (data/cache/enrich_claude*.jsonl)
   - llm          : optionnel, payant              (data/cache/enrich_llm.jsonl)
+Pour le sens : manuel > claude > wiktionnaire FR (voir ORDRE_CHAMP).
 
 Chaque champ garde la trace de sa source (colonnes src_*), pour pouvoir
 auditer ou invalider une source entiere sans tout refaire.
@@ -28,7 +31,19 @@ SOURCES = [("manuel", "enrich_manuel.jsonl"),
            ("wiktionnaire-en", "enrich_wiktionary_en.jsonl"),
            ("wiktionnaire-fr", "enrich_wiktionary.jsonl"),
            ("claude", "enrich_claude.jsonl"),
+           # le meme travail, pour les prenoms dont le « sens » etait en fait le
+           # mot source du Wiktionnaire (Nicolas « Nicolaus ») : voir
+           # enrich_wiktionary.py, glose()
+           ("claude", "enrich_claude_complement.jsonl"),
            ("llm", "enrich_llm.jsonl")]
+# Exception pour le SENS : Claude passe devant le Wiktionnaire francais.
+# La glose du Wiktionnaire est celle du MOT SOURCE (Vincentius -> « vainquant »,
+# Irène -> « la déesse Eiréné »), Claude a ecrit le sens du PRENOM, et ce
+# travail a ete relu (enrich_claude_relecture.md). Pour les origines, la source
+# citable garde la main.
+ORDRE_CHAMP: dict[str, list[str]] = {
+    "signification": ["manuel", "wiktionnaire-en", "claude", "wiktionnaire-fr", "llm"],
+}
 CHAMPS = ["origines", "signification", "signification_en", "objet_marque",
           "objet_marque_note", "diminutifs", "charge_epellation"]
 
@@ -50,10 +65,13 @@ def main() -> None:
     fusion: dict[str, dict] = {}
     confiances: dict[tuple[str, str], str] = {}
     compte = {}
+    # {slug: {source: [entrees]}} : une source peut avoir deux graphies
+    # du meme slug (Eric, Éric), qui se completent champ par champ.
+    entrees: dict[str, dict[str, list[dict]]] = {}
     for nom, fichier in SOURCES:
         f = CACHE / fichier
+        compte.setdefault(nom, 0)
         if not f.exists():
-            compte[nom] = 0
             continue
         n = 0
         for ligne in f.read_text(encoding="utf-8").splitlines():
@@ -61,20 +79,22 @@ def main() -> None:
                 continue
             e = json.loads(ligne)
             sl = slugify(e["prenom"])
-            cible = fusion.setdefault(sl, {})
+            entrees.setdefault(sl, {}).setdefault(nom, []).append(e)
             n += 1
             # La confiance qualifie la SIGNIFICATION, pas le prenom : on la
             # retient par source, et on ne gardera que celle de la source qui
             # a fini par fournir le sens affiche.
             if e.get("confiance"):
                 confiances[(sl, nom)] = e["confiance"]
-            for c in CHAMPS:
-                if c in cible:            # deja renseigne par une source prioritaire
-                    continue
-                v = e.get(c)
-                if not vide(v):
-                    cible[c] = (v, nom)
-        compte[nom] = n
+        compte[nom] += n
+    ordre_defaut = list(dict.fromkeys(nom for nom, _ in SOURCES))
+    for sl, par_source in entrees.items():
+        cible = fusion.setdefault(sl, {})
+        for c in CHAMPS:
+            valeur = next(((e.get(c), nom) for nom in ORDRE_CHAMP.get(c, ordre_defaut)
+                           for e in par_source.get(nom, ()) if not vide(e.get(c))), None)
+            if valeur:
+                cible[c] = valeur
 
     # Repli pour les prenoms composes absents des sources (Jean-Baptiste, Marie-Rose) :
     # on prend l'union des origines de leurs parties.

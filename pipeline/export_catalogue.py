@@ -9,15 +9,28 @@ pour que le gzip du CDN fasse le reste.
 Sortie : app/public/data/catalogue.json
 """
 from __future__ import annotations
-import json, gzip, io
+import json, gzip, io, sys
 from pathlib import Path
 import pandas as pd
+sys.path.insert(0, str(Path(__file__).parent))
+from wikitexte import syntaxe_residuelle
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "data" / "build" / "prenoms_final.csv"
 PACK = ROOT / "data" / "raw" / "prenoms_insee_2025_packed.csv"
 AN0, AN1 = 1986, 2025          # fenetre de la courbe affichee dans la fiche
-SEUIL_SERIE = 60               # en dessous, la courbe n'est que du bruit d'arrondi
+# L'INSEE arrondit chaque effectif annuel a 5. Sous 60 naissances en trois
+# ans (une vingtaine par an), une pente calculee dessus n'est que ce bruit
+# d'arrondi : l'app n'affiche alors pas de pourcentage par an, mais le nombre
+# de naissances (« ≈ 15/an ») -- et Elïa n'annonce plus « +14 %/an ».
+SEUIL_TENDANCE = 60
+# La courbe, elle, se juge a son SOMMET, pas a ses trois dernieres annees :
+# Aurélie (11 310 naissances en 1986) n'en compte plus que 50 en trois ans,
+# et c'est justement sa courbe qui raconte le prenom.
+SEUIL_PIC = 60
+# Les petits prenoms sans courbe : leurs naissances annee par annee, en
+# barres -- les vrais chiffres (arrondis a 5), pas une courbe en dents de scie.
+BARRES = (2011, 2025)
 OUT = ROOT / "app" / "public" / "data" / "catalogue.json"
 OUT.parent.mkdir(parents=True, exist_ok=True)
 
@@ -25,7 +38,7 @@ SEXE = ["f", "m", "fm"]
 CONF = ["basse", "moyenne", "haute"]
 
 
-def series_par_prenom() -> dict[str, list[float]]:
+def series_par_prenom() -> tuple[dict[str, list[float]], dict[str, dict[int, int]]]:
     """Courbe de popularite (pour 10 000 naissances) sur AN0..AN1.
 
     Elle n'est pas dans prenoms_final.csv : on la recalcule depuis le fichier
@@ -54,7 +67,7 @@ def series_par_prenom() -> dict[str, list[float]]:
     return {
         nom: [round(par.get(a, 0) / total[a] * 10_000, 1) if total[a] else 0.0 for a in annees]
         for nom, par in brut.items()
-    }
+    }, brut
 
 
 def main() -> None:
@@ -80,10 +93,20 @@ def main() -> None:
     def enc_dim(s):
         return s.split("|") if isinstance(s, str) and s else []
 
-    series = series_par_prenom()
+    series, brut = series_par_prenom()
     def enc_serie(label, n):
-        # on ne retient la courbe que pour les prenoms suffisamment nombreux
-        return series.get(str(label).upper()) if n >= SEUIL_SERIE else None
+        # assez de naissances recentes, ou un sommet assez haut pour que la
+        # forme de la courbe ne doive rien a l'arrondi
+        cle = str(label).upper()
+        pic = max(brut.get(cle, {}).values(), default=0)
+        return series.get(cle) if n >= SEUIL_TENDANCE or pic >= SEUIL_PIC else None
+
+    def enc_barres(label, rare, serie):
+        # effectifs /5 (l'unite de l'INSEE) : des petits entiers, que le gzip ecrase
+        if serie is not None or rare:
+            return None
+        par = brut.get(str(label).upper(), {})
+        return [par.get(a, 0) // 5 for a in range(BARRES[0], BARRES[1] + 1)]
 
     cols = {
         # identite
@@ -122,6 +145,16 @@ def main() -> None:
         # courbe 1986-2025, pour 10 000 naissances ; null si trop peu de volume
         "sr": [enc_serie(l, n) for l, n in zip(d["label"], d["births_recent"].fillna(0))],
     }
+    cols["nb"] = [enc_barres(l, r, sr) for l, r, sr in zip(d["label"], d["rare"].fillna(False), cols["sr"])]
+
+    # Dernier filet : aucun reste de wikitexte ne part dans l'app (Masha
+    # affichait « {{transliterator »). La fusion les ecarte deja ; si l'un
+    # passe quand meme, on s'arrete plutot que de le publier.
+    sales = [(l, c, v) for c in ("m", "me", "obn") for l, v in zip(cols["l"], cols[c]) if syntaxe_residuelle(v)]
+    if sales:
+        for l, c, v in sales[:20]:
+            print(f"  [!] {l} ({c}) : {v!r}")
+        sys.exit(f"{len(sales)} textes portent encore de la syntaxe : export refuse.")
 
     doc = {
         "version": 1,
@@ -141,8 +174,12 @@ def main() -> None:
             "cf": "confiance_sens",
             "me": "signification_en", "ob": "objet_marque",
             "obn": "objet_marque_note", "dm": "diminutifs", "sr": "serie_p10k",
+            "nb": "naissances_par_an_div5",
         },
         "serie_annees": [AN0, AN1],
+        # Sous ce nombre de naissances en trois ans, pas de tendance chiffree.
+        "seuil_tendance": SEUIL_TENDANCE,
+        "barres_annees": list(BARRES),
         "cols": cols,
     }
 
@@ -157,12 +194,13 @@ def main() -> None:
         f.write(txt.encode())
 
     avec_serie = sum(1 for x in cols["sr"] if x)
+    avec_barres = sum(1 for x in cols["nb"] if x)
     rares = sum(cols["q"])
     groupes = len(set(cols["gp"]))
     sens = sum(1 for x in cols["m"] if x)
     sur = sum(1 for x in cols["cf"] if x == 2)
     print(f"{len(d):,} prenoms ({len(d)-rares:,} dans la pile, {rares:,} rares), "
-          f"{len(origines)} origines, {avec_serie:,} courbes")
+          f"{len(origines)} origines, {avec_serie:,} courbes, {avec_barres:,} en barres")
     print(f"  {groupes:,} groupes de prononciation "
           f"({len(d)-groupes:,} cartes en moins, -{(1-groupes/len(d))*100:.0f} %)")
     print(f"  {sens:,} avec un sens, dont {sur:,} en confiance haute")

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { frequenceLisible, type Prenom } from '~/composables/useCatalogue'
+import { anneesBarres, bebesParAn, frequenceLisible, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeSiPresent } from '~/composables/etatGroupe'
 import { projeter, ecart, CLASSE } from '~/composables/useProjectionClasse'
 const props = defineProps<{ p: Prenom }>()
@@ -50,13 +50,22 @@ const manque = computed(() => paye.value ? null : ecart(props.p))
 const sexeTexte = computed(() =>
   props.p.sexe === 'fm' ? 'mixte' : props.p.sexe === 'f' ? 'fille' : 'garçon')
 
+const fiable = computed(() => tendanceFiable(props.p))
+const barres = anneesBarres()
+
 /** Une phrase, pas un tableau : ce que le chiffre veut dire concretement. */
 const lecture = computed(() => {
   const p = props.p
   const base = `${frequenceLisible(p.f)} le reçoit aujourd’hui.`
-  if (p.t > 15) return `${base} Il grimpe vite (+${p.t.toFixed(0)} %/an).`
+  // Quelques bebes par an : on le dit, sans pente qui ne serait que du bruit.
+  if (!fiable.value) {
+    const n = bebesParAn(p)
+    return `${frequenceLisible(p.f)} le reçoit aujourd’hui : environ ${n} bébé${n > 1 ? 's' : ''} par an, `
+      + 'trop peu pour chiffrer une tendance.'
+  }
+  if (p.t > 15) return `${base} Il grimpe vite (${pourcentAn(p.t)}/an).`
   if (p.t > 5) return `${base} Il monte doucement.`
-  if (p.t < -10) return `${base} Il recule nettement (${p.t.toFixed(0)} %/an).`
+  if (p.t < -10) return `${base} Il recule nettement (${pourcentAn(p.t)}/an).`
   if (p.t < -3) return `${base} Il s’efface lentement.`
   return `${base} Sa cote est stable.`
 })
@@ -103,6 +112,15 @@ const lecture = computed(() => {
             <span>{{ AN1 }}</span>
           </div>
         </section>
+        <section v-else-if="p.nb" class="bloc">
+          <h3>Bébés par an depuis {{ barres[0] }}</h3>
+          <BarresPrenom :valeurs="p.nb" :an0="barres[0]" :hauteur="72" />
+          <div class="ligne mini doux" style="justify-content:space-between">
+            <span>{{ barres[0] }}</span>
+            <span>arrondis à 5 par l’Insee</span>
+            <span>{{ barres[1] }}</span>
+          </div>
+        </section>
 
         <p class="lecture">{{ lecture }}</p>
 
@@ -137,9 +155,10 @@ const lecture = computed(() => {
 
         <dl class="chiffres">
           <div><dt>Fréquence</dt><dd>{{ frequenceLisible(p.f) }}</dd></div>
-          <div><dt>Tendance</dt>
+          <div v-if="fiable"><dt>Tendance</dt>
             <dd :style="{ color: p.t > 8 ? 'var(--non)' : p.t < -5 ? 'var(--oui)' : 'inherit' }">
-              {{ p.t > 0 ? '+' : '' }}{{ p.t.toFixed(0) }} %/an</dd></div>
+              {{ pourcentAn(p.t) }}/an</dd></div>
+          <div v-else><dt>Tendance</dt><dd class="doux">trop peu de bébés</dd></div>
           <div><dt>Originalité</dt><dd>{{ p.o.toFixed(0) }}/100</dd></div>
           <div><dt>Pic historique</dt><dd>{{ p.p || '—' }}<span v-if="p.p && p.p < 1986" class="mini doux"> (avant 1986)</span></dd></div>
           <div><dt>Naissances 3 ans</dt><dd>{{ p.n.toLocaleString('fr-FR') }}</dd></div>

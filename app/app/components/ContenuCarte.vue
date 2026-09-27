@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { frequenceLisible, type Prenom } from '~/composables/useCatalogue'
+import { anneesBarres, bebesParAn, frequenceLisible, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { tester } from '~/composables/useNomComplet'
 
@@ -41,6 +41,10 @@ const pic = computed(() => {
 // Couleur de la tendance : un prenom qui monte vite va devenir courant (rouge),
 // un prenom qui baisse le sera moins (vert). C'est l'inverse d'une bourse.
 const tendance = computed(() => props.p.t > 8 ? 'monte' : props.p.t < -5 ? 'baisse' : '')
+// Sous une vingtaine de bebes par an, la pente n'est que l'arrondi de l'INSEE :
+// la tuile donne alors le nombre de bebes, et les barres les montrent.
+const fiable = computed(() => tendanceFiable(props.p))
+const barres = anneesBarres()
 
 const DIT = ['Vous aviez dit non', 'Vous aviez dit neutre', 'Vous aviez dit oui'] as const
 
@@ -112,7 +116,8 @@ const niveau = computed(() => !essai.value ? ''
          disait pas de quoi. -->
     <dl class="resume">
       <div><dt>des naissances</dt><dd>{{ frequenceLisible(p.f) }}</dd></div>
-      <div><dt>par an</dt><dd :class="tendance">{{ p.t > 0 ? '+' : '' }}{{ p.t.toFixed(0) }} %</dd></div>
+      <div v-if="fiable"><dt>par an</dt><dd :class="tendance">{{ pourcentAn(p.t) }}</dd></div>
+      <div v-else><dt>bébé{{ bebesParAn(p) > 1 ? 's' : '' }} par an</dt><dd>≈ {{ bebesParAn(p) }}</dd></div>
       <div><dt>syllabe{{ p.y > 1 ? 's' : '' }}</dt><dd>{{ p.y }}</dd></div>
     </dl>
 
@@ -133,6 +138,14 @@ const niveau = computed(() => !essai.value ? ''
       </p>
       <div class="graphe-corps"><CourbePrenom :serie="p.sr" remplir /></div>
       <p class="graphe-axe" aria-hidden="true"><span>1986</span><span>2025</span></p>
+    </div>
+    <div v-else-if="p.nb" class="graphe">
+      <p class="graphe-tete" aria-hidden="true">
+        <span>Bébés par an depuis {{ barres[0] }}</span>
+        <span>arrondis à 5 par l’Insee</span>
+      </p>
+      <div class="graphe-corps"><BarresPrenom :valeurs="p.nb" :an0="barres[0]" remplir /></div>
+      <p class="graphe-axe" aria-hidden="true"><span>{{ barres[0] }}</span><span>{{ barres[1] }}</span></p>
     </div>
     </div>
 

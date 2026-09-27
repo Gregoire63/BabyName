@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { frequenceLisible, type Prenom } from '~/composables/useCatalogue'
+import { anneesBarres, bebesParAn, frequenceLisible, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 
 /**
@@ -72,9 +72,11 @@ const pic = (x: Prenom) => {
   return max > 0 ? { an: 1986 + s.indexOf(max), v: max } : null
 }
 const tendance = (t: number) => t > 8 ? 'monte' : t < -5 ? 'baisse' : ''
-const lecture = (x: Prenom) =>
-  x.t > 15 ? 'grimpe vite' : x.t > 5 ? 'monte doucement' : x.t < -10 ? 'recule nettement'
+// Sous une vingtaine de bebes par an, pas de pente : le bruit de l'arrondi.
+const lecture = (x: Prenom) => !tendanceFiable(x) ? ''
+  : x.t > 15 ? 'grimpe vite' : x.t > 5 ? 'monte doucement' : x.t < -10 ? 'recule nettement'
     : x.t < -3 ? 's’efface lentement' : 'stable'
+const barres = anneesBarres()
 </script>
 
 <template>
@@ -111,18 +113,28 @@ const lecture = (x: Prenom) =>
 
       <dl class="chiffres">
         <div><dt>des naissances</dt><dd>{{ frequenceLisible(courant.f) }}</dd></div>
-        <div><dt>par an</dt>
-          <dd :class="tendance(courant.t)">{{ courant.t > 0 ? '+' : '' }}{{ courant.t.toFixed(0) }} %</dd></div>
+        <div v-if="tendanceFiable(courant)"><dt>par an</dt>
+          <dd :class="tendance(courant.t)">{{ pourcentAn(courant.t) }}</dd></div>
+        <div v-else><dt>bébé{{ bebesParAn(courant) > 1 ? 's' : '' }} par an</dt>
+          <dd>≈ {{ bebesParAn(courant) }}</dd></div>
         <div><dt>pic historique</dt><dd>{{ courant.p || '—' }}</dd></div>
       </dl>
 
       <div v-if="courant.sr" class="graphe">
         <p class="graphe-tete">
-          <span>Naissances depuis 1986 · {{ lecture(courant) }}</span>
+          <span>Naissances depuis 1986<template v-if="lecture(courant)"> · {{ lecture(courant) }}</template></span>
           <span v-if="pic(courant)">au plus haut en {{ pic(courant)!.an }}</span>
         </p>
         <CourbePrenom :key="courant.l" :serie="courant.sr" :hauteur="96" pic />
         <p class="graphe-axe" aria-hidden="true"><span>1986</span><span>2025</span></p>
+      </div>
+      <div v-else-if="courant.nb" class="graphe">
+        <p class="graphe-tete">
+          <span>Bébés par an depuis {{ barres[0] }}</span>
+          <span>arrondis à 5 par l’Insee</span>
+        </p>
+        <BarresPrenom :key="courant.l" :valeurs="courant.nb" :an0="barres[0]" :hauteur="80" />
+        <p class="graphe-axe" aria-hidden="true"><span>{{ barres[0] }}</span><span>{{ barres[1] }}</span></p>
       </div>
       <p v-else class="mini doux" style="margin:0">
         Trop peu de naissances chaque année pour tracer une courbe.

@@ -1,6 +1,6 @@
 /**
  * Catalogue embarqué : 19 608 prénoms — tout ce que l'INSEE publie sur
- * 2023-2025 — 292 Ko gzip, chargé une fois puis gardé en mémoire. Tout le
+ * 2023-2025 — 435 Ko gzip, chargé une fois puis gardé en mémoire. Tout le
  * filtrage et tout le tri se font ici, côté client : un changement de filtre
  * ne doit jamais coûter un aller-retour réseau.
  *
@@ -38,7 +38,14 @@ export interface Prenom {
   /** Confiance dans le sens : 0 basse, 1 moyenne, 2 haute, null si aucun sens. */
   cf: number | null
   ob: boolean; obn: string | null; dm: string[]
+  /** Courbe 1986-2025 (pour 10 000 naissances), quand elle veut dire quelque chose. */
   sr: number[] | null
+  /**
+   * Sans courbe, mais assez donné pour la pile : les naissances elles-mêmes,
+   * année par année (`barres` du catalogue, 2011-2025), arrondies à 5 comme
+   * l'INSEE les publie. Elïa : 5, 5, 0, 15, 5, 15, 20, 15, 15.
+   */
+  nb: number[] | null
 }
 
 export interface Filtres {
@@ -75,8 +82,8 @@ export const filtresParDefaut = (): Filtres => ({
  * serveur, `/data/catalogue.json.gz` arrive soit tel quel, soit déjà décompressé
  * par le navigateur parce que le serveur a ajouté `Content-Encoding: gzip`
  * (c'est ce que fait le serveur de dev). Décompresser à l'aveugle échouait
- * silencieusement dans ce deuxième cas et on retombait sur le .json — 2,3 Mo au
- * lieu de 292 Ko, sans que rien ne le signale.
+ * silencieusement dans ce deuxième cas et on retombait sur le .json — 2,9 Mo au
+ * lieu de 435 Ko, sans que rien ne le signale.
  *
  * On regarde donc les deux premiers octets : 1f 8b, c'est du gzip, on
  * décompresse ; sinon c'est déjà du texte, on le lit tel quel.
@@ -97,7 +104,27 @@ async function chargerJson(): Promise<any> {
   return $fetch('/data/catalogue.json')
 }
 
-let cache: { liste: Prenom[]; origines: string[]; annees: [number, number] } | null = null
+let cache: { liste: Prenom[]; origines: string[]; annees: [number, number]
+              barres: [number, number] } | null = null
+
+/**
+ * Au-dessous de ce nombre de naissances en trois ans (une vingtaine par an),
+ * la pente n'est que le bruit de l'arrondi à 5 de l'INSEE : Elïa passait de
+ * 5 à 15 bébés par an et la carte annonçait « +14 % par an ». On donne alors
+ * le nombre de bébés, pas un pourcentage. Le seuil vient du catalogue
+ * (pipeline/export_catalogue.py) : un seul endroit pour le changer.
+ */
+let seuilTendance = 60
+export const tendanceFiable = (p: Pick<Prenom, 'n'>) => p.n >= seuilTendance
+/** « +14 % », « −3 % », et « 0 % » plutôt que « -0 % » pour une pente de -0,3. */
+export function pourcentAn(t: number): string {
+  const r = Math.round(t)
+  return r > 0 ? `+${r} %` : r < 0 ? `−${-r} %` : '0 %'
+}
+/** Bébés par an, en moyenne sur les trois dernières années publiées. */
+export const bebesParAn = (p: Pick<Prenom, 'n'>) => Math.max(1, Math.round(p.n / 3))
+/** Premières et dernières années des barres (`nb`). */
+export const anneesBarres = (): [number, number] => cache?.barres ?? [2011, 2025]
 let enCours: Promise<typeof cache> | null = null
 
 export const sansAccent = (s: string) =>
@@ -146,7 +173,9 @@ export async function chargerCatalogue() {
         g: c.g[k].map((x: number) => d.origines[x]),
         m: c.m[k], me: c.me[k], cf: c.cf ? c.cf[k] ?? null : null,
         ob: !!c.ob[k], obn: c.obn[k], dm: c.dm[k],
-        sr: c.sr ? c.sr[k] : null
+        sr: c.sr ? c.sr[k] : null,
+        // l'INSEE publie par multiples de 5 : le catalogue les stocke divisés
+        nb: c.nb?.[k] ? c.nb[k].map((x: number) => x * 5) : null
       }
     }
     // Le catalogue est trie par frequence : le premier de chaque groupe est
@@ -170,7 +199,9 @@ export async function chargerCatalogue() {
         if (membres.length > 1) m.variantes = membres.filter(x => x !== m).map(x => x.l)
       }
     }
-    cache = { liste, origines: d.origines, annees: d.serie_annees ?? [1986, 2025] }
+    if (typeof d.seuil_tendance === 'number') seuilTendance = d.seuil_tendance
+    cache = { liste, origines: d.origines, annees: d.serie_annees ?? [1986, 2025],
+              barres: d.barres_annees ?? [2011, 2025] }
     return cache
   })()
   return enCours

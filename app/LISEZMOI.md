@@ -273,7 +273,7 @@ poste, sans passer par GitHub.
 
 | Sortie | Rôle |
 |---|---|
-| `prenom/<slug>/` | une fiche statique par prénom : sens (avec sa certitude), origine, courbe INSEE, graphies, proches — 7 438 pages, dont les 857 sans sens ni origine en `noindex` et hors sitemap (constante `mince`) |
+| `prenom/<slug>/` | une fiche statique par prénom : sens (avec sa certitude), origine, courbe INSEE (ou, pour un petit prénom, ses bébés par an en barres, sans pourcentage), graphies, proches — 7 462 pages, dont les 859 sans sens ni origine en `noindex` et hors sitemap (constante `mince`) |
 | `prenoms/…` | le portail, les listes (tendances, rares, populaires, origines, lettres) |
 | `choisir-un-prenom-a-deux/` | **la page de l'application** : fonctionnement, gratuit / payant, données, FAQ ; `WebApplication` + `FAQPage` en JSON-LD |
 | `sitemap.xml`, `robots.txt`, `llms.txt` | pour les robots |

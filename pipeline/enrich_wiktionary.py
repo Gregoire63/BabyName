@@ -11,12 +11,17 @@ Le code langue est exploitable de facon fiable ; la glose l'est moins, d'ou
 le champ `confiance`.
 """
 from __future__ import annotations
-import json, re, sys, unicodedata
+import csv, json, re, sys, unicodedata
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from wikitexte import modeles, en_clair, propre, MARQUE_W
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "data" / "raw" / "wiktionary_etym.json"
 OUT = ROOT / "data" / "cache" / "enrich_wiktionary.jsonl"
+# tous les prenoms INSEE : pour reconnaitre un equivalent donne comme sens
+METRICS = ROOT / "data" / "build" / "prenoms_metrics.csv"
 OUT.parent.mkdir(parents=True, exist_ok=True)
 
 # codes ISO utilises par {{etyl}} -> vocabulaire ferme
@@ -97,7 +102,18 @@ MOTS = [
     ("égyptien", "égyptien"), ("copte", "égyptien"),
 ]
 
-ETYL = re.compile(r"\{\{(?:étyl|etyl|étylp)\|([^|}]+)\|([^|}]*)((?:\|[^|}]*)*)\}\}")
+ETYL = ("étyl", "etyl", "étylp")
+
+# Les prenoms connus (titres du Wiktionnaire + prenoms INSEE) : pour
+# reconnaitre l'equivalent d'un autre prenom (Georgi -> « Georges ») donne en
+# guise de sens.
+NOMS: set[str] = set()
+# ... sauf quand ce prenom est aussi le nom commun qui fait le sens.
+NOMS_COMMUNS = {"lune", "ange", "soleil", "etoile", "aurore", "victoire", "rose", "fleur",
+                "perle", "colombe", "paix", "grace", "esperance", "constance", "prudence",
+                "clemence", "patience", "celeste", "marine", "ocean", "terre"}
+# Noms communs que le Wiktionnaire ecrit avec une majuscule (Amélie : « Force »).
+MINUSCULE = NOMS_COMMUNS | {"force"}
 
 
 def slugify(s: str) -> str:
@@ -115,45 +131,84 @@ def nettoyer(t: str) -> str:
     return t.strip()
 
 
-def glose(params: list[str], titre: str = "") -> str | None:
-    autres = set()
-    """Dernier parametre de {{etyl}} qui ressemble a du francais courant."""
-    nets = [nettoyer(x) for x in params]
-    for i, p in enumerate(reversed(nets)):
-        autres = {slugify(x) for j, x in enumerate(nets) if j != len(nets) - 1 - i and x}
-        if not p or "=" in p:
-            continue
-        if len(p) < 3 or len(p) > 90:
-            continue
-        # doit contenir des lettres latines et au moins une minuscule
-        if not re.search(r"[a-zàâäéèêëîïôöùûüç]", p):
-            continue
-        if re.search(r"[Ͱ-῿֐-ࣿ一-鿿]", p):
-            continue          # grec/hebreu/arabe/CJK : c'est le mot source
-        if p.lower() in ("fr", "m", "f", "mf"):
-            continue
-        # "Alan -> Alan" : l'etymon recopie, pas une signification
-        if titre and slugify(p) == slugify(titre):
-            continue
-        # ... ni un autre parametre du meme modele (le mot source translittere)
-        if slugify(p) in autres:
-            continue
-        return p
-    return None
+def _valide(p: str, autres: list[str], titre: str) -> str | None:
+    """Une glose candidate qui ressemble a du francais courant, ou None."""
+    if not p or len(p) < 3 or len(p) > 90:
+        return None
+    # doit contenir des lettres latines et au moins une minuscule
+    if not re.search(r"[a-zàâäéèêëîïôöùûüç]", p):
+        return None
+    if re.search(r"[Ͱ-῿֐-ࣿ一-鿿]", p):
+        return None           # grec/hebreu/arabe/CJK : c'est le mot source
+    if p.lower() in ("fr", "m", "f", "mf"):
+        return None
+    # "Alan -> Alan" : l'etymon recopie, pas une signification
+    if titre and slugify(p) == slugify(titre):
+        return None
+    # ... ni un autre parametre du meme modele (le mot source translittere)
+    if slugify(p) in {slugify(x) for x in autres if x}:
+        return None
+    # « Georges » pour Georgi : l'equivalent francais, pas un sens
+    if (" " not in p.strip() and p.strip()[:1].isupper() and slugify(p) in NOMS
+            and slugify(p) not in NOMS_COMMUNS):
+        return None
+    if " " not in p.strip() and slugify(p) in MINUSCULE:
+        p = p.strip()[:1].lower() + p.strip()[1:]
+    return propre(p)
+
+
+def glose(libres: list[str], nommes: dict[str, str], titre: str = "") -> str | None:
+    """Le sens de l'etymon : {{étyl|code|fr|mot|translittération|sens}}.
+
+    Seulement `sens=` ou le TROISIEME parametre libre. On prenait « le dernier
+    parametre qui ressemble a du francais » : c'etait le plus souvent le mot
+    source ou sa translitteration, et la carte affichait Nicolas « Nicolaus »,
+    Éric « Eiríkr », Céline « Coelina », Ulysse « Oulíxēs ». Un modele a deux
+    ou trois parametres ne donne pas de sens, et c'est tres bien ainsi.
+    """
+    if nommes.get("sens"):
+        g = _valide(en_clair(nommes["sens"]), [], titre)
+        if g:
+            return g
+    nets = [en_clair(x) for x in libres]
+    return _valide(nets[2], nets[:2], titre) if len(nets) > 2 else None
+
+
+ETIQUETTE = re.compile(r"^:\s*(?:\{\{(?:term|lien-ancre-étym\|fr)\|([^}]*)\}\}|''\(([^)]*)\)''|\(''([^']*)''\))", re.I)
+
+
+def lignes_du_prenom(texte: str) -> str:
+    """Une page peut decrire plusieurs choses : le prenom, une commune, un
+    sigle (Olaf : « Office européen de lutte antifraude »). Quand une ligne
+    est etiquetee « prénom », on ne lit que celle-la (ou celles-la)."""
+    garde = []
+    for ligne in texte.split("\n"):
+        m = ETIQUETTE.match(ligne)
+        if m and "prénom" in (m.group(1) or m.group(2) or m.group(3) or "").lower():
+            garde.append(ligne)
+    return "\n".join(garde) if garde else texte
+
+
+# Hors modele, une glose se reconnait a sa tournure : « dérivé de laurus
+# (« laurier ») », « mot germain signifiant « noble » ». Pas n'importe quelle
+# citation : « Prénom d'un personnage de « La Jérusalem délivrée » » n'est
+# pas un sens.
+GLOSE_TEXTE = re.compile(r"\(\s*«\s*([^»(]{3,80}?)\s*»\s*\)|signifi\w*\s+«\s*([^»]{3,80}?)\s*»")
 
 
 def analyser(titre: str, texte: str) -> dict | None:
-    brut = texte
+    brut = lignes_du_prenom(texte)
     origines, gl = [], None
 
-    for m in ETYL.finditer(brut):
-        code = m.group(1).strip()
+    for nom, libres, nommes in modeles(brut):
+        if nom not in ETYL or len(libres) < 2 or not libres[0].strip():
+            continue
+        code = libres[0].strip()
         fam = CODES.get(code) or CODES.get(code.lower())
         if fam and fam not in origines:
             origines.append(fam)
         if gl is None:
-            params = [p for p in m.group(3).split("|") if p != ""]
-            gl = glose(params, titre)
+            gl = glose(libres[2:], nommes, titre)
 
     if len(origines) > 1:
         origines.reverse()          # origine la plus profonde en premier
@@ -169,10 +224,10 @@ def analyser(titre: str, texte: str) -> dict | None:
                     break
 
     if gl is None:
-        m = re.search(r"[«\"]\s*([^»\"]{3,80})\s*[»\"]", nettoyer(brut))
-        if m:
-            gl = m.group(1).strip()
-            m2 = re.search(r"signifiant\s+(.{3,60})", nettoyer(brut))
+        m = GLOSE_TEXTE.search(en_clair(brut, marquer_w=True))
+        g = next((x for x in m.groups() if x), None) if m else None
+        if g and MARQUE_W not in g:        # un {{w|…}} : un titre, un nom propre
+            gl = _valide(g.strip(), [], titre)
 
     if not origines and not gl:
         return None
@@ -181,7 +236,7 @@ def analyser(titre: str, texte: str) -> dict | None:
         "prenom": titre,
         "origines": origines[:3],
         "signification": gl,
-        "objet_marque": False,          # le Wiktionnaire ne le dit pas
+        "objet_marque": None,          # le Wiktionnaire ne le dit pas
         "objet_marque_note": None,
         "diminutifs": [],
         "charge_epellation": None,
@@ -201,6 +256,10 @@ def main() -> None:
         sys.exit(f"{SRC} absent.")
     data = json.loads(SRC.read_text(encoding="utf-8"))
 
+    NOMS.update(slugify(t) for t in data)
+    if METRICS.exists():
+        with open(METRICS, encoding="utf-8") as fh:
+            NOMS.update(slugify(r["label"]) for r in csv.DictReader(fh))
     # passe 1 : etymologies directes
     resolus: dict[str, dict] = {}
     restants: dict[str, str] = {}
@@ -211,14 +270,21 @@ def main() -> None:
         else:
             resolus[slugify(titre)] = r
 
-    # passe 2 : prenoms composes, resolus par leurs parties
+    # passe 2 : prenoms derives (« composé de Maëlle et de -line »), resolus
+    # par leurs parties -- pour l'ORIGINE seulement.
+    #   - Les composes a trait d'union (Jean-Pierre) ne passent plus ici : la
+    #     fusion (merge_enrichissement.py) les assemble a partir des MEILLEURES
+    #     donnees de chaque partie (manuel, Claude...), pas des seules gloses
+    #     du Wiktionnaire.
+    #   - Pas de sens : « Line : aux cheveux de lin » pour Maëline donnait au
+    #     suffixe -line le sens du prenom Line.
     composes = 0
     for titre, texte in list(restants.items()):
+        if re.search(r"[- ]", titre):
+            continue
         m = COMPOSE.search(nettoyer(texte))
         parties = [x for x in (m.groups() if m else ()) if x] if m else []
-        if not parties and ("-" in titre or " " in titre):
-            parties = re.split(r"[- ]", titre)
-        org, sens = [], []
+        org = []
         for part in parties:
             e = resolus.get(slugify(part))
             if not e:
@@ -226,13 +292,11 @@ def main() -> None:
             for o in e["origines"]:
                 if o not in org:
                     org.append(o)
-            if e["signification"]:
-                sens.append(f"{part} : {e['signification']}")
         if org:
             resolus[slugify(titre)] = {
                 "prenom": titre, "origines": org[:3],
-                "signification": " + ".join(sens)[:120] or None,
-                "objet_marque": False, "objet_marque_note": None,
+                "signification": None,
+                "objet_marque": None, "objet_marque_note": None,
                 "diminutifs": [], "charge_epellation": None,
                 "confiance": "moyenne", "source": "wiktionnaire-composé",
             }

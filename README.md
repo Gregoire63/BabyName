@@ -8,8 +8,10 @@ python3 pipeline/merge_wikidata.py         # + langues d'usage         (~5 s)
 python3 pipeline/enrich_wiktionary.py      # Wiktionnaire FR : sens        GRATUIT
 python3 pipeline/enrich_wiktionary_en.py   # Wiktionnaire EN : origine     GRATUIT
 python3 pipeline/merge_enrichissement.py   # -> data/build/prenoms_final.csv
+python3 pipeline/export_catalogue.py       # -> app/public/data/catalogue.json(.gz)
 python3 pipeline/test_syllabes.py          # 59/59 attendus
 python3 pipeline/test_phonetique.py        # 47/47 attendus
+python3 pipeline/test_wikitexte.py         # les gloses qui ont fini sur une carte
 ```
 
 Tout ce qui précède est **gratuit** : aucune clé, aucun service payant.
@@ -33,12 +35,20 @@ les fait entrer pour qui veut ratisser large.
 
 | | avant `enrich_claude` | après | pondéré par les naissances |
 |---|---|---|---|
-| origine | 4 606 (23 %) | **9 143 (47 %)** | 79 % → **93 %** |
-| signification | 2 244 (11 %) | **6 665 (34 %)** | 70 % → **85 %** |
+| origine | 4 606 (23 %) | **9 145 (47 %)** | 79 % → **93 %** |
+| signification | 2 244 (11 %) | **6 658 (34 %)** | 70 % → **84 %** |
 
 Le saut vient de `data/cache/enrich_claude.jsonl` : les 6 189 prénoms de la
 pile qui avaient un trou, traités par Claude en session, avec le prompt système
 d'`enrich_llm.py` — aucune clé API, aucun coût à l'appel.
+
+`data/cache/enrich_claude_complement.jsonl` (27 septembre 2026, 372 prénoms)
+fait le même travail pour les prénoms dont le « sens » venait en fait d'une
+lecture fautive du Wiktionnaire : de la syntaxe (Masha « {{transliterator »,
+Philippe « chevaux]] ») ou le mot source pris pour un sens (Nicolas
+« Nicolaus », Éric « Eiríkr », Céline « Coelina »). 46 d'entre eux restent
+sans sens, exprès : étymologie discutée (Sofiane, Corentin) ou création
+moderne (Anaé).
 
 ## Une carte par prononciation
 
@@ -99,12 +109,17 @@ renseigne gagne :
 2. **wiktionnaire-en** — 5 686 entrées. Les catégories `given names from X`
    du Wiktionnaire anglais donnent l'**origine ultime** : Gabriel y est
    « from Hebrew », pas « from Latin ». C'est la source d'origine.
-3. **wiktionnaire-fr** — 3 573 entrées. Surtout utile pour les **significations
-   en français**, que l'anglais ne peut pas fournir.
-4. **claude** — `data/cache/enrich_claude.jsonl`, 6 189 prénoms écrits en
-   session par Claude, sans clé API. Placé **après** les deux wiktionnaires
-   exprès : le Wiktionnaire est mécanique et citable, Claude est un jugement.
-   Claude ne remplit donc que les trous et n'écrase aucune valeur sourcée.
+3. **wiktionnaire-fr** — 2 528 entrées. Surtout utile pour les **significations
+   en français**, que l'anglais ne peut pas fournir — mais seulement le vrai
+   sens du modèle (`sens=` ou 3e paramètre de `{{étyl}}`), jamais le mot source
+   ni sa translittération, et seulement la ligne « prénom » d'une page qui
+   décrit aussi une commune ou un sigle (Olaf). Voir `pipeline/wikitexte.py`.
+4. **claude** — `data/cache/enrich_claude.jsonl` (6 189 prénoms) et
+   `enrich_claude_complement.jsonl` (372), écrits en session par Claude, sans
+   clé API. Placé **après** les deux wiktionnaires pour l'origine : le
+   Wiktionnaire est citable, Claude est un jugement. **Sauf pour le sens** :
+   la glose du Wiktionnaire est celle du mot source (Vincentius → « vainquant »),
+   Claude a écrit celui du prénom, relu (`ORDRE_CHAMP` dans la fusion).
 5. **llm** — optionnel, payant, vide. Non utilisé : `enrich_claude` fait le
    même travail sans appel facturé.
 
@@ -124,9 +139,31 @@ Le Wiktionnaire **anglais** classe les prénoms dans des catégories
 `from Latin` : la chaîne complète. Le parseur les ordonne par profondeur
 (hébraïque avant latin) via une table de rangs.
 
-D'où la priorité : manuel > wiktionnaire-en > wiktionnaire-fr.
+D'où la priorité : manuel > wiktionnaire-en > wiktionnaire-fr pour l'origine ;
+manuel > claude > wiktionnaire-fr pour le sens. Les composés à trait d'union
+(Jean-Pierre) sont assemblés par la fusion, à partir du meilleur de chaque
+partie. Le Wiktionnaire ne dit rien des homonymes : `objet_marque` y vaut
+`None` (inconnu), plus `False`, qui masquait 109 homonymes relevés par Claude
+(Fleur, Olivier, Avril, Leïa…).
 Les gloses anglaises ne sont jamais mises dans `signification` (qui doit être
 en français) mais dans `signification_en`.
+
+## Courbes, barres et tendance
+
+L'INSEE arrondit chaque effectif annuel à 5. `export_catalogue.py` en tire
+trois règles :
+
+- `SEUIL_TENDANCE = 60` naissances en trois ans : en dessous, la pente n'est
+  que ce bruit d'arrondi. L'app n'affiche pas de pourcentage par an mais le
+  nombre de bébés (« ≈ 18 »). Le seuil part dans le catalogue
+  (`seuil_tendance`) : l'app et les pages publiques le lisent là.
+- `SEUIL_PIC = 60` naissances dans une année : une courbe se juge à son
+  sommet, pas à ses trois dernières années. Aurélie (11 310 naissances en
+  1986, une cinquantaine en trois ans aujourd'hui) a sa courbe : c'est elle
+  qui raconte le prénom.
+- `BARRES = (2011, 2025)` : les prénoms de la pile sans courbe ont leurs
+  naissances année par année (colonne `nb`, divisées par 5), dessinées en
+  barres. Chaque carte de la pile a donc sa courbe ou ses barres.
 
 ## Clé API (optionnel, payant)
 
