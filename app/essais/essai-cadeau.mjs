@@ -137,7 +137,8 @@ dit(!f.get('client_reference_id') && !f.get('metadata[groupe_id]'), 'aucune list
 dit(f.get('allow_promotion_codes') === 'false', 'pas de code promo : un cadeau gratuit serait un code à revendre')
 dit((f.get('success_url') ?? '').includes('/offrir/merci?session_id={CHECKOUT_SESSION_ID}'),
   'le retour de Stripe rapporte la session, vers la page du code')
-dit(f.get('line_items[0][price]') === 'price_essai_local', 'au prix de la liste (pas de produit cadeau configuré)')
+dit(f.get('line_items[0][price]') === 'price_essai_cadeau',
+  'au prix du produit cadeau, pas de la liste : les cadeaux se lisent à part dans les ventes')
 const pied = f.get('invoice_creation[invoice_data][footer]') ?? ''
 dit(f.get('invoice_creation[invoice_data][custom_fields][0][value]') === `${code1.slice(0, 4)}-${code1.slice(4, 8)}-${code1.slice(8)}`,
   'le code est écrit sur la facture : l’acheteur qui ferme l’onglet ne le perd pas')

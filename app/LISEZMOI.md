@@ -213,8 +213,8 @@ l'app ne fait jamais (page de paiement Stripe).
    `NUXT_SESSION_SECRET` (le même qu'avant garde les sessions ouvertes… sur
    l'ancien domaine seulement, donc au choix), `NUXT_EMAIL_CLE`,
    `NUXT_STRIPE_SECRET_KEY`, `NUXT_STRIPE_WEBHOOK_SECRET`,
-   `NUXT_STRIPE_PRICE_ID`, et `CRON_SECRET` si l'on veut pouvoir lancer la
-   purge à la main. Le reste (`NUXT_PUBLIC_SITE_URL`, prix, expéditeur) est
+   `NUXT_STRIPE_PRICE_ID`, `NUXT_STRIPE_PRICE_ID_CADEAU`, et `CRON_SECRET`
+   si l'on veut pouvoir lancer la purge à la main. Le reste (`NUXT_PUBLIC_SITE_URL`, prix, expéditeur) est
    déjà dans `wrangler.jsonc`.
 5. **Le schéma** : rien à faire — la première requête applique les
    migrations. (Ou avant : `npm run base:migrer`.)
@@ -380,6 +380,8 @@ Le compte Stripe « BabyNames » a déjà son catalogue, créé le 25 septembre 
 |---|---|
 | Produit | `prod_VKB9yYrGETljLP` — « babyNames — liste débloquée » : **à renommer** « babyNamed — liste débloquée » (c'est ce nom que la page de paiement et la facture affichent) |
 | Prix | `price_1UJWn1GaKiRYW6iYRjRPV7xn` — 6 € **TTC**, paiement unique, clé `babynames_liste` (une clé interne : elle peut rester) |
+| Produit cadeau | `prod_VKwNmWd4gQ4IBg` — « babyNamed — liste à offrir » (créé le 27 septembre 2026) : les cadeaux se lisent à part dans les ventes |
+| Prix cadeau | `price_1UKGV2GaKiRYW6iYqpmXEHlM` — 6 € **TTC** (inclusive), paiement unique, clé `babynamed_cadeau` |
 
 Le prix est `tax_behavior: inclusive` : si la TVA s'applique un jour (Stripe
 Tax ou Managed Payments), le client paie toujours 6 €, et c'est la marge qui
@@ -403,7 +405,7 @@ de connexion sont décrites dans « Connexion sans mot de passe ».
 |---|---|
 | `NUXT_STRIPE_SECRET_KEY` | une **clé restreinte** `rk_live_…` (Developers → API keys → Create restricted key) avec **une seule** permission : *Checkout Sessions → Write*. C'est tout ce que le serveur appelle (création et relecture de session) ; volée, elle ne permet ni rembourser, ni lire les clients, ni vider le compte. |
 | `NUXT_STRIPE_PRICE_ID` | `price_1UJWn1GaKiRYW6iYRjRPV7xn` |
-| `NUXT_STRIPE_PRICE_ID_CADEAU` | facultatif : un second produit, « babyNamed — liste à offrir », au même prix, pour lire les cadeaux à part dans les ventes. Vide : les cadeaux passent sur le prix de la liste. |
+| `NUXT_STRIPE_PRICE_ID_CADEAU` | `price_1UKGV2GaKiRYW6iYqpmXEHlM` (« babyNamed — liste à offrir »). Oubliée, rien ne casse : les cadeaux passent sur le prix de la liste, et se confondent avec les ventes. |
 | `NUXT_STRIPE_WEBHOOK_SECRET` | le `whsec_…` affiché à la création du webhook ci-dessous |
 | `NUXT_PUBLIC_SITE_URL` | déjà dans `wrangler.jsonc` : `https://babynamed.fr` |
 | `CRON_SECRET` | facultatif : ouvre `/api/admin/purger` pour lancer la purge à la main (`Authorization: Bearer …`). La purge de chaque nuit n'en a pas besoin. |
