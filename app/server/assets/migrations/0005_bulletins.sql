@@ -80,10 +80,10 @@ update bulletins
 -- la liste, et une liste effacée ne rend pas le sien à la personne.
 create trigger if not exists trg_bulletins_depart after delete on bulletins
 when old.depart > 0
-begin
+BEGIN
   update utilisateurs set gestes_depart = gestes_depart + old.depart where id = old.user_id;
   update groupes set gestes_depart = gestes_depart + old.depart where id = old.groupe_id;
-end;
+END;
 
 drop view if exists v_matchs;
 drop table if exists votes;

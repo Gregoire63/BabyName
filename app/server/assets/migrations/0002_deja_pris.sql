@@ -24,13 +24,13 @@ alter table vetos add column tete text;
 drop trigger if exists trg_quota_veto;
 create trigger if not exists trg_quota_veto before insert on vetos
 when new.tete is null or new.tete = new.prenom
-begin
+BEGIN
   select raise(abort, 'quota_veto_atteint')
    where (select count(distinct coalesce(tete, prenom)) from vetos
            where groupe_id = new.groupe_id and user_id = new.user_id
              and coalesce(tete, prenom) <> coalesce(new.tete, new.prenom))
          >= (select nb_vetos_max from groupes where id = new.groupe_id);
-end;
+END;
 
 -- Deux blocages secrets ne suffisaient pas : faute d'autre moyen, ils
 -- servaient aussi pour la famille. « Déjà pris » s'en charge désormais ; le
@@ -58,21 +58,21 @@ create index if not exists idx_deja_pris_user on deja_pris (user_id);
 -- La note est le texte de son auteur : elle part avec lui.
 create trigger if not exists trg_deja_pris_sans_auteur after update of user_id on deja_pris
 when new.user_id is null
-begin
+BEGIN
   update deja_pris set motif = null
    where groupe_id = new.groupe_id and prenom = new.prenom and motif is not null;
-end;
+END;
 
 -- Sans quota ne veut pas dire sans borne : deux cents prénoms, c'est toute une
 -- famille élargie et bien plus. La borne protège la base, pas l'usage. Seule
 -- la tête est comptée : trente graphies ne relisent pas trente fois la liste.
 create trigger if not exists trg_deja_pris_plein before insert on deja_pris
 when new.tete = new.prenom
-begin
+BEGIN
   select raise(abort, 'deja_pris_plein')
    where (select count(distinct tete) from deja_pris
            where groupe_id = new.groupe_id and tete <> new.tete) >= 200;
-end;
+END;
 
 -- ============================================================================
 --  Onglet « communs » : tous les décideurs ont voté, personne n'a dit non,

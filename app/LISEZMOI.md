@@ -1088,6 +1088,13 @@ SQLite n'a pas `alter table … add column if not exists` : une migration
 s'écrit pour être jouée une fois, c'est la table de suivi qui l'empêche de
 repasser.
 
+Un déclencheur s'écrit avec `BEGIN` et `END;` **en majuscules**.
+`npm run base:migrer` passe par l'API de D1, qui découpe le SQL elle-même
+et ne reconnaît le corps d'un déclencheur qu'ainsi : en minuscules, elle
+coupe au premier `;` du corps (« incomplete input »), alors que SQLite, le
+local et l'app acceptent le fichier. `scripts/verifier-migrations.mjs`, lancé
+par `npm run build`, refuse un fichier qui l'oublie.
+
 ## Vérifier
 
 `GET /api/sante` dit ce qui est branché sans révéler aucune valeur :

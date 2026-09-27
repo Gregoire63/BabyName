@@ -129,11 +129,11 @@ create table if not exists vetos (
 ) without rowid;
 
 create trigger if not exists trg_quota_veto before insert on vetos
-begin
+BEGIN
   select raise(abort, 'quota_veto_atteint')
    where (select count(*) from vetos where groupe_id = new.groupe_id and user_id = new.user_id)
          >= (select nb_vetos_max from groupes where id = new.groupe_id);
-end;
+END;
 
 -- ---------------------------------------------------------------- favoris
 create table if not exists favoris (
