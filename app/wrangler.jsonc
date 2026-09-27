@@ -18,7 +18,7 @@
     {
       "binding": "DB",
       "database_name": "babynamed",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "11a12053-c0c6-453a-8e06-52cd9ebad313",
       "migrations_dir": "server/assets/migrations"
     }
   ],

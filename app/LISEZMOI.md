@@ -352,7 +352,10 @@ de chacun des 12 derniers mois, dans un budget de 90 Mo (l'hébergement en
 fait 100) : au-delà, les plus anciennes partent d'abord. Pour se faire une
 idée, 200 couples à 600 swipes = une base de 81 Mo, une sauvegarde de 2 Mo. Le script : `scripts/sauvegarde-ovh.sh`
 (comment restaurer, en tête) ; le calendrier :
-`.github/workflows/sauvegarde-base.yml`, à la racine du dépôt.
+`.github/workflows/sauvegarde-base.yml`, à la racine du dépôt. La politique
+de confidentialité le dit : durées dans `CONSERVATION` (`historiqueJours`,
+`sauvegardeNuits`, `sauvegardeMois`), GitHub et OVH dans `DESTINATAIRES`
+(`shared/utils/editeur.ts`). Changer la rotation, c'est changer ces nombres.
 
 Une fois :
 

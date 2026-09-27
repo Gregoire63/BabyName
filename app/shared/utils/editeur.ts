@@ -112,15 +112,16 @@ export const DESTINATAIRES = [
     garantie: 'Certifié Data Privacy Framework entre l’UE et les États-Unis ; clauses contractuelles types de la Commission européenne',
     lien: 'https://www.cloudflare.com/fr-fr/privacypolicy/'
   },
-  COURRIEL.fournisseur === 'ovh'
-    ? {
-        nom: 'OVH SAS',
-        role: 'Messagerie de babynamed.fr : envoi des e-mails d’inscription, de connexion et d’alerte',
-        pays: 'France (Union européenne)',
-        garantie: 'Données hébergées et traitées dans l’Union européenne',
-        lien: 'https://www.ovhcloud.com/fr/personal-data-protection/'
-      }
-    : COURRIEL.fournisseur === 'brevo'
+  {
+    nom: 'OVH SAS',
+    role: COURRIEL.fournisseur === 'ovh'
+      ? 'Messagerie de babynamed.fr (envoi des e-mails d’inscription, de connexion et d’alerte) et hébergement des sauvegardes chiffrées de la base'
+      : 'Hébergement des sauvegardes chiffrées de la base',
+    pays: 'France (Union européenne)',
+    garantie: 'Données hébergées et traitées dans l’Union européenne',
+    lien: 'https://www.ovhcloud.com/fr/personal-data-protection/'
+  },
+  ...(COURRIEL.fournisseur === 'ovh' ? [] : [COURRIEL.fournisseur === 'brevo'
       ? {
           nom: 'Brevo (Sendinblue SAS)',
           role: 'Envoi des e-mails d’inscription, de connexion et d’alerte',
@@ -134,7 +135,16 @@ export const DESTINATAIRES = [
           pays: 'États-Unis',
           garantie: 'Clauses contractuelles types de la Commission européenne',
           lien: 'https://resend.com/legal/privacy-policy'
-        },
+        }]),
+  {
+    // La sauvegarde nocturne tourne sur GitHub Actions : la base y passe en
+    // clair, le temps de l'exporter et de la chiffrer (scripts/sauvegarde-ovh.sh).
+    nom: 'GitHub, Inc.',
+    role: 'Sauvegarde nocturne : la base y est exportée, compressée et chiffrée le temps de la tâche, puis envoyée chez OVH ; rien n’y est conservé',
+    pays: 'États-Unis',
+    garantie: 'Certifié Data Privacy Framework entre l’UE et les États-Unis ; clauses contractuelles types de la Commission européenne',
+    lien: 'https://docs.github.com/fr/site-policy/privacy-policies/github-general-privacy-statement'
+  },
   {
     nom: 'Stripe Payments Europe, Ltd.',
     role: 'Paiement (uniquement si vous débloquez une liste) : encaissement, reçu et facture, lutte contre la fraude',
@@ -161,7 +171,13 @@ export const CONSERVATION = {
   comptabiliteAns: 10,
   /** Un code cadeau : valable ce nombre de mois apres l'achat ; inutilise,
    *  il est efface a l'echeance (avec le nom et le mot de l'offrant). */
-  cadeauMois: 24
+  cadeauMois: 24,
+  /** L'historique de restauration de D1 (Time Travel, offre gratuite). */
+  historiqueJours: 7,
+  /** Les copies chiffrées chez OVH (scripts/sauvegarde-ovh.sh) : les nuits
+   *  récentes, puis la première de chaque mois. Au-delà, rien. */
+  sauvegardeNuits: 30,
+  sauvegardeMois: 12
 } as const
 
 export const CNIL = {

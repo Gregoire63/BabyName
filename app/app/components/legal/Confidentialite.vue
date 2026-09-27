@@ -163,7 +163,9 @@ const c = CONSERVATION
     Ces transferts reposent sur la décision d’adéquation de la Commission européenne pour les entreprises
     certifiées Data Privacy Framework, et sur les clauses contractuelles types de la Commission.
     Stripe Payments Europe est établie en Irlande ; certaines données peuvent être traitées par Stripe, Inc.
-    aux États-Unis, sous les mêmes garanties.
+    aux États-Unis, sous les mêmes garanties. La sauvegarde nocturne passe par GitHub, société américaine
+    elle aussi : la base y est chiffrée le temps de la tâche, sous les mêmes garanties, et la copie
+    chiffrée est conservée en France, chez OVH.
     <template v-if="COURRIEL.fournisseur === 'resend'">
       Resend, qui envoie les e-mails de connexion, est aussi une société américaine (clauses contractuelles
       types).
@@ -190,7 +192,7 @@ const c = CONSERVATION
     <li><strong>Compteurs d’essais</strong> : deux jours au plus.</li>
     <li><strong>Pièces liées à un paiement</strong> (facture, paiement) : {{ c.comptabiliteAns }} ans, durée imposée par le Code de commerce (art. L123-22). Elles sont conservées par Stripe et dans notre comptabilité, pas dans l’app.</li>
     <li><strong>Journaux techniques</strong> : quelques jours au plus, chez l’hébergeur.</li>
-    <li><strong>Sauvegardes</strong> : la base garde un historique de restauration de quelques jours ; une donnée effacée en disparaît à l’issue de ce délai.</li>
+    <li><strong>Sauvegardes</strong> : la base garde {{ c.historiqueJours }} jours d’historique de restauration. Chaque nuit, une copie chiffrée part aussi chez OVH, en France : on garde les {{ c.sauvegardeNuits }} dernières nuits, puis une copie par mois pendant {{ c.sauvegardeMois }} mois. Elles ne servent qu’à réparer une panne ou une erreur. Une donnée effacée disparaît ainsi de toutes les copies au plus tard {{ c.sauvegardeMois }} mois après.</li>
   </ul>
 
   <h2>Vos droits</h2>
