@@ -1,9 +1,11 @@
 /**
  * Se connecter sans mot de passe — et ce qui protège les comptes.
  *
- *  1. Nouveau compte : plus de clé à recopier ; l'étape « Pour retrouver
- *     votre compte » crée une passkey (authentificateur virtuel de Chrome) ;
- *     on se reconnecte avec elle ; retirée, elle ne sert plus.
+ *  1. Deux onglets, Inscription et Connexion. Nouveau compte : un prénom et
+ *     on entre, plus de clé à recopier ; l'accueil rappelle d'une ligne de
+ *     quoi retrouver le compte, et c'est de là qu'on crée une passkey
+ *     (authentificateur virtuel de Chrome) ; déconnecté, on revient sur
+ *     l'onglet Connexion et avec elle ; retirée, elle ne sert plus.
  *  2. Lien par e-mail : le code (faux, puis bon), le lien (une seule fois),
  *     la même réponse pour une adresse inconnue, cinq codes faux et le lien
  *     meurt.
@@ -65,35 +67,71 @@ async function seDeconnecter(page) {
     hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } })
 
   await page.goto(`${LOCAL}/connexion`, { waitUntil: 'networkidle' })
+  const inscription = page.getByRole('tab', { name: 'Inscription' })
+  const connexion = page.getByRole('tab', { name: 'Connexion' })
+  dit(await page.getByRole('tab').count() === 2 && await inscription.getAttribute('aria-selected') === 'true',
+    'la page ne propose que deux choses : Inscription (ouverte d’office) ou Connexion')
+  await inscription.focus()
+  await page.keyboard.press('ArrowRight')
+  dit(await connexion.getAttribute('aria-selected') === 'true'
+      && await page.evaluate(() => document.activeElement?.textContent?.trim()) === 'Connexion',
+    'les flèches passent d’un onglet à l’autre (motif ARIA)')
+  dit(await page.locator('input[type="email"]').count() === 1, 'Connexion : l’e-mail, tout de suite')
+  await page.keyboard.press('ArrowLeft')
   await page.locator('input.champ').fill('Zoé')
-  await page.getByRole('button', { name: 'Commencer' }).click()
-  await page.getByRole('heading', { name: 'Pour retrouver votre compte' }).waitFor({ timeout: 15000 })
+  await page.getByRole('button', { name: 'Créer mon compte' }).click()
+  await page.waitForSelector('.bento', { timeout: 20000 })
+  // la page de connexion sort en fondu : on attend qu'il ne reste que l'accueil
+  await page.waitForFunction(() => document.querySelectorAll('main').length === 1, null, { timeout: 5000 })
   const texte = await page.locator('main').innerText()
   dit(!/clé d’accès|XXXX-/i.test(texte), 'nouveau compte : plus aucune clé à recopier')
-  dit(await page.getByRole('button', { name: 'Plus tard' }).count() === 1,
-    'on peut remettre à plus tard, rien n’est imposé')
+  dit(await page.locator('.proteger').count() === 1,
+    'un prénom et on entre ; l’accueil rappelle d’une ligne de quoi retrouver le compte')
 
+  await page.locator('.proteger').click()
+  await page.waitForSelector('.feuille-corps', { timeout: 8000 })
   await page.getByRole('button', { name: 'Créer une passkey' }).click()
-  await page.getByText('Passkey enregistrée').waitFor({ timeout: 15000 })
+  await page.getByRole('button', { name: /^Retirer la passkey/ }).waitFor({ timeout: 15000 })
   const { credentials } = await cdp.send('WebAuthn.getCredentials', { authenticatorId })
   dit(credentials.length === 1 && credentials[0].isResidentCredential && credentials[0].rpId === 'localhost',
     `une passkey découvrable, liée au domaine (${credentials[0]?.rpId})`)
   dit(!credentials[0]?.userHandle || !/[0-9a-f]{8}-[0-9a-f]{4}/.test(Buffer.from(credentials[0].userHandle, 'base64').toString()),
     'elle ne porte pas l’identifiant du compte')
-  await page.getByRole('button', { name: 'Continuer' }).click()
-  await page.waitForSelector('.bento', { timeout: 20000 })
-  dit(await page.locator('.proteger').count() === 0, 'protégé : l’accueil ne réclame rien')
+  await page.keyboard.press('Escape'); await page.waitForTimeout(500)
+  dit(await page.locator('.proteger').count() === 0, 'protégé : l’accueil ne réclame plus rien')
 
+  // L'onglet Connexion lance la demande « autofill » : le clavier du champ
+  // e-mail propose la passkey. Un vrai téléphone attend qu'on la touche ;
+  // l'authentificateur virtuel de Chrome, lui, la choisit tout seul — on
+  // revient donc sans rien taper.
   await seDeconnecter(page)
-  await page.getByRole('button', { name: 'Se connecter avec une passkey' }).click()
   // Pas seulement « .bento » : pendant la transition de page, l'accueil qu'on
   // vient de quitter est encore dans le document — on lirait /api/auth/moi
   // avant la fin de la connexion.
   await page.waitForURL(u => !u.pathname.startsWith('/connexion'), { timeout: 20000 })
   await page.waitForSelector('.bento', { timeout: 20000 })
-  const moi = (await api(page, '/api/auth/moi')).j
+  let moi = (await api(page, '/api/auth/moi')).j
   dit(moi?.utilisateur?.pseudo === 'Zoé' && moi.utilisateur.passkeys === 1,
-    'on revient d’un geste, avec la passkey (sans rien taper)')
+    'déconnecté, on revient avec la passkey que propose le champ e-mail, sans rien taper')
+
+  // Le bouton, lui, doit marcher sans l'autofill (navigateurs qui ne l'ont
+  // pas) : on le retire à ce contexte pour la suite.
+  await ctx.addInitScript(() => {
+    if (window.PublicKeyCredential) PublicKeyCredential.isConditionalMediationAvailable = async () => false
+  })
+  await page.reload({ waitUntil: 'networkidle' })     // l'app est une SPA : le script vaut au chargement
+  await page.waitForSelector('.bento', { timeout: 20000 })
+  await seDeconnecter(page)
+  await page.waitForTimeout(800)
+  dit(page.url().includes('/connexion')
+      && await page.getByRole('tab', { name: 'Connexion' }).getAttribute('aria-selected') === 'true',
+    'déconnecté, on revient sur l’onglet Connexion (pas sur une seconde inscription)')
+  await page.getByRole('button', { name: 'Se connecter avec une passkey' }).click()
+  await page.waitForURL(u => !u.pathname.startsWith('/connexion'), { timeout: 20000 })
+  await page.waitForSelector('.bento', { timeout: 20000 })
+  moi = (await api(page, '/api/auth/moi')).j
+  dit(moi?.utilisateur?.pseudo === 'Zoé' && moi.utilisateur.passkeys === 1,
+    'ou d’un geste, avec le bouton « Se connecter avec une passkey »')
 
   // La retirer depuis « Mon compte » : elle ne sert plus.
   const [avantRetrait] = (await cdp.send('WebAuthn.getCredentials', { authenticatorId })).credentials
@@ -127,7 +165,7 @@ async function seDeconnecter(page) {
 {
   const { ctx, page } = await nouvel()
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'Recevoir un lien par e-mail' }).click()
+  await page.getByRole('tab', { name: 'Connexion' }).click()
   await page.locator('input[type="email"]').fill('audrey@exemple.test')
   dit(await page.locator('input[type="email"]').getAttribute('autocomplete') === 'username webauthn',
     'le champ propose aussi les passkeys du téléphone')
@@ -149,7 +187,6 @@ async function seDeconnecter(page) {
 
   // Le lien, une seule fois.
   await seDeconnecter(page)
-  await page.getByRole('button', { name: 'Recevoir un lien par e-mail' }).click()
   await page.locator('input[type="email"]').fill('audrey@exemple.test')
   await page.getByRole('button', { name: 'Recevoir un lien' }).click()
   await page.getByRole('status').filter({ hasText: 'audrey@exemple.test' }).waitFor({ timeout: 10000 })

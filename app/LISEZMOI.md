@@ -783,8 +783,11 @@ retiré) au lieu de laisser une clé étrangère lever une `500`.
 
 ## Connexion sans mot de passe
 
-Plus de clé d'accès à recopier. On crée son compte avec un prénom, puis
-l'app propose (sans l'imposer) de quoi le retrouver ailleurs :
+Plus de clé d'accès à recopier. La page `/connexion` n'a que deux onglets,
+**Inscription** (un prénom, et on entre) et **Connexion** ; après une
+déconnexion, on y revient sur Connexion (`?mode=connexion`). Pas d'étape
+entre l'inscription et le tri : l'accueil rappelle d'une ligne, tant que ce
+n'est pas fait, de quoi retrouver le compte ailleurs :
 
 - **une passkey** (WebAuthn) : Face ID, empreinte ou code du téléphone. Elle
   se range dans le trousseau (iCloud, Google, 1Password…) et suit sur les
@@ -804,7 +807,7 @@ petit) jusqu'à ce qu'ils la désactivent dans *Mon compte*.
 | `server/api/auth/passkey/*` | options et vérification (inscription, connexion) ; défi dans un cookie signé de 5 min |
 | `server/api/auth/lien*.ts`, `code.post.ts`, `email.*.ts` | lien + code (15 min, un seul usage, 5 codes faux et le lien meurt, empreintes seulement) |
 | `server/utils/liens.ts`, `courriel.ts` | création/consommation des liens ; envoi (Brevo ou Resend, sans SDK) |
-| `app/components/SecuriserCompte.vue`, `MoyensConnexion.vue`, `FormulaireEmail.vue` | l'étape après création, *Mon compte → Se connecter*, le formulaire adresse → code |
+| `app/components/MoyensConnexion.vue`, `FormulaireEmail.vue` | *Mon compte → Se connecter* (passkey, adresse, ancienne clé), le formulaire adresse → code |
 | `app/pages/connexion/lien.vue` | le lien de l'e-mail : jeton après le `#`, effacé de l'adresse, **un bouton** avant de le consommer (les robots des messageries ouvrent les liens) |
 
 **Le domaine, avant tout.** Une passkey est liée au domaine où elle est

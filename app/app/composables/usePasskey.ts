@@ -34,7 +34,10 @@ function expliquer(err: any): string {
   return 'La passkey n’a pas pu servir. Réessayez, ou recevez un lien par e-mail.'
 }
 
-export type Resultat = { ok: true } | { ok: false; message: string }
+export type Resultat = { ok: true } | { ok: false; message: string
+  /** La passkey présentée a été retirée du compte : le seul échec d'un
+   *  autofill qui mérite d'être dit (les autres sont silencieux). */
+  inconnue?: boolean }
 
 /** Créer une passkey pour le compte connecté. */
 export async function creerPasskey(): Promise<Resultat & { nom?: string }> {
@@ -71,7 +74,7 @@ export async function connecterPasskey(autofill = false): Promise<Resultat> {
     if (err?.data?.statusMessage === 'passkey_inconnue' && d?.rpID && d?.credentialID) {
       sendSignal({ signalName: 'unknownCredential', rpID: d.rpID, credentialID: d.credentialID }).catch(() => {})
     }
-    return { ok: false, message: expliquer(err) }
+    return { ok: false, message: expliquer(err), inconnue: err?.data?.statusMessage === 'passkey_inconnue' }
   }
 }
 

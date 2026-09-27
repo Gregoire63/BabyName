@@ -37,7 +37,8 @@ async function sortir() {
   await $fetch('/api/auth/sortir', { method: 'POST' }).catch(() => null)
   viderStockageLocal()
   moi.value = null
-  await navigateTo('/connexion')
+  // Qui vient de se déconnecter veut revenir : l'onglet Connexion, pas Inscription.
+  await navigateTo('/connexion?mode=connexion')
 }
 
 // --- mes donnees (RGPD) ---------------------------------------------------

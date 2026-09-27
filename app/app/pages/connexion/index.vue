@@ -4,22 +4,27 @@ import { chargerCatalogue, trouverPrenom } from '~/composables/useCatalogue'
 import { passkeysPossibles, connecterPasskey, abandonnerPasskey } from '~/composables/usePasskey'
 
 /**
- * Entrer : sans mot de passe, et sans rien à recopier.
+ * Entrer : deux onglets, Inscription et Connexion — rien d'autre à comprendre.
  *
- *  - Nouveau : un prénom suffit. Juste après, on propose de quoi retrouver
- *    le compte ailleurs (SecuriserCompte) — passkey, e-mail, ou plus tard.
- *  - Déjà un compte : la passkey (Face ID, empreinte, code du téléphone), ou
- *    un lien reçu par e-mail, doublé d'un code pour l'app installée.
+ *  - Inscription : un prénom, et on entre. Plus d'étape « pour retrouver
+ *    votre compte » entre les deux : l'accueil le rappelle d'une ligne tant
+ *    que le compte n'a ni passkey ni e-mail (SectionAccueil, `.proteger`).
+ *  - Connexion : l'e-mail (un lien, doublé d'un code pour l'app installée —
+ *    le champ propose aussi les passkeys du téléphone), ou la passkey d'un geste.
  *  - Les comptes d'avant gardent leur clé d'accès, en petit en bas.
+ *
+ * On arrive sur Connexion après une déconnexion (`?mode=connexion`) : c'est
+ * là qu'on veut revenir, pas sur un second compte créé par erreur.
  */
 const route = useRoute()
 const pseudo = ref('')
 const cle = ref('')
-const mode = ref<'choix' | 'email' | 'cle'>('choix')
+const mode = ref<'choix' | 'cle'>('choix')
+const ONGLETS = ['inscription', 'connexion'] as const
+const onglet = ref<'inscription' | 'connexion'>(route.query.mode === 'connexion' ? 'connexion' : 'inscription')
+const idOnglets = useId()
 const envoi = ref(false)
 const erreur = ref('')
-/** Le compte vient d'être créé : l'étape « pour retrouver votre compte ». */
-const nouveau = ref(false)
 const passkeyPossible = ref(false)
 const courrielPossible = useCourrielPossible()
 const erreurPasskey = ref('')
@@ -69,7 +74,7 @@ async function creer() {
     await $fetch<any>('/api/auth/entrer', { method: 'POST', body: { pseudo: pseudo.value } })
     await rafraichirMoi()
     abandonnerPasskey()
-    nouveau.value = true
+    await suite()
   } catch (e: any) {
     erreur.value = messageErreur(e, 'Création impossible. Réessayez dans un instant.')
   } finally { envoi.value = false }
@@ -85,13 +90,41 @@ async function avecPasskey() {
   erreurPasskey.value = r.message
 }
 
-function versEmail() {
-  mode.value = 'email'; erreur.value = ''
-  // Le champ de l'adresse propose aussi les passkeys du téléphone (clavier) :
-  // qui a une passkey et ne s'en souvient pas la retrouve là.
-  nextTick(() => { if (passkeyPossible.value) connecterPasskey(true).then(r => { if (r.ok) suite() }) })
+/**
+ * L'onglet Connexion : le champ de l'adresse propose aussi les passkeys du
+ * téléphone (clavier) — qui a une passkey et ne s'en souvient pas la retrouve là.
+ */
+function choisirOnglet(o: 'inscription' | 'connexion', focus = false) {
+  if (onglet.value !== o) {
+    onglet.value = o
+    erreur.value = ''
+    erreurPasskey.value = ''
+  }
+  if (o === 'connexion') {
+    // L'autofill échoue en silence (rien n'a été demandé à personne), sauf
+    // quand la passkey choisie au clavier a été retirée du compte : ça, on le dit.
+    nextTick(() => {
+      if (passkeyPossible.value) {
+        connecterPasskey(true).then(r => {
+          if (r.ok) suite()
+          else if (r.inconnue) erreurPasskey.value = r.message
+        })
+      }
+    })
+  } else {
+    abandonnerPasskey()
+  }
+  if (focus) nextTick(() => document.getElementById(`${idOnglets}-${o}`)?.focus())
 }
-function versChoix() { abandonnerPasskey(); mode.value = 'choix'; erreur.value = '' }
+/** Motif ARIA des onglets : les flèches passent de l'un à l'autre. */
+function auClavier(e: KeyboardEvent) {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+  e.preventDefault()
+  const o = e.key === 'Home' ? 'inscription' : e.key === 'End' ? 'connexion'
+    : onglet.value === 'inscription' ? 'connexion' : 'inscription'
+  choisirOnglet(o, true)
+}
+function versChoix() { mode.value = 'choix'; erreur.value = ''; choisirOnglet(onglet.value) }
 
 async function reprendre() {
   erreur.value = ''
@@ -122,6 +155,7 @@ async function entrerComme(c: string) {
 onMounted(async () => {
   if (await rafraichirMoi()) return suite()
   passkeyPossible.value = passkeysPossibles()
+  if (onglet.value === 'connexion') choisirOnglet('connexion')
   if (cadeau.value) {
     // Le lien de connexion par e-mail s'ouvre ailleurs, sans ce paramètre :
     // l'appareil le garde (utils/cadeauEnAttente).
@@ -140,33 +174,12 @@ onBeforeUnmount(() => abandonnerPasskey())
 
 <template>
   <main id="contenu" class="accueil" tabindex="-1">
-    <p v-if="compteSupprime && !nouveau" class="carte mini supprime" role="status">
+    <p v-if="compteSupprime" class="carte mini supprime" role="status">
       Votre compte et vos données ont été supprimés.
     </p>
 
-    <!-- 1. le compte vient d'être créé : comment le retrouver ailleurs -->
-    <template v-if="nouveau">
-      <div class="haut">
-        <img src="/logo.png" alt="" width="58" height="58">
-        <h1>Bonjour {{ pseudo.trim() }}</h1>
-      </div>
-      <SecuriserCompte @suite="suite" />
-    </template>
-
-    <!-- 2. un lien par e-mail -->
-    <template v-else-if="mode === 'email'">
-      <div class="haut">
-        <img src="/logo.png" alt="" width="58" height="58">
-        <h1>Recevoir un lien</h1>
-      </div>
-      <div class="carte pile">
-        <FormulaireEmail but="connexion" @fait="suite" />
-        <button type="button" class="btn btn-0 doux" @click="versChoix">Retour</button>
-      </div>
-    </template>
-
-    <!-- 3. l'ancienne clé d'accès -->
-    <template v-else-if="mode === 'cle'">
+    <!-- l'ancienne clé d'accès -->
+    <template v-if="mode === 'cle'">
       <div class="haut">
         <img src="/logo.png" alt="" width="58" height="58">
         <h1>Votre clé</h1>
@@ -188,7 +201,7 @@ onBeforeUnmount(() => abandonnerPasskey())
       </div>
     </template>
 
-    <!-- 4. première venue, ou retour -->
+    <!-- inscription ou connexion -->
     <template v-else>
       <div class="haut">
         <img src="/logo.png" alt="" width="66" height="66">
@@ -196,53 +209,65 @@ onBeforeUnmount(() => abandonnerPasskey())
         <p class="doux">Choisir un prénom à deux, sans s’influencer.</p>
       </div>
 
+      <p v-if="prenomVu" class="attend">
+        Votre liste commencera par <strong>{{ prenomVu }}</strong>.
+      </p>
+      <p v-if="invitation" class="attend">
+        Une liste vous a été partagée : vous y entrez juste après.
+      </p>
+      <p v-if="cadeau" class="attend">
+        <strong>{{ cadeauDe ? `${cadeauDe} vous offre babyNamed` : 'Un cadeau vous attend' }}</strong> :
+        une liste débloquée. Un prénom suffit pour commencer, le cadeau suit.
+      </p>
+
       <div class="carte pile">
-        <p v-if="prenomVu" class="attend">
-          Votre liste commencera par <strong>{{ prenomVu }}</strong>.
-        </p>
-        <p v-if="invitation" class="attend">
-          Une liste vous a été partagée : vous y entrez juste après.
-        </p>
-        <p v-if="cadeau" class="attend">
-          <strong>{{ cadeauDe ? `${cadeauDe} vous offre babyNamed` : 'Un cadeau vous attend' }}</strong> :
-          une liste débloquée. Un prénom suffit pour commencer, le cadeau suit.
-        </p>
-        <label class="pile" style="gap:6px">
-          <span class="mini doux">Votre prénom, pour que l’autre vous reconnaisse</span>
-          <input v-model="pseudo" class="champ" placeholder="Greg" autocomplete="nickname"
-                 @keyup.enter="creer">
-        </label>
-        <button type="button" class="btn btn-1" :disabled="envoi" @click="creer">
-          {{ envoi ? 'Création…' : 'Commencer' }}
-        </button>
-        <p v-if="erreur && mode === 'choix'" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
-        <p class="mini doux" style="margin:0">
-          Pas de mot de passe. Juste après, vous choisirez comment retrouver votre
-          compte sur un autre appareil : une passkey, ou un lien par e-mail.
-        </p>
-        <!-- L'information au moment de la collecte (RGPD, art. 13) : courte
-             ici, complete derriere le lien. -->
-        <p class="mini doux" style="margin:0">
-          En commençant, vous acceptez les
-          <NuxtLink to="/conditions" class="lien">conditions d’utilisation</NuxtLink>.
-          Seul ce prénom est demandé ; vos listes et vos votes servent à faire marcher
-          l’app, jamais à de la publicité —
-          <NuxtLink to="/confidentialite" class="lien">ce qu’on garde et pourquoi</NuxtLink>.
-        </p>
+        <div class="segment-entree" role="tablist" aria-label="Inscription ou connexion" @keydown="auClavier">
+          <button v-for="o in ONGLETS" :id="`${idOnglets}-${o}`" :key="o"
+                  type="button" role="tab" :aria-selected="onglet === o"
+                  :aria-controls="`${idOnglets}-panneau`" :tabindex="onglet === o ? 0 : -1"
+                  @click="choisirOnglet(o)">
+            {{ o === 'inscription' ? 'Inscription' : 'Connexion' }}
+          </button>
+        </div>
+
+        <div :id="`${idOnglets}-panneau`" role="tabpanel" :aria-labelledby="`${idOnglets}-${onglet}`"
+             class="pile" style="gap:12px">
+          <template v-if="onglet === 'inscription'">
+            <label class="pile" style="gap:6px">
+              <span class="mini doux">Votre prénom, pour que l’autre vous reconnaisse</span>
+              <input v-model="pseudo" class="champ" placeholder="Greg" autocomplete="nickname"
+                     @keyup.enter="creer">
+            </label>
+            <button type="button" class="btn btn-1" :disabled="envoi" @click="creer">
+              {{ envoi ? 'Création…' : 'Créer mon compte' }}
+            </button>
+            <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
+            <!-- L'information au moment de la collecte (RGPD, art. 13) : courte
+                 ici, complete derriere le lien. -->
+            <p class="mini doux" style="margin:0">
+              Pas de mot de passe. En créant un compte, vous acceptez les
+              <NuxtLink to="/conditions" class="lien">conditions d’utilisation</NuxtLink>.
+              Seul ce prénom est demandé ; vos listes et vos votes servent à faire marcher
+              l’app, jamais à de la publicité —
+              <NuxtLink to="/confidentialite" class="lien">ce qu’on garde et pourquoi</NuxtLink>.
+            </p>
+          </template>
+
+          <template v-else>
+            <FormulaireEmail v-if="courrielPossible" but="connexion" @fait="suite" />
+            <button v-if="passkeyPossible" type="button" class="btn" :disabled="envoi" @click="avecPasskey">
+              Se connecter avec une passkey
+            </button>
+            <p v-if="erreurPasskey" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreurPasskey }}</p>
+            <p v-if="!courrielPossible && !passkeyPossible" class="mini doux" style="margin:0">
+              Ce navigateur ne sait pas se servir d’une passkey. Ouvrez babyNamed sur le
+              téléphone où vous l’avez créée, ou entrez avec votre clé.
+            </p>
+          </template>
+        </div>
       </div>
 
-      <div v-if="passkeyPossible || courrielPossible" class="carte pile">
-        <h2 class="deja">Vous avez déjà un compte ?</h2>
-        <button v-if="passkeyPossible" type="button" class="btn" :disabled="envoi" @click="avecPasskey">
-          Se connecter avec une passkey
-        </button>
-        <button v-if="courrielPossible" type="button" class="btn" @click="versEmail">
-          Recevoir un lien par e-mail
-        </button>
-        <p v-if="erreurPasskey" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreurPasskey }}</p>
-      </div>
-
-      <button type="button" class="btn btn-0 doux mini" @click="mode = 'cle'; erreur = ''">
+      <button type="button" class="btn btn-0 doux mini" @click="mode = 'cle'; erreur = ''; abandonnerPasskey()">
         J’ai déjà une clé
       </button>
 
@@ -266,7 +291,15 @@ onBeforeUnmount(() => abandonnerPasskey())
 .haut img { border-radius: 17px; }
 .haut h1 { font-size: 1.7rem; }
 .haut p { margin: 0; }
-.deja { font-size: .98rem; }
+/* Deux onglets en segment : Inscription | Connexion. (Pas « .onglets » : c'est
+   la barre du bas de l'app, en style global.) */
+.segment-entree { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px;
+  border-radius: 14px; background: var(--fond); border: 1px solid var(--trait); }
+.segment-entree button { border: 0; border-radius: 10px; padding: 9px 8px; font: inherit; font-weight: 700;
+  font-size: .95rem; background: none; color: var(--doux); cursor: pointer;
+  transition: background .16s, color .16s; }
+.segment-entree button[aria-selected="true"] { background: var(--encre); color: var(--fond); }
+.segment-entree button:focus-visible { outline: 2px solid var(--encre); outline-offset: 2px; }
 .champ.grand { text-align: center; font-size: 1.25rem; letter-spacing: .1em;
   font-variant-numeric: tabular-nums; padding: 16px 12px; }
 .accueil:focus { outline: none; }

@@ -41,8 +41,7 @@ const message = p => p.locator('.retour[role="status"]')
   dit(await attend.count() === 1, 'la connexion annonce « Votre liste commencera par Louise »')
 
   await page.locator('input.champ').fill('Léa')
-  await page.getByRole('button', { name: 'Commencer' }).click()
-  await page.getByRole('button', { name: 'Plus tard' }).click({ timeout: 15000 })
+  await page.getByRole('button', { name: 'Créer mon compte' }).click()
 
   const note = page.locator('.premier', { hasText: 'Louise' })
   await note.waitFor({ timeout: 20000 }).catch(() => null)
@@ -159,8 +158,7 @@ const message = p => p.locator('.retour[role="status"]')
   dit(await page.locator('.attend', { hasText: 'partagée' }).count() === 1,
     'et la connexion dit qu’une liste attend')
   await page.locator('input.champ').fill('Paul')
-  await page.getByRole('button', { name: 'Commencer' }).click()
-  await page.getByRole('button', { name: 'Plus tard' }).click({ timeout: 15000 })
+  await page.getByRole('button', { name: 'Créer mon compte' }).click()
   await page.waitForURL(/\/g\/[^/]+\/swipe/, { timeout: 20000 }).catch(() => null)
   const listes = await page.evaluate(() => fetch('/api/groupes').then(r => r.json()))
   dit(/\/g\/[^/]+\/swipe/.test(page.url()) && listes.some(l => l.nom === 'Essai gratuit'),
