@@ -277,7 +277,9 @@ nuit sur l'hébergement gratuit d'OVH (100 Mo, compris avec le domaine) :
 GitHub Actions exporte la base, la compresse, la **chiffre** avec une clé
 publique `age`, et la dépose en SFTP dans `sauvegardes/`, hors de `www/`
 (jamais servie sur le web). On garde les 30 dernières nuits et la première
-de chacun des 12 derniers mois. Le script : `scripts/sauvegarde-ovh.sh`
+de chacun des 12 derniers mois, dans un budget de 90 Mo (l'hébergement en
+fait 100) : au-delà, les plus anciennes partent d'abord. Pour se faire une
+idée, 200 couples à 600 swipes = une base de 81 Mo, une sauvegarde de 2 Mo. Le script : `scripts/sauvegarde-ovh.sh`
 (comment restaurer, en tête) ; le calendrier :
 `.github/workflows/sauvegarde-base.yml`, à la racine du dépôt.
 

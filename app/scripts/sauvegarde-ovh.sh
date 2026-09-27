@@ -25,6 +25,8 @@
 #   OVH_SFTP_PORT         22 par défaut
 #   D1_NOM                babynamed par défaut
 #   DOSSIER               sauvegardes par défaut (à la racine, hors de www/)
+#   BUDGET_MO             90 par défaut : l'hébergement gratuit fait 100 Mo en
+#                         tout — au-delà, les plus anciennes partent d'abord
 #
 # Restaurer (sur son ordinateur, la clé privée sous la main) :
 #   age -d -i babynamed-sauvegarde.key babynamed-AAAA-MM-JJ.sql.gz.age | gunzip > base.sql
@@ -40,6 +42,7 @@ set -euo pipefail
 PORT="${OVH_SFTP_PORT:-22}"
 D1="${D1_NOM:-babynamed}"
 DOSSIER="${DOSSIER:-sauvegardes}"
+BUDGET=$(( ${BUDGET_MO:-90} * 1000 * 1000 ))
 case "$DOSSIER" in www|www/*) echo "le dossier des sauvegardes ne doit pas être sous www/" >&2; exit 1 ;; esac
 
 jour=$(date -u +%F)
@@ -61,19 +64,33 @@ rm -f "$tmp/base.sql.gz"
 sftp() { lftp --env-password -u "$OVH_SFTP_UTILISATEUR" -p "$PORT" \
   -e "set sftp:auto-confirm yes; set net:max-retries 2; set net:timeout 30; $1 bye" "sftp://$OVH_SFTP_HOTE"; }
 
-# 3. Déposer, puis relire la liste.
-sftp "mkdir -p $DOSSIER; put $tmp/$nom -o $DOSSIER/$nom; cls -1 $DOSSIER/;" > "$tmp/liste"
-grep -q "$nom" "$tmp/liste" || { echo "le dépôt n'apparaît pas dans la liste" >&2; exit 1; }
+# 3. Déposer, puis relire la liste, tailles comprises (« taille nom »).
+sftp "mkdir -p $DOSSIER; put $tmp/$nom -o $DOSSIER/$nom; cls -1 --size --block-size=1 $DOSSIER/;" \
+  | sed -nE 's#^ *([0-9]+) +(.*/)?(babynamed-[0-9]{4}-[0-9]{2}-[0-9]{2}\.sql\.gz\.age)$#\1 \3#p' \
+  | sort -k2 > "$tmp/liste"
+grep -q " $nom\$" "$tmp/liste" || { echo "le dépôt n'apparaît pas dans la liste" >&2; exit 1; }
 
-# 4. Rotation : les 30 dernières nuits, et la première sauvegarde de chacun
-#    des 12 derniers mois. L'hébergement gratuit fait 100 Mo.
-mapfile -t tous < <(grep -oE 'babynamed-[0-9]{4}-[0-9]{2}-[0-9]{2}\.sql\.gz\.age' "$tmp/liste" | sort -u)
+# 4. Rotation : les 30 dernières nuits et la première sauvegarde de chacun des
+#    12 derniers mois — puis, si le tout dépasse le budget (l'hébergement
+#    gratuit fait 100 Mo), les plus anciennes partent jusqu'à ce qu'il tienne.
+#    Celle de cette nuit reste toujours.
+mapfile -t tous < <(cut -d' ' -f2 "$tmp/liste")
 garder=$( { printf '%s\n' "${tous[@]}" | sort -r | head -n 30
             printf '%s\n' "${tous[@]}" | sort | awk -F- '!vu[$2"-"$3]++' | tail -n 12; } | sort -u )
+total=0
+while read -r taille f; do
+  grep -qx "$f" <<< "$garder" && total=$(( total + taille ))
+done < "$tmp/liste"
+while [ "$total" -gt "$BUDGET" ]; do
+  plus_ancienne=$(head -n 1 <<< "$garder")
+  [ "$plus_ancienne" = "$nom" ] && break
+  total=$(( total - $(awk -v f="$plus_ancienne" '$2 == f { print $1 }' "$tmp/liste") ))
+  garder=$(tail -n +2 <<< "$garder")
+done
 retirer=""
 for f in "${tous[@]}"; do
   grep -qx "$f" <<< "$garder" || retirer+="rm $DOSSIER/$f; "
 done
 [ -n "$retirer" ] && sftp "$retirer"
 
-echo "sauvegarde $nom déposée ($octets octets en clair, $(printf '%s\n' "$garder" | grep -c .) gardées)"
+echo "sauvegarde $nom déposée ($octets octets en clair ; $(grep -c . <<< "$garder") gardées, $(( total / 1000000 )) Mo sur ${BUDGET_MO:-90})"
