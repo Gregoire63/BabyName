@@ -162,7 +162,7 @@ async function creerCodeObs() {
 async function partagerObs() {
   if (!codeObs.value) return
   const url = `${location.origin}/?code=${codeObs.value}`
-  const texte = `Viens donner ton avis sur nos prénoms (tu ne bloques rien) : ${url}`
+  const texte = `Viens donner ton avis sur nos prénoms, et mettre un cœur sur ceux qu’on a en commun (tu ne bloques rien) : ${url}`
   try {
     if (navigator.share) await navigator.share({ text: texte, url })
     else { await navigator.clipboard.writeText(url); copieObs.value = true
@@ -265,7 +265,7 @@ const filtresActifs = computed(() => {
           <button type="button" class="facon" :aria-pressed="typeInvit === 'lecture'"
                   @click="typeInvit = 'lecture'">
             <strong>En lecture seule</strong>
-            <span>donne son avis ; ne compte pas dans vos accords, ne bloque rien</span>
+            <span>donne son avis, met des cœurs ; ne compte pas dans vos accords, ne bloque rien</span>
           </button>
         </div>
 

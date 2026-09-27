@@ -20,7 +20,7 @@ déjà entamée. Le terminal affiche alors :
   Liste « Notre liste », code d'invitation dec0de00.
   Cle de Greg   : DEVG-REGX-2345
   Cle d'Audrey  : DEVA-DREY-2345
-  Cle de Mamie  : DEVM-AMIE-2345 (observatrice, code ob5e0bad)
+  Cle de Mamie  : DEVM-AMIE-2345 (observatrice, code ab5e0bad)
 ```
 
 Sur <http://localhost:3000/connexion>, le bloc **Base locale — entrer comme**
@@ -683,6 +683,16 @@ côtés — ses votes n'entrent pas dans le score, et le quorum ne l'attend pas.
 qui dit **non à Louise** : `essai-observateur.mjs` vérifie que Louise reste un
 accord. Si elle disparaissait, le rôle ne servirait à rien et l'argument de
 vente serait un mensonge que personne ne remarquerait avant d'avoir payé.
+
+**Les cœurs.** Sur les accords (Classement › Communs), un observateur a un
+bouton cœur, et chaque accord dit « Aimé par Mamie ». Pas de concept de plus :
+le cœur, c'est son « oui » sur ce prénom (celui du tri, qui ne compte
+toujours ni dans les accords ni dans leur ordre) ; le retirer le repasse en
+« neutre », pour que le prénom ne revienne pas dans sa pile. Son « non », lui,
+ne s'affiche pas sur les accords : sur la courte liste du couple, un refus de
+la famille serait un veto par la bande. Vote à l'aveugle : un observateur ne
+voit les cœurs des autres qu'après avoir donné son avis sur le prénom. Les
+parents n'ont pas de bouton : ils ont déjà dit oui, c'est un accord.
 
 ### Les liens entrants
 

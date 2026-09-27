@@ -112,10 +112,61 @@ dit(!/Code d’invitation|Partager le lien/.test(sesReglages),
 dit(!/Les observateurs/.test(sesReglages),
     'ni créer d’autres observateurs')
 
+// =================== SES CŒURS SUR LES ACCORDS ===========================
+// Jeu d'essai : Mamie a dit oui à Jeanne, Suzanne et Colette, non à Louise.
+const communsDe = p => p.evaluate(g => fetch(`/api/groupes/${g}/communs`).then(r => r.json()), gid)
+const coeursSur = (liste, nom) => (liste.find(c => c.prenom === nom)?.coeurs ?? []).map(x => x.pseudo)
+let cG = await communsDe(greg)
+dit(coeursSur(cG, 'Jeanne').join() === 'Mamie', 'son « oui » sur un accord devient un cœur : Jeanne, aimé par Mamie')
+dit(cG.some(c => c.prenom === 'Louise') && !coeursSur(cG, 'Louise').length,
+    'son « non » ne s’affiche pas sur la courte liste du couple : pas de veto par la bande')
+await mamie.goto(`${BASE}/g/${gid}/classement`, { waitUntil: 'networkidle' })
+await mamie.waitForSelector('.segment button', { timeout: 20000 })
+const retirerJeanne = mamie.getByRole('button', { name: 'Retirer mon cœur à Jeanne' })
+await retirerJeanne.waitFor({ timeout: 10000 })
+dit(await retirerJeanne.getAttribute('aria-pressed') === 'true', 'sur les accords, Mamie voit son cœur sur Jeanne')
+await mamie.getByRole('button', { name: 'J’aime Louise' }).click()
+await mamie.waitForTimeout(1200)
+cG = await communsDe(greg)
+dit(coeursSur(cG, 'Louise').join() === 'Mamie', 'un toucher, et Louise est aimée par Mamie — Greg le voit')
+await retirerJeanne.click()
+await mamie.waitForTimeout(1200)
+cG = await communsDe(greg)
+dit(!coeursSur(cG, 'Jeanne').length && cG.some(c => c.prenom === 'Jeanne'),
+    'le cœur retiré disparaît ; Jeanne reste un accord')
+const votesM = await mamie.evaluate(g => fetch(`/api/groupes/${g}/votes`).then(r => r.json()), gid)
+const moiM = (await mamie.evaluate(g => fetch(`/api/groupes/${g}`).then(r => r.json()), gid)).moi.user_id
+dit(votesM.votes.find(v => v.prenom === 'Jeanne' && v.user_id === moiM)?.valeur === 1,
+    'retirer son cœur la repasse en « neutre » : Jeanne ne revient pas dans sa pile')
+await greg.goto(`${BASE}/g/${gid}/classement`, { waitUntil: 'networkidle' })
+await greg.waitForSelector('.segment button', { timeout: 20000 })
+await greg.waitForTimeout(800)
+const carteLouise = greg.locator('article.carte').filter({ has: greg.locator('h2', { hasText: /^Louise$/ }) })
+dit(/Aimé par Mamie/.test(await carteLouise.innerText()), 'la carte de Louise le dit aux parents : « Aimé par Mamie »')
+dit(await greg.getByRole('button', { name: /^J’aime / }).count() === 0, 'les parents, eux, n’ont pas de bouton cœur')
+dit(!/manquent à Mamie/.test(await greg.locator('.pager > section:nth-child(2)').innerText()),
+    'et les accords ne se disent pas « incomplets » à cause d’elle : ils ne l’attendent pas')
+// Vote à l'aveugle : un autre observateur ne voit les cœurs qu'après son propre avis.
+const papi = await faireOnglet()
+await papi.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+const pApi = (chemin, corps, m = 'POST') => papi.evaluate(async ([c, b, m]) => {
+  const r = await fetch(c, { method: m, headers: { 'content-type': 'application/json' },
+    body: b ? JSON.stringify(b) : undefined })
+  return r.json().catch(() => null)
+}, [chemin, corps, m])
+const eP = await pApi('/api/auth/entrer', { pseudo: 'Papi' })
+const rP = await pApi('/api/groupes/rejoindre', { code: 'ab5e0bad' })
+let cP = await communsDe(papi)
+dit(eP?.utilisateur && rP?.role === 'observateur', 'Papi entre par le lien des observateurs, comme observateur')
+dit(!coeursSur(cP, 'Louise').length, 'Papi, observateur arrivé après, ne voit pas le cœur de Mamie avant d’avoir jugé Louise')
+await pApi(`/api/groupes/${gid}/vote`, { prenom: 'Louise', valeur: 1 })
+cP = await communsDe(papi)
+dit(coeursSur(cP, 'Louise').join() === 'Mamie', 'son avis donné, il le voit')
+
 // =================== LE LIEN LUI-MÊME ====================================
 const inconnu = await faireOnglet()
 inconnu.on('pageerror', e => erreurs.push(e.message))
-await inconnu.goto(`${BASE}/?code=ob5e0bad`, { waitUntil: 'networkidle' })
+await inconnu.goto(`${BASE}/?code=ab5e0bad`, { waitUntil: 'networkidle' })
 await inconnu.waitForTimeout(1200)
 const accueil = await plat(inconnu, 'body')
 dit(/prénom|clé|liste/i.test(accueil), 'le lien d’observateur ouvre l’application sans erreur')

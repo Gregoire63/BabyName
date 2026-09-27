@@ -457,7 +457,7 @@ const FAQ = [
   ['D’où viennent les chiffres ?',
    `Du fichier des prénoms de l’INSEE : les naissances en France de ${AN0} à ${AN1}. Les significations viennent du Wiktionnaire, relues ; quand un sens est incertain, la fiche le dit au lieu de l’inventer.`],
   ['Peut-on être plus de deux ?',
-   'Oui. Chacun juge de son côté, et un prénom n’est « en commun » que si tout le monde l’a jugé et que personne n’a dit non. Avec l’option, les grands-parents peuvent observer et donner leur avis sans rien bloquer.']
+   'Oui. Chacun juge de son côté, et un prénom n’est « en commun » que si tout le monde l’a jugé et que personne n’a dit non. Avec l’option, les grands-parents peuvent observer, donner leur avis et mettre un cœur sur vos prénoms en commun, sans rien bloquer.']
 ]
 
 ecrire(APP, page({

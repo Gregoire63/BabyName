@@ -34,9 +34,38 @@ const ecarterPour = ref<string | null>(null)
 /** Un observateur ne bloque rien : il n'a pas le bouton. */
 const jObserve = computed(() => g.etat.value?.moi?.role === 'observateur')
 
+/**
+ * Le cœur des grands-parents.
+ *
+ * Un observateur ne décide pas, mais la courte liste du couple est le moment
+ * où il a envie de dire « celui-là ». Son cœur, c'est son « oui » sur le
+ * prénom (le même vote qu'au tri, qui ne compte toujours pas dans les
+ * accords) ; le retirer le repasse en « neutre » plutôt que de l'effacer —
+ * sinon le prénom reviendrait dans sa pile de tri.
+ */
+const coeurEnCours = ref('')
+async function basculerCoeur(c: any) {
+  if (coeurEnCours.value) return
+  coeurEnCours.value = c.prenom
+  try { await g.voter(c.prenom, c.j_aime ? 1 : 2) }
+  catch { /* rien de changé : le cœur reste tel qu'il était */ }
+  finally { coeurEnCours.value = '' }
+}
+
+/** « Mamie », « vous et Papi », « Mamie, Papi et Tata Rose ». */
+function coeursLisibles(c: any): string {
+  const noms = [...(c.coeurs ?? [])].sort((a: any, b: any) => Number(b.moi) - Number(a.moi))
+    .map((x: any) => x.moi ? 'vous' : x.pseudo)
+  if (noms.length <= 1) return noms.join('')
+  return `${noms.slice(0, -1).join(', ')} et ${noms.at(-1)}`
+}
+
 /** Qui traîne : un commun ne sort que si tout le monde a voté dessus. */
 const enRetard = computed(() => {
-  const a = g.etat.value?.avancement ?? []
+  // Les décideurs seulement : un observateur (Mamie) n'est pas attendu par
+  // les accords — dire « la liste reste incomplète tant qu'elle n'a pas
+  // rattrapé » était faux, et culpabilisait la personne qui n'y peut rien.
+  const a = (g.etat.value?.avancement ?? []).filter((x: any) => x.role !== 'observateur')
   if (a.length < 2) return null
   const max = Math.max(...a.map((x: any) => x.votes))
   const lent = a.find((x: any) => x.votes < max * 0.6)
@@ -48,7 +77,7 @@ const enRetard = computed(() => {
   <div class="pile">
     <p v-if="enRetard" class="rappel mini">
       {{ enRetard.manque }} votes manquent à {{ enRetard.pseudo }} — la liste reste incomplète
-      tant qu’il n’a pas rattrapé.
+      tant que {{ enRetard.pseudo }} n’a pas rattrapé.
     </p>
 
     <div v-if="!communs.length" class="vide">
@@ -73,7 +102,19 @@ const enRetard = computed(() => {
             <template v-if="g.parNom.value.get(c.prenom)?.m">
               · « {{ g.parNom.value.get(c.prenom)!.m }} »</template>
           </p>
+          <p v-if="c.coeurs?.length" class="mini coeurs" style="margin:4px 0 0">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.7 4.7 0 0 1 6.6-6.7l.8.8.8-.8a4.7 4.7 0 0 1 6.6 6.7Z" /></svg>
+            <span>Aimé par {{ coeursLisibles(c) }}</span>
+          </p>
         </div>
+        <!-- Au-dessus de l'en-tête dépliable (::after) : le cœur se touche sans
+             ouvrir la carte. -->
+        <button v-if="jObserve" type="button" class="coeur" :aria-pressed="!!c.j_aime"
+                :disabled="coeurEnCours === c.prenom"
+                :aria-label="c.j_aime ? `Retirer mon cœur à ${c.prenom}` : `J’aime ${c.prenom}`"
+                @click="basculerCoeur(c)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.7 4.7 0 0 1 6.6-6.7l.8.8.8-.8a4.7 4.7 0 0 1 6.6 6.7Z" /></svg>
+        </button>
       </div>
 
       <div v-if="ouvert === c.prenom" class="pile" style="margin-top:14px;gap:10px">
@@ -106,6 +147,18 @@ const enRetard = computed(() => {
 .deplier::after { content: ''; position: absolute; inset: 0; }
 .deplier:focus-visible { outline: none; }
 .entete:has(.deplier:focus-visible) { outline: 3px solid var(--focus); outline-offset: 4px; border-radius: 10px; }
+.coeurs { display: flex; align-items: center; gap: 5px; color: var(--texte); }
+.coeurs svg { width: 13px; height: 13px; flex: none; fill: var(--oui); }
+/* Au-dessus du calque cliquable de l'en-tête. */
+.coeur { position: relative; z-index: 1; flex: none; width: 44px; height: 44px; border-radius: 999px;
+  border: 1px solid var(--trait); background: var(--carte); display: grid; place-items: center;
+  cursor: pointer; }
+.coeur svg { width: 21px; height: 21px; fill: none; stroke: var(--oui); stroke-width: 2;
+  stroke-linejoin: round; }
+.coeur[aria-pressed="true"] { border-color: color-mix(in srgb, var(--oui) 55%, var(--trait));
+  background: color-mix(in srgb, var(--oui) 16%, var(--carte)); }
+.coeur[aria-pressed="true"] svg { fill: var(--oui); }
+.coeur:disabled { opacity: .6; }
 .rappel { margin: 0; padding: 10px 13px; border-radius: 12px;
   background: color-mix(in srgb, var(--peche) 42%, transparent); }
 </style>

@@ -31,7 +31,7 @@ export const CADEAU_DEV = 'BEBE2345CADE'
  * gratuit » qu'un essai decrit. La version est gravee a la semaille ; le
  * demarrage et les outils de developpement disent quand elle est depassee.
  */
-export const VERSION_SEMENCE = 5
+export const VERSION_SEMENCE = 6
 
 /** Les comptes du jeu d'essai, tels que les outils de dev les montrent. */
 export const COMPTES_DEV = [
@@ -140,7 +140,9 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
     [`insert into membres (groupe_id, user_id, role) values (?1, ?2, 'parent')`, [gid, audrey]],
     // Le code des observateurs existe des le depart : sinon aucun ecran ne le
     // montre avant qu'on ait clique dessus, et on ne verrait pas qu'il marche.
-    [`update groupes set code_observateur = 'ob5e0bad' where id = ?1`, [gid]],
+    // Un code valable (8 caractères hexadécimaux, l'ancien format) : le
+    // précédent, « ob5e0bad », contenait un o et n'ouvrait rien.
+    [`update groupes set code_observateur = 'ab5e0bad' where id = ?1`, [gid]],
     [`insert into membres (groupe_id, user_id, role) values (?1, ?2, 'observateur')`, [gid, mamie]],
     voter(gid, greg, GOUTS_GREG),
     voter(gid, audrey, GOUTS_AUDREY),
@@ -220,7 +222,7 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
     `  Liste « Notre liste », code d'invitation dec0de00.\n` +
     `  Cle de Greg   : ${CLES_DEV.greg}\n` +
     `  Cle d'Audrey  : ${CLES_DEV.audrey}\n` +
-    `  Cle de Mamie  : ${CLES_DEV.mamie} (observatrice, code ob5e0bad)\n` +
+    `  Cle de Mamie  : ${CLES_DEV.mamie} (observatrice, code ab5e0bad)\n` +
     `  Code cadeau   : ${cadeauLisible(CADEAU_DEV)} (/?cadeau=${CADEAU_DEV})\n` +
     '  Ouvrez-en une dans une fenetre privee pour voir le vote aveugle a deux.\n' +
     '  Pour repartir de zero : Mon compte -> Outils de developpement -> Base neuve.\n')
