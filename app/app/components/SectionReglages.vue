@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { passkeysPossibles, creerPasskey } from '~/composables/usePasskey'
+import { useEnregistrementDiffere, type OptionsEnvoi } from '~/composables/useEnregistrementDiffere'
 
 /**
  * Tout ce qui se regle : la liste d'abord, le compte ensuite. C'etait
@@ -36,24 +37,35 @@ async function creerPasskeyIci() {
 }
 const renomme = ref(false)
 const nouveauNom = ref('')
+const champNom = ref<HTMLInputElement | null>(null)
 
-watch(g.etat, e => { if (e && !nouveauNom.value) nouveauNom.value = e.groupe.nom },
-  { immediate: true })
+// Le nom du serveur remplit le champ, jamais pendant qu'on y tape.
+watch(g.etat, e => {
+  if (e && !nouveauNom.value && document.activeElement !== champNom.value) nouveauNom.value = e.groupe.nom
+}, { immediate: true })
 
 const lien = computed(() => g.etat.value
   ? `${location.origin}/?code=${g.etat.value.groupe.code_invitation}` : '')
 
-const nomChange = computed(() =>
-  !!nouveauNom.value.trim() && nouveauNom.value !== g.etat.value?.groupe?.nom)
-
-/** Les noms s'enregistrent en quittant le champ (ou par Entrée) : pas de bouton. */
-async function renommer() {
-  if (!nomChange.value) return
-  await $fetch(`/api/groupes/${g.gid}/nom`, { method: 'PUT', body: { nom: nouveauNom.value.trim() } })
+/**
+ * Les noms s'enregistrent seuls, sans bouton : pendant la frappe, en quittant
+ * le champ et en quittant l'écran — le blur seul laissait repartir un nom
+ * quand on sortait par le bouton retour (useEnregistrementDiffere).
+ */
+let nomEnvoye = ''
+async function renommer(o: OptionsEnvoi = {}) {
+  const nom = nouveauNom.value.trim()
+  if (!nom || nom === g.etat.value?.groupe?.nom || nom === nomEnvoye) return
+  nomEnvoye = nom
+  try {
+    await $fetch(`/api/groupes/${g.gid}/nom`, { method: 'PUT', body: { nom }, keepalive: o.keepalive })
+  } catch { nomEnvoye = ''; return }
+  if (o.keepalive) return
   renomme.value = true
   setTimeout(() => renomme.value = false, 1600)
   await g.recharger()
 }
+const nomListe = useEnregistrementDiffere(renommer)
 const quitter = (e: KeyboardEvent) => (e.target as HTMLInputElement).blur()
 
 async function partager() {
@@ -130,9 +142,10 @@ const debloqueeLe = computed(() => {
 })
 const nomFamille = ref('')
 const enregistre = ref(false)
+const champFamille = ref<HTMLInputElement | null>(null)
 
 watch(() => (g.etat.value?.groupe as any)?.nom_famille, (v) => {
-  if (typeof v === 'string' && v !== nomFamille.value) nomFamille.value = v
+  if (typeof v === 'string' && v !== nomFamille.value && document.activeElement !== champFamille.value) nomFamille.value = v
 }, { immediate: true })
 
 const nomChangeF = computed(() => {
@@ -141,20 +154,25 @@ const nomChangeF = computed(() => {
   return a !== b
 })
 
-async function enregistrerNomFamille() {
+let familleEnvoyee: string | null = null
+async function enregistrerNomFamille(o: OptionsEnvoi = {}) {
   const gid = g.etat.value?.groupe?.id
-  if (!gid || !nomChangeF.value) return
+  const nom = nomFamille.value.trim()
+  if (!gid || !nomChangeF.value || nom === familleEnvoyee) return
+  familleEnvoyee = nom
   try {
-    await $fetch(`/api/groupes/${gid}/nom-famille`, {
-      method: 'PUT', body: { nom: nomFamille.value.trim() }
-    })
-    enregistre.value = true
-    setTimeout(() => { enregistre.value = false }, 1400)
-    await g.recharger()
+    await $fetch(`/api/groupes/${gid}/nom-famille`, { method: 'PUT', body: { nom }, keepalive: o.keepalive })
   } catch (err: any) {
-    if (err?.data?.data?.code === 'liste_non_debloquee') g.ouvrirDebloquer()
+    familleEnvoyee = null
+    if (!o.keepalive && err?.data?.data?.code === 'liste_non_debloquee') g.ouvrirDebloquer()
+    return
   }
+  if (o.keepalive) return
+  enregistre.value = true
+  setTimeout(() => { enregistre.value = false }, 1400)
+  await g.recharger()
 }
+const nomFamilleAuto = useEnregistrementDiffere(enregistrerNomFamille)
 
 /**
  * UNE invitation, deux facons.
@@ -274,8 +292,8 @@ async function supprimerListe() {
           <h2 style="flex:1">Nom</h2>
           <span class="mini doux" role="status">{{ renomme ? 'Enregistré' : '' }}</span>
         </div>
-        <input v-model="nouveauNom" class="champ" aria-label="Nom de la liste" maxlength="60"
-               @blur="renommer" @keyup.enter="quitter">
+        <input ref="champNom" v-model="nouveauNom" class="champ" aria-label="Nom de la liste" maxlength="60"
+               @input="nomListe.planifier" @blur="nomListe.maintenant()" @keyup.enter="quitter">
       </section>
 
       <section class="carte pile achat" :class="{ debloquee: paye }" aria-labelledby="titre-achat">
@@ -388,10 +406,10 @@ async function supprimerListe() {
         <h2>Avec votre nom de famille</h2>
 
         <template v-if="paye">
-          <input id="champ-nom-famille" v-model="nomFamille" class="champ" aria-label="Nom de famille"
+          <input id="champ-nom-famille" ref="champFamille" v-model="nomFamille" class="champ" aria-label="Nom de famille"
                  placeholder="Votre nom" autocapitalize="words" maxlength="60"
                  autocorrect="off" spellcheck="false"
-                 @blur="enregistrerNomFamille" @keyup.enter="quitter">
+                 @input="nomFamilleAuto.planifier" @blur="nomFamilleAuto.maintenant()" @keyup.enter="quitter">
           <p class="mini doux" style="margin:0" role="status">
             {{ enregistre ? 'Enregistré : chaque carte le montre avec le prénom.' : 'Chaque carte montre le prénom avec votre nom.' }}
           </p>

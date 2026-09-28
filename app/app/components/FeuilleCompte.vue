@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
 import { signalerNom, signalerPasskeysRestantes } from '~/composables/usePasskey'
+import { useEnregistrementDiffere, type OptionsEnvoi } from '~/composables/useEnregistrementDiffere'
 
 /**
  * Le compte, au meme endroit que le nom sur lequel on a tape.
@@ -20,20 +21,32 @@ const erreur = ref('')
 
 watch(moi, m => { if (m && !nom.value) nom.value = m.pseudo }, { immediate: true })
 
-const change = computed(() =>
-  !!nom.value.trim() && nom.value.trim() !== moi.value?.pseudo)
-
-async function renommer() {
-  if (!change.value) return
+/**
+ * Enregistré seul, pendant la frappe et en fermant la feuille : le blur seul
+ * perdait le nom quand on la fermait par le bouton retour
+ * (useEnregistrementDiffere). Deux lettres au moins, comme le veut le
+ * serveur : on n'affiche pas d'erreur au milieu d'un mot.
+ */
+let envoye = ''
+async function renommer(o: OptionsEnvoi = {}) {
+  const p = nom.value.trim()
+  if (p.length < 2 || p === moi.value?.pseudo || p === envoye) return
+  envoye = p
   erreur.value = ''
   try {
-    await $fetch('/api/auth/pseudo', { method: 'POST', body: { pseudo: nom.value.trim() } })
-    await rafraichirMoi()
-    signalerNom()
-    enregistre.value = true
-    setTimeout(() => enregistre.value = false, 1600)
-  } catch { erreur.value = 'Ce nom n’a pas pu être enregistré.' }
+    await $fetch('/api/auth/pseudo', { method: 'POST', body: { pseudo: p }, keepalive: o.keepalive })
+  } catch {
+    envoye = ''
+    if (!o.keepalive) erreur.value = 'Ce nom n’a pas pu être enregistré.'
+    return
+  }
+  if (o.keepalive) { rafraichirMoi().then(() => signalerNom()).catch(() => {}); return }
+  await rafraichirMoi()
+  signalerNom()
+  enregistre.value = true
+  setTimeout(() => enregistre.value = false, 1600)
 }
+const nomAuto = useEnregistrementDiffere(renommer)
 
 async function sortir() {
   await $fetch('/api/auth/sortir', { method: 'POST' }).catch(() => null)
@@ -101,7 +114,7 @@ async function supprimerCompte() {
       </div>
       <!-- enregistré en quittant le champ (ou par Entrée) : pas de bouton -->
       <input id="compte-nom" v-model="nom" class="champ" maxlength="40"
-             autocomplete="nickname" @blur="renommer"
+             autocomplete="nickname" @input="nomAuto.planifier" @blur="nomAuto.maintenant()"
              @keyup.enter="($event.target as HTMLInputElement).blur()">
       <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
     </section>
