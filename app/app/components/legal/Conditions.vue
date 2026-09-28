@@ -49,6 +49,8 @@ const prix = (config.public.prixListe as string) || '6 €'
     Vous êtes responsable de ce que vous écrivez dans l’app (noms de listes, commentaires, motifs). Tout
     contenu illicite, injurieux ou portant atteinte aux droits d’autrui peut être supprimé et le compte
     suspendu. Vous pouvez supprimer votre compte à tout moment depuis <em>Mon compte</em>.
+    Chaque membre d’une liste peut aussi la supprimer, depuis ses réglages : elle disparaît alors pour
+    tous ses membres, avec leurs votes.
   </p>
 
   <h2>4. L’option payante : débloquer une liste</h2>
@@ -76,9 +78,9 @@ const prix = (config.public.prixListe as string) || '6 €'
   <h3>Livraison</h3>
   <p>
     Immédiate : la liste est débloquée dès la confirmation du paiement, pour toute sa durée d’existence.
-    Une facture vous est adressée par e-mail. Si une liste est effacée (parce qu’il n’y reste plus aucun
-    membre, ou après {{ CONSERVATION.inactiviteMois }} mois sans que personne ne l’ouvre), son déblocage
-    disparaît avec elle.
+    Une facture vous est adressée par e-mail. Si une liste est effacée (supprimée par l’un de ses
+    membres, parce qu’il n’y reste plus aucun membre, ou après {{ CONSERVATION.inactiviteMois }} mois
+    sans que personne ne l’ouvre), son déblocage disparaît avec elle.
   </p>
 
   <h3>Droit de rétractation</h3>

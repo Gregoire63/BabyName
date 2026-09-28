@@ -211,6 +211,47 @@ const filtresActifs = computed(() => {
   if (f.inclure_rares) out.push('prénoms très rares inclus')
   return out
 })
+
+/**
+ * Supprimer la liste, pour tout le monde.
+ *
+ * Même garde-fou que pour le compte (FeuilleCompte) : un mot à taper, pas un
+ * « Êtes-vous sûr ? » qu'on valide par réflexe. Ici plus encore, parce que ce
+ * sont aussi les votes des AUTRES qui partent : l'écran les nomme, et dit que
+ * le déblocage ne se reporte pas. Réservé à ceux qui décident (le serveur le
+ * vérifie aussi : groupes/[id]/supprimer.post.ts).
+ */
+const demandeSuppression = ref(false)
+const confirmation = ref('')
+const suppressionEnCours = ref(false)
+const erreurSuppression = ref('')
+const confirme = computed(() => confirmation.value.trim().toUpperCase() === 'SUPPRIMER')
+const autresMembres = computed(() => {
+  const noms = (g.etat.value?.membres ?? [])
+    .filter((m: any) => m.user_id !== g.etat.value?.moi?.user_id)
+    .map((m: any) => m.pseudo as string)
+  return noms.length > 1 ? `${noms.slice(0, -1).join(', ')} et ${noms.at(-1)}` : (noms[0] ?? '')
+})
+
+function annulerSuppression() {
+  demandeSuppression.value = false
+  confirmation.value = ''
+  erreurSuppression.value = ''
+}
+
+async function supprimerListe() {
+  if (!confirme.value || suppressionEnCours.value) return
+  suppressionEnCours.value = true
+  erreurSuppression.value = ''
+  try {
+    await $fetch(`/api/groupes/${g.gid}/supprimer`, { method: 'POST', body: { confirmation: 'SUPPRIMER' } })
+    oublierListe(String(g.gid))
+    await navigateTo('/')
+  } catch {
+    erreurSuppression.value = 'La suppression n’a pas abouti. Rien n’a été effacé ; réessayez dans un instant.'
+    suppressionEnCours.value = false
+  }
+}
 </script>
 
 <template>
@@ -391,6 +432,37 @@ const filtresActifs = computed(() => {
         <p v-else class="mini doux" style="margin:0">Aucun filtre.</p>
       </section>
 
+      <section v-if="!jObserve" class="carte pile" aria-label="Supprimer cette liste">
+        <button v-if="!demandeSuppression" type="button" class="btn btn-0 mini danger"
+                style="align-self:flex-start" @click="demandeSuppression = true">
+          Supprimer cette liste
+        </button>
+
+        <div v-else class="pile suppression" role="group" aria-labelledby="titre-suppression-liste">
+          <p id="titre-suppression-liste" class="mini" style="margin:0">
+            <strong>Suppression définitive et immédiate</strong> de « {{ g.etat.value.groupe.nom }} »,
+            pour tous ses membres<template v-if="autresMembres">, {{ autresMembres }} compris</template> :
+            tous les votes, blocages, favoris et commentaires, et les prénoms « déjà pris ».
+            <template v-if="paye">Son déblocage part avec elle : il ne se reporte sur aucune autre liste.</template>
+          </p>
+          <label for="liste-confirmation" class="mini">
+            Pour confirmer, tapez <strong>SUPPRIMER</strong>
+          </label>
+          <input id="liste-confirmation" v-model="confirmation" class="champ" autocomplete="off"
+                 autocapitalize="characters" spellcheck="false" @keyup.enter="supprimerListe">
+          <p v-if="erreurSuppression" class="mini" role="alert" style="color:var(--non);margin:0">
+            {{ erreurSuppression }}
+          </p>
+          <div class="ligne">
+            <button type="button" class="btn mini btn-danger" :disabled="!confirme || suppressionEnCours"
+                    @click="supprimerListe">
+              {{ suppressionEnCours ? 'Suppression…' : 'Supprimer définitivement' }}
+            </button>
+            <button type="button" class="btn btn-0 mini doux" @click="annulerSuppression">Annuler</button>
+          </div>
+        </div>
+      </section>
+
       <section class="carte pile" aria-labelledby="titre-compte">
         <h2 id="titre-compte">Mon compte</h2>
         <p class="mini doux" style="margin:0">
@@ -439,4 +511,9 @@ const filtresActifs = computed(() => {
 .lien-invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
 .avert { gap: 6px; padding: 11px 13px; border-radius: var(--r-s);
   border: 1px solid color-mix(in srgb, var(--peche) 55%, var(--trait)); }
+/* Les mêmes que la suppression du compte (FeuilleCompte). */
+.danger { color: var(--non); padding-left: 0; }
+.suppression { padding: 12px 14px; border-radius: var(--r-s);
+  border: 1px solid color-mix(in srgb, var(--non) 45%, var(--trait)); gap: 10px; }
+.btn-danger { background: var(--non); border-color: var(--non); color: var(--fond); }
 </style>

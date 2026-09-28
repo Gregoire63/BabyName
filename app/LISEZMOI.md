@@ -876,6 +876,7 @@ Tout ce que la loi demande, fait dans l'app plutôt que promis dans un texte :
 | Accès, portabilité (art. 15, 20) | *Mon compte → Télécharger mes données* : `GET /api/moi/donnees`, un JSON lisible — tout ce qui concerne la personne, rien des autres |
 | Rectification (art. 16) | *Mon compte → Nom affiché* ; le reste se modifie dans l'app |
 | Effacement (art. 17) | *Mon compte → Supprimer mon compte* : `POST /api/moi/supprimer` (mot `SUPPRIMER` exigé), immédiat |
+| Effacement d'une liste | *Réglages de la liste → Supprimer cette liste* : `POST /api/groupes/:id/supprimer` (mot `SUPPRIMER` exigé, réservé à ceux qui décident), immédiat, pour tous ses membres |
 | Conservation limitée (art. 5.1.e) | purge chaque nuit : tâche `server/tasks/purge.ts`, lancée par le *Cron Trigger* du Worker ; à la main : `GET /api/admin/purger` avec `CRON_SECRET` |
 | Minimisation | e-mail facultatif, enregistré seulement une fois prouvé, et qui ne sert qu'à la connexion ; liens et codes gardés en empreintes ; compteurs d'essais sur des empreintes chiffrées (jamais une IP en clair) ; police servie par l'app (plus d'IP envoyée à Google) |
 | Registre (art. 30) | `docs/registre-des-traitements.md` |

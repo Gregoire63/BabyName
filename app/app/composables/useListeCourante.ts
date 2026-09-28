@@ -18,3 +18,8 @@ export function marquerListeCourante(gid: string) {
 export function listeCourante(): string | null {
   try { return localStorage.getItem(CLE) } catch { return null }
 }
+
+/** Une liste supprimée ne reste pas « en cours » sur cet appareil. */
+export function oublierListeCourante(gid: string) {
+  try { if (localStorage.getItem(CLE) === gid) localStorage.removeItem(CLE) } catch { /* navigation privee */ }
+}

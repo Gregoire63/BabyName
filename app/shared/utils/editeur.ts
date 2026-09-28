@@ -64,8 +64,8 @@ export const EDITEUR = {
  * Stripe), c'est ce qui permet de savoir quel texte un acheteur a accepte.
  */
 export const VERSIONS_TEXTES = {
-  conditions: '2026-09-27',
-  confidentialite: '2026-09-27',
+  conditions: '2026-09-28',
+  confidentialite: '2026-09-28',
   accessibilite: '2026-09-25'
 } as const
 

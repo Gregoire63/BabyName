@@ -182,7 +182,7 @@ const c = CONSERVATION
   <h2>Combien de temps</h2>
   <ul>
     <li><strong>Compte et listes</strong> : tant que vous vous en servez. Effacés immédiatement si vous supprimez votre compte ; effacés automatiquement après <strong>{{ c.inactiviteMois }} mois</strong> sans ouvrir l’app.</li>
-    <li><strong>Une liste</strong> dont il ne reste plus aucun membre est effacée, qu’elle ait été débloquée ou non.</li>
+    <li><strong>Une liste</strong> est effacée, qu’elle ait été débloquée ou non, dès que l’un de ses membres la supprime (depuis ses réglages, pour tous), ou quand il n’y reste plus aucun membre.</li>
     <li><strong>Codes cadeaux</strong> : un code jamais utilisé est effacé {{ c.cadeauMois }} mois après l’achat, avec le nom et le mot de celui qui l’a offert ; un code annulé, un mois après ; un code utilisé reste attaché à la liste qu’il a débloquée (« un cadeau de… ») et disparaît avec elle.</li>
     <li><strong>Prénoms « déjà pris »</strong> : ils appartiennent à la liste. Si vous effacez votre compte, ceux que vous avez ajoutés y restent pour les autres membres, sans votre nom ni votre note.</li>
     <li><strong>Compteurs de la version gratuite</strong> : le total, avec le compte ; celui du jour, jusqu’au jour de tri suivant, et {{ c.quotaJours }} jours au plus.</li>

@@ -260,6 +260,13 @@ await page.locator('section[aria-labelledby="titre-deja-pris"] .suggestion').fir
 await page.waitForTimeout(300)
 await auditer('Déjà pris (prénom choisi, note ouverte)')
 await page.locator('#champ-deja-pris').fill('')
+// Supprimer la liste : la confirmation ouverte (mot à taper, bouton grisé),
+// puis refermée sans rien toucher.
+const zoneSuppression = page.locator('section[aria-label="Supprimer cette liste"]')
+await zoneSuppression.getByRole('button', { name: 'Supprimer cette liste', exact: true }).click()
+await page.waitForTimeout(300)
+await auditer('Supprimer la liste (confirmation ouverte)')
+await zoneSuppression.getByRole('button', { name: 'Annuler', exact: true }).click()
 
 // L'offre s'audite sur une liste gratuite, par le chemin reel : le mur du
 // quota (3 de depart puis 2 par jour sur « Essai gratuit »), trie au clavier.
