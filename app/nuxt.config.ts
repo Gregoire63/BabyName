@@ -122,6 +122,12 @@ export default defineNuxtConfig({
       dev: { persistDir: '.data/wrangler' }
     },
     experimental: { tasks: true },
+    // Au build, Nitro tient tout module pour « sans effet de bord », sauf
+    // ceux listés ici : un `import 'reflect-metadata'` disparaissait donc du
+    // Worker, et l'enregistrement d'une passkey plantait en production
+    // (voir server/plugins/reflet-metadonnees.ts). La liste s'ajoute à celle
+    // de Nitro.
+    moduleSideEffects: ['reflect-metadata'],
     // La purge RGPD, chaque nuit à 3 h 17 UTC. La MÊME expression doit figurer
     // dans wrangler.jsonc (triggers.crons) : c'est elle qui réveille le Worker.
     scheduledTasks: { '17 3 * * *': ['purge'] }

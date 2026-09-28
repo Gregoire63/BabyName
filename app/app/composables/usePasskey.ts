@@ -17,8 +17,16 @@ export function passkeysPossibles(): boolean {
   return import.meta.client && browserSupportsWebAuthn()
 }
 
-/** Une phrase pour chaque façon d'échouer qu'une personne peut rencontrer. */
-function expliquer(err: any): string {
+/**
+ * Une phrase pour chaque façon d'échouer qu'une personne peut rencontrer.
+ *
+ * Le reste tombait dans une phrase de CONNEXION (« n'a pas pu servir »), même
+ * quand on créait une passkey — et même quand c'était le serveur qui
+ * plantait (erreur 500 du 28/09, voir server/plugins/reflet-metadonnees.ts).
+ * L'erreur brute part aussi dans la console : c'est elle qu'on lira pour
+ * diagnostiquer.
+ */
+function expliquer(err: any, creation = false): string {
   const nom = err?.name ?? err?.cause?.name
   const code = err?.data?.statusMessage ?? err?.statusMessage
   if (nom === 'NotAllowedError' || err?.code === 'ERROR_CEREMONY_ABORTED') return ''   // annulé : rien à dire
@@ -31,7 +39,10 @@ function expliquer(err: any): string {
   if (code === 'passkey_inconnue') return 'Cette passkey n’est plus liée à aucun compte (elle a été retirée).'
   if (code === 'defi_expire') return 'Trop de temps a passé. Réessayez.'
   if (code === 'trop_d_essais') return 'Trop d’essais d’un coup. Réessayez dans quelques minutes.'
-  return 'La passkey n’a pas pu servir. Réessayez, ou recevez un lien par e-mail.'
+  console.warn('[passkey]', creation ? 'création' : 'connexion', nom ?? err?.statusCode ?? '', code ?? err?.message ?? '')
+  return creation
+    ? 'La passkey n’a pas pu être créée. Réessayez dans un instant.'
+    : 'La passkey n’a pas pu servir. Réessayez, ou recevez un lien par e-mail.'
 }
 
 export type Resultat = { ok: true } | { ok: false; message: string
@@ -48,7 +59,7 @@ export async function creerPasskey(): Promise<Resultat & { nom?: string }> {
     await rafraichirMoi()
     return { ok: true, nom: r?.passkey?.nom }
   } catch (err: any) {
-    return { ok: false, message: expliquer(err) }
+    return { ok: false, message: expliquer(err, true) }
   }
 }
 

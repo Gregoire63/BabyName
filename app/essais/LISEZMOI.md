@@ -34,6 +34,16 @@ purge existe. `relance.sh` les charge pour leur essai seulement — les autres
 gardent un serveur sans clé, et `essai-paiement` peut vérifier que l'écran
 d'achat le dit.
 
+**Le build de production, dans workerd.** `nuxt dev` tourne sous Node, sans
+empaquetage : ce qui ne casse qu'une fois le Worker construit n'y apparaît
+pas (le 28/09, aucune passkey ne se créait en production). `relance-worker.sh`
+fait `nuxt build`, lance `wrangler dev` sur la sortie (base D1 neuve, compte
+d'essai à clé connue) et passe l'essai :
+
+```bash
+sh essais/relance-worker.sh essais/essai-worker.mjs      # SANS_BUILD=1 : garder le build
+```
+
 `essai-caisse` se lance aussi en Managed Payments :
 `NUXT_STRIPE_MANAGED_PAYMENTS=1 sh essais/relance.sh essais/essai-caisse.mjs`.
 
@@ -51,6 +61,8 @@ d'achat le dit.
 | `essai-caisse` | tout le trajet contre un **faux Stripe local** : accord exigé, session, facture et renonciation, webhook signé, prélèvement, code à 100 %, rotation du secret, retour sans webhook, **re-verrouillage** sur remboursement total ou litige perdu |
 | `essai-cadeau` | **offrir sans compte**, dans une feuille (sur `/offrir` comme depuis l'accueil) contre un faux Stripe : rien sans la case d'accord ; une session de CADEAU (code dans les métadonnées et sur la facture, rétractation tant qu'il n'a pas servi, pas de code promo, aucune liste visée) ; le code au retour, « en cours » tant que ce n'est pas encaissé, le même à chaque rechargement ; le lien traverse la connexion (« Mamie Jo vous offre babyNamed ») et crée une liste débloquée ; tapé dans « Débloquer » ou « Rejoindre » ; **un code ne sert qu'une fois** ; remboursé, il s'annule et re-verrouille la liste ; échu, il n'ouvre plus rien ; WCAG sur les trois écrans |
 | `essai-rgpd` | l'export donne tout ce qui est à soi et **rien des autres** ; l'effacement ne détruit pas les listes partagées ni un déblocage payé ; une session orpheline tombe en 401 ; la purge n'efface que l'inactif, et seulement avec son secret |
+| `essai-worker` | **dans le Worker de production** (relance-worker.sh) : une passkey se crée puis sert à revenir, son message s'affiche sous le bouton ; `/api/sante` ne dit que `{ ok }` sans le secret ; aucune réponse 500 |
+| `essai-enregistrement` | **un nom tapé est enregistré, quelle que soit la façon de partir** : pause dans la frappe, bouton retour, app en arrière-plan, onglet ; nom de la liste, nom de famille, nom affiché ; une requête par mot, pas par lettre |
 | `essai-supprimer-liste` | **supprimer une liste depuis ses réglages** : réservé à ceux qui décident (ni bouton ni route pour l'observatrice), rien sans le mot `SUPPRIMER` ; l'écran nomme les autres membres et dit que le déblocage part aussi, « Annuler » ne touche à rien ; après, la liste n'existe plus pour personne, l'export de l'autre parent n'en garde rien, l'appareil l'oublie, l'ancienne adresse ramène à l'accueil |
 | `essai-accessibilite` | axe-core (WCAG 2.0/2.1 A et AA) sur chaque écran et chaque dialogue (la feuille des textes légaux comprise), clair et sombre ; lien d'évitement, focus piégé dans les dialogues, Échap, focus rendu, tri aux flèches, onglets au clavier, mouvement réduit, aucun tiers contacté |
 | `essai-desaccord` | « ce n'est peut-être pas Marius, c'est la longueur » — et le silence tant qu'il n'y a pas de quoi le dire |

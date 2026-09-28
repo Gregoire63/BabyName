@@ -1099,6 +1099,20 @@ coupe au premier `;` du corps (« incomplete input »), alors que SQLite, le
 local et l'app acceptent le fichier. `scripts/verifier-migrations.mjs`, lancé
 par `npm run build`, refuse un fichier qui l'oublie.
 
+## Ce que `nuxt dev` ne montre pas
+
+`nuxt dev` tourne sous Node, fichier par fichier ; la production est un
+Worker empaqueté par Nitro. Deux pannes n'ont existé que là : le corps d'un
+`DELETE` perdu (d'où les routes en `POST`), et, le 28/09, aucune passkey ne
+se créait (erreur 500). Nitro tient tout module pour « sans effet de bord »
+sauf ceux listés dans `nitro.moduleSideEffects` : l'`import 'reflect-metadata'`
+dont @simplewebauthn/server a besoin disparaissait du bundle. Il est listé
+(nuxt.config.ts) et chargé au démarrage (`server/plugins/reflet-metadonnees.ts`).
+
+Un changement de dépendance ou de configuration Nitro se vérifie donc sur le
+build : `sh essais/relance-worker.sh essais/essai-worker.mjs` (voir
+essais/LISEZMOI.md).
+
 ## Vérifier
 
 `GET /api/sante` dit ce qui est branché sans révéler aucune valeur. En

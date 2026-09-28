@@ -15,8 +15,16 @@ interface Passkey { id: string; nom: string; synchronisee: boolean; cree_le: str
 const passkeys = ref<Passkey[]>([])
 const possible = ref(false)
 const occupe = ref('')
-const erreur = ref('')
-const info = ref('')
+
+/**
+ * Le message d'une action s'affiche SOUS elle : un seul emplacement en bas de
+ * l'écran mettait l'échec d'une passkey sous « Vos appareils », loin du
+ * bouton qu'on venait de toucher (vu en production le 28/09).
+ */
+type Section = 'passkey' | 'email' | 'cle' | 'partout'
+const retour = ref<{ ou: Section; texte: string; ok: boolean } | null>(null)
+const dire = (ou: Section, texte: string, ok = false) => { retour.value = texte ? { ou, texte, ok } : null }
+const effacer = () => { retour.value = null }
 
 async function chargerPasskeys() {
   const r = await $fetch<any>('/api/auth/passkeys').catch(() => null)
@@ -31,24 +39,24 @@ const moyens = computed(() => moi.value?.moyens ?? 0)
 
 async function ajouterPasskey() {
   if (occupe.value) return
-  occupe.value = 'passkey'; erreur.value = ''; info.value = ''
+  occupe.value = 'passkey'; effacer()
   const r = await creerPasskey()
   occupe.value = ''
-  if (r.ok) { info.value = `Passkey ajoutée (${r.nom}).`; await chargerPasskeys() }
-  else erreur.value = r.message
+  if (r.ok) { dire('passkey', `Passkey ajoutée (${r.nom}).`, true); await chargerPasskeys() }
+  else dire('passkey', r.message)
 }
 
 // --- retirer une passkey (confirmation en place) -----------------------------
 const aRetirer = ref('')
 async function retirerPasskey(id: string) {
-  occupe.value = id; erreur.value = ''; info.value = ''
+  occupe.value = id; effacer()
   try {
     const r = await $fetch<any>(`/api/auth/passkeys?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
     signalerPasskeysRestantes({ rpID: r.rpID, userID: r.userID, restantes: r.restantes })
-    info.value = 'Passkey retirée. Elle ne permet plus d’entrer.'
+    dire('passkey', 'Passkey retirée. Elle ne permet plus d’entrer.', true)
     aRetirer.value = ''
     await Promise.all([chargerPasskeys(), rafraichirMoi()])
-  } catch { erreur.value = 'La passkey n’a pas pu être retirée.' }
+  } catch { dire('passkey', 'La passkey n’a pas pu être retirée.') }
   finally { occupe.value = '' }
 }
 
@@ -59,41 +67,41 @@ const retirerEmailDemande = ref(false)
 async function emailConfirme(e: string) {
   changeEmail.value = false
   ajoutEmail.value = false
-  info.value = `Adresse confirmée : ${e}.`
+  dire('email', `Adresse confirmée : ${e}.`, true)
 }
 async function retirerEmail() {
-  occupe.value = 'email'; erreur.value = ''; info.value = ''
+  occupe.value = 'email'; effacer()
   try {
     await $fetch('/api/auth/email', { method: 'DELETE' })
     retirerEmailDemande.value = false
     await rafraichirMoi()
-    info.value = 'Adresse retirée : plus aucun lien n’y partira.'
-  } catch { erreur.value = 'L’adresse n’a pas pu être retirée.' }
+    dire('email', 'Adresse retirée : plus aucun lien n’y partira.', true)
+  } catch { dire('email', 'L’adresse n’a pas pu être retirée.') }
   finally { occupe.value = '' }
 }
 
 // --- l'ancienne clé -------------------------------------------------------------
 const desactiverDemande = ref(false)
 async function desactiverCle() {
-  occupe.value = 'cle'; erreur.value = ''; info.value = ''
+  occupe.value = 'cle'; effacer()
   try {
     await $fetch('/api/auth/cle', { method: 'DELETE' })
     desactiverDemande.value = false
     await rafraichirMoi()
-    info.value = 'Clé d’accès désactivée : elle ne permet plus d’entrer.'
-  } catch { erreur.value = 'La clé n’a pas pu être désactivée.' }
+    dire('cle', 'Clé d’accès désactivée : elle ne permet plus d’entrer.', true)
+  } catch { dire('cle', 'La clé n’a pas pu être désactivée.') }
   finally { occupe.value = '' }
 }
 
 // --- les autres appareils -------------------------------------------------------
 const partoutDemande = ref(false)
 async function deconnecterPartout() {
-  occupe.value = 'partout'; erreur.value = ''; info.value = ''
+  occupe.value = 'partout'; effacer()
   try {
     await $fetch('/api/auth/deconnecter-partout', { method: 'POST' })
     partoutDemande.value = false
-    info.value = 'Tous vos autres appareils sont déconnectés. Celui-ci reste connecté.'
-  } catch { erreur.value = 'Ça n’a pas marché. Réessayez dans un instant.' }
+    dire('partout', 'Tous vos autres appareils sont déconnectés. Celui-ci reste connecté.', true)
+  } catch { dire('partout', 'Ça n’a pas marché. Réessayez dans un instant.') }
   finally { occupe.value = '' }
 }
 
@@ -147,6 +155,8 @@ const dernier = (quoi: 'passkey' | 'email' | 'cle') => {
               :disabled="occupe === 'passkey'" @click="ajouterPasskey">
         {{ occupe === 'passkey' ? 'Un instant…' : passkeys.length ? 'Ajouter une passkey' : 'Créer une passkey' }}
       </button>
+      <p v-if="retour?.ou === 'passkey'" class="mini message" :class="{ ok: retour.ok }"
+         :role="retour.ok ? 'status' : 'alert'">{{ retour.texte }}</p>
     </div>
 
     <!-- e-mail : l'adresse deja la se montre toujours ; en ajouter une
@@ -181,6 +191,10 @@ const dernier = (quoi: 'passkey' | 'email' | 'cle') => {
                 @click="changeEmail = false">Annuler</button>
       </template>
     </div>
+    <!-- Hors du bloc : il disparaît avec ce qu'il montrait (adresse retirée,
+         clé désactivée), et le message doit rester. -->
+    <p v-if="retour?.ou === 'email'" class="mini message" :class="{ ok: retour.ok }"
+       :role="retour.ok ? 'status' : 'alert'">{{ retour.texte }}</p>
 
     <!-- l'ancienne cle -->
     <div v-if="moi?.a_une_cle" class="pile" style="gap:8px">
@@ -201,6 +215,8 @@ const dernier = (quoi: 'passkey' | 'email' | 'cle') => {
       <button v-else type="button" class="btn btn-0 mini doux" style="align-self:flex-start"
               @click="desactiverDemande = true">Désactiver la clé</button>
     </div>
+    <p v-if="retour?.ou === 'cle'" class="mini message" :class="{ ok: retour.ok }"
+       :role="retour.ok ? 'status' : 'alert'">{{ retour.texte }}</p>
 
     <!-- les autres appareils -->
     <div class="pile" style="gap:8px">
@@ -218,10 +234,9 @@ const dernier = (quoi: 'passkey' | 'email' | 'cle') => {
       </template>
       <button v-else type="button" class="btn btn-0 mini doux" style="align-self:flex-start"
               @click="partoutDemande = true">Déconnecter mes autres appareils</button>
+      <p v-if="retour?.ou === 'partout'" class="mini message" :class="{ ok: retour.ok }"
+         :role="retour.ok ? 'status' : 'alert'">{{ retour.texte }}</p>
     </div>
-
-    <p v-if="info" class="mini" role="status" style="margin:0;color:var(--oui)">{{ info }}</p>
-    <p v-if="erreur" class="mini" role="alert" style="margin:0;color:var(--non)">{{ erreur }}</p>
   </div>
 </template>
 
@@ -234,4 +249,6 @@ const dernier = (quoi: 'passkey' | 'email' | 'cle') => {
 .alerte { padding: 10px 12px; border-radius: var(--r-s); line-height: 1.45;
   background: color-mix(in srgb, var(--peche) 40%, transparent); }
 .btn-danger { background: var(--non); border-color: var(--non); color: var(--fond); }
+.message { margin: 0; color: var(--non); }
+.message.ok { color: var(--oui); }
 </style>
