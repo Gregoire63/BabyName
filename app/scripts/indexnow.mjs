@@ -57,18 +57,28 @@ const etat = { ...avant }
 for (const u of sorties) delete etat[u]
 for (let i = 0; i < aEnvoyer.length; i += LOT) {
   const lot = aEnvoyer.slice(i, i + LOT)
+  const envoyer = () => fetch('https://api.indexnow.org/indexnow', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({ host: hote, key: cle, keyLocation, urlList: lot.map(u => site + u) })
+  })
   let r
   try {
-    r = await fetch('https://api.indexnow.org/indexnow', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ host: hote, key: cle, keyLocation, urlList: lot.map(u => site + u) })
-    })
+    r = await envoyer()
+    // 403 juste apres un deploiement : le robot qui verifie la cle a pu
+    // tomber sur un point de Cloudflare qui servait encore l'ancienne
+    // version, sans le fichier. Une seconde chance, 90 s plus tard.
+    if (r.status === 403) {
+      console.log('[indexnow] cle refusee (403) : nouvel essai dans 90 s…')
+      await new Promise(ok => setTimeout(ok, 90_000))
+      r = await envoyer()
+    }
   } catch (e) { avertir(`envoi impossible (${e.message}).`) }
   // 200 = recu, 202 = recu, cle en cours de verification. Le reste : on garde l'etat.
   if (r.status !== 200 && r.status !== 202) {
     const detail = { 400: 'requete invalide', 403: 'cle refusee', 422: 'URL hors du domaine ou cle incoherente', 429: 'trop de requetes' }[r.status] ?? ''
-    avertir(`HTTP ${r.status} ${detail} : rien n'est marque envoye.`)
+    avertir(`HTTP ${r.status} ${detail} : rien n'est marque envoye.`
+      + (r.status === 403 ? ` Verifier que ${keyLocation} n'est pas bloque aux robots (Cloudflare : Securite > Evenements).` : ''))
   }
   for (const u of lot) if (u in urls) etat[u] = urls[u]
   writeFileSync(ETAT, JSON.stringify(etat, null, 1))
