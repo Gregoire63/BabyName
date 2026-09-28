@@ -17,7 +17,7 @@ const c = CONSERVATION
     <p><strong>L’essentiel.</strong></p>
     <ul>
       <li>On vous demande un prénom ou un pseudo, et une adresse e-mail pour valider le compte. Pas de mot de passe, pas de numéro.</li>
-      <li>Aucune publicité, aucune mesure d’audience, aucun cookie tiers. Rien n’est vendu ni loué.</li>
+      <li>Aucune publicité, aucun cookie tiers, aucun pistage d’une personne à l’autre. Une mesure d’audience anonyme, sans cookie, compte les pages vues. Rien n’est vendu ni loué.</li>
       <li>Votre compte s’efface quand vous le décidez, en un geste depuis l’app, et tout seul après {{ c.inactiviteMois }} mois sans l’ouvrir.</li>
       <li>Vous pouvez télécharger toutes vos données à tout moment : <em>Mon compte → Télécharger mes données</em>.</li>
     </ul>
@@ -216,14 +216,17 @@ const c = CONSERVATION
   </p>
 
   <h2>Cookies et stockage sur votre appareil</h2>
-  <p>babyNamed ne dépose <strong>aucun cookie publicitaire ni de mesure d’audience</strong>. Ce qu’il garde sur votre appareil sert uniquement à faire marcher l’app, ce qui le dispense de votre consentement (art. 82 de la loi Informatique et Libertés) :</p>
+  <p>babyNamed ne dépose <strong>aucun cookie publicitaire ni de mesure d’audience</strong>. Ce qu’il garde sur votre appareil sert à faire marcher l’app, ou à une mesure d’audience strictement limitée à babyNamed, ce qui le dispense de votre consentement (art. 82 de la loi Informatique et Libertés, lignes directrices de la CNIL) :</p>
   <ul>
     <li><strong>pr_session</strong> (cookie) : vous garde connecté(e) {{ c.sessionJours }} jours. Illisible par les scripts de la page, envoyé uniquement en HTTPS.</li>
     <li><strong>pr_defi</strong> (cookie) : le temps de créer ou d’utiliser une passkey, cinq minutes au plus ; il est effacé dès qu’il a servi.</li>
-    <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour, le prénom choisi depuis une fiche tant qu’il n’est pas jugé, et un code cadeau reçu par lien le temps de vous connecter (un mois au plus). Ces informations restent sur votre appareil et sont effacées à la déconnexion, sauf le thème choisi (clair, sombre), réglage de l’appareil et non du compte.</li>
+    <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour, le prénom choisi depuis une fiche tant qu’il n’est pas jugé, un code cadeau reçu par lien le temps de vous connecter (un mois au plus), et un mot qui dit par où vous êtes arrivé la première fois (une fiche du site, un moteur de recherche, TikTok, un lien cadeau…). Ces informations restent sur votre appareil et sont effacées à la déconnexion, sauf le thème choisi (clair, sombre), réglage de l’appareil et non du compte.</li>
     <li><strong>Cache hors ligne</strong> : les fichiers de l’application et le catalogue des prénoms, pour que l’app s’ouvre vite. Aucune donnée personnelle.</li>
   </ul>
-  <p>La police de caractères est servie par babyNamed lui-même : ouvrir l’app n’envoie rien à Google ni à aucun autre tiers.</p>
+  <p>La police de caractères est servie par babyNamed lui-même : ouvrir l’app n’envoie rien à Google.</p>
+  <h3>Mesure d’audience</h3>
+  <p>Pour savoir quelles pages sont lues et d’où viennent les visiteurs, babyNamed utilise <strong>Cloudflare Web Analytics</strong> : sans cookie, sans stockage sur votre appareil, sans identifiant qui vous suivrait d’un site à l’autre. Il compte des pages vues, le site d’où l’on arrive, le type d’appareil et le pays ; il ne sert à rien d’autre et n’est croisé avec aucune autre donnée.</p>
+  <p>À l’inscription, et à l’achat d’un cadeau, l’app garde aussi ce mot de provenance (par exemple « tiktok » ou « google »), jamais l’adresse de la page d’où vous veniez. Il figure dans vos données téléchargeables et s’efface avec le compte.</p>
 
   <h2>Sécurité</h2>
   <p>

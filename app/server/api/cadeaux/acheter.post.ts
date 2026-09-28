@@ -18,7 +18,7 @@ export default defineEventHandler(async (e) => {
   if (!paiementPret()) throw createError({ statusCode: 503, statusMessage: 'paiement_non_configure' })
   if (!venteOuverte()) throw createError({ statusCode: 503, statusMessage: 'vente_fermee' })
 
-  const corps = await readBody<{ consentement?: boolean; de_la_part?: unknown; message?: unknown }>(e)
+  const corps = await readBody<{ consentement?: boolean; de_la_part?: unknown; message?: unknown; provenance?: unknown }>(e)
     .catch(() => null)
   if (corps?.consentement !== true) {
     throw createError({ statusCode: 400, statusMessage: 'consentement_requis' })
@@ -32,5 +32,12 @@ export default defineEventHandler(async (e) => {
     message: texteOffrant(corps.message, 200),
     siteUrl, retour, consentementLe: new Date().toISOString()
   })
+  // D'ou vient l'acheteur (migration 0008). Jamais bloquant : une vente
+  // passe avant sa statistique.
+  const provenance = provenanceValide(corps.provenance)
+  if (provenance && session?.id) {
+    await ecrire(`insert into provenance_cadeaux (session_ref, provenance) values (?1, ?2) on conflict do nothing`,
+      [String(session.id), provenance]).catch(() => null)
+  }
   return { ok: true, url: session.url as string }
 })

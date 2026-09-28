@@ -40,7 +40,7 @@ async function offrir() {
   erreur.value = ''
   try {
     const r = await $fetch<any>('/api/cadeaux/acheter', {
-      method: 'POST', body: { consentement: true, de_la_part: deLaPart.value, message: message.value }
+      method: 'POST', body: { consentement: true, de_la_part: deLaPart.value, message: message.value, provenance: provenanceLue() }
     })
     if (r?.url) { window.location.href = r.url; return }
     erreur.value = 'Le paiement n’a pas pu s’ouvrir.'

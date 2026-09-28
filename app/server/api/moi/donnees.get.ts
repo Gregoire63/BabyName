@@ -38,6 +38,7 @@ export default defineEventHandler(async (e) => {
       // Le lot de depart consomme : l'archive du compte, plus ses bulletins
       // (migration 0005).
       q1(`select id, pseudo, email, email_verifie_le as email_verifie_le, cree_le, vu_le as derniere_activite,
+                 provenance as arrive_par,
                  gestes_depart + coalesce((select sum(b.depart) from membres m
                                              join bulletins b on b.groupe_id = m.groupe_id and b.user_id = m.user_id
                                             where m.user_id = ?1), 0) as prenoms_juges_du_lot_de_depart

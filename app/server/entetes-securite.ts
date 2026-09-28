@@ -32,7 +32,9 @@ const BASE_CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  // Cloudflare Web Analytics : la balise (injectee par Cloudflare, sans cookie)
+  // envoie ses mesures a cloudflareinsights.com.
+  "connect-src 'self' https://cloudflareinsights.com",
   "worker-src 'self'",
   "manifest-src 'self'",
   "frame-src 'none'",
@@ -49,12 +51,17 @@ const BASE_CSP = [
  * donc ni lire un lien de connexion, ni créer une passkey pour quelqu'un
  * d'autre.
  */
+/** Le script de mesure d'audience de Cloudflare (Web Analytics). */
+const ANALYTICS = 'https://static.cloudflareinsights.com'
+
 export function politiqueApp(nonce: string): string {
-  return [...BASE_CSP, `script-src 'self' 'nonce-${nonce}'`].join('; ')
+  return [...BASE_CSP, `script-src 'self' 'nonce-${nonce}' ${ANALYTICS}`].join('; ')
 }
 
 /** Les pages statiques (fiches prénoms) : aucun script exécutable en ligne. */
-export const POLITIQUE_STATIQUE = [...BASE_CSP, "script-src 'self'"].join('; ')
+export const POLITIQUE_STATIQUE = [...BASE_CSP, `script-src 'self' ${ANALYTICS}`].join('; ')
 
 /** Les dossiers des pages statiques générées par scripts/seo.mjs. */
-export const SECTIONS_STATIQUES = ['prenoms', 'prenom', 'lettre', 'origine', 'choisir-un-prenom-a-deux']
+export const SECTIONS_STATIQUES = ['prenoms', 'prenom', 'lettre', 'origine', 'choisir-un-prenom-a-deux',
+  // scripts/seo-plus.mjs
+  'tester-prenom-nom-de-famille', 'idee-cadeau-futurs-parents']
