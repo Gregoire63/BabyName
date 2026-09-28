@@ -35,7 +35,7 @@ async function commenter() {
 const motsLisibles = (n: number) => `${n} commentaire${n > 1 ? 's' : ''}`
 
 /** Un accord qu'on retire après coup — le bébé de la cousine est né entre-
- *  temps. La même feuille que sur la carte : déjà pris, ou en secret. */
+ *  temps. La même feuille que sur la carte : déjà pris, ou autre raison. */
 const ecarterPour = ref<string | null>(null)
 /** Un observateur n'a pas de veto : il n'a pas le bouton. */
 const jObserve = computed(() => g.etat.value?.moi?.role === 'observateur')

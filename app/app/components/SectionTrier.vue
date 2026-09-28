@@ -336,7 +336,7 @@ const quotaAtteint = computed(() =>
  */
 const echange = ref(false)
 
-// --- bloquer : déjà pris, ou en secret -------------------------------------
+// --- veto : déjà pris, ou autre raison ------------------------------------
 // Ça ne se pose pas d'un geste : la feuille demande pourquoi (FeuilleEcarter).
 const vetoPour = ref<Prenom | null>(null)
 

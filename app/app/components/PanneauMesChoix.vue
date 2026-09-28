@@ -156,17 +156,16 @@ async function remettre(prenoms: string[]) {
     <section class="carte pile groupe">
       <button class="entete" @click="bascule(-2)">
         <span class="pastille veto" />
-        <strong style="flex:1;text-align:left">Vetos secrets</strong>
+        <strong style="flex:1;text-align:left">Veto</strong>
         <span class="puce">{{ vetos.length }}</span>
         <span class="doux">{{ ouvert === -2 ? '−' : '+' }}</span>
       </button>
       <template v-if="ouvert === -2">
         <p class="mini doux" style="margin:0">
-          Personne d’autre ne sait que c’est vous. Il vous en reste
-          {{ vetosRestants }} sur {{ vetosMax }}.
+          Il vous en reste {{ vetosRestants }} sur {{ vetosMax }}.
         </p>
         <p v-if="!vetos.length" class="mini doux" style="margin:0">
-          Aucun veto.
+          Aucun pour l’instant.
         </p>
         <div v-for="v in vetos" :key="v.prenom" class="rangee">
           <button class="nom" @click="g.ouvrirFiche(v.prenom)">

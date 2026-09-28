@@ -86,10 +86,12 @@ const blocs = (await cl.locator('.groupe .entete').allInnerTexts()).map(t => t.r
 console.log('   blocs de Mes choix :', blocs.join(' | '))
 dit(blocs.some(b => b.startsWith('Favoris')) && !blocs.some(b => /Gardés/.test(b)),
   'le bloc « Favoris » porte le nom du bouton de la carte (plus de « Gardés »)')
-dit(blocs.some(b => b.startsWith('Vetos secrets')), 'le bloc « Vetos secrets » est là')
-await cl.locator('.groupe .entete', { hasText: 'Vetos secrets' }).click()
+dit(blocs.some(b => /^Veto \d/.test(b)) && !blocs.some(b => /secret/i.test(b)),
+  'le bloc s’appelle « Veto », sans « secret »')
+const blocVeto = cl.locator('.groupe').filter({ has: page.locator('.entete strong', { hasText: /^Veto$/ }) })
+await blocVeto.locator('.entete').click()
 await page.waitForTimeout(400)
-const txtVetos = await cl.locator('.groupe').filter({ hasText: 'Vetos secrets' }).innerText()
+const txtVetos = await blocVeto.innerText()
 dit(/Brandon/.test(txtVetos) && /non/.test(txtVetos), 'mon veto et son motif y sont')
 dit(!/Jayden/.test(txtVetos), 'celui d’Alice n’y est pas')
 await page.screenshot({ path: '/tmp/v2-meschoix.png' })
@@ -117,8 +119,8 @@ await bVeto.click()
 await page.waitForSelector('.feuille-corps', { timeout: 6000 })
 dit((await page.locator('.feuille-corps h2').first().innerText()) === 'Mettre un veto',
     'la confirmation s’ouvre : « Mettre un veto »')
-// Deux raisons (déjà pris, en secret) : ici, le veto secret.
-await page.locator('.feuille-corps').getByText('En secret', { exact: true }).click()
+// Deux raisons (déjà pris, autre raison) : ici, l'autre raison.
+await page.locator('.feuille-corps').getByText('Autre raison', { exact: true }).click()
 dit(await page.locator('.feuille-corps input.champ').count() === 1, 'avec un champ commentaire')
 await page.waitForTimeout(600)
 await page.screenshot({ path: '/tmp/v3-veto.png' })

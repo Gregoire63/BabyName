@@ -56,8 +56,8 @@ serveur de dev parle toujours à la base locale — sauf si l'on ajoutait
 
 | | |
 |---|---|
-| Paul | 27 votes, 2 favoris (Alma, Nine), une famille écartée d'un geste (`kevi`) et des non un par un ; un veto secret sur Brandon, au format d'avant les graphies |
-| Alice | 19 votes, un veto secret sur Jayden (et ses 8 graphies), **Mathilde « déjà pris »** (« ma sœur »), un commentaire sur Louise ; adresse vérifiée `alice@exemple.test` (lien de connexion : la boîte de dev le reçoit) |
+| Paul | 27 votes, 2 favoris (Alma, Nine), une famille écartée d'un geste (`kevi`) et des non un par un ; un veto sur Brandon, au format d'avant les graphies |
+| Alice | 19 votes, un veto sur Jayden (et ses 8 graphies), **Mathilde « déjà pris »** (« ma sœur »), un commentaire sur Louise ; adresse vérifiée `alice@exemple.test` (lien de connexion : la boîte de dev le reçoit) |
 | Mamie | **observatrice** : 6 votes, dont un **non à Louise**, qui reste un accord |
 | en commun | 9 prénoms, plus des désaccords francs (Marius, Hector : Paul oui, Alice non) pour remplir « À revoir » |
 | listes | « Notre liste » débloquée (code `dec0de00`), « Essai gratuit » et « Autre essai » au quota 3/jour pour taper dans le mur en trois swipes |
@@ -437,7 +437,7 @@ une fois à deux, et l'un des deux peut payer pour l'autre. Prix par défaut
 | Gratuit | Débloqué |
 |---|---|
 | les 19 608 prénoms, la recherche, les filtres | le tri sans plafond |
-| les accords, le classement, « déjà pris » et les vetos secrets | l'essai avec le nom de famille |
+| les accords, le classement, « déjà pris » et les vetos | l'essai avec le nom de famille |
 | origine, sens et courbe sur chaque fiche | la projection de classe complète |
 | le deuxième parent | le portrait de goûts et la divergence |
 | le volet « À revoir » | ce qui cause chaque désaccord |
@@ -835,12 +835,15 @@ nouvelle carte. `ref=seo` n'est lu par rien : l'app ne mesure pas d'audience.
 Les redirections **remplacent** l'entrée d'historique : sinon le bouton retour
 ramène sur le lien, qui renvoie aussitôt dans la liste.
 
-## Retirer un prénom : déjà pris, ou en secret
+## Retirer un prénom : déjà pris, ou veto
 
 Deux raisons, deux gestes. Le bouton **« Veto »** ouvre la feuille « Mettre
 un veto » (`FeuilleEcarter.vue`, depuis la carte comme depuis un accord), qui
-demande laquelle, **sans rien cocher d'avance** : cocher « déjà pris » par
-défaut ferait publier « mon ex » à qui tape vite.
+demande pourquoi — « Déjà pris » ou « Autre raison » —, **sans rien cocher
+d'avance** : cocher « déjà pris » par défaut ferait publier « mon ex » à qui
+tape vite. Le mot « secret » n'apparaît plus à l'écran (il intriguait plus
+qu'il n'aidait) ; ce qui compte au moment de choisir est dit en une phrase
+sous « Autre raison » : ni votre nom, ni votre note.
 
 Le mot : « Veto », pas « Bloquer ». « Bloquer » l'avait remplacé le
 25/09/2026 ; il est reparti le 28 : à côté de « Débloquer cette liste » —
@@ -849,7 +852,7 @@ l'API disaient déjà `vetos`. Même raison pour « Favoris » (le bouton de la
 carte) au lieu de « Gardés » dans Classement › Mes choix : un seul nom par
 chose.
 
-| | Déjà pris | En secret |
+| | Déjà pris | Autre raison (le veto compté) |
 |---|---|---|
 | pour | la famille, les amis, quelqu'un qu'on connaît trop | un ex, ce qu'on ne veut pas expliquer |
 | qui le voit | toute la liste (observateurs compris), avec l'auteur et sa note | personne : le prénom disparaît, sans nom |

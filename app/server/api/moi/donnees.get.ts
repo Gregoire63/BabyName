@@ -120,7 +120,7 @@ export default defineEventHandler(async (e) => {
         'Vos données de paiement : babyNamed ne connaît que la date du déblocage. Le reste (carte, e-mail, facture) est chez Stripe.'
       ],
       valeurs_de_vote: 'non, neutre ou oui. « balayage » indique un « non » donné à toute une famille de prénoms d’un seul geste.',
-      vetos: 'Vos vetos : les prénoms que vous avez écartés en secret, avec leurs graphies (même prononciation) et votre motif.',
+      vetos: 'Vos vetos : les prénoms que vous avez écartés, avec leurs graphies (même prononciation) et votre motif. Les autres membres ne voient pas qui les a posés.',
       deja_pris: 'Les prénoms que vous avez marqués « déjà pris » : ils appartiennent à la liste. Si vous effacez votre compte, ils y restent, sans votre nom ni votre note.',
       cadeaux_recus: 'Les codes cadeaux dont vous vous êtes servi : de la part de qui, et le mot qui les accompagnait.',
       quotas: `Le nombre de prénoms jugés le dernier jour de tri, sur chaque liste gratuite, une fois le lot de départ épuisé : le jour suivant le remplace. Effacé automatiquement au bout de ${CONSERVATION.quotaJours} jours.`

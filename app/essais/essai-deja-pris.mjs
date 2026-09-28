@@ -1,5 +1,5 @@
 /**
- * Retirer un prénom du jeu : « déjà pris » (partagé) ou en secret (compté),
+ * Retirer un prénom du jeu : « déjà pris » (partagé) ou veto pour une autre raison (compté),
  * graphies comprises.
  *
  *  1. La liste › Déjà pris : Mathilde, posée par Alice, s'affiche avec sa
@@ -10,9 +10,9 @@
  *  3. La carte : « Veto » ouvre une feuille où RIEN n'est coché ; « Déjà
  *     pris » avec une note, la carte part, ses graphies ne prennent pas sa
  *     place, et la liste la montre.
- *  4. En secret : Chloé (six autres graphies) coûte UN veto, aucune
+ *  4. Autre raison : Chloé (six autres graphies) coûte UN veto, aucune
  *     graphie ne revient en carte, Mes choix la montre avec ses graphies.
- *  5. Au bout des vetos secrets, la feuille le dit et propose « déjà
+ *  5. Au bout des vetos, la feuille le dit et propose « déjà
  *     pris » ; le serveur refuse le suivant.
  *  6. Mamie, observatrice : voit la liste, sans champ ni bouton ; le serveur
  *     refuse ses ajouts.
@@ -140,7 +140,7 @@ const suivant = (await devant.innerText()).trim()
 dit(suivant !== cible && !(entree?.variantes ?? []).includes(suivant),
   `la carte suivante (${suivant}) n’est ni ${cible} ni une de ses graphies`)
 
-// ============ 4. En secret, graphies comprises =============================
+// ============ 4. Autre raison, graphies comprises ==========================
 await page.getByRole('button', { name: 'Chercher un prénom' }).click()
 await rech.locator('input.chercher').fill('chloé')
 await page.waitForTimeout(400)
@@ -153,9 +153,9 @@ await feuille.waitFor({ timeout: 6000 })
 const graphiesTxt = (await feuille.innerText()).replace(/\s+/g, ' ')
 dit(/Avec ses graphies : Cloé, Chloe, Khloé et 3 autres/.test(graphiesTxt),
   'la feuille annonce les graphies emportées')
-await feuille.getByText('En secret', { exact: true }).click()
+await feuille.getByText('Autre raison', { exact: true }).click()
 dit(new RegExp(`Il vous en reste ${5 - avant} sur 5`).test((await feuille.innerText()).replace(/\s+/g, ' ')),
-  `le compteur des vetos secrets : ${5 - avant} sur 5`)
+  `le compteur des vetos : ${5 - avant} sur 5`)
 dit(await feuille.locator('.feuille-pied .rouge-plein').count() === 1, 'le bouton passe au rouge du veto')
 await feuille.getByPlaceholder('Pourquoi ? (pour vous seul, facultatif)').fill('mon ex')
 await page.screenshot({ path: '/tmp/dp3-secret.png' })
@@ -190,31 +190,31 @@ const jeanne = cl.locator('.groupe .rangee').filter({ has: page.locator('.nom', 
 dit(await jeanne.count() === 1 && await jeanne.locator('.puce.pris').innerText() === 'déjà pris',
   'Mes choix › Oui : Jeanne porte « déjà pris »')
 await api(alice.page, '/api/groupes/1/deja-pris?prenom=Jeanne', 'DELETE')
-await cl.locator('.groupe .entete', { hasText: 'Vetos secrets' }).click()
+await cl.locator('.groupe .entete').filter({ has: page.locator('strong', { hasText: /^Veto$/ }) }).click()
 await page.waitForTimeout(400)
-const bloc = cl.locator('.groupe').filter({ hasText: 'Vetos secrets' })
+const bloc = cl.locator('.groupe').filter({ has: page.locator('.entete strong', { hasText: /^Veto$/ }) })
 const txtBloc = (await bloc.innerText()).replace(/\s+/g, ' ')
 dit(/Chloé \+ 6 graphies mon ex/.test(txtBloc), 'Mes choix : « Chloé + 6 graphies », avec le motif')
 dit(await bloc.getByRole('button', { name: /Déjà pris dans la liste/ }).count() === 1,
   'et un chemin vers les « déjà pris »')
 
-// ============ 5. Au bout des vetos secrets ================================
+// ============ 5. Au bout des vetos ========================================
 for (const p of ['Emma', 'Jade', 'Rose', 'Anna', 'Lina']) {
   if ((await api(page, '/api/groupes/1')).json.mes_vetos.length >= 5) break
   await api(page, '/api/groupes/1/veto', 'POST', { prenom: p })
 }
 const refus = await api(page, '/api/groupes/1/veto', 'POST', { prenom: 'Mila' })
 dit(refus.status === 409 && refus.json?.statusMessage === 'quota_veto_atteint',
-  'le serveur refuse un sixième veto secret')
+  'le serveur refuse un sixième veto')
 await page.goto(`${BASE}/g/1/swipe`, { waitUntil: 'networkidle' })
 await devant.waitFor({ timeout: 30000 })
 await page.locator('.carte.fiche:not(.derriere) .bas .rouge').click()
 await feuille.waitFor({ timeout: 6000 })
-await feuille.getByText('En secret', { exact: true }).click()
+await feuille.getByText('Autre raison', { exact: true }).click()
 const txt5 = (await feuille.innerText()).replace(/\s+/g, ' ')
-dit(/Vos 5 vetos secrets sont utilisés/.test(txt5) && /« déjà pris »/.test(txt5),
+dit(/Vos 5 vetos sont utilisés/.test(txt5) && /« déjà pris »/.test(txt5),
   'au bout, la feuille le dit et propose « déjà pris »')
-dit(await feuille.locator('.feuille-pied .rouge-plein').isDisabled(), 'et le veto secret n’est plus possible')
+dit(await feuille.locator('.feuille-pied .rouge-plein').isDisabled(), 'et un sixième veto n’est plus possible')
 await feuille.getByText('Déjà pris', { exact: true }).click()
 dit(!(await valider.isDisabled()), '« déjà pris », lui, reste ouvert')
 await page.keyboard.press('Escape'); await page.waitForTimeout(500)

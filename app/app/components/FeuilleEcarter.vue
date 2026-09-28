@@ -7,8 +7,12 @@ import { useGroupeCourant } from '~/composables/etatGroupe'
  * Le veto servait à tout : le prénom de la cousine comme celui d'un ex, avec
  * deux vetos en tout. Or ces deux cas n'ont rien en commun. La cousine, on
  * peut le dire, et on veut que l'autre le sache : c'est « déjà pris », partagé,
- * sans quota. L'ex, non : c'est le veto secret, compté pour rester
- * l'exception.
+ * sans quota. L'ex, non : c'est le veto « autre raison », compté pour rester
+ * l'exception — et personne ne sait qui l'a posé.
+ *
+ * Pas de « secret » dans les mots de l'écran (28/09) : le mot intriguait
+ * plus qu'il n'aidait. La phrase sous « Autre raison » dit ce
+ * qui compte au moment de choisir : ni votre nom, ni votre note.
  *
  * Aucun des deux n'est coché d'avance. Cocher « déjà pris » par défaut
  * aurait fait publier « mon ex » à qui tape vite ; cocher le secret aurait
@@ -40,7 +44,7 @@ const restants = computed(() => Math.max(0, max.value - g.mesVetos.value.length)
 
 const bouton = computed(() => envoi.value ? 'Un instant…'
   : nature.value === 'pris' ? `Ajouter ${props.prenom} aux déjà pris`
-  : nature.value === 'secret' ? `Veto secret sur ${props.prenom}`
+  : nature.value === 'secret' ? `Mettre un veto sur ${props.prenom}`
   : 'Choisissez une raison')
 
 async function confirmer(fermer: () => void) {
@@ -56,7 +60,7 @@ async function confirmer(fermer: () => void) {
   } catch (e: any) {
     const code = e?.data?.statusMessage
     erreur.value = code === 'quota_veto_atteint'
-      ? `Vos ${max.value} vetos secrets sont utilisés : retirez-en un dans Classement › Mes choix, ou dites-le : « déjà pris » n’a pas de limite.`
+      ? `Vos ${max.value} vetos sont utilisés : retirez-en un dans Classement › Mes choix, ou dites-le : « déjà pris » n’a pas de limite.`
       : code === 'deja_veto' || code === 'deja_pris'
         ? `${props.prenom} est déjà retiré du jeu.`
         : code === 'deja_pris_plein'
@@ -72,7 +76,7 @@ async function confirmer(fermer: () => void) {
   <!-- « Veto », le mot du couple (et de l'API : vetos, poserVeto). Il avait
        cédé la place à « Bloquer », qui se confondait avec « Débloquer la
        liste » — l'achat. Deux façons d'en poser un : « déjà pris », dit à
-       tous et sans limite, ou en secret, compté. -->
+       tous et sans limite, ou pour une autre raison, compté. -->
   <Feuille titre="Mettre un veto" @fermer="emit('fermer')">
     <p style="margin:0 0 2px">
       <strong style="font-size:1.35rem">{{ prenom }}</strong>
@@ -98,7 +102,7 @@ async function confirmer(fermer: () => void) {
       <label class="raison" :class="{ choisie: nature === 'secret' }">
         <input v-model="nature" type="radio" name="raison" value="secret">
         <span class="texte">
-          <strong>En secret</strong>
+          <strong>Autre raison</strong>
           <span>Personne ne saura que c’est vous, ni pourquoi. Il vous en reste
             <b>{{ restants }}</b> sur {{ max }}.</span>
         </span>
@@ -112,7 +116,7 @@ async function confirmer(fermer: () => void) {
            aria-label="Pourquoi ce veto ? (facultatif, visible de vous seul)"
            placeholder="Pourquoi ? (pour vous seul, facultatif)">
     <p v-if="nature === 'secret' && !restants" class="mini" style="margin:8px 0 0">
-      Vos {{ max }} vetos secrets sont utilisés : retirez-en un dans
+      Vos {{ max }} vetos sont utilisés : retirez-en un dans
       Classement › Mes choix, ou choisissez « déjà pris ».
     </p>
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:8px 0 0">
