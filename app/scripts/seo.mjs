@@ -37,7 +37,7 @@ const MARQUE = 'babyNamed'
  * apprend vite a ignorer un lastmod qui ment. A monter quand les donnees ou
  * les gabarits changent vraiment.
  */
-const MAJ = '2026-09-25'
+const MAJ = '2026-09-28'
 /** La page qui presente l'application elle-meme, statique : c'est elle que
  *  lisent les robots et les IA, la racine « / » n'etant qu'une coquille JS. */
 const APP = '/choisir-un-prenom-a-deux/'
@@ -244,8 +244,27 @@ header.h img{width:30px;height:30px;border-radius:9px}
 .b:hover{transform:translateY(-2px);box-shadow:0 12px 26px -12px rgba(26,35,78,.6)}
 .b:focus-visible{outline:3px solid var(--encre);outline-offset:3px}
 .b.p{padding:9px 16px;font-size:15px}
-nav.fil{margin:16px 0 0;font-size:14px;color:var(--doux)}
+nav.rubriques{border-bottom:1px solid var(--trait)}
+nav.rubriques ul{display:flex;gap:14px;margin:0;padding:0;list-style:none;overflow-x:auto;scrollbar-width:none}
+nav.rubriques ul::-webkit-scrollbar{display:none}
+@media (min-width:560px){nav.rubriques ul{gap:26px}}
+@media (max-width:400px){nav.rubriques ul{gap:12px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent)}nav.rubriques a{font-size:14px}}
+nav.rubriques a{display:block;padding:12px 0 9px;border-bottom:3px solid transparent;white-space:nowrap;font-size:15px;font-weight:800;line-height:1.3;text-decoration:none;color:var(--doux);transition:color .15s,border-color .15s}
+nav.rubriques a:hover{color:var(--texte);border-bottom-color:var(--trait)}
+nav.rubriques a[aria-current="page"]{color:var(--texte);border-bottom-color:var(--encre)}
+nav.fil{margin:14px 0 0;font-size:14px;color:var(--doux)}
 nav.fil a{color:var(--doux)}
+.bascule{display:inline-flex;gap:4px;margin:0 0 14px;padding:4px;border-radius:999px;background:var(--carte);border:1px solid var(--trait)}
+.bascule a{padding:8px 20px;border-radius:999px;font-weight:800;text-decoration:none;color:var(--doux)}
+.bascule a:hover{color:var(--texte)}
+.bascule a[aria-current="page"]{color:var(--sur-bouton);background:var(--bouton)}
+.alphabet{display:flex;flex-wrap:wrap;gap:5px;margin:0;padding:0;list-style:none}
+.alphabet a{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;font-size:16px;background:var(--carte);border:1px solid var(--trait);text-decoration:none;font-weight:800;transition:transform .18s,background .18s}
+.alphabet a:hover{transform:translateY(-2px);background:var(--menthe)}
+.alphabet a[aria-current="page"]{color:var(--sur-bouton);background:var(--bouton);border-color:var(--bouton)}
+.voisins{display:flex;justify-content:space-between;gap:12px;margin:28px 0 0;font-weight:800}
+.voisins a{text-decoration:none}
+.voisins a:hover{text-decoration:underline}
 .hero{position:relative;isolation:isolate;overflow:hidden;margin:12px 0 22px;padding:36px 24px 30px;border-radius:30px;background:linear-gradient(135deg,var(--menthe),var(--sable) 55%,var(--peche))}
 .hero::before,.hero::after{content:"";position:absolute;z-index:-1;border-radius:50%;background:radial-gradient(circle,var(--voile),transparent 68%)}
 .hero::before{width:260px;height:260px;right:-80px;top:-100px}
@@ -253,6 +272,7 @@ nav.fil a{color:var(--doux)}
 h1{margin:0;font-size:clamp(42px,12vw,68px);line-height:1.02;letter-spacing:-.03em}
 h1.long{font-size:clamp(31px,8.4vw,50px);line-height:1.08}
 .hero .sous{margin:12px 0 0;max-width:36em;font-size:17px;line-height:1.55}
+.hero.court{margin-bottom:16px;padding:26px 22px 22px}
 .sens{margin:10px 0 0;font-size:clamp(21px,5.8vw,28px);line-height:1.25;font-weight:800}
 .sens small{display:inline-block;vertical-align:middle;margin-left:6px;padding:3px 10px;border-radius:999px;background:var(--voile);font-size:13px;letter-spacing:0}
 .etiquettes{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0 0;padding:0;list-style:none}
@@ -291,8 +311,11 @@ svg.courbe{display:block;width:100%;height:auto;overflow:visible}
 .offrir b{display:block;font-size:17px}
 .offrir span{display:block;margin-top:2px;font-size:15px;line-height:1.45}
 .offrir .b{flex:none}
-table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;font-size:16px;border-radius:22px;background:var(--carte);border:1px solid var(--trait);box-shadow:var(--ombre)}
+.tableau{overflow-x:auto;border-radius:22px;background:var(--carte);border:1px solid var(--trait);box-shadow:var(--ombre)}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:16px}
+caption{padding:14px 14px 10px;text-align:left;font-size:14px;line-height:1.45;color:var(--doux)}
 td,th{padding:12px 10px;border-bottom:1px solid var(--trait);text-align:left;vertical-align:top}
+th.rg,td.rg{width:2.6em;padding-right:0;text-align:right}
 tbody tr:last-child td{border-bottom:0}
 th{font-size:13px;color:var(--doux);background:color-mix(in srgb,var(--sable) 28%,var(--carte))}
 td:first-child{color:var(--doux);font-variant-numeric:tabular-nums}
@@ -304,10 +327,42 @@ td small{display:block;margin-top:2px;font-size:14px;line-height:1.35;color:var(
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .monte{color:var(--oui);font-weight:800}
 .baisse{color:var(--non);font-weight:800}
-@media (max-width:560px){.o{display:none}td,th{padding:11px 7px}}
-.lettres{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:8px}
-.lettres a{display:grid;place-items:center;aspect-ratio:1;border-radius:15px;background:var(--carte);border:1px solid var(--trait);text-decoration:none;font-weight:800;font-size:18px;transition:transform .18s,background .18s}
-.lettres a:hover{transform:translateY(-2px);background:var(--menthe)}
+@media (max-width:560px){.o{display:none}table{font-size:15px}td,th{padding:11px 6px}td.n,th.n{padding-left:4px}td small{overflow-wrap:anywhere}}
+@media (max-width:360px){table{font-size:14px}th{font-size:12px}td,th{padding:10px 4px}th.rg,td.rg{width:2em}}
+ul.noms{columns:2 9em;column-gap:20px;margin:0;padding:0;list-style:none}
+@media (min-width:760px){ul.noms{columns:4 9em}}
+ul.noms li{break-inside:avoid;padding:3px 0}
+ul.noms a{text-decoration:none}
+ul.noms a:hover{text-decoration:underline}
+ul.noms a.courant{font-weight:800}
+.classements{display:grid;gap:14px}
+.classement h3{margin:0 0 4px;font-size:21px}
+.classement>p{margin:0 0 16px;font-size:15px;line-height:1.45;color:var(--doux)}
+.duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 22px}
+.duo .genre{margin:0 0 6px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--doux)}
+ol.apercu{display:grid;gap:5px;margin:0 0 12px;padding:0;list-style:none}
+ol.apercu li{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+ol.apercu a{overflow:hidden;font-weight:800;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}
+ol.apercu a:hover{text-decoration:underline}
+ol.apercu small{flex:none;font-size:14px;font-variant-numeric:tabular-nums;color:var(--doux)}
+a.suite{font-size:15px;font-weight:800;text-decoration:none}
+a.suite::after{content:" →"}
+a.suite:hover{text-decoration:underline}
+.origines{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px;margin:0;padding:0;list-style:none}
+.origines a{display:block;height:100%;padding:14px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait);text-decoration:none;box-shadow:var(--ombre);transition:transform .18s,border-color .18s}
+.origines a:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--encre) 28%,var(--trait))}
+.origines b{display:block;font-size:18px;line-height:1.25}
+.origines span{display:block;font-size:14px;color:var(--doux)}
+.origines small{display:block;margin-top:8px;font-size:14px;line-height:1.35}
+@media (min-width:760px){.origines.six{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.suite-bloc{margin:14px 0 0}
+h2 small{margin-left:4px;font-size:.62em;color:var(--doux);letter-spacing:0}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+section[id]{scroll-margin-top:84px}
+.rangs{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.rangs a{display:flex;align-items:baseline;gap:12px;padding:12px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait);text-decoration:none;transition:border-color .18s}
+.rangs a:hover{border-color:color-mix(in srgb,var(--encre) 28%,var(--trait))}
+.rangs b{flex:none;min-width:2.6em;font-size:19px}
 ol.etapes{display:grid;gap:12px;margin:0;padding:0;list-style:none;counter-reset:e}
 ol.etapes li{position:relative;counter-increment:e;padding:16px 18px 16px 66px;border-radius:22px;background:var(--carte);border:1px solid var(--trait);box-shadow:var(--ombre)}
 ol.etapes li::before{content:counter(e);position:absolute;left:16px;top:15px;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;font-weight:800;background:linear-gradient(135deg,var(--menthe),var(--peche))}
@@ -324,9 +379,14 @@ ol.etapes li::before{content:counter(e);position:absolute;left:16px;top:15px;dis
 .faq summary::after{content:"";position:absolute;right:4px;top:50%;width:9px;height:9px;border-right:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:translateY(-75%) rotate(45deg);transition:transform .25s}
 .faq details[open] summary::after{transform:translateY(-25%) rotate(-135deg)}
 .faq details p{margin:0 0 16px}
-footer{margin:64px 0 0;border-top:1px solid var(--trait);font-size:14px;color:var(--doux)}
-footer .l{padding-top:26px;padding-bottom:40px}
-footer a{color:var(--doux)}
+footer{margin:64px 0 0;border-top:1px solid var(--trait);font-size:14px;color:var(--doux);background:color-mix(in srgb,var(--sable) 16%,var(--fond))}
+footer .l{padding-top:30px;padding-bottom:40px}
+footer a{color:var(--doux);text-decoration:none}
+footer a:hover{color:var(--texte);text-decoration:underline}
+.plan{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 18px;margin:0 0 26px}
+@media (min-width:760px){.plan{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.plan .t{margin:0 0 8px;font-weight:800;color:var(--texte)}
+.plan ul{display:grid;gap:6px;margin:0;padding:0;list-style:none}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
 @keyframes monte{from{opacity:0;transform:translateY(18px)}}
 @keyframes apparait{from{opacity:0}}
@@ -365,7 +425,31 @@ footer a{color:var(--doux)}
 /** Un long titre n'a pas la taille d'un prénom. */
 const h1 = t => `<h1${t.length > 20 ? ' class="long"' : ''}>${esc(t)}</h1>`
 
-function page({ chemin, titre, description, fil = [], corps, jsonld = [], ariane = null, indexer = true }) {
+/**
+ * La navigation, sur toutes les pages : les rubriques sous l'en-tête (une
+ * rangée qui défile d'un doigt sur téléphone, la rubrique courante marquée),
+ * le fil d'Ariane, et un pied de page en colonnes. Les classements gardent le
+ * genre en cours : depuis les garçons qui montent, « Top 100 » mène aux
+ * garçons les plus donnés.
+ */
+const genreDe = s => s === 'm' ? 'garcons' : 'filles'
+const RUBRIQUES = g => [
+  ['tendance', 'Tendances', `/prenoms/tendance/${g}/`],
+  ['populaires', 'Top 100', `/prenoms/populaires/${g}/`],
+  ['rares', 'Rares', `/prenoms/rares/${g}/`],
+  ['origines', 'Origines', '/prenoms/origines/'],
+  ['lettres', 'A–Z', '/prenoms/#lettres']
+]
+const actuel = oui => oui ? ' aria-current="page"' : ''
+const PLAN = `<nav class="plan" aria-label="Plan du site">
+${[['filles', 'Filles'], ['garcons', 'Garçons']].map(([g, t]) => `<div><p class="t">${t}</p><ul>
+<li><a href="/prenoms/tendance/${g}/">Qui montent</a></li><li><a href="/prenoms/populaires/${g}/">Les plus donnés</a></li><li><a href="/prenoms/rares/${g}/">Rares</a></li></ul></div>`).join('\n')}
+<div><p class="t">Explorer</p><ul><li><a href="/prenoms/">Tous les prénoms</a></li><li><a href="/prenoms/origines/">Par origine</a></li><li><a href="/prenoms/#lettres">Par lettre</a></li></ul></div>
+<div><p class="t">${MARQUE}</p><ul><li><a href="${APP}">L’application</a></li><li><a href="/offrir" rel="nofollow">Offrir ${MARQUE}</a></li></ul></div>
+</nav>`
+
+function page({ chemin, titre, description, fil = [], corps, jsonld = [], ariane = null, indexer = true,
+  rubrique = null, genre = 'filles', appel = { texte: 'Choisir à deux', href: APP } }) {
   const canon = SITE + chemin
   const bc = ariane ?? [{ n: 'Prénoms', u: '/prenoms/' }, ...fil]
   jsonld = [{
@@ -390,13 +474,16 @@ ${jsonld.map(j => `<script type="application/ld+json">${JSON.stringify(j).replac
 </head><body>
 <a class="aller" href="#contenu">Aller au contenu</a>
 <header class="h"><div class="l"><a class="m" href="/prenoms/"><img src="/logo.png" alt="" width="30" height="30">${MARQUE}</a>
-<a class="b p" href="${APP}">Choisir à deux</a></div></header>
+<a class="b p" href="${appel.href}">${esc(appel.texte)}</a></div></header>
+<nav class="rubriques" aria-label="Rubriques"><div class="l"><ul>
+${RUBRIQUES(genre).map(([id, t, u]) => `<li><a href="${u}"${actuel(id === rubrique)}>${t}</a></li>`).join('')}
+</ul></div></nav>
 <main class="l" id="contenu">
-<nav class="fil" aria-label="Fil d'Ariane">${bc.map((x, i) => i === bc.length - 1 ? esc(x.n) : `<a href="${x.u}">${esc(x.n)}</a>`).join(' › ')}</nav>
+${bc.length > 1 ? `<nav class="fil" aria-label="Fil d'Ariane">${bc.map((x, i) => i === bc.length - 1 ? esc(x.n) : `<a href="${x.u}">${esc(x.n)}</a>`).join(' › ')}</nav>` : ''}
 ${corps}
 </main>
 <footer><div class="l">
-<p><a href="/prenoms/">Tous les prénoms</a> · <a href="/prenoms/tendance/filles/">Tendances filles</a> · <a href="/prenoms/tendance/garcons/">Tendances garçons</a> · <a href="/prenoms/rares/filles/">Rares filles</a> · <a href="/prenoms/rares/garcons/">Rares garçons</a> · <a href="${APP}">L’application</a></p>
+${PLAN}
 <p>Chiffres : INSEE, fichier des prénoms (naissances en France de ${AN0} à ${AN1}). Origines et significations : Wiktionnaire et relecture ; quand le sens est incertain, la fiche le dit.</p>
 <p><a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/conditions">Conditions</a> · <a href="/accessibilite">Accessibilité</a></p>
 </div></footer>
@@ -520,6 +607,16 @@ function fiche(entrees) {
     : `Avec environ ${nf(parAn)} bébé${parAn > 1 ? 's' : ''} par an, ${esc(p.l)} reste trop peu donné pour dessiner une tendance fiable : l’INSEE arrondit chaque année à 5.`,
   phraseClasse].filter(Boolean)
   const graphies = [...autresGraphies, ...groupe.filter(x => !autresGraphies.includes(x))].slice(0, 20)
+  const lettre = lettreDe(p)
+  // Les classements où il figure (avec son rang), puis ses origines et sa
+  // lettre : de la fiche, on rejoint toujours une liste.
+  const classe = rangs.get(p.slug) ?? []
+  const voir = [
+    ...classe.map(({ L, rang }) => `<li><a href="${L.chemin}"><b>${rang}<sup>${rang === 1 ? 'er' : 'e'}</sup></b><span>${esc(L.phrase)}</span></a></li>`),
+    ...p.g.map(o => listes.find(L => L.origine === o)).filter(L => L && !classe.some(r => r.L === L))
+      .map(L => `<li><a href="${L.chemin}"><b aria-hidden="true">→</b><span>Les prénoms d’origine ${esc(ORIGINE_F(L.origine))}</span></a></li>`),
+    `<li><a href="/prenoms/lettre/${lettre}/"><b aria-hidden="true">${lettre.toUpperCase()}</b><span>Tous les prénoms en ${lettre.toUpperCase()}</span></a></li>`
+  ]
 
   const corps = `
 <section class="hero">${h1(p.l)}${sensTete}
@@ -554,64 +651,86 @@ ${cta(p)}
 
 <section class="bloc r"><h2>Prénoms proches de ${esc(p.l)}</h2>
 <ul class="puces">${proches(p).map(x => `<li><a href="${url(x)}">${esc(x.l)}</a></li>`).join('')}</ul></section>
+
+<section class="bloc r"><h2>${classe.length ? `${esc(p.l)} dans les classements` : 'À voir aussi'}</h2>
+<ul class="rangs">${voir.join('')}</ul></section>
 `
-  const lettre = lettreDe(p)
   return page({
-    chemin: url(p), titre, description, corps, indexer: !mince(p),
+    chemin: url(p), titre, description, corps, indexer: !mince(p), genre: genreDe(p.sexe),
     fil: [{ n: `Lettre ${lettre.toUpperCase()}`, u: `/prenoms/lettre/${lettre}/` }, { n: p.l, u: url(p) }]
   })
 }
 
 /**
- * Offrir : sur les pages de classement, en tête. Qui cherche « prénoms de
- * fille tendance » n'est pas toujours le futur parent — c'est souvent la
- * sœur, l'amie, la grand-mère qui prépare un cadeau de naissance.
+ * Offrir : sur les pages de classement, juste après le tableau. Qui cherche
+ * « prénoms de fille tendance » n'est pas toujours le futur parent — c'est
+ * souvent la sœur, l'amie, la grand-mère qui prépare un cadeau de naissance.
+ * En tête de page, il repoussait le classement sous la ligne de flottaison :
+ * on vient pour la liste, l'offre arrive une fois qu'on l'a lue.
  */
 const offrir = `<aside class="offrir r" aria-label="Offrir ${MARQUE}"><div><b>Un bébé en route autour de vous&nbsp;?</b>
 <span>Offrez ${MARQUE} aux futurs parents : une liste débloquée pour choisir le prénom à deux. ${esc(PRIX)}, un lien et un code, sans compte.</span></div>
 <a class="b p" rel="nofollow" href="/offrir">Offrir</a></aside>`
 
 // ---------------------------------------------------------------- listes
+/**
+ * Le classement : un vrai tableau, dans une carte qui défile d'elle-même si
+ * un écran très étroit ne le contient pas. Les en-têtes tiennent en un mot
+ * (« Naissances 2023-2025 » débordait à droite sur téléphone) : les années
+ * et l'unité sont dans la légende, lue avant le tableau.
+ */
 function tableau(xs, colonne = 'tendance') {
   const tend = t => `<span class="${t > 0 ? 'monte' : t < 0 ? 'baisse' : ''}">${t > 0 ? '+' : ''}${dec(t)} %</span>`
-  return `<table class="r"><thead><tr><th>#</th><th>Prénom</th><th class="o">Origine</th><th class="n">Naissances ${AN1 - 2}-${AN1}</th><th class="n">${colonne === 'tendance' ? 'Tendance/an' : 'Originalité'}</th></tr></thead><tbody>
-${xs.map((x, i) => `<tr><td>${i + 1}</td><td><a href="${url(x)}"><b>${esc(x.l)}</b></a>${x.m ? `<small>${esc(x.m)}</small>` : ''}</td><td class="o">${esc(liste(x.g.map(ORIGINE_LIB)))}</td><td class="n">${nf(x.n)}</td><td class="n">${colonne === 'tendance' ? tend(x.t) : `${nf(x.o)}/100`}</td></tr>`).join('')}
-</tbody></table>`
+  const legende = `Naissances en France de ${AN1 - 2} à ${AN1} (INSEE)${colonne === 'tendance'
+    ? ' ; tendance : évolution moyenne par an sur les dernières années.' : ' ; originalité sur 100 : plus elle est haute, plus le prénom est rare.'}`
+  return `<div class="tableau r"><table><caption>${legende}</caption>
+<thead><tr><th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="o">Origine</th><th scope="col" class="n">Naissances</th><th scope="col" class="n">${colonne === 'tendance' ? 'Tendance' : 'Originalité'}</th></tr></thead><tbody>
+${xs.map((x, i) => `<tr><td class="rg">${i + 1}</td><td><a href="${url(x)}"><b>${esc(x.l)}</b></a>${x.m ? `<small>${esc(x.m)}</small>` : ''}</td><td class="o">${esc(liste(x.g.map(ORIGINE_LIB)))}</td><td class="n">${nf(x.n)}</td><td class="n">${colonne === 'tendance' ? tend(x.t) : `${nf(x.o)}/100`}</td></tr>`).join('')}
+</tbody></table></div>`
 }
 
 const tetes = [...pages.values()].map(e => e[0])
+/** Une graphie par prononciation, la plus donnée : dans une sélection, Sayf
+ *  et Saïf sont un seul prénom (la fiche montre les autres graphies). */
+const unParSon = xs => { const vus = new Set(); return xs.filter(x => !vus.has(x.gp) && vus.add(x.gp)) }
 const sexeOk = (x, s) => x.sexe === s || x.sexe === 'fm'
 const listes = []
 
 for (const [s, mot] of [['f', 'filles'], ['m', 'garcons']]) {
   const nom = genreNom[s]
   // Tendances : assez de volume pour que la pente veuille dire quelque chose.
-  const tend = tetes.filter(x => sexeOk(x, s) && x.n >= 150 && x.t > 0).sort((a, b) => b.t - a.t).slice(0, 60)
+  const tend = unParSon(tetes.filter(x => sexeOk(x, s) && x.n >= 150 && x.t > 0).sort((a, b) => b.t - a.t)).slice(0, 60)
   listes.push({
-    chemin: `/prenoms/tendance/${mot}/`,
+    chemin: `/prenoms/tendance/${mot}/`, type: 'tendance', sexe: s,
     titre: `Prénoms de ${nom} tendance en ${AN1 + 1} : ceux qui montent vraiment`,
     description: `Les 60 prénoms de ${nom} qui progressent le plus en France, calculés sur les naissances INSEE jusqu’en ${AN1}, pas une sélection au goût du jour.`,
     h1: `Prénoms de ${nom} qui montent`,
+    sous: `Les ${tend.length} prénoms de ${nom} qui progressent le plus en France.`,
+    phrase: `des prénoms de ${nom} qui montent`,
     intro: `Classés par progression annuelle sur les dernières années de naissances INSEE, parmi les prénoms donnés au moins 150 fois de ${AN1 - 2} à ${AN1}. Un prénom qui monte vite peut devenir courant d’ici l’entrée à l’école : regardez aussi le nombre de naissances.`,
     xs: tend, col: 'tendance'
   })
   // Rares mais portables : originaux, avec un sens connu, pas des graphies d'un seul foyer.
-  const rares = tetes.filter(x => sexeOk(x, s) && !x.q && x.o >= 60 && x.m && x.cf === 2).sort((a, b) => b.n - a.n).slice(0, 80)
+  const rares = unParSon(tetes.filter(x => sexeOk(x, s) && !x.q && x.o >= 60 && x.m && x.cf === 2).sort((a, b) => b.n - a.n)).slice(0, 80)
   listes.push({
-    chemin: `/prenoms/rares/${mot}/`,
+    chemin: `/prenoms/rares/${mot}/`, type: 'rares', sexe: s,
     titre: `Prénoms de ${nom} rares (et qui ont du sens) : liste ${AN1 + 1}`,
     description: `80 prénoms de ${nom} rares en France mais portés : originalité mesurée sur les naissances INSEE, signification vérifiée.`,
     h1: `Prénoms de ${nom} rares`,
+    sous: `${rares.length} prénoms de ${nom} peu donnés, mais portés, dont le sens est établi.`,
+    phrase: `des prénoms de ${nom} rares`,
     intro: `Des prénoms peu donnés en France (originalité ≥ 60/100, mesurée sur les naissances INSEE), dont la signification est établie. Classés du plus porté au plus confidentiel.`,
     xs: rares, col: 'originalite'
   })
   const pop = tetes.filter(x => sexeOk(x, s)).sort((a, b) => b.n - a.n).slice(0, 100)
   listes.push({
-    chemin: `/prenoms/populaires/${mot}/`,
+    chemin: `/prenoms/populaires/${mot}/`, type: 'populaires', sexe: s,
     titre: `Les 100 prénoms de ${nom} les plus donnés en France (${AN1 - 2}-${AN1})`,
     description: `Classement des prénoms de ${nom} les plus donnés en France selon l’INSEE, avec origine, signification et tendance.`,
     h1: `Les 100 prénoms de ${nom} les plus donnés`,
-    intro: `Naissances cumulées de ${AN1 - 2} à ${AN1}, source INSEE.`,
+    sous: `Le classement des naissances en France, de ${AN1 - 2} à ${AN1}.`,
+    phrase: `des prénoms de ${nom} les plus donnés`,
+    intro: `Naissances cumulées de ${AN1 - 2} à ${AN1}, source INSEE. Un prénom mixte compte dans les deux classements.`,
     xs: pop, col: 'tendance'
   })
 }
@@ -622,12 +741,16 @@ for (const o of origines) {
   if (xs.length < 8) continue
   const lib = ORIGINE_F(o)
   listes.push({
-    chemin: `/prenoms/origine/${slugOrigine(o)}/`,
+    chemin: `/prenoms/origine/${slugOrigine(o)}/`, type: 'origine',
     titre: `Prénoms d’origine ${lib} : liste, signification et popularité`,
     description: `Les prénoms d’origine ${lib} donnés en France, filles et garçons, avec leur signification et leur nombre de naissances.`,
     h1: `Prénoms d’origine ${lib}`,
-    intro: `Les ${xs.length} prénoms d’origine ${lib} les plus donnés en France de ${AN1 - 2} à ${AN1}. L’origine indiquée est la racine la plus ancienne connue, pas la langue par laquelle le prénom est arrivé en France.`,
-    xs, col: 'tendance', origine: o
+    sous: `Les ${xs.length} prénoms d’origine ${lib} les plus donnés en France, filles et garçons.`,
+    phrase: `des prénoms d’origine ${lib}`,
+    intro: `Classés par naissances de ${AN1 - 2} à ${AN1}. L’origine indiquée est la racine la plus ancienne connue, pas la langue par laquelle le prénom est arrivé en France.`,
+    xs, col: 'tendance', origine: o,
+    // Pour la page des origines : combien de prénoms en tout, pas seulement les 150 de la liste.
+    total: tetes.filter(x => x.g.includes(o)).length
   })
 }
 
@@ -643,49 +766,118 @@ rmSync(resolve(SORTIE, 'prenom'), { recursive: true, force: true })
 rmSync(resolve(SORTIE, 'prenoms'), { recursive: true, force: true })
 rmSync(resolve(SORTIE, '.' + APP), { recursive: true, force: true })
 
+/** Où chaque prénom figure, et à quel rang : la fiche le dit, et y mène. */
+const ORDRE = { populaires: 0, tendance: 1, rares: 2, origine: 3 }
+const rangs = new Map()
+for (const L of listes) {
+  L.xs.forEach((x, i) => { const r = rangs.get(x.slug) ?? []; r.push({ L, rang: i + 1 }); rangs.set(x.slug, r) })
+}
+for (const r of rangs.values()) r.sort((a, b) => ORDRE[a.L.type] - ORDRE[b.L.type] || a.rang - b.rang)
+
 const urls = []
 for (const e of pages.values()) {
   ecrire(url(e[0]), fiche(e))
   if (!mince(e[0])) urls.push(url(e[0]))
 }
 
+// Les origines, de la plus représentée à la plus rare : c'est l'ordre dans
+// lequel on les cherche (latine avant finno-ougrienne), pas l'alphabet.
+const listesOrigines = listes.filter(L => L.origine).sort((a, b) => b.total - a.total)
+const majuscule = t => t.charAt(0).toUpperCase() + t.slice(1)
+const carteOrigine = L => `<li><a href="${L.chemin}"><b>${esc(majuscule(ORIGINE_F(L.origine)))}</b><span>${nf(L.total)} prénoms</span><small>${L.xs.slice(0, 3).map(x => esc(x.l)).join(', ')}</small></a></li>`
+
 for (const L of listes) {
+  // Filles ou garçons : le même classement, d'un geste.
+  const bascule = L.sexe ? `<nav class="bascule" aria-label="Filles ou garçons">${[['f', 'Filles'], ['m', 'Garçons']].map(([s, t]) =>
+    `<a href="${listes.find(x => x.type === L.type && x.sexe === s).chemin}"${actuel(s === L.sexe)}>${t}</a>`).join('')}</nav>` : ''
+  const autresOrigines = L.origine ? `<section class="bloc r"><h2>Autres origines</h2><ul class="puces">${listesOrigines.filter(x => x !== L)
+    .map(x => `<li><a href="${x.chemin}">${esc(ORIGINE_LIB(x.origine))} <small>${nf(x.total)}</small></a></li>`).join('')}</ul></section>` : ''
   ecrire(L.chemin, page({
     chemin: L.chemin, titre: L.titre, description: L.description,
-    fil: [{ n: L.h1, u: L.chemin }],
-    corps: `<section class="hero">${h1(L.h1)}<p class="sous">${esc(L.intro)}</p></section>${offrir}${tableau(L.xs, L.col)}${cta(null)}${offrir}`
+    rubrique: L.origine ? 'origines' : L.type, genre: genreDe(L.sexe),
+    fil: L.origine ? [{ n: 'Origines', u: '/prenoms/origines/' }, { n: L.h1, u: L.chemin }] : [{ n: L.h1, u: L.chemin }],
+    corps: `<section class="hero court">${h1(L.h1)}<p class="sous">${esc(L.sous)}</p></section>
+${bascule}${tableau(L.xs, L.col)}
+<p class="doute">${esc(L.intro)}</p>
+${autresOrigines}
+${offrir}
+${cta(null)}`
   }))
   urls.push(L.chemin)
 }
 
+// Les origines, toutes, avec de quoi reconnaître chacune.
+ecrire('/prenoms/origines/', page({
+  chemin: '/prenoms/origines/', rubrique: 'origines',
+  fil: [{ n: 'Origines', u: '/prenoms/origines/' }],
+  titre: `Prénoms par origine : ${listesOrigines.length} origines, signification et popularité`,
+  description: `Les prénoms donnés en France classés par origine, de la ${ORIGINE_F(listesOrigines[0].origine)} à la ${ORIGINE_F(listesOrigines.at(-1).origine)} : signification, popularité et naissances INSEE.`,
+  corps: `<section class="hero court">${h1('Prénoms par origine')}<p class="sous">${listesOrigines.length} origines, de la plus représentée à la plus rare. L’origine est la racine la plus ancienne connue du prénom.</p></section>
+<ul class="origines r">${listesOrigines.map(carteOrigine).join('')}</ul>
+${cta(null)}`
+}))
+urls.push('/prenoms/origines/')
+
 const lettres = 'abcdefghijklmnopqrstuvwxyz'.split('').filter(l => tetes.some(x => lettreDe(x) === l))
-const navLettres = `<nav class="lettres" aria-label="Prénoms par lettre">${lettres.map(l => `<a href="/prenoms/lettre/${l}/">${l.toUpperCase()}</a>`).join('')}</nav>`
-for (const l of lettres) {
+const alphabet = courante => `<nav aria-label="Prénoms par lettre"><ul class="alphabet">${lettres.map(l =>
+  `<li><a href="/prenoms/lettre/${l}/"${actuel(l === courante)} aria-label="Prénoms en ${l.toUpperCase()}">${l.toUpperCase()}</a></li>`).join('')}</ul></nav>`
+/** En gras dans les pages par lettre : de quoi repérer les prénoms courants
+ *  au milieu des rares, sans ouvrir chaque fiche. */
+const COURANT = 500
+lettres.forEach((l, i) => {
   const xs = tetes.filter(x => lettreDe(x) === l).sort((a, b) => a.l.localeCompare(b.l, 'fr'))
-  const col = s => xs.filter(x => sexeOk(x, s))
-  const bloc = (s, t) => `<section class="bloc r"><h2>${t}</h2><ul class="puces">${col(s).map(x => `<li><a href="${url(x)}">${esc(x.l)}</a></li>`).join('')}</ul></section>`
+  const bloc = (s, t) => {
+    const ys = xs.filter(x => sexeOk(x, s))
+    return ys.length ? `<section class="bloc r"><h2>${t} <small>${ys.length}</small></h2><ul class="noms">${ys.map(x =>
+      `<li><a href="${url(x)}"${x.n >= COURANT ? ' class="courant"' : ''}>${esc(x.l)}</a></li>`).join('')}</ul></section>` : ''
+  }
+  const [avant, apres] = [lettres[i - 1], lettres[i + 1]]
   const chemin = `/prenoms/lettre/${l}/`
+  const L = l.toUpperCase()
   ecrire(chemin, page({
-    chemin, fil: [{ n: `Lettre ${l.toUpperCase()}`, u: chemin }],
-    titre: `Prénoms en ${l.toUpperCase()} : ${xs.length} prénoms de fille et de garçon`,
-    description: `Tous les prénoms commençant par ${l.toUpperCase()} donnés en France : filles, garçons et mixtes, avec signification, origine et popularité.`,
-    corps: `<section class="hero">${h1(`Prénoms en ${l.toUpperCase()}`)}<p class="sous">${xs.length} prénoms donnés en France</p></section>${navLettres}${bloc('f', 'Filles')}${bloc('m', 'Garçons')}`
+    chemin, rubrique: 'lettres', fil: [{ n: `Lettre ${L}`, u: chemin }],
+    titre: `Prénoms en ${L} : ${xs.length} prénoms de fille et de garçon`,
+    description: `Tous les prénoms commençant par ${L} donnés en France : filles, garçons et mixtes, avec signification, origine et popularité.`,
+    corps: `<section class="hero court">${h1(`Prénoms en ${L}`)}<p class="sous">${xs.length} prénoms donnés en France. En gras, les plus courants : plus de ${COURANT} naissances de ${AN1 - 2} à ${AN1}.</p></section>
+${alphabet(l)}
+${bloc('f', 'Filles')}${bloc('m', 'Garçons')}
+<nav class="voisins" aria-label="Lettres voisines">${avant ? `<a href="/prenoms/lettre/${avant}/" rel="prev">← Prénoms en ${avant.toUpperCase()}</a>` : '<span></span>'}${apres ? `<a href="/prenoms/lettre/${apres}/" rel="next">Prénoms en ${apres.toUpperCase()} →</a>` : ''}</nav>`
   }))
   urls.push(chemin)
-}
+})
 
-// Portail
+/**
+ * L'accueil des prénoms : les classements d'abord, chacun avec ses trois
+ * premiers prénoms — on voit ce qu'il contient avant de cliquer —, puis les
+ * origines (les plus représentées, avec des exemples), puis l'alphabet.
+ */
+const CLASSEMENTS = [
+  { type: 'tendance', titre: 'Qui montent', desc: `La plus forte progression par an, parmi les prénoms donnés au moins 150 fois de ${AN1 - 2} à ${AN1}.`,
+    stat: x => `${x.t > 0 ? '+' : ''}${dec(x.t, 0)} %`, nom: 'qui montent' },
+  { type: 'populaires', titre: 'Les plus donnés', desc: `Le top 100 des naissances en France, de ${AN1 - 2} à ${AN1}.`,
+    stat: x => nf(x.n), nom: 'les plus donnés' },
+  { type: 'rares', titre: 'Rares, et qui ont du sens', desc: 'Peu donnés mais portés, avec une signification établie.',
+    stat: () => '', nom: 'rares' }
+]
+const carteClassement = C => {
+  const colonne = (s, t) => {
+    const L = listes.find(x => x.type === C.type && x.sexe === s)
+    return `<div><p class="genre">${t}</p><ol class="apercu">${L.xs.slice(0, 3).map(x =>
+      `<li><a href="${url(x)}">${esc(x.l)}</a>${C.stat(x) ? `<small>${C.stat(x)}</small>` : ''}</li>`).join('')}</ol>
+<a class="suite" href="${L.chemin}">Les ${L.xs.length}<span class="vh"> prénoms de ${genreNom[s]} ${C.nom}</span></a></div>`
+  }
+  return `<article class="carte classement r"><h3>${C.titre}</h3><p>${C.desc}</p><div class="duo">${colonne('f', 'Filles')}${colonne('m', 'Garçons')}</div></article>`
+}
 ecrire('/prenoms/', page({
   chemin: '/prenoms/',
   titre: `Prénoms : ${nf(pages.size)} fiches avec signification, origine et popularité`,
   description: `Signification, origine et courbe de popularité de ${nf(pages.size)} prénoms donnés en France, d’après les naissances INSEE. Tendances, prénoms rares, par origine.`,
-  corps: `<section class="hero">${h1('Trouver un prénom')}<p class="sous">${nf(pages.size)} prénoms donnés en France, avec leurs vrais chiffres.</p></section>
+  corps: `<section class="hero">${h1('Trouver un prénom')}<p class="sous">${nf(pages.size)} prénoms donnés en France, avec leurs vrais chiffres : le sens, l’origine, et les naissances depuis ${AN0}.</p></section>
+<section class="bloc"><h2>Les classements</h2><div class="classements">${CLASSEMENTS.map(carteClassement).join('')}</div></section>
+<section class="bloc r"><h2>Par origine</h2><ul class="origines six">${listesOrigines.slice(0, 6).map(carteOrigine).join('')}</ul>
+<p class="suite-bloc"><a class="suite" href="/prenoms/origines/">Les ${listesOrigines.length} origines</a></p></section>
+<section class="bloc r" id="lettres"><h2>Par lettre</h2>${alphabet(null)}</section>
 ${offrir}
-<section class="bloc r"><h2>Par lettre</h2>${navLettres}</section>
-<section class="bloc r"><h2>Listes</h2><ul class="puces">
-${listes.filter(L => !L.origine).map(L => `<li><a href="${L.chemin}">${esc(L.h1)}</a></li>`).join('')}</ul></section>
-<section class="bloc r"><h2>Par origine</h2><ul class="puces">
-${listes.filter(L => L.origine).map(L => `<li><a href="${L.chemin}">${esc(ORIGINE_LIB(L.origine))}</a></li>`).join('')}</ul></section>
 ${cta(null)}`
 }))
 urls.unshift('/prenoms/')
@@ -719,7 +911,7 @@ const FAQ = [
 ]
 
 ecrire(APP, page({
-  chemin: APP,
+  chemin: APP, appel: { texte: 'Ouvrir l’app', href: '/' },
   ariane: [{ n: MARQUE, u: '/' }, { n: 'Choisir à deux', u: APP }],
   titre: `Choisir un prénom à deux, sans s’influencer : l’application ${MARQUE}`,
   description: `Chacun trie les prénoms de son côté, sans voir l’avis de l’autre ; ${MARQUE} ne montre que ceux que vous aimez tous les deux. Gratuit, sans mot de passe.`,
@@ -824,6 +1016,7 @@ writeFileSync(resolve(SORTIE, 'llms.txt'), `# ${MARQUE}
 - [Les 100 prénoms de garçons les plus donnés](${SITE}/prenoms/populaires/garcons/)
 - [Prénoms de filles rares](${SITE}/prenoms/rares/filles/): rares mais portés, au sens établi
 - [Prénoms de garçons rares](${SITE}/prenoms/rares/garcons/): rares mais portés, au sens établi
+- [Prénoms par origine](${SITE}/prenoms/origines/): ${listesOrigines.length} origines, de la plus représentée à la plus rare
 - Exemples de fiches : [${fille.l}](${SITE}${url(fille)}), [${garcon.l}](${SITE}${url(garcon)})
 
 ## Optional
@@ -851,4 +1044,4 @@ Disallow: /?
 Sitemap: ${SITE}/sitemap.xml
 `)
 
-console.log(`[seo] ${pages.size} fiches, ${listes.length + lettres.length + 1} listes, page de l’app, llms.txt, sitemap ${urls.length + 1} URL, domaine ${SITE}`)
+console.log(`[seo] ${pages.size} fiches, ${listes.length + lettres.length + 2} listes, page de l’app, llms.txt, sitemap ${urls.length + 1} URL, domaine ${SITE}`)

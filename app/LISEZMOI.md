@@ -386,7 +386,7 @@ les lignes lues du jour, une fois par nuit : négligeable.
 | Sortie | Rôle |
 |---|---|
 | `prenom/<slug>/` | une fiche statique par prénom : sens (avec sa certitude), origine, courbe INSEE (ou, pour un petit prénom, ses bébés par an en barres chiffrées, sans pourcentage), graphies, proches — 7 462 pages, dont les 859 sans sens ni origine en `noindex` et hors sitemap (constante `mince`) |
-| `prenoms/…` | le portail, les listes (tendances, rares, populaires, origines, lettres). Les pages de **classement** portent « Offrir babyNamed » en tête et en bas : qui cherche « prénoms de fille tendance » est souvent la sœur ou l'amie qui prépare un cadeau de naissance |
+| `prenoms/…` | l'accueil des prénoms (les classements montrés par leurs trois premiers prénoms, filles et garçons ; les origines les plus représentées ; l'alphabet), les classements (tendances, rares, populaires : filles ou garçons d'un geste), la page des **origines** (de la plus représentée à la plus rare) et une page par origine et par lettre (en gras, les prénoms courants). « Offrir babyNamed » vient **après** le tableau : en tête, il repoussait le classement sous la ligne de flottaison |
 | `choisir-un-prenom-a-deux/` | **la page de l'application** : fonctionnement, gratuit / payant, données, FAQ ; `WebApplication` + `FAQPage` en JSON-LD |
 | `sitemap.xml`, `robots.txt`, `llms.txt` | pour les robots |
 
@@ -408,6 +408,16 @@ Règles tenues par le script, et vérifiées par `essai-seo` :
 - **Limites du gratuit** lues dans la migration, prix dans
   `NUXT_PUBLIC_PRIX_LISTE` : la page de l'app et llms.txt ne peuvent pas
   annoncer autre chose que ce que fait l'app.
+- **Navigation** : les rubriques sous l'en-tête (Tendances, Top 100, Rares,
+  Origines, A–Z ; la courante soulignée, le genre en cours gardé), le fil
+  d'Ariane, un pied de page en colonnes. Chaque fiche dit dans quels
+  classements elle figure, à quel rang, et y mène.
+- **Téléphone** : rien ne dépasse à droite à 360 px (vérifié par
+  `essai-seo`). Les tableaux tiennent en un mot par en-tête — années et unités
+  dans la légende — et défilent dans leur carte si un écran plus étroit ne les
+  contient pas.
+- **Sélections** (tendances, rares) : un prénom par prononciation, la graphie
+  en tête ; le top 100 garde les graphies séparées, comme l'INSEE.
 - **llms.txt** (llmstxt.org) : un résumé Markdown pour les assistants qui le
   cherchent. Aucun grand moteur ne s'engage à le lire ; ce qui compte pour
   être cité par une IA, c'est une page lisible sans JavaScript, des robots

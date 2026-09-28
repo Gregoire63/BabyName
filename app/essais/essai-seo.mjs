@@ -13,14 +13,21 @@
  *  - un titre ne promet pas de signification quand il n'y en a pas ;
  *  - le lastmod du sitemap ne change pas à chaque build ;
  *  - la coquille « / » dit ce qu'est l'app à qui n'exécute pas le JavaScript ;
- *  - le service worker ne met pas ces pages à la place de la coquille.
+ *  - le service worker ne met pas ces pages à la place de la coquille ;
+ *  - la navigation : rubriques (la courante marquée), filles ou garçons d'un
+ *    geste sur un classement, la fiche qui mène aux classements où elle
+ *    figure, l'accueil qui montre ce que contient chaque classement, les
+ *    origines de la plus représentée à la plus rare ;
+ *  - rien ne dépasse à droite sur un téléphone de 360 px, tableaux compris
+ *    (ils débordaient le 28/09).
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { readFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { compteur, BASE } from './navigateur.mjs'
+import { compteur, lancer, BASE } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -109,6 +116,54 @@ dit(!/animation(-name)?:/.test(horsMouvement) && /animation:/.test(css),
   'toutes les animations vivent sous prefers-reduced-motion: no-preference')
 dit(/class="trait" pathLength="1"/.test(louise) && /<figure class="carte graphe">/.test(louise),
   'la courbe est prête à se tracer (pathLength) dans sa carte')
+
+// ---------- la navigation ------------------------------------------------------
+const tendF = lire('prenoms/tendance/filles/index.html')
+const rubriques = tendF.match(/<nav class="rubriques"[^>]*>(.*?)<\/nav>/s)?.[1] ?? ''
+dit(/<a href="\/prenoms\/tendance\/filles\/" aria-current="page">Tendances<\/a>/.test(rubriques)
+    && /href="\/prenoms\/populaires\/filles\/"/.test(rubriques) && /href="\/prenoms\/origines\/"/.test(rubriques),
+  'les rubriques en haut de chaque page, la courante marquée')
+dit(/<a href="\/prenoms\/tendance\/garcons\/">Garçons<\/a>/.test(tendF.match(/<nav class="bascule"[^>]*>(.*?)<\/nav>/s)?.[1] ?? ''),
+  'un classement passe des filles aux garçons d’un geste')
+dit(/<caption>Naissances en France de \d{4} à \d{4}/.test(tendF) && !/<th[^>]*>Naissances \d/.test(tendF),
+  'les années du tableau sont dans sa légende, pas dans l’en-tête (qui débordait)')
+dit(/1<sup>er<\/sup><\/b><span>des prénoms de filles les plus donnés<\/span>/.test(louise)
+    && louise.includes('href="/prenoms/populaires/filles/"'),
+  'la fiche de Louise mène au classement où elle est 1re')
+const portail = lire('prenoms/index.html')
+const cartes = [...portail.matchAll(/<article class="carte classement r">(.*?)<\/article>/gs)].map(m => m[1])
+dit(cartes.length === 3 && cartes.every(c => (c.match(/<a href="\/prenom\//g) ?? []).length === 6),
+  'l’accueil montre chaque classement par ses trois premiers prénoms, filles et garçons')
+const origines = lire('prenoms/origines/index.html')
+const totaux = [...origines.matchAll(/<span>([\d\u202f\u00a0 ]+) prénoms<\/span>/g)].map(m => Number(m[1].replace(/\D/g, '')))
+dit(totaux.length >= 20 && totaux.every((n, i) => i === 0 || n <= totaux[i - 1]) && sitemap.includes('/prenoms/origines/<'),
+  `la page des origines les range de la plus représentée à la plus rare (${totaux.length} origines), et elle est au sitemap`)
+const lettreL = lire('prenoms/lettre/l/index.html')
+dit(/aria-current="page" aria-label="Prénoms en L">L<\/a>/.test(lettreL) && /rel="prev">← Prénoms en K/.test(lettreL),
+  'une page de lettre marque sa lettre et mène aux voisines')
+
+// ---------- rien ne dépasse, sur un téléphone ------------------------------------
+const serveur = createServer((q, r) => {
+  const f = join(sortie, decodeURIComponent(q.url.split('?')[0]), q.url.endsWith('/') ? 'index.html' : '')
+  if (!existsSync(f)) { r.writeHead(404); r.end(); return }
+  r.writeHead(200, { 'content-type': f.endsWith('.html') ? 'text/html; charset=utf-8' : f.endsWith('.woff2') ? 'font/woff2' : 'application/octet-stream' })
+  r.end(readFileSync(f))
+}).listen(0)
+const port = serveur.address().port
+const nav = await lancer()
+const ctx = await nav.newContext({ viewport: { width: 360, height: 780 } })
+const onglet = await ctx.newPage()
+const debords = []
+for (const chemin of ['/prenoms/', '/prenoms/tendance/filles/', '/prenoms/rares/garcons/', '/prenoms/populaires/filles/',
+  '/prenoms/origine/arabe/', '/prenoms/origines/', '/prenoms/lettre/l/', '/prenom/louise/', '/choisir-un-prenom-a-deux/']) {
+  await onglet.goto(`http://127.0.0.1:${port}${chemin}`, { waitUntil: 'networkidle' })
+  const d = await onglet.evaluate(() => [document.documentElement, ...document.querySelectorAll('.tableau, nav.rubriques ul')]
+    .map(e => e.scrollWidth - e.clientWidth).reduce((a, b) => Math.max(a, b), 0))
+  if (d > 0) debords.push(`${chemin} (+${d} px)`)
+}
+await nav.close()
+serveur.close()
+dit(debords.length === 0, `à 360 px, rien ne dépasse à droite : ni la page, ni un tableau, ni les rubriques (${debords.join(', ') || 'aucun débordement'})`)
 
 // ---------- sitemap --------------------------------------------------------
 const dates = new Set([...sitemap.matchAll(/<lastmod>(.*?)<\/lastmod>/g)].map(m => m[1]))
