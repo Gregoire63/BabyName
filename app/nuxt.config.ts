@@ -1,8 +1,9 @@
 // Le domaine public, pour les balises Open Graph de la coquille (meme regle que
 // scripts/seo.mjs).
 const SITE = (process.env.NUXT_PUBLIC_SITE_URL || 'https://babynamed.fr').replace(/\/$/, '')
-const DESCRIPTION = 'Choisir le prénom de bébé à deux, sans s’influencer : chacun trie de son côté, '
-  + 'babyNamed ne montre que les prénoms que vous aimez tous les deux. Gratuit, sans mot de passe.'
+// 160 caractères au plus (Bing le signale au-delà, Google coupe vers 155).
+const DESCRIPTION = 'Choisir le prénom de bébé à deux sans s’influencer : chacun trie de son côté, '
+  + 'babyNamed ne garde que les prénoms aimés par vous deux. Gratuit.'
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-09-01',

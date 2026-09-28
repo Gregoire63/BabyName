@@ -32,7 +32,9 @@ const passkeyPossible = ref(false)
 const courrielPossible = useCourrielPossible()
 const erreurPasskey = ref('')
 
-useHead({ title: 'Connexion' })
+// L'entrée de l'app est aussi ce que les moteurs voient à la racine (/ y mène
+// qui n'est pas connecté) : un titre qui dit ce que fait l'app, pas « Connexion ».
+useHead({ title: 'babyNamed : choisir le prénom de bébé à deux' })
 
 // Retour d'une suppression de compte : on le dit, plutot que de laisser
 // croire a une simple deconnexion.

@@ -9,7 +9,11 @@ export function useCourrielPossible() {
   if (import.meta.client && possible.value === null) {
     $fetch<{ courriel: boolean }>('/api/auth/config')
       .then(c => { possible.value = !!c?.courriel })
-      .catch(() => { possible.value = false })
+      // Un appel qui échoue (hors ligne, robot d'indexation à qui /api/ est
+      // fermé) ne dit rien de l'e-mail : on reste « inconnu », le formulaire
+      // s'affiche, et l'envoi dira lui-même s'il échoue. Répondre « fermé »
+      // affichait « Les inscriptions ne sont pas encore ouvertes » à Bing.
+      .catch(() => { possible.value = null })
   }
   return possible
 }
