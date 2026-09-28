@@ -22,11 +22,19 @@ concurrency:
 
 jobs:
   sauvegarde:
-    runs-on: ubuntu-latest
+    # Une image connue plutôt que « la dernière » : ubuntu-latest passe à
+    # Ubuntu 26 à partir du 19/10/2026, et une sauvegarde ne change pas
+    # d'environnement sans qu'on le décide. À relever quand GitHub annoncera
+    # la fin d'Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      # v7 : Node 24 (la v4 tournait sur Node 20, retiré des runners).
+      - uses: actions/checkout@v7
         with:
+          # Le jeton GitHub ne sert qu'au checkout : il ne reste pas dans
+          # .git/config pendant que wrangler, téléchargé par npx, tourne.
+          persist-credentials: false
           sparse-checkout: app/scripts/sauvegarde-ovh.sh
           sparse-checkout-cone-mode: false
       - name: Outils (age, lftp)
