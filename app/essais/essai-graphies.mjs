@@ -12,7 +12,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
 
 const AXE = readFileSync(process.env.ESSAI_AXE
   || createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8')
@@ -32,9 +32,7 @@ async function auditer(nom) {
 }
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVP-ARNA-2345')
-await page.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(page, 'Paul')
 await page.waitForSelector('.bento', { timeout: 20000 })
 await page.locator('a.carte', { hasText: 'Notre liste' }).first().click()
 const devant = () => page.locator('.carte.fiche:not(.derriere)')

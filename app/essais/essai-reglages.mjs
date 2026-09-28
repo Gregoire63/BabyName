@@ -11,7 +11,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
 
 const AXE = readFileSync(process.env.ESSAI_AXE
   || createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8')
@@ -29,9 +29,7 @@ await ctx.addInitScript(() => {
 })
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVP-ARNA-2345')
-await page.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(page, 'Paul')
 await page.waitForSelector('.bento', { timeout: 20000 })
 
 const listes = await page.evaluate(() => fetch('/api/groupes').then(r => r.json()))

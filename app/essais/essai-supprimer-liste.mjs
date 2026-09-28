@@ -14,20 +14,17 @@
  *  - l'écran dit, avant, qui perd quoi ; « Annuler » ne touche à rien ;
  *  - l'appareil oublie la liste ; l'ancienne adresse ramène à l'accueil.
  */
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
 
-const CLE = { paul: 'DEVP-ARNA-2345', alice: 'DEVP-ARNB-2345', mamie: 'DEVM-AMIE-2345' }
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
 const erreurs = []
 
-async function appareil(cle) {
+async function appareil(qui) {
   const { ctx, page } = await onglet(nav)
   page.on('pageerror', e => { erreurs.push(e.message); console.log('   [err]', e.message) })
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await page.getByRole('textbox', { name: /clé d’accès/i }).fill(cle)
-  await page.getByRole('button', { name: 'Entrer' }).click()
+  await entrerComme(page, qui)
   await page.waitForSelector('.bento', { timeout: 20000 })
   const api = (chemin, init) => page.evaluate(async ([c, i]) => {
     const r = await fetch(c, i ? { ...i, headers: { 'content-type': 'application/json' } } : undefined)
@@ -49,9 +46,9 @@ const aLAccueil = async X => {
   return new URL(X.page.url()).pathname === '/'
 }
 
-const P = await appareil(CLE.paul)
-const A = await appareil(CLE.alice)
-const M = await appareil(CLE.mamie)
+const P = await appareil('Paul')
+const A = await appareil('Alice')
+const M = await appareil('Mamie')
 const [paul, alice] = [(await P.api('/api/auth/moi')).j?.utilisateur?.id, (await A.api('/api/auth/moi')).j?.utilisateur?.id]
 const notre = await idDe(P, 'Notre liste')
 const essai = await idDe(P, 'Essai gratuit')

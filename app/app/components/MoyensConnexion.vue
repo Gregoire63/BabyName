@@ -2,8 +2,8 @@
 import { passkeysPossibles, creerPasskey, signalerPasskeysRestantes } from '~/composables/usePasskey'
 
 /**
- * « Se connecter » dans Mon compte : les passkeys, l'adresse e-mail,
- * l'ancienne clé, et « Déconnecter mes autres appareils ».
+ * « Se connecter » dans Mon compte : les passkeys, l'adresse e-mail, et
+ * « Déconnecter mes autres appareils ».
  *
  * La règle qui guide tout l'écran : ne jamais laisser quelqu'un retirer son
  * DERNIER moyen de revenir sans le lui dire en toutes lettres.
@@ -21,7 +21,7 @@ const occupe = ref('')
  * l'écran mettait l'échec d'une passkey sous « Vos appareils », loin du
  * bouton qu'on venait de toucher (vu en production le 28/09).
  */
-type Section = 'passkey' | 'email' | 'cle' | 'partout'
+type Section = 'passkey' | 'email' | 'partout'
 const retour = ref<{ ou: Section; texte: string; ok: boolean } | null>(null)
 const dire = (ou: Section, texte: string, ok = false) => { retour.value = texte ? { ou, texte, ok } : null }
 const effacer = () => { retour.value = null }
@@ -80,19 +80,6 @@ async function retirerEmail() {
   finally { occupe.value = '' }
 }
 
-// --- l'ancienne clé -------------------------------------------------------------
-const desactiverDemande = ref(false)
-async function desactiverCle() {
-  occupe.value = 'cle'; effacer()
-  try {
-    await $fetch('/api/auth/cle', { method: 'DELETE' })
-    desactiverDemande.value = false
-    await rafraichirMoi()
-    dire('cle', 'Clé d’accès désactivée : elle ne permet plus d’entrer.', true)
-  } catch { dire('cle', 'La clé n’a pas pu être désactivée.') }
-  finally { occupe.value = '' }
-}
-
 // --- les autres appareils -------------------------------------------------------
 const partoutDemande = ref(false)
 async function deconnecterPartout() {
@@ -106,12 +93,11 @@ async function deconnecterPartout() {
 }
 
 /** Retirer ceci laisserait-il le compte sans aucun moyen de revenir ? */
-const dernier = (quoi: 'passkey' | 'email' | 'cle') => {
+const dernier = (quoi: 'passkey' | 'email') => {
   const m = moi.value
   if (!m) return false
   const reste = (m.email && quoi !== 'email' ? 1 : 0)
     + ((quoi === 'passkey' ? m.passkeys - 1 : m.passkeys) > 0 ? 1 : 0)
-    + (m.a_une_cle && quoi !== 'cle' ? 1 : 0)
   return reste === 0
 }
 </script>
@@ -191,31 +177,9 @@ const dernier = (quoi: 'passkey' | 'email' | 'cle') => {
                 @click="changeEmail = false">Annuler</button>
       </template>
     </div>
-    <!-- Hors du bloc : il disparaît avec ce qu'il montrait (adresse retirée,
-         clé désactivée), et le message doit rester. -->
+    <!-- Hors du bloc : il disparaît avec ce qu'il montrait (adresse retirée
+         quand l'envoi n'est pas en place), et le message doit rester. -->
     <p v-if="retour?.ou === 'email'" class="mini message" :class="{ ok: retour.ok }"
-       :role="retour.ok ? 'status' : 'alert'">{{ retour.texte }}</p>
-
-    <!-- l'ancienne cle -->
-    <div v-if="moi?.a_une_cle" class="pile" style="gap:8px">
-      <p class="sous-titre">Ancienne clé d’accès</p>
-      <p class="mini doux" style="margin:0">
-        Encore active. Une passkey ou une adresse la remplacent.
-      </p>
-      <template v-if="desactiverDemande">
-        <p v-if="dernier('cle')" class="mini" style="margin:0;color:var(--non)">
-          Ajoutez d’abord une passkey ou une adresse : c’est votre seul moyen de revenir.
-        </p>
-        <div class="ligne">
-          <button type="button" class="btn mini btn-danger" :disabled="!!occupe || dernier('cle')"
-                  @click="desactiverCle">Désactiver la clé</button>
-          <button type="button" class="btn btn-0 mini doux" @click="desactiverDemande = false">Annuler</button>
-        </div>
-      </template>
-      <button v-else type="button" class="btn btn-0 mini doux" style="align-self:flex-start"
-              @click="desactiverDemande = true">Désactiver la clé</button>
-    </div>
-    <p v-if="retour?.ou === 'cle'" class="mini message" :class="{ ok: retour.ok }"
        :role="retour.ok ? 'status' : 'alert'">{{ retour.texte }}</p>
 
     <!-- les autres appareils -->

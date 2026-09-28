@@ -4,9 +4,9 @@
  * Ce qui se vérifie ici :
  *  - la loupe du tri ouvre la recherche, curseur déjà dans le champ ;
  *  - un résultat n'a qu'une action : le toucher le met EN PREMIÈRE CARTE et
- *    referme la feuille — plus de votes ni de blocage ligne par ligne ;
+ *    referme la feuille — plus de votes ni de veto ligne par ligne ;
  *  - un prénom déjà jugé revient aussi, la carte dit ce qu'on en avait dit,
- *    et le rejuger remplace l'ancien vote ; un prénom bloqué ne se propose
+ *    et le rejuger remplace l'ancien vote ; un prénom sous veto ne se propose
  *    pas ;
  *  - au bout du quota, le prénom choisi attend son tour (retenu) ;
  *  - le bouton Filtres est une icône, et la feuille Filtres n'a plus de
@@ -15,20 +15,18 @@
  *    remonte au-dessus, champ et résultats visibles ;
  *  - la feuille et la fiche se referment en glissant, pas d'un coup.
  */
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
 const erreurs = []
 
-async function entrer(cle, initialisation) {
+async function entrer(qui, initialisation) {
   const { ctx, page } = await onglet(nav)
   if (initialisation) await ctx.addInitScript(initialisation)
   page.on('pageerror', e => { erreurs.push(e.message); console.log('   [err]', e.message) })
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await page.locator('input.champ').fill(cle)
-  await page.getByRole('button', { name: 'Entrer' }).click()
+  await entrerComme(page, qui)
   await page.waitForSelector('.bento', { timeout: 20000 })
   return page
 }
@@ -62,7 +60,7 @@ async function suivreFermeture(p, sel, declencher) {
 }
 
 // =================== 1. LA LOUPE, LES FILTRES ==============================
-const page = await entrer('DEVP-ARNA-2345')
+const page = await entrer('Paul')
 await page.locator('a.carte', { hasText: 'Notre liste' }).first().click()
 await devant(page).locator('.nom').first().waitFor({ timeout: 25000 })
 await page.waitForTimeout(500)
@@ -89,7 +87,7 @@ await page.locator('input.chercher').fill('anatole')
 await page.waitForTimeout(400)
 const anatole = ligne(page, 'Anatole')
 dit(await anatole.count() === 1 && await anatole.locator('.trio, button.veto').count() === 0,
-  'un résultat n’a plus ni votes ni blocage : une seule ligne à toucher')
+  'un résultat n’a plus ni votes ni veto : une seule ligne à toucher')
 await anatole.click()
 await page.waitForTimeout(700)
 dit(await page.locator('.feuille-corps').count() === 0, 'le toucher referme la feuille')
@@ -122,8 +120,8 @@ await page.locator('input.chercher').fill('brandon')
 await page.waitForTimeout(400)
 const brandon = ligne(page, 'Brandon')
 dit(await brandon.count() === 1 && await brandon.evaluate(el => el.tagName) !== 'BUTTON'
-    && (await brandon.locator('.puce').innerText()).trim() === 'Bloqué',
-  'un prénom bloqué est affiché comme tel, sans rien à toucher')
+    && (await brandon.locator('.puce').innerText()).trim() === 'Veto',
+  'un prénom sous veto est affiché comme tel, sans rien à toucher')
 
 // =================== 4. LA FERMETURE GLISSE ================================
 const f1 = await suivreFermeture(page, '.feuille-corps',
@@ -162,7 +160,7 @@ dit(await page.locator('.vide', { hasText: 'aujourd’hui' }).count() === 1
 // =================== 6. LE CLAVIER NE CACHE PLUS LA FEUILLE =================
 // Un iPhone simulé : le clavier se pose sur la page, seule la « vue visible »
 // rétrécit. La feuille doit tenir au-dessus.
-const iphone = await entrer('DEVP-ARNA-2345', () => {
+const iphone = await entrer('Paul', () => {
   const vv = new EventTarget()
   let hauteur = window.innerHeight
   Object.defineProperty(vv, 'height', { get: () => hauteur })

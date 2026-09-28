@@ -123,10 +123,11 @@ async function gesteDev(action: string, groupe?: number, fait = 'Fait.') {
         </p>
       </div>
       <p class="mini doux" style="margin:0">
-        Clés :
-        <template v-for="(c, i) in baseLocale.comptes" :key="c.cle">
-          {{ i ? ' · ' : '' }}{{ c.pseudo }} <code>{{ c.cle }}</code>
+        Comptes :
+        <template v-for="(c, i) in baseLocale.comptes" :key="c.pseudo">
+          {{ i ? ' · ' : '' }}<span :title="c.role">{{ c.pseudo }}</span>
         </template>
+        — on y entre d’un geste depuis la page de connexion.
       </p>
     </template>
     <p v-if="messageDev" class="mini" role="status" style="margin:0">{{ messageDev }}</p>

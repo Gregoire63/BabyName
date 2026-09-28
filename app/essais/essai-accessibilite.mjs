@@ -17,7 +17,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
 
 function cheminAxe() {
   if (process.env.ESSAI_AXE) return process.env.ESSAI_AXE
@@ -102,9 +102,7 @@ for (const [chemin, nom] of [['/confidentialite', 'Confidentialité'], ['/condit
 
 // ============================================================ connecte
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.getByRole('textbox', { name: /clé d’accès/i }).fill('DEVP-ARNA-2345')
-await page.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(page, 'Paul')
 await page.waitForSelector('.bento', { timeout: 20000 })
 await auditer('Accueil')
 dit(/Accueil/.test(await page.title()), `l’accueil a son titre (« ${await page.title()} »)`)
@@ -206,15 +204,15 @@ await page.keyboard.press('Escape')
 await page.waitForTimeout(600)
 dit(await page.locator('[role="dialog"]').count() === 0, 'Échap referme la recherche')
 
-const veto = page.locator('.carte.fiche:not(.derriere)').getByRole('button', { name: /^Bloquer / })
+const veto = page.locator('.carte.fiche:not(.derriere)').getByRole('button', { name: /^Veto sur / })
 if (await veto.count()) {
   await veto.first().click()
   await page.waitForSelector('[role="dialog"]')
-  await auditer('Bloquer un prénom')
+  await auditer('Veto sur un prénom')
   // Une raison choisie : la note apparaît, avec sa visibilité dans son nom.
   await page.locator('[role="dialog"]').getByText('Déjà pris', { exact: true }).click()
   await page.waitForTimeout(300)
-  await auditer('Bloquer un prénom (déjà pris, note ouverte)')
+  await auditer('Veto sur un prénom (déjà pris, note ouverte)')
   await page.keyboard.press('Escape')
   await page.waitForTimeout(600)
 }

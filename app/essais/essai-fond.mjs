@@ -1,4 +1,4 @@
-import { lancer } from './navigateur.mjs'
+import { lancer, entrerComme } from './navigateur.mjs'
 const BASE = 'http://127.0.0.1:3100'
 const ok = [], ko = []
 const dit = (c, m) => { (c ? ok : ko).push(m); console.log((c ? '  OK   ' : '  ECHEC') + '  ' + m) }
@@ -14,9 +14,7 @@ const page = await ctx.newPage()
 page.on('pageerror', e => console.log('   [err]', e.message))
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVP-ARNA-2345')
-await page.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(page, 'Paul')
 await page.waitForSelector('.bento', { timeout: 20000 })
 await page.goto(`${BASE}/g/1/swipe`, { waitUntil: 'networkidle' })
 await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 20000 })

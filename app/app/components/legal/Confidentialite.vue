@@ -41,8 +41,7 @@ const c = CONSERVATION
       <strong>vos passkeys</strong> : leur clé <em>publique</em>, leur nom (« Trousseau iCloud »), leurs dates
       de création et de dernière utilisation ; la clé privée, votre visage ou votre empreinte ne quittent
       jamais votre appareil ;
-      <strong>votre adresse e-mail</strong>, confirmée à l’inscription (un compte créé avant cette étape peut ne pas en avoir) ;
-      pour les comptes d’avant les passkeys, l’empreinte de l’ancienne clé d’accès (jamais la clé elle-même).
+      <strong>votre adresse e-mail</strong>, confirmée à l’inscription (un compte créé avant cette étape peut ne pas en avoir).
     </dd>
     <dt>Pourquoi</dt>
     <dd>Vous reconnaître, et vous permettre de retrouver votre compte sur un autre appareil. L’adresse e-mail
@@ -56,7 +55,7 @@ const c = CONSERVATION
   <h3>Vos listes</h3>
   <dl>
     <dt>Données</dt>
-    <dd>Le nom des listes et, si vous le saisissez, le nom de famille de l’enfant ; vos filtres de recherche ; vos votes (oui, neutre, non), prénoms bloqués en secret (vetos) et leur motif, prénoms « déjà pris » que vous ajoutez et leur note, favoris, classements, duels et commentaires ; les membres et observateurs de chaque liste.</dd>
+    <dd>Le nom des listes et, si vous le saisissez, le nom de famille de l’enfant ; vos filtres de recherche ; vos votes (oui, neutre, non), vetos (prénoms écartés en secret) et leur motif, prénoms « déjà pris » que vous ajoutez et leur note, favoris, classements, duels et commentaires ; les membres et observateurs de chaque liste.</dd>
     <dt>Pourquoi</dt>
     <dd>C’est le service lui-même : trier des prénoms à plusieurs et trouver ceux sur lesquels vous êtes d’accord.</dd>
     <dt>Base légale</dt>
@@ -142,7 +141,7 @@ const c = CONSERVATION
       <strong>Les membres d’une liste</strong> voient votre nom affiché, vos commentaires, le nombre de prénoms
       que vous avez jugés et les accords auxquels vous avez pris part. Votre vote sur un prénom ne leur est
       montré qu’une fois qu’ils ont voté sur ce même prénom : c’est le vote à l’aveugle. Personne ne voit qui
-      a bloqué un prénom en secret. Un prénom « déjà pris », lui, est fait pour être vu : il s’affiche à
+      a mis un veto secret sur un prénom. Un prénom « déjà pris », lui, est fait pour être vu : il s’affiche à
       toute la liste, observateurs compris, avec votre nom et votre note.
     </li>
     <li><strong>L’éditeur</strong> a un accès technique à la base, pour la maintenance et l’assistance. Il ne le consulte pas en dehors de ces besoins.</li>
@@ -183,7 +182,7 @@ const c = CONSERVATION
   <ul>
     <li><strong>Compte et listes</strong> : tant que vous vous en servez. Effacés immédiatement si vous supprimez votre compte ; effacés automatiquement après <strong>{{ c.inactiviteMois }} mois</strong> sans ouvrir l’app.</li>
     <li><strong>Une liste</strong> est effacée, qu’elle ait été débloquée ou non, dès que son propriétaire la supprime (depuis ses réglages, pour tous), ou quand il n’y reste plus personne pour décider.</li>
-    <li><strong>Quitter une liste</strong> efface ce que vous y avez donné : votes, blocages, favoris, commentaires. Les prénoms « déjà pris » que vous y avez ajoutés restent à la liste, sans votre nom ni votre note.</li>
+    <li><strong>Quitter une liste</strong> efface ce que vous y avez donné : votes, vetos, favoris, commentaires. Les prénoms « déjà pris » que vous y avez ajoutés restent à la liste, sans votre nom ni votre note.</li>
     <li><strong>Codes cadeaux</strong> : un code jamais utilisé est effacé {{ c.cadeauMois }} mois après l’achat, avec le nom et le mot de celui qui l’a offert ; un code annulé, un mois après ; un code utilisé reste attaché à la liste qu’il a débloquée (« un cadeau de… ») et disparaît avec elle.</li>
     <li><strong>Prénoms « déjà pris »</strong> : ils appartiennent à la liste. Si vous effacez votre compte, ceux que vous avez ajoutés y restent pour les autres membres, sans votre nom ni votre note.</li>
     <li><strong>Compteurs de la version gratuite</strong> : le total, avec le compte ; celui du jour, jusqu’au jour de tri suivant, et {{ c.quotaJours }} jours au plus.</li>
@@ -209,7 +208,7 @@ const c = CONSERVATION
     Pour toute demande qui ne se fait pas depuis l’app, écrivez à
     <a :href="`mailto:${e.email}`">{{ e.email }}</a>. Nous répondons dans un délai d’un mois. Si aucune
     adresse n’est liée à votre compte, nous vous demanderons de quoi vérifier qu’il est bien le vôtre,
-    jamais un code de connexion ni une clé d’accès.
+    jamais un code de connexion.
   </p>
   <p>
     Si vous estimez que vos droits ne sont pas respectés, vous pouvez saisir la CNIL

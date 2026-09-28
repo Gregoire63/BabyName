@@ -1,12 +1,12 @@
 /**
- * L'observateur : il donne son avis, il ne bloque rien.
+ * L'observateur : il donne son avis, il n'a pas de veto.
  *
  * C'est la fonction payante la plus facile a rater en silence. Si le non de
  * Mamie retirait Louise des accords, le role ne servirait a rien — et
  * l'argument de vente (« invitez vos parents sans risque ») serait un
  * mensonge que personne ne remarquerait avant d'avoir paye.
  */
-import { lancer } from './navigateur.mjs'
+import { lancer, entrerComme } from './navigateur.mjs'
 const BASE = 'http://127.0.0.1:3100'
 const ok = [], ko = []
 const dit = (c, m) => { (c ? ok : ko).push(m); console.log((c ? '  OK   ' : '  ECHEC') + '  ' + m) }
@@ -25,12 +25,10 @@ const erreurs = []
 const plat = async (p, sel) => (await p.locator(sel).first().innerText().catch(() => ''))
   .replace(/\s+/g, ' ').trim()
 
-async function entrer(p, cle) {
+async function entrer(p, qui) {
   p.on('pageerror', e => { erreurs.push(e.message); console.log('   [err]', e.message) })
   await p.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-  await p.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await p.locator('input.champ').fill(cle)
-  await p.getByRole('button', { name: 'Entrer' }).click()
+  await entrerComme(p, qui)
   await p.waitForSelector('.bento', { timeout: 20000 })
 }
 
@@ -44,7 +42,7 @@ async function ouvrirListe(p, nom) {
 
 // =================== CÔTÉ COUPLE =========================================
 const paul = await faireOnglet()
-await entrer(paul, 'DEVP-ARNA-2345')
+await entrer(paul, 'Paul')
 await ouvrirListe(paul, 'Notre liste')
 const gid = paul.url().split('/')[4]
 
@@ -78,13 +76,13 @@ dit(!/Mamie/.test(texteAvert), 'et il ne la compte pas dedans')
 
 // =================== CÔTÉ OBSERVATRICE ===================================
 const mamie = await faireOnglet()
-await entrer(mamie, 'DEVM-AMIE-2345')
+await entrer(mamie, 'Mamie')
 await ouvrirListe(mamie, 'Notre liste')
 await mamie.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 25000 })
 await mamie.waitForTimeout(800)
 
-dit(await mamie.getByRole('button', { name: /^Bloquer/ }).count() === 0,
-    'aucun bouton « Bloquer » ne lui est proposé')
+dit(await mamie.getByRole('button', { name: /^Veto/ }).count() === 0,
+    'aucun bouton « Veto » ne lui est proposé')
 dit(await mamie.getByRole('button', { name: /^Non aux/ }).count() === 0,
     'ni « Non aux… », qui est un refus collectif')
 

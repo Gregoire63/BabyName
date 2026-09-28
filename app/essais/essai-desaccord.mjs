@@ -6,19 +6,17 @@
  * calculee sur cinq prenoms serait credible et fausse — c'est le seul type
  * d'erreur que personne ne remarque, et celui qui decredibilise tout le reste.
  */
-import { lancer, onglet, BASE } from './navigateur.mjs'
+import { lancer, onglet, BASE, entrerComme } from './navigateur.mjs'
 const ok = [], ko = []
 const dit = (c, m) => { (c ? ok : ko).push(m); console.log((c ? '  OK   ' : '  ECHEC') + '  ' + m) }
 const nav = await lancer()
 const erreurs = []
 
-async function entrer(cle) {
+async function entrer(qui) {
   const { page } = await onglet(nav)
   page.on('pageerror', e => { erreurs.push(e.message); console.log('   [err]', e.message) })
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await page.locator('input.champ').fill(cle)
-  await page.getByRole('button', { name: 'Entrer' }).click()
+  await entrerComme(page, qui)
   await page.waitForSelector('.bento', { timeout: 20000 })
   const c = page.locator('.carte', { hasText: 'Notre liste' }).first()
   await c.waitFor({ state: 'visible', timeout: 25000 })
@@ -34,7 +32,7 @@ const aRevoir = async (p, gid) => {
 }
 
 // ============ 1. LE SILENCE : Alice n'a que 5 oui visibles ==============
-const { page: paul, gid } = await entrer('DEVP-ARNA-2345')
+const { page: paul, gid } = await entrer('Paul')
 await aRevoir(paul, gid)
 
 const noms = await paul.locator('.desaccord .nom').allInnerTexts()
@@ -49,7 +47,7 @@ dit(await paul.locator('#volet-revoir p.mini.doux').count() === 0,
 // Sept prénoms de plus, tous d'une ou deux syllabes, tous déjà jugés par Paul
 // (sinon son verdict ne lui serait pas visible et rien ne changerait).
 const COURTS = ['Nine', 'Léon', 'Rose', 'Alma', 'Sacha', 'Noé', 'Victor']
-const { page: alice } = await entrer('DEVP-ARNB-2345')
+const { page: alice } = await entrer('Alice')
 const posees = await alice.evaluate(async ({ g, noms }) => {
   const out = []
   for (const p of noms) {

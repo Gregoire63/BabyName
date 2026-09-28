@@ -18,18 +18,17 @@ déjà entamée. Le terminal affiche alors :
 ```
   Base de developpement semee (D1 simulee par wrangler, dossier .data/wrangler).
   Liste « Notre liste », code d'invitation dec0de00.
-  Cle de Paul   : DEVP-ARNA-2345
-  Cle d'Alice  : DEVP-ARNB-2345
-  Cle de Mamie  : DEVM-AMIE-2345 (observatrice, code ab5e0bad)
+  Comptes : Paul, Alice, Mamie (observatrice, code ab5e0bad) — /connexion, bloc « Base locale ».
 ```
 
 Sur <http://localhost:3000/connexion>, le bloc **Base locale — entrer comme**
-connecte d'un geste Paul, Alice ou Mamie (en développement seulement).
-Ouvrez Alice dans une fenêtre privée : le vote aveugle se teste à deux, sur
-la même base.
+connecte d'un geste Paul, Alice ou Mamie (`/api/dev/entrer`, en
+développement seulement : ces comptes n'ont ni passkey ni, sauf Alice,
+d'adresse). Ouvrez Alice dans une fenêtre privée : le vote aveugle se teste
+à deux, sur la même base.
 
 Aux lancements suivants, le terminal rappelle l'âge du jeu d'essai et les
-clés — et signale un jeu **périmé** : on ne sème qu'une base vide, donc une
+comptes — et signale un jeu **périmé** : on ne sème qu'une base vide, donc une
 base semée avant un changement de `server/utils/semence.ts` garde l'ancien jeu
 (monter `VERSION_SEMENCE` à chaque changement de ce fichier).
 
@@ -57,8 +56,8 @@ serveur de dev parle toujours à la base locale — sauf si l'on ajoutait
 
 | | |
 |---|---|
-| Paul | 27 votes, 2 gardés (Alma, Nine), une famille écartée d'un geste (`kevi`) et des non un par un ; un blocage secret sur Brandon, au format d'avant les graphies |
-| Alice | 19 votes, un blocage secret sur Jayden (et ses 8 graphies), **Mathilde « déjà pris »** (« ma sœur »), un commentaire sur Louise ; adresse vérifiée `alice@exemple.test` (lien de connexion : la boîte de dev le reçoit) |
+| Paul | 27 votes, 2 favoris (Alma, Nine), une famille écartée d'un geste (`kevi`) et des non un par un ; un veto secret sur Brandon, au format d'avant les graphies |
+| Alice | 19 votes, un veto secret sur Jayden (et ses 8 graphies), **Mathilde « déjà pris »** (« ma sœur »), un commentaire sur Louise ; adresse vérifiée `alice@exemple.test` (lien de connexion : la boîte de dev le reçoit) |
 | Mamie | **observatrice** : 6 votes, dont un **non à Louise**, qui reste un accord |
 | en commun | 9 prénoms, plus des désaccords francs (Marius, Hector : Paul oui, Alice non) pour remplir « À revoir » |
 | listes | « Notre liste » débloquée (code `dec0de00`), « Essai gratuit » et « Autre essai » au quota 3/jour pour taper dans le mur en trois swipes |
@@ -323,10 +322,10 @@ Dans cet ordre, avant d'annoncer la nouvelle adresse :
 3. **Plus personne sur l'ancienne app** à partir de la photo : ce qui s'y
    écrit ensuite n'est pas copié (au besoin, vider D1 et refaire 1 et 2).
 4. **Vérifier** sur `babynamed.fr` : `/api/sante` (avec le secret, voir
-   « Vérifier »), une connexion par clé
-   d'accès (reprises telles quelles : une empreinte SHA-256, sans secret), un
-   vote. Les sessions et les passkeys de `vercel.app` ne suivent pas : on se
-   reconnecte une fois.
+   « Vérifier »), une connexion par lien e-mail, un vote. Les sessions et
+   les passkeys de `vercel.app` ne suivent pas : on se reconnecte une fois.
+   (Les clés d'accès ne sont plus copiées : D1 ne les connaît plus depuis la
+   migration 0007.)
 5. **Effacer** `.data/neon-vers-d1.sql` ; la sauvegarde, la ranger hors du
    dépôt (elle contient des données personnelles), et l'effacer une fois D1
    vérifié.
@@ -438,7 +437,7 @@ une fois à deux, et l'un des deux peut payer pour l'autre. Prix par défaut
 | Gratuit | Débloqué |
 |---|---|
 | les 19 608 prénoms, la recherche, les filtres | le tri sans plafond |
-| les accords, le classement, « déjà pris » et les blocages secrets | l'essai avec le nom de famille |
+| les accords, le classement, « déjà pris » et les vetos secrets | l'essai avec le nom de famille |
 | origine, sens et courbe sur chaque fiche | la projection de classe complète |
 | le deuxième parent | le portrait de goûts et la divergence |
 | le volet « À revoir » | ce qui cause chaque désaccord |
@@ -838,10 +837,17 @@ ramène sur le lien, qui renvoie aussitôt dans la liste.
 
 ## Retirer un prénom : déjà pris, ou en secret
 
-Deux raisons, deux gestes. La feuille « Bloquer ce prénom »
-(`FeuilleEcarter.vue`, depuis la carte comme depuis un accord) demande
-laquelle, **sans rien cocher d'avance** : cocher « déjà pris » par défaut
-ferait publier « mon ex » à qui tape vite.
+Deux raisons, deux gestes. Le bouton **« Veto »** ouvre la feuille « Mettre
+un veto » (`FeuilleEcarter.vue`, depuis la carte comme depuis un accord), qui
+demande laquelle, **sans rien cocher d'avance** : cocher « déjà pris » par
+défaut ferait publier « mon ex » à qui tape vite.
+
+Le mot : « Veto », pas « Bloquer ». « Bloquer » l'avait remplacé le
+25/09/2026 ; il est reparti le 28 : à côté de « Débloquer cette liste » —
+l'achat —, il laissait croire à un lien entre les deux, et le code comme
+l'API disaient déjà `vetos`. Même raison pour « Favoris » (le bouton de la
+carte) au lieu de « Gardés » dans Classement › Mes choix : un seul nom par
+chose.
 
 | | Déjà pris | En secret |
 |---|---|---|
@@ -853,12 +859,12 @@ ferait publier « mon ex » à qui tape vite.
 | table | `deja_pris` | `vetos` |
 
 Les deux emportent les **graphies** (même prononciation, `gp` du catalogue) :
-une ligne par graphie, rattachées à leur `tete`. Avant, bloquer Chloé faisait
-arriver Cloé à la carte suivante, et chaque graphie coûtait un blocage — avec
-deux blocages, un ex prénommé Chloé ne se bloquait tout simplement pas. Le
+une ligne par graphie, rattachées à leur `tete`. Avant, un veto sur Chloé
+faisait arriver Cloé à la carte suivante, et chaque graphie coûtait un veto —
+avec deux vetos, un ex prénommé Chloé ne s'écartait tout simplement pas. Le
 quota compte des têtes (trigger `trg_quota_veto`, migration 0002).
 
-Pas de blocages illimités, même en payant : un secret illimité, c'est un droit
+Pas de vetos illimités, même en payant : un secret illimité, c'est un droit
 de censure invisible sur les goûts de l'autre, le contraire de ce que vend
 l'app. Ce qui s'explique passe par « déjà pris », dont la transparence tient
 lieu de limite.
@@ -929,11 +935,15 @@ retenu trente jours sur l'appareil ; la passkey reste à un geste dans
   **publique** ; rien de biométrique ne quitte le téléphone. Vérification
   confiée à `@simplewebauthn/server` (pas de cryptographie maison).
 - Après une déconnexion, on revient sur l'onglet Connexion (`?mode=connexion`).
-- Les comptes d'avant gardent leur clé (« J'ai déjà une clé », en petit)
-  jusqu'à ce qu'ils la désactivent dans *Mon compte* ; sans adresse ni
-  passkey, l'accueil affiche « Ce compte n'existe que sur cet appareil ».
-- `/api/auth/entrer` (un compte d'un prénom, sans adresse) ne répond plus
-  qu'en **développement** : les essais et les outils de dev s'en servent.
+- La **clé d'accès** des premiers comptes n'existe plus (migration 0007,
+  le 28/09/2026) : plus personne ne s'en servait, et le seul compte qui n'avait
+  qu'elle a été rattaché à la nouvelle inscription de sa titulaire. Un compte
+  sans adresse ni passkey n'existe que sur l'appareil de sa session :
+  l'accueil l'affiche (« Ce compte n'existe que sur cet appareil »).
+- `/api/auth/entrer` (un compte d'un prénom, sans adresse) et
+  `/api/dev/entrer` (entrer comme un compte du jeu d'essai, par son prénom)
+  ne répondent qu'en **développement** : les essais et les outils de dev
+  s'en servent.
 
 | Où | Quoi |
 |---|---|

@@ -5,24 +5,24 @@
  * NOTER_ACTIVITE) — et que l'on range une session morte : compte efface
  * depuis un autre appareil, ou « Deconnecter mes autres appareils ».
  *
- * `moyens` dit comment ce compte peut etre retrouve ailleurs : aucun, et
- * l'accueil le signale (il n'existe alors que sur cet appareil).
+ * `moyens` dit comment ce compte peut etre retrouve ailleurs (une adresse,
+ * des passkeys) : aucun, et l'accueil le signale (il n'existe alors que sur
+ * cet appareil).
  */
 export default defineEventHandler(async (e) => {
   const s = sessionOuNull(e)
   if (!s) return { connecte: false }
   const u = await avecActivite<any>(s.u,
     `select u.id, u.pseudo, u.email, u.session_gen as gen,
-            u.cle_acces_hash is not null as a_une_cle,
             (select count(*) from passkeys p where p.user_id = u.id) as passkeys
        from utilisateurs u where u.id = ?1`, [s.u])
   if (!u || u.gen !== s.g) { retirerSession(e); return { connecte: false } }
   return {
     connecte: true,
     utilisateur: {
-      id: u.id, pseudo: u.pseudo, email: u.email, a_une_cle: u.a_une_cle,
+      id: u.id, pseudo: u.pseudo, email: u.email,
       passkeys: u.passkeys,
-      moyens: (u.email ? 1 : 0) + (u.passkeys > 0 ? 1 : 0) + (u.a_une_cle ? 1 : 0)
+      moyens: (u.email ? 1 : 0) + (u.passkeys > 0 ? 1 : 0)
     }
   }
 })

@@ -6,7 +6,7 @@ import { sansAccent, type Prenom } from '~/composables/useCatalogue'
  * « Déjà pris » : les prénoms que la liste retire du jeu, en le disant.
  *
  * La famille, les amis, quelqu'un qu'on connaît trop. On les connaît AVANT de
- * trier : attendre qu'ils passent en carte pour les bloquer un par un
+ * trier : attendre qu'ils passent en carte pour leur mettre un veto un par un
  * n'avait pas de sens. Ici on les tape, une fois, et ils ne passent plus —
  * pour personne, graphies comprises.
  *
@@ -31,7 +31,7 @@ const champNote = ref<HTMLInputElement>()
 
 /** Ce qui ne passe déjà plus : pas la peine de le proposer. */
 const retire = (nom: string) => g.parDejaPris.value.has(nom) ? 'déjà pris'
-  : g.vetos.value.has(nom) ? 'bloqué' : null
+  : g.vetos.value.has(nom) ? 'veto' : null
 
 /**
  * Six propositions au plus, UNE par prononciation : Mathéo, Mattéo et Matéo

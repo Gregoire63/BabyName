@@ -45,7 +45,7 @@ const GRATUIT = computed(() => [
   'Les 19 608 prénoms et la recherche complète',
   'Les accords et le classement',
   'L’origine, la signification et la courbe sur chaque fiche',
-  'Bloquer un prénom',
+  'Le veto sur un prénom',
   'Le deuxième parent'
 ])
 

@@ -1,4 +1,3 @@
-import { hacherCle, normaliserCle } from './acces'
 import type { Outils, Instruction } from './db'
 
 /**
@@ -9,16 +8,14 @@ import type { Outils, Instruction } from './db'
  * bien entamee, pour que chaque ecran ait quelque chose a afficher des le
  * premier `npm run dev`.
  *
- * Les cles sont fixes exprès : elles sont ecrites en clair ci-dessous et
- * affichees au demarrage. Ce n'est pas un secret qui fuite — elles n'ouvrent
- * qu'une base locale, jetable, qui n'existe pas en production (ce fichier
- * n'est appele que depuis la branche `import.meta.dev` de db.ts).
+ * On y entre par son prenom, d'un geste : le bloc « Base locale » de la page
+ * de connexion (/api/dev/entrer). Ce n'est pas une porte derobee — la route
+ * repond 404 en production, et ce fichier n'est appele que depuis la
+ * branche `import.meta.dev` de db.ts : il n'existe que sur une base locale,
+ * jetable.
  *
  * La base locale est une base D1 simulee par wrangler, dans .data/wrangler.
  */
-export const CLES_DEV = {
-  paul: 'DEVP-ARNA-2345', alice: 'DEVP-ARNB-2345', mamie: 'DEVM-AMIE-2345'
-}
 
 /** Le code cadeau du jeu d'essai (voir semerSiVide). */
 export const CADEAU_DEV = 'BEBE2345CADE'
@@ -31,13 +28,13 @@ export const CADEAU_DEV = 'BEBE2345CADE'
  * gratuit » qu'un essai decrit. La version est gravee a la semaille ; le
  * demarrage et les outils de developpement disent quand elle est depassee.
  */
-export const VERSION_SEMENCE = 8
+export const VERSION_SEMENCE = 9
 
 /** Les comptes du jeu d'essai, tels que les outils de dev les montrent. */
 export const COMPTES_DEV = [
-  { pseudo: 'Paul', cle: CLES_DEV.paul, role: 'parent, sur toutes les listes' },
-  { pseudo: 'Alice', cle: CLES_DEV.alice, role: 'parent, sur « Notre liste », e-mail alice@exemple.test (lien de connexion)' },
-  { pseudo: 'Mamie', cle: CLES_DEV.mamie, role: 'observatrice de « Notre liste »' }
+  { pseudo: 'Paul', role: 'parent, sur toutes les listes' },
+  { pseudo: 'Alice', role: 'parent, sur « Notre liste », e-mail alice@exemple.test (lien de connexion)' },
+  { pseudo: 'Mamie', role: 'observatrice de « Notre liste »' }
 ]
 
 export const MARQUEUR = `create table if not exists _semence (
@@ -51,13 +48,13 @@ export async function etatSemence(b: Outils): Promise<{ version: number; semee_l
   return { version, semee_le: r?.semee_le ?? null, a_jour: version >= VERSION_SEMENCE }
 }
 
-/** Au demarrage, une base deja semee ne disait rien : pas de cle, pas d'etat. */
+/** Au demarrage, une base deja semee ne disait rien : ni comptes, ni etat. */
 export async function annoncerBaseLocale(b: Outils) {
   const e = await etatSemence(b)
   const date = e.semee_le ? new Date(e.semee_le).toLocaleDateString('fr-FR') : 'date inconnue'
   console.log(
     `\n  Base locale : .data/wrangler (D1 simulee par wrangler), jeu d'essai v${e.version}, seme le ${date}.\n` +
-    `  Cles : ${COMPTES_DEV.map(x => `${x.pseudo} ${x.cle}`).join(' · ')}\n` +
+    `  Comptes : ${COMPTES_DEV.map(x => x.pseudo).join(', ')} — /connexion, bloc « Base locale ».\n` +
     (e.a_jour
       ? `  Outils : Mon compte -> Outils de developpement (base neuve, nouvelle journee, quotas, deblocage).\n`
       : `  /!\\ Jeu d'essai PERIME (v${e.version}, actuel v${VERSION_SEMENCE}) : des listes et des comptes d'essai manquent.\n` +
@@ -106,9 +103,9 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
   const dejaLa = await b.q1<{ n: number }>(`select count(*) as n from utilisateurs`)
   if ((dejaLa?.n ?? 0) > 0) return false
 
-  const paul = await creerCompte(b, 'Paul', CLES_DEV.paul)
-  const alice = await creerCompte(b, 'Alice', CLES_DEV.alice)
-  const mamie = await creerCompte(b, 'Mamie', CLES_DEV.mamie)
+  const paul = await creerCompte(b, 'Paul')
+  const alice = await creerCompte(b, 'Alice')
+  const mamie = await creerCompte(b, 'Mamie')
 
   // « Notre liste » est marquee payee : c'est elle que tous les essais
   // utilisent, et on ne veut pas qu'ils butent sur le quota au 21e swipe.
@@ -186,7 +183,7 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
   // Un compte oublie depuis plus de deux ans : c'est ce que la purge RGPD doit
   // effacer (essai-rgpd.mjs), avec sa liste ou il etait seul. Il porte aussi
   // un lien de connexion expire, que la purge nettoie.
-  const fantome = await creerCompte(b, 'Fantome', 'DEVF-ANTM-2345')
+  const fantome = await creerCompte(b, 'Fantome')
   const gf = await creerListe(b,
     `insert into groupes (nom, code_invitation, cree_par, cree_le)
      values ('Liste oubliee', 'dec0de0f', ?1, ${decale('-26 months')}) returning id`, [fantome])
@@ -216,19 +213,18 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
   console.log(
     '\n  Base de developpement semee (D1 simulee par wrangler, dossier .data/wrangler).\n' +
     `  Liste « Notre liste », code d'invitation dec0de00.\n` +
-    `  Cle de Paul   : ${CLES_DEV.paul}\n` +
-    `  Cle d'Alice  : ${CLES_DEV.alice}\n` +
-    `  Cle de Mamie  : ${CLES_DEV.mamie} (observatrice, code ab5e0bad)\n` +
-    `  Code cadeau   : ${cadeauLisible(CADEAU_DEV)} (/?cadeau=${CADEAU_DEV})\n` +
-    '  Ouvrez-en une dans une fenetre privee pour voir le vote aveugle a deux.\n' +
+    `  Comptes : Paul, Alice, Mamie (observatrice, code ab5e0bad) — /connexion, bloc « Base locale ».\n` +
+    `  Code cadeau : ${cadeauLisible(CADEAU_DEV)} (/?cadeau=${CADEAU_DEV})\n` +
+    '  Ouvrez Alice dans une fenetre privee pour voir le vote aveugle a deux.\n' +
     '  Pour repartir de zero : Mon compte -> Outils de developpement -> Base neuve.\n')
   return true
 }
 
-async function creerCompte(b: Outils, pseudo: string, cle: string): Promise<string> {
+/** Un compte d'un prenom, sans adresse ni passkey : il ne s'ouvre que par
+ *  /api/dev/entrer. */
+async function creerCompte(b: Outils, pseudo: string): Promise<string> {
   const r = await b.q1<{ id: string }>(
-    `insert into utilisateurs (pseudo, cle_acces_hash) values (?1, ?2) returning id`,
-    [pseudo, hacherCle(normaliserCle(cle))])
+    `insert into utilisateurs (pseudo) values (?1) returning id`, [pseudo])
   return r!.id
 }
 

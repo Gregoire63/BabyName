@@ -11,7 +11,7 @@ Tenu par : Grégoire Raturat, entrepreneur individuel, éditeur de babyNamed
 (non obligatoire : ni organisme public, ni suivi à grande échelle, ni données
 sensibles à grande échelle).
 
-Dernière mise à jour : 25 septembre 2026.
+Dernière mise à jour : 28 septembre 2026.
 
 Les durées ci-dessous sont celles de `shared/utils/editeur.ts` (`CONSERVATION`),
 appliquées chaque nuit par `server/utils/conservation.ts`. Si l'une change,
@@ -27,11 +27,11 @@ lit la même constante.
 | **Finalité** | Identifier chaque utilisateur et lui permettre de retrouver son compte sur un autre appareil. |
 | **Base légale** | Exécution du contrat (conditions d'utilisation) — art. 6.1.b. |
 | **Personnes** | Utilisateurs de l'app. |
-| **Données** | Nom affiché (libre, souvent un prénom) ; empreinte SHA-256 de la clé d'accès ; dates de création et de dernière activité. Pas d'e-mail, pas de mot de passe, pas de téléphone. |
-| **Destinataires** | Éditeur (maintenance). Sous-traitant : Cloudflare (hébergement de l'app et base de données D1). Les autres membres des listes voient le nom affiché. |
-| **Transferts hors UE** | Cloudflare, Inc. (États-Unis) : Data Privacy Framework + clauses contractuelles types. La base D1 est créée avec la juridiction « eu » : ses données restent dans l'Union européenne ; le serveur (Worker) s'exécute au plus près du visiteur. |
-| **Conservation** | Jusqu'à la suppression par l'utilisateur (immédiate) ; sinon effacement automatique après 24 mois sans activité. Sauvegardes : retour arrière D1 (*Time Travel*) de 7 jours. |
-| **Sécurité** | HTTPS ; clé stockée en empreinte seulement ; cookie de session signé (HMAC), `HttpOnly`, `Secure`, `SameSite=Lax`, 120 jours ; secrets côté serveur uniquement. |
+| **Données** | Nom affiché (libre, souvent un prénom) ; adresse e-mail, enregistrée seulement une fois prouvée (lien ou code reçu) ; passkeys : clé publique, nom, dates de création et d'utilisation (rien de biométrique) ; liens et codes de connexion, en empreintes ; dates de création et de dernière activité. Pas de mot de passe, pas de téléphone. |
+| **Destinataires** | Éditeur (maintenance). Sous-traitants : Cloudflare (hébergement de l'app et base de données D1) ; OVH (envoi des e-mails d'inscription, de connexion et d'alerte ; sauvegardes chiffrées) ; GitHub (sauvegarde nocturne, le temps de chiffrer). Les autres membres des listes voient le nom affiché. |
+| **Transferts hors UE** | Cloudflare, Inc. (États-Unis) : Data Privacy Framework + clauses contractuelles types. La base D1 est créée avec la juridiction « eu » : ses données restent dans l'Union européenne ; le serveur (Worker) s'exécute au plus près du visiteur. GitHub, Inc. (États-Unis) : Data Privacy Framework + clauses contractuelles types. |
+| **Conservation** | Jusqu'à la suppression par l'utilisateur (immédiate) ; sinon effacement automatique après 24 mois sans activité. Liens et codes de connexion : 15 minutes, un seul usage, puis effacés par la purge nocturne. Sauvegardes : retour arrière D1 (*Time Travel*) de 7 jours ; copies chiffrées chez OVH, les 30 dernières nuits puis une par mois pendant 12 mois. |
+| **Sécurité** | HTTPS ; liens en empreintes (SHA-256), codes signés (HMAC), essais limités ; passkeys : clé publique seulement ; cookie de session signé (HMAC), `HttpOnly`, `Secure`, `SameSite=Lax`, 120 jours, révocable (« Déconnecter mes autres appareils ») ; secrets côté serveur uniquement. |
 
 ## 2. Listes de prénoms
 
@@ -97,7 +97,7 @@ lit la même constante.
 |---|---|
 | **Finalité** | Répondre aux demandes d'accès, d'effacement, d'opposition, et aux questions. |
 | **Base légale** | Obligation légale (art. 12 à 22 du RGPD) — 6.1.c ; assistance : exécution du contrat. |
-| **Données** | E-mail de la personne, contenu de sa demande, éléments de vérification (jamais la clé d'accès). |
+| **Données** | E-mail de la personne, contenu de sa demande, éléments de vérification (jamais un code de connexion). |
 | **Destinataires** | Éditeur ; Google (messagerie Gmail). |
 | **Conservation** | Le temps de traiter la demande, puis 5 ans pour la preuve de la réponse (prescription civile), messagerie comprise. |
 
@@ -116,7 +116,8 @@ lit la même constante.
   consentement.
 - **Minimisation déjà faite** : e-mails de l'époque du lien magique effacés
   (colonne remise à NULL, table des jetons vidée) ; police de caractères
-  servie par l'app (plus de transfert d'IP à Google).
+  servie par l'app (plus de transfert d'IP à Google) ; clé d'accès des
+  premiers comptes supprimée, empreintes et colonne comprises (septembre 2026).
 
 ## Violations de données (art. 33.5)
 
@@ -134,5 +135,7 @@ risque élevé.
 | Prestataire | Rôle | Contrat de sous-traitance (art. 28) |
 |---|---|---|
 | Cloudflare, Inc. | Hébergement (Workers) et base de données (D1) | DPA intégré aux conditions de Cloudflare (cloudflare.com/cloudflare-customer-dpa) |
+| OVH SAS | Messagerie de babynamed.fr (e-mails d'inscription, de connexion, d'alerte) ; hébergement des sauvegardes chiffrées | Annexe sur la protection des données des conditions de service OVHcloud, acceptée avec le contrat. **À joindre** au registre. |
+| GitHub, Inc. | Sauvegarde nocturne (GitHub Actions) : la base y passe le temps d'être exportée et chiffrée | **À vérifier** : le GitHub Data Protection Agreement couvre-t-il un compte gratuit ? Sinon, faire tourner la sauvegarde ailleurs. |
 | Stripe Payments Europe, Ltd. | Paiement | Stripe Data Processing Agreement (stripe.com/legal/dpa) |
 | Google (Gmail) | Messagerie de contact | **À régulariser** : une adresse Gmail grand public n'a pas de contrat de sous-traitance. Une adresse Google Workspace (ou tout hébergeur de messagerie professionnel avec DPA) règle le point. |

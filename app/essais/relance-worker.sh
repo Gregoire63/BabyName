@@ -7,7 +7,8 @@
 # le Worker construit n'y apparaît pas (le 28/09 : un `import 'reflect-metadata'`
 # retiré par Nitro, et aucune passkey ne se créait en production). Ici :
 # `nuxt build` (sauf SANS_BUILD=1), `wrangler dev` sur la sortie, une base D1
-# locale neuve, et un compte d'essai à la clé connue ABCD-EFGH-JKMN.
+# locale neuve, un compte d'essai et un lien de connexion au jeton connu —
+# la production n'a pas d'autre porte que l'e-mail et la passkey.
 #
 # `--local-upstream` garde localhost comme adresse de la requête : sans lui,
 # wrangler la réécrit en babynamed.fr (la route du Worker), et les passkeys
@@ -30,11 +31,17 @@ for i in $(seq 1 60); do
   sleep 2
   curl -s -m 5 -o /dev/null -w "%{http_code}" "http://localhost:$PORT/api/sante" 2>/dev/null | grep -q 200 && break
 done
-# La clé d'accès se garde en empreinte SHA-256 de sa forme normalisée.
-H=$(printf 'ABCDEFGHJKMN' | sha256sum | cut -d' ' -f1)
+# Le lien, comme s'il venait de l'e-mail : la base n'en garde que l'empreinte
+# (SHA-256 du jeton, en base64url — server/utils/liens.ts), une heure.
+JETON=essai-worker-jeton-de-connexion-0123456789
+H=$(node -e "process.stdout.write(require('node:crypto').createHash('sha256').update(process.argv[1]).digest('base64url'))" "$JETON")
+MAINTENANT="strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
 npx wrangler d1 execute DB --local --persist-to "$ETAT" --config .output/server/wrangler.json \
-  --command "insert into utilisateurs (pseudo, cle_acces_hash) values ('Essai', '$H')" > /dev/null 2>&1
-ESSAI_BASE="http://localhost:$PORT" CRON_SECRET=secret-essai-worker node "$1"
+  --command "insert into utilisateurs (pseudo, email, email_verifie_le) values ('Essai', 'essai@exemple.test', $MAINTENANT);
+    insert into liens_connexion (id, email, user_id, but, code_hash, expire_le)
+      select '$H', email, id, 'connexion', 'x', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+1 hour')
+        from utilisateurs where email = 'essai@exemple.test'" > /dev/null 2>&1
+ESSAI_BASE="http://localhost:$PORT" ESSAI_JETON="$JETON" CRON_SECRET=secret-essai-worker node "$1"
 CODE=$?
 pkill -f "wrangler dev --config .output" 2>/dev/null
 rm -rf "$ETAT"

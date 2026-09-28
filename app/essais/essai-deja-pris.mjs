@@ -7,29 +7,27 @@
  *     note : elle quitte les accords, et la recherche la dit « Déjà pris ».
  *  2. Remettre en jeu le sien : un geste ; celui d'un autre : une
  *     confirmation d'abord.
- *  3. La carte : « Bloquer » ouvre une feuille où RIEN n'est coché ; « Déjà
+ *  3. La carte : « Veto » ouvre une feuille où RIEN n'est coché ; « Déjà
  *     pris » avec une note, la carte part, ses graphies ne prennent pas sa
  *     place, et la liste la montre.
- *  4. En secret : Chloé (six autres graphies) coûte UN blocage, aucune
+ *  4. En secret : Chloé (six autres graphies) coûte UN veto, aucune
  *     graphie ne revient en carte, Mes choix la montre avec ses graphies.
- *  5. Au bout des blocages secrets, la feuille le dit et propose « déjà
+ *  5. Au bout des vetos secrets, la feuille le dit et propose « déjà
  *     pris » ; le serveur refuse le suivant.
  *  6. Mamie, observatrice : voit la liste, sans champ ni bouton ; le serveur
  *     refuse ses ajouts.
  *  7. Alice efface son compte : Mathilde reste, sans auteur ni note.
  */
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
 
-async function entrer(cle) {
+async function entrer(qui) {
   const { ctx, page } = await onglet(nav)
   page.on('pageerror', e => console.log('   [err]', e.message))
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await page.locator('input.champ').fill(cle)
-  await page.getByRole('button', { name: 'Entrer' }).click()
+  await entrerComme(page, qui)
   await page.waitForSelector('.bento', { timeout: 30000 })
   return { ctx, page }
 }
@@ -40,8 +38,8 @@ const api = (page, chemin, methode = 'GET', corps) => page.evaluate(async ([c, m
   return { status: r.status, json }
 }, [chemin, methode, corps])
 
-const { page } = await entrer('DEVP-ARNA-2345')
-const alice = await entrer('DEVP-ARNB-2345')
+const { page } = await entrer('Paul')
+const alice = await entrer('Alice')
 // Un « déjà pris » d'Alice de plus, pour la confirmation (étape 2).
 await api(alice.page, '/api/groupes/1/deja-pris', 'POST',
   { prenom: 'Timothée', motif: 'le neveu', variantes: ['Timothé', 'Timoté'] })
@@ -115,8 +113,8 @@ const cible = (await devant.innerText()).trim()
 await page.locator('.carte.fiche:not(.derriere) .bas .rouge').click()
 const feuille = page.locator('.feuille-corps')
 await feuille.waitFor({ timeout: 6000 })
-dit((await feuille.locator('h2').first().innerText()).trim() === 'Bloquer ce prénom',
-  `la carte de ${cible} ouvre « Bloquer ce prénom »`)
+dit((await feuille.locator('h2').first().innerText()).trim() === 'Mettre un veto',
+  `la carte de ${cible} ouvre « Mettre un veto »`)
 const radios = feuille.locator('input[type="radio"]')
 await page.waitForTimeout(500)
 dit(await radios.count() === 2 && !(await radios.nth(0).isChecked()) && !(await radios.nth(1).isChecked()),
@@ -157,8 +155,8 @@ dit(/Avec ses graphies : Cloé, Chloe, Khloé et 3 autres/.test(graphiesTxt),
   'la feuille annonce les graphies emportées')
 await feuille.getByText('En secret', { exact: true }).click()
 dit(new RegExp(`Il vous en reste ${5 - avant} sur 5`).test((await feuille.innerText()).replace(/\s+/g, ' ')),
-  `le compteur des blocages secrets : ${5 - avant} sur 5`)
-dit(await feuille.locator('.feuille-pied .rouge-plein').count() === 1, 'le bouton passe au rouge du blocage')
+  `le compteur des vetos secrets : ${5 - avant} sur 5`)
+dit(await feuille.locator('.feuille-pied .rouge-plein').count() === 1, 'le bouton passe au rouge du veto')
 await feuille.getByPlaceholder('Pourquoi ? (pour vous seul, facultatif)').fill('mon ex')
 await page.screenshot({ path: '/tmp/dp3-secret.png' })
 await feuille.locator('.feuille-pied .rouge-plein').click()
@@ -167,17 +165,17 @@ const etat4 = (await api(page, '/api/groupes/1')).json
 const chloe = etat4.mes_vetos.find(v => v.prenom === 'Chloé')
 dit(!!chloe && chloe.variantes.length === 6 && chloe.motif === 'mon ex',
   `Chloé et ses 6 graphies : ${JSON.stringify(chloe)}`)
-dit(etat4.mes_vetos.length === avant + 1, 'et UN seul blocage de plus')
+dit(etat4.mes_vetos.length === avant + 1, 'et UN seul veto de plus')
 const GROUPE_CHLOE = ['Chloé', 'Cloé', 'Chloe', 'Khloé', 'Chloë', 'Kloé', 'Cloée']
 const apres = (await devant.innerText()).trim()
 dit(!GROUPE_CHLOE.includes(apres), `aucune graphie ne prend la place (carte suivante : ${apres})`)
-// Et la recherche le confirme : Cloé est bloquée, pas remise en jeu.
+// Et la recherche le confirme : Cloé est sous veto, pas remise en jeu.
 await page.getByRole('button', { name: 'Chercher un prénom' }).click()
 await rech.locator('input.chercher').fill('cloé')
 await page.waitForTimeout(400)
 const cloe = rech.locator('.trouve').filter({ has: page.locator('.nom:text-is("Cloé")') })
-dit(await cloe.count() === 1 && (await cloe.locator('.puce').innerText()).trim() === 'Bloqué',
-  'Cloé est bloquée avec Chloé')
+dit(await cloe.count() === 1 && (await cloe.locator('.puce').innerText()).trim() === 'Veto',
+  'Cloé part avec Chloé, sous le même veto')
 await page.keyboard.press('Escape'); await page.waitForTimeout(500)
 
 // Mes choix : la ligne montre les graphies ; un « oui » devenu « déjà pris »
@@ -192,37 +190,37 @@ const jeanne = cl.locator('.groupe .rangee').filter({ has: page.locator('.nom', 
 dit(await jeanne.count() === 1 && await jeanne.locator('.puce.pris').innerText() === 'déjà pris',
   'Mes choix › Oui : Jeanne porte « déjà pris »')
 await api(alice.page, '/api/groupes/1/deja-pris?prenom=Jeanne', 'DELETE')
-await cl.locator('.groupe .entete', { hasText: 'Prénoms bloqués' }).click()
+await cl.locator('.groupe .entete', { hasText: 'Vetos secrets' }).click()
 await page.waitForTimeout(400)
-const bloc = cl.locator('.groupe').filter({ hasText: 'Prénoms bloqués' })
+const bloc = cl.locator('.groupe').filter({ hasText: 'Vetos secrets' })
 const txtBloc = (await bloc.innerText()).replace(/\s+/g, ' ')
 dit(/Chloé \+ 6 graphies mon ex/.test(txtBloc), 'Mes choix : « Chloé + 6 graphies », avec le motif')
 dit(await bloc.getByRole('button', { name: /Déjà pris dans la liste/ }).count() === 1,
   'et un chemin vers les « déjà pris »')
 
-// ============ 5. Au bout des blocages secrets ==============================
+// ============ 5. Au bout des vetos secrets ================================
 for (const p of ['Emma', 'Jade', 'Rose', 'Anna', 'Lina']) {
   if ((await api(page, '/api/groupes/1')).json.mes_vetos.length >= 5) break
   await api(page, '/api/groupes/1/veto', 'POST', { prenom: p })
 }
 const refus = await api(page, '/api/groupes/1/veto', 'POST', { prenom: 'Mila' })
 dit(refus.status === 409 && refus.json?.statusMessage === 'quota_veto_atteint',
-  'le serveur refuse un sixième blocage secret')
+  'le serveur refuse un sixième veto secret')
 await page.goto(`${BASE}/g/1/swipe`, { waitUntil: 'networkidle' })
 await devant.waitFor({ timeout: 30000 })
 await page.locator('.carte.fiche:not(.derriere) .bas .rouge').click()
 await feuille.waitFor({ timeout: 6000 })
 await feuille.getByText('En secret', { exact: true }).click()
 const txt5 = (await feuille.innerText()).replace(/\s+/g, ' ')
-dit(/Vos 5 blocages secrets sont utilisés/.test(txt5) && /« déjà pris »/.test(txt5),
+dit(/Vos 5 vetos secrets sont utilisés/.test(txt5) && /« déjà pris »/.test(txt5),
   'au bout, la feuille le dit et propose « déjà pris »')
-dit(await feuille.locator('.feuille-pied .rouge-plein').isDisabled(), 'et le blocage secret n’est plus possible')
+dit(await feuille.locator('.feuille-pied .rouge-plein').isDisabled(), 'et le veto secret n’est plus possible')
 await feuille.getByText('Déjà pris', { exact: true }).click()
 dit(!(await valider.isDisabled()), '« déjà pris », lui, reste ouvert')
 await page.keyboard.press('Escape'); await page.waitForTimeout(500)
 
 // ============ 6. Mamie, observatrice =======================================
-const mamie = await entrer('DEVM-AMIE-2345')
+const mamie = await entrer('Mamie')
 await mamie.page.goto(`${BASE}/g/1/reglages`, { waitUntil: 'networkidle' })
 const carteM = mamie.page.locator('section[aria-labelledby="titre-deja-pris"]')
 await carteM.waitFor({ timeout: 30000 })

@@ -10,7 +10,7 @@
  *  - même chose pour le nom de famille (liste débloquée) et le nom affiché ;
  *  - le serveur ne reçoit pas une requête par lettre.
  */
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -21,9 +21,7 @@ let envois = 0
 page.on('request', r => { if (r.method() === 'PUT' && /\/nom$/.test(r.url())) envois++ })
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.getByRole('textbox', { name: /clé d’accès/i }).fill('DEVP-ARNA-2345')
-await page.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(page, 'Paul')
 await page.waitForSelector('.bento', { timeout: 20000 })
 
 const lire = (chemin) => page.evaluate(async c => (await fetch(c)).json(), chemin)

@@ -45,7 +45,8 @@ const texte = (await outils.innerText()).replace(/\s+/g, ' ')
 dit(/Jeu d’essai v\d+, semé le/.test(texte) && !/Périmé/.test(texte),
   `l’âge du jeu d’essai est affiché (« ${texte.match(/Jeu d’essai[^.]*/)?.[0]} »)`)
 dit(/Notre liste/.test(texte) && /Essai gratuit/.test(texte), 'les listes y sont')
-dit(/DEVP-ARNA-2345/.test(texte), 'et les clés')
+dit(/Comptes : Paul · Alice · Mamie/.test(texte) && !/[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/.test(texte),
+  'et les comptes où entrer — plus de clé d’accès')
 
 // =================== 3. LES QUOTAS =======================================
 await page.evaluate(async () => {

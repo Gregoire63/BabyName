@@ -37,7 +37,7 @@ const motsLisibles = (n: number) => `${n} commentaire${n > 1 ? 's' : ''}`
 /** Un accord qu'on retire après coup — le bébé de la cousine est né entre-
  *  temps. La même feuille que sur la carte : déjà pris, ou en secret. */
 const ecarterPour = ref<string | null>(null)
-/** Un observateur ne bloque rien : il n'a pas le bouton. */
+/** Un observateur n'a pas de veto : il n'a pas le bouton. */
 const jObserve = computed(() => g.etat.value?.moi?.role === 'observateur')
 
 /**
@@ -137,8 +137,8 @@ const enRetard = computed(() => {
         <div class="ligne" style="justify-content:space-between">
           <button class="btn btn-0 mini" @click="g.ouvrirFiche(c.prenom)">Plus d’informations</button>
           <button v-if="!jObserve" class="btn btn-0 mini" style="color:var(--non)"
-                  :aria-label="`Bloquer ${c.prenom}`" @click="ecarterPour = c.prenom">
-            Bloquer
+                  :aria-label="`Veto sur ${c.prenom}`" @click="ecarterPour = c.prenom">
+            Veto
           </button>
         </div>
       </div>

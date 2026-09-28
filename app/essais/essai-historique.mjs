@@ -13,7 +13,7 @@
  *    ne voit pas l'autre au travers ;
  *  - les onglets d'une liste n'empilent rien : un retour ramène à l'accueil.
  */
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -58,9 +58,7 @@ dit(await page.evaluate(() => history.length) === hist0
     && Math.round((await page.locator('.accueil .carte').first().boundingBox()).y) === yForm,
   'l’historique n’a pas bougé, le formulaire non plus')
 
-await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVP-ARNA-2345')
-await page.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(page, 'Paul')
 await page.waitForSelector('.bento', { timeout: 20000 })
 await page.waitForTimeout(600)
 
@@ -82,7 +80,10 @@ async function pendantGlissement(declencher) {
              sens: document.documentElement.dataset.sens })
         return
       }
-      if (performance.now() - t0 < 1500) requestAnimationFrame(tic); else ok(null)
+      // Jusqu'à 8 s : sous `nuxt dev`, la première visite d'une liste compile
+      // ses modules, et le glissement ne part qu'après (1,5 s ne suffisait pas).
+      // On rend la main dès qu'il part : un essai qui passe n'attend pas plus.
+      if (performance.now() - t0 < 8000) requestAnimationFrame(tic); else ok(null)
     }
     requestAnimationFrame(tic)
   }))

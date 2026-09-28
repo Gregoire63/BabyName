@@ -2,9 +2,9 @@ import { passkeysPossibles } from '~/composables/usePasskey'
 
 /**
  * Quand proposer la passkey (ProposerPasskey) : juste après être entré par
- * e-mail ou par l'ancienne clé, à un compte qui n'en a aucune, sur un
- * navigateur qui sait en créer — et pas sur un appareil où l'on a répondu
- * « Plus tard » ces trente derniers jours.
+ * e-mail, à un compte qui n'en a aucune, sur un navigateur qui sait en
+ * créer — et pas sur un appareil où l'on a répondu « Plus tard » ces trente
+ * derniers jours.
  */
 const CLE = 'passkey-plus-tard'
 const TRENTE_JOURS = 30 * 86400e3

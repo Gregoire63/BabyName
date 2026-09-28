@@ -1,4 +1,4 @@
-import { lancer } from './navigateur.mjs'
+import { lancer, entrerComme } from './navigateur.mjs'
 const BASE = 'http://127.0.0.1:3100'
 const ok = [], ko = []
 const dit = (c, m) => { (c ? ok : ko).push(m); console.log((c ? '  OK   ' : '  ECHEC') + '  ' + m) }
@@ -8,7 +8,7 @@ const lisible = t => t.trim().split('\n').pop().trim()
 // de bon. On repart donc d'une base neuve a chaque passage (voir relance.sh).
 const nav = await lancer()
 
-async function entrer(cle) {
+async function entrer(qui) {
   const ctx = await nav.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })
   // Le panneau Nuxt DevTools flotte au-dessus de la barre du bas et avale les
   // clics. Il n'existe qu'en dev : on le masque plutot que de deplacer la barre.
@@ -25,15 +25,13 @@ async function entrer(cle) {
   page.on('pageerror', e => console.log('   [err]', e.message))
   page.on('console', m => { if (m.type() === 'error' && !/TUNNEL|favicon|fonts/.test(m.text())) console.log('   [js]', m.text()) })
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await page.locator('input.champ').fill(cle)
-  await page.getByRole('button', { name: 'Entrer' }).click()
+  await entrerComme(page, qui)
   await page.waitForSelector('.bento', { timeout: 20000 })
   return { ctx, page }
 }
 
 // ---------- 1. l'accueil n'explique plus le millesime ----------------------
-const { ctx: c1, page } = await entrer('DEVP-ARNA-2345')
+const { ctx: c1, page } = await entrer('Paul')
 dit(await page.locator('.note').count() === 0, 'le laïus sur le millésime INSEE a disparu')
 // Les statistiques arrivent avec le catalogue, apres la liste des listes :
 // on attend la section plutot que de lire l'ecran a mi-chargement.
@@ -89,7 +87,7 @@ dit(groupesPaul.length === 1 && /^Ceux qu’Alice n’a pas aimés/.test(groupes
 await page.waitForTimeout(400); await page.screenshot({ path: '/tmp/g5-revoir.png' })
 
 // ---------- 6. Alice change d'avis : le scenario de Paul -----------------
-const { page: p2 } = await entrer('DEVP-ARNB-2345')
+const { page: p2 } = await entrer('Alice')
 await p2.locator('.bento .grande').first().click()
 await p2.waitForSelector('.onglets button', { timeout: 20000 })
 await p2.locator('.onglets button', { hasText: 'Classement' }).click()

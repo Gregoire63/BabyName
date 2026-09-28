@@ -43,9 +43,9 @@ const trouves = computed<Prenom[]>(() => {
 })
 
 /** Retiré du jeu : « Déjà pris » se dit (c'est tout son principe), un
- *  blocage secret ne dit que « Bloqué », jamais par qui. */
+ *  veto secret ne dit que « Veto », jamais de qui. */
 const retire = (nom: string) => g.parDejaPris.value.has(nom) ? 'Déjà pris'
-  : g.vetos.value.has(nom) ? 'Bloqué' : null
+  : g.vetos.value.has(nom) ? 'Veto' : null
 
 const etat = (nom: string) => {
   const r = retire(nom)

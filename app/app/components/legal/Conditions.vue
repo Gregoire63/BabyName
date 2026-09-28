@@ -30,7 +30,7 @@ const prix = (config.public.prixListe as string) || '6 €'
   </p>
   <p>
     <strong>La version gratuite</strong> donne accès au catalogue complet, à la recherche, aux fiches,
-    aux accords, au classement et au blocage de prénoms. Sur les listes non débloquées, le nombre de prénoms jugés
+    aux accords, au classement et au veto sur des prénoms. Sur les listes non débloquées, le nombre de prénoms jugés
     est limité : un premier lot à juger librement, puis un nombre par jour. Ces limites sont affichées
     dans l’app ; elles n’interrompent jamais définitivement le tri.
   </p>
@@ -41,15 +41,14 @@ const prix = (config.public.prixListe as string) || '6 €'
     le code qu’elle reçoit. Il n’y a pas de mot de passe : cette adresse reçoit sur demande un lien et un
     code de connexion, et vous pouvez aussi créer une <strong>passkey</strong> (déverrouillée par le
     visage, l’empreinte ou le code de votre téléphone). Un compte plus ancien, sans adresse ni passkey,
-    n’existe que sur l’appareil où il a été créé, et l’éditeur ne peut pas le retrouver pour vous. Les
-    comptes créés avant les passkeys gardent leur clé d’accès tant qu’ils ne la désactivent pas. Ne partagez ni vos codes ni
-    l’accès à votre boîte mail ; <em>Mon compte</em> permet de déconnecter tous vos autres appareils.
+    n’existe que sur l’appareil où il a été créé, et l’éditeur ne peut pas le retrouver pour vous. Ne
+    partagez ni vos codes ni l’accès à votre boîte mail ; <em>Mon compte</em> permet de déconnecter tous vos autres appareils.
   </p>
   <p>
     Vous êtes responsable de ce que vous écrivez dans l’app (noms de listes, commentaires, motifs). Tout
     contenu illicite, injurieux ou portant atteinte aux droits d’autrui peut être supprimé et le compte
     suspendu. Vous pouvez supprimer votre compte à tout moment depuis <em>Mon compte</em>.
-    Chacun peut quitter une liste depuis ses réglages : ce qu’il y a donné (votes, blocages,
+    Chacun peut quitter une liste depuis ses réglages : ce qu’il y a donné (votes, vetos,
     commentaires) est effacé, la liste reste aux autres. Son propriétaire (celui qui l’a créée ; s’il
     la quitte, le plus ancien de ceux qui y décident) peut aussi la supprimer : elle disparaît alors
     pour tous ses membres, avec leurs votes.

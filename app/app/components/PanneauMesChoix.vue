@@ -14,15 +14,17 @@ const g = useGroupeCourant()
 const { miens } = useVerdicts()
 
 const GROUPES = [
-  { v: 2 as const, t: 'Oui', d: 'Ceux que vous gardez.' },
+  { v: 2 as const, t: 'Oui', d: 'Ceux qui vous plaisent.' },
   { v: 1 as const, t: 'Neutre', d: 'Ni oui ni non : ils restent en jeu.' },
   { v: 0 as const, t: 'Non', d: 'Écartés. Un autre avis peut les faire revenir.' }
 ]
 
-// Les gardés et les vetos ne sont pas des verdicts : ils se superposent aux
+// Les favoris et les vetos ne sont pas des verdicts : ils se superposent aux
 // oui / neutre / non. Ils meritent donc leurs propres blocs, sans quoi on ne
 // les voyait nulle part — sauf une etincelle discrete sur les lignes.
-const gardes = computed(() => [...g.favoris.value])
+// (« Gardés » ne disait pas ce que c'etait : ce sont les « Favoris » de la
+// carte de tri, et ils portent le meme nom ici.)
+const mesFavoris = computed(() => [...g.favoris.value])
 const vetos = computed(() => g.mesVetos.value)
 const retrait = ref('')
 const vetosMax = computed(() => g.etat.value?.groupe?.nb_vetos_max ?? BLOCAGES_SECRETS)
@@ -35,7 +37,7 @@ async function retirerVeto(prenom: string) {
 }
 const listes = { 2: miens(2), 1: miens(1), 0: miens(0) } as const
 
-const ouvert = ref<number | null>(2)   // -1 gardes, -2 vetos
+const ouvert = ref<number | null>(2)   // -1 favoris, -2 vetos
 const tout = ref<Set<number>>(new Set())
 const PALIER = 24
 const occupe = ref('')
@@ -132,18 +134,19 @@ async function remettre(prenoms: string[]) {
     <section class="carte pile groupe">
       <button class="entete" @click="bascule(-1)">
         <Etincelles :taille="14" couleur="var(--peche)" une />
-        <strong style="flex:1;text-align:left">Gardés</strong>
-        <span class="puce">{{ gardes.length }}</span>
+        <strong style="flex:1;text-align:left">Favoris</strong>
+        <span class="puce">{{ mesFavoris.length }}</span>
         <span class="doux">{{ ouvert === -1 ? '−' : '+' }}</span>
       </button>
       <template v-if="ouvert === -1">
         <p class="mini doux" style="margin:0">
-          Ceux que vous gardez sous le coude, quel que soit votre vote.
+          Ceux que vous marquez « Favoris » sur la carte de tri, en plus de votre
+          vote. Vous seul les voyez.
         </p>
-        <p v-if="!gardes.length" class="mini doux" style="margin:0">
-          Aucun pour l’instant. L’étoile sur la carte de tri les met ici.
+        <p v-if="!mesFavoris.length" class="mini doux" style="margin:0">
+          Aucun pour l’instant.
         </p>
-        <div v-for="p in gardes" :key="p" class="rangee">
+        <div v-for="p in mesFavoris" :key="p" class="rangee">
           <button class="nom" @click="g.ouvrirFiche(p)">{{ p }}</button>
           <button class="btn btn-0 mini doux" @click="g.basculerFavori(p)">Retirer</button>
         </div>
@@ -153,7 +156,7 @@ async function remettre(prenoms: string[]) {
     <section class="carte pile groupe">
       <button class="entete" @click="bascule(-2)">
         <span class="pastille veto" />
-        <strong style="flex:1;text-align:left">Prénoms bloqués</strong>
+        <strong style="flex:1;text-align:left">Vetos secrets</strong>
         <span class="puce">{{ vetos.length }}</span>
         <span class="doux">{{ ouvert === -2 ? '−' : '+' }}</span>
       </button>
@@ -163,7 +166,7 @@ async function remettre(prenoms: string[]) {
           {{ vetosRestants }} sur {{ vetosMax }}.
         </p>
         <p v-if="!vetos.length" class="mini doux" style="margin:0">
-          Aucun prénom bloqué.
+          Aucun veto.
         </p>
         <div v-for="v in vetos" :key="v.prenom" class="rangee">
           <button class="nom" @click="g.ouvrirFiche(v.prenom)">

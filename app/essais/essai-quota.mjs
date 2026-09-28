@@ -13,7 +13,7 @@
  *    (plafond de liste) ;
  *  - une liste payée ne compte rien.
  */
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -22,9 +22,7 @@ const erreurs = []
 page.on('pageerror', e => { erreurs.push(e.message); console.log('   [err]', e.message) })
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVP-ARNA-2345')
-await page.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(page, 'Paul')
 await page.waitForSelector('.bento', { timeout: 20000 })
 
 const etat = gid => page.evaluate(g => fetch(`/api/groupes/${g}`).then(r => r.json()), gid)

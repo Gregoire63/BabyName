@@ -94,3 +94,15 @@ export async function inscrire(page, pseudo, email, { parLien = false, passkey =
   if (!passkey) await plusTard.click()
   return m
 }
+
+/**
+ * Entrer comme un compte du jeu d'essai — Paul, Alice, Mamie — depuis la
+ * page de connexion déjà ouverte : un geste sur le bloc « Base locale »
+ * (outils-dev/OutilsConnexion.vue, route /api/dev/entrer). Depuis que la
+ * clé d'accès est partie, c'est la seule porte vers un compte semé : il n'a
+ * ni passkey ni, sauf Alice, d'adresse. Développement seulement.
+ */
+export async function entrerComme(page, pseudo) {
+  await page.locator('section.dev', { hasText: 'Base locale' })
+    .getByRole('button', { name: pseudo, exact: true }).click()
+}

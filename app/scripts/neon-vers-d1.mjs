@@ -181,8 +181,9 @@ const texte = (s) => `'${s.replace(/'/g, "''")}'`
  * nombre tel quel. Les dates sortent en ISO 8601 UTC, comme partout dans D1.
  */
 const TABLES = [
+  // (sans cle_acces_hash : la clé d'accès est partie de D1, migration 0007)
   ['utilisateurs', { id: '', email: '', email_verifie_le: '', pseudo: '', cree_le: '', vu_le: '',
-    cle_acces_hash: '', gestes_depart: 'int', session_gen: 'int', webauthn_id: '' }],
+    gestes_depart: 'int', session_gen: 'int', webauthn_id: '' }],
   ['groupes', { id: 'int', nom: '', code_invitation: '', cree_par: '', cree_le: '', nb_vetos_max: 'blocages',
     favoris_visibles: 'bool', quota_swipe_jour: 'int', filtres: 'json', paye_le: '', paye_par: '',
     offert: 'bool', paiement_ref: '', nom_famille: '', code_observateur: '', quota_depart: 'int',

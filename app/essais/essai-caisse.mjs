@@ -19,7 +19,7 @@
  */
 import { createServer } from 'node:http'
 import { createHmac } from 'node:crypto'
-import { lancer, onglet, BASE } from './navigateur.mjs'
+import { lancer, onglet, BASE, entrerComme } from './navigateur.mjs'
 
 const WHSEC = process.env.NUXT_STRIPE_WEBHOOK_SECRET
 if (!WHSEC) { console.error('Lancer via relance.sh : essai-caisse.env n’a pas été chargé.'); process.exit(2) }
@@ -81,9 +81,7 @@ const { page } = await onglet(nav)
 const erreurs = []
 page.on('pageerror', e => { erreurs.push(e.message); console.log('   [err]', e.message) })
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVP-ARNA-2345')
-await page.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(page, 'Paul')
 await page.waitForSelector('.bento', { timeout: 20000 })
 
 const api = (chemin, init) => page.evaluate(async ([c, i]) => {

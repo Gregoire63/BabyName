@@ -29,6 +29,6 @@ export const INCLUS_DEBLOCAGE = [
   },
   {
     titre: 'Les invités en lecture seule',
-    texte: 'Inviter les grands-parents pour qu’ils voient, commentent et mettent un cœur sur vos prénoms en commun, sans qu’ils puissent bloquer un prénom ni retarder vos accords.'
+    texte: 'Inviter les grands-parents pour qu’ils voient, commentent et mettent un cœur sur vos prénoms en commun, sans droit de veto, et sans retarder vos accords.'
   }
 ] as const

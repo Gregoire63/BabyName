@@ -3,8 +3,6 @@ export interface Moi {
   pseudo: string
   /** Adresse vérifiée, ou null : le lien de connexion part vers elle. */
   email: string | null
-  /** Ancienne clé d'accès encore active (comptes d'avant les passkeys). */
-  a_une_cle: boolean
   passkeys: number
   /** Combien de façons de retrouver ce compte ailleurs. 0 : il n'existe que
    *  sur cet appareil — l'accueil le signale. */

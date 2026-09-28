@@ -1,0 +1,25 @@
+-- ============================================================================
+--  Plus de clé d'accès
+--
+--  Les comptes d'avant les passkeys entraient par une clé de 12 caractères,
+--  gardée en empreinte SHA-256. Plus personne ne s'en sert : un compte naît
+--  d'une adresse e-mail prouvée, et revient par elle ou par une passkey. La
+--  colonne part, avec son index (SQLite refuse de retirer une colonne
+--  indexée) : une empreinte que rien ne vérifie n'a plus à être gardée.
+--
+--  Un compte qui n'avait QUE sa clé (ni adresse, ni passkey) ne peut plus
+--  revenir : la purge l'efface après 24 mois sans activité, comme les autres.
+--  Il n'en restait aucun en production (le 28/09/2026).
+--
+--  Pendant les quelques secondes d'un déploiement, une requête servie par
+--  l'ancienne version peut encore lire la colonne et échouer une fois
+--  (erreur 500, rien d'écrit) : un rechargement suffit.
+--
+--  Essayée sur une vraie base D1 (copie du schéma de production, avec ses
+--  déclencheurs) avant d'être livrée : une migration qui échoue arrête
+--  toutes les routes (voir appliquerMigrations, db.ts).
+--
+--  Pas de « -- » ni de « ; » dans une chaîne (voir decouper, db.ts).
+-- ============================================================================
+drop index if exists idx_utilisateurs_cle;
+alter table utilisateurs drop column cle_acces_hash;

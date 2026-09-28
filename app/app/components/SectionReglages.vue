@@ -180,7 +180,7 @@ const nomFamilleAuto = useEnregistrementDiffere(enregistrerNomFamille)
  * « Inviter quelqu'un » et « Les observateurs » etaient deux blocs ; c'est
  * pourtant le meme geste — envoyer un lien — avec un seul choix a faire :
  * la personne decide-t-elle avec vous, ou regarde-t-elle en lecture seule
- * (elle donne son avis, qui ne compte pas dans les accords et ne bloque rien) ?
+ * (elle donne son avis, qui ne compte pas dans les accords, sans veto) ?
  *
  * Le code des observateurs se genere a la demande, et une seule fois : les
  * liens deja envoyes doivent continuer de marcher.
@@ -204,7 +204,7 @@ async function creerCodeObs() {
 async function partagerObs() {
   if (!codeObs.value) return
   const url = `${location.origin}/?code=${codeObs.value}`
-  const texte = `Viens donner ton avis sur nos prénoms, et mettre un cœur sur ceux qu’on a en commun (tu ne bloques rien) : ${url}`
+  const texte = `Viens donner ton avis sur nos prénoms, et mettre un cœur sur ceux qu’on a en commun (tu n’as pas de veto) : ${url}`
   try {
     if (navigator.share) await navigator.share({ text: texte, url })
     else { await navigator.clipboard.writeText(url); copieObs.value = true
@@ -388,7 +388,7 @@ async function quitterListe() {
           <button type="button" class="facon" :aria-pressed="typeInvit === 'lecture'"
                   @click="typeInvit = 'lecture'">
             <strong>En lecture seule</strong>
-            <span>donne son avis, met des cœurs ; ne compte pas dans vos accords, ne bloque rien</span>
+            <span>donne son avis, met des cœurs ; ne compte pas dans vos accords, n’a pas de veto</span>
           </button>
         </div>
 
@@ -405,7 +405,7 @@ async function quitterListe() {
             <p class="mini" style="margin:0">
               <strong>Une troisième personne compterait dans les accords</strong> :
               vos {{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }} attendraient
-              son avis, et elle pourrait bloquer chacun d’eux.
+              son avis, et un « non » de sa part suffirait à défaire chacun d’eux.
             </p>
             <button type="button" class="btn btn-0 mini" style="align-self:flex-start;padding-left:0"
                     @click="typeInvit = 'lecture'">
@@ -503,7 +503,7 @@ async function quitterListe() {
           <div v-else class="pile suppression" role="group" aria-labelledby="titre-quitter-liste">
             <p id="titre-quitter-liste" class="mini" style="margin:0">
               <strong>Vous quittez « {{ g.etat.value.groupe.nom }} »</strong> : ce que vous y avez donné
-              (votes, blocages, favoris, commentaires) est effacé. Les autres membres gardent la liste<template
+              (votes, vetos, favoris, commentaires) est effacé. Les autres membres gardent la liste<template
                 v-if="jeSuisProprietaire && successeur">, et {{ successeur }} en devient propriétaire</template>.
               <template v-if="mesDejaPris">Les prénoms « déjà pris » que vous avez ajoutés y restent, sans votre nom.</template>
             </p>
@@ -530,7 +530,7 @@ async function quitterListe() {
           <p id="titre-suppression-liste" class="mini" style="margin:0">
             <strong>Suppression définitive et immédiate</strong> de « {{ g.etat.value.groupe.nom }} »,
             pour tous ses membres<template v-if="autresMembres">, {{ autresMembres }} compris</template> :
-            tous les votes, blocages, favoris et commentaires, et les prénoms « déjà pris ».
+            tous les votes, vetos, favoris et commentaires, et les prénoms « déjà pris ».
             <template v-if="paye">Son déblocage part avec elle : il ne se reporte sur aucune autre liste.</template>
           </p>
           <label for="liste-confirmation" class="mini">

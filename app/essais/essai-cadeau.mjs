@@ -26,7 +26,7 @@ import { createServer } from 'node:http'
 import { createHmac } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { lancer, onglet, compteur, inscrire, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, inscrire, BASE, entrerComme } from './navigateur.mjs'
 
 const WHSEC = process.env.NUXT_STRIPE_WEBHOOK_SECRET
 if (!WHSEC) { console.error('Lancer via relance.sh : essai-cadeau.env n’a pas été chargé.'); process.exit(2) }
@@ -184,9 +184,7 @@ dit(v1?.valide === true && v1.de_la_part === 'Mamie Jo', 'le code vaut, au nom d
 // désignait une (défense : c'est le déblocage d'une liste qu'on vendrait).
 const paul = await contexte()
 await paul.page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await paul.page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await paul.page.locator('input.champ').fill('DEVP-ARNA-2345')
-await paul.page.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(paul.page, 'Paul')
 await paul.page.waitForSelector('.bento', { timeout: 30000 })
 r = await webhook('checkout.session.completed', { object: 'checkout.session', id: 'cs_test_faux', status: 'complete',
   payment_status: 'paid', client_reference_id: '3', metadata: { type: 'cadeau', groupe_id: '3' } })

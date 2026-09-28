@@ -2,17 +2,17 @@
 import { useGroupeCourant } from '~/composables/etatGroupe'
 
 /**
- * « Bloquer ce prénom » — deux raisons, deux gestes.
+ * « Mettre un veto » — deux raisons, deux gestes.
  *
- * On bloquait pour tout : le prénom de la cousine comme celui d'un ex, avec
- * deux blocages en tout. Or ces deux cas n'ont rien en commun. La cousine, on
+ * Le veto servait à tout : le prénom de la cousine comme celui d'un ex, avec
+ * deux vetos en tout. Or ces deux cas n'ont rien en commun. La cousine, on
  * peut le dire, et on veut que l'autre le sache : c'est « déjà pris », partagé,
- * sans quota. L'ex, non : c'est le blocage secret, compté pour rester
+ * sans quota. L'ex, non : c'est le veto secret, compté pour rester
  * l'exception.
  *
  * Aucun des deux n'est coché d'avance. Cocher « déjà pris » par défaut
  * aurait fait publier « mon ex » à qui tape vite ; cocher le secret aurait
- * brûlé un blocage pour une cousine. On choisit, puis la note s'ouvre avec
+ * brûlé un veto pour une cousine. On choisit, puis la note s'ouvre avec
  * sa visibilité écrite dessus.
  *
  * Les deux emportent les graphies (même son) : sinon Cloé arrivait à la carte
@@ -40,7 +40,7 @@ const restants = computed(() => Math.max(0, max.value - g.mesVetos.value.length)
 
 const bouton = computed(() => envoi.value ? 'Un instant…'
   : nature.value === 'pris' ? `Ajouter ${props.prenom} aux déjà pris`
-  : nature.value === 'secret' ? `Bloquer ${props.prenom} en secret`
+  : nature.value === 'secret' ? `Veto secret sur ${props.prenom}`
   : 'Choisissez une raison')
 
 async function confirmer(fermer: () => void) {
@@ -56,7 +56,7 @@ async function confirmer(fermer: () => void) {
   } catch (e: any) {
     const code = e?.data?.statusMessage
     erreur.value = code === 'quota_veto_atteint'
-      ? `Vos ${max.value} blocages secrets sont utilisés : retirez-en un dans Classement › Mes choix, ou dites-le : « déjà pris » n’a pas de limite.`
+      ? `Vos ${max.value} vetos secrets sont utilisés : retirez-en un dans Classement › Mes choix, ou dites-le : « déjà pris » n’a pas de limite.`
       : code === 'deja_veto' || code === 'deja_pris'
         ? `${props.prenom} est déjà retiré du jeu.`
         : code === 'deja_pris_plein'
@@ -69,10 +69,11 @@ async function confirmer(fermer: () => void) {
 </script>
 
 <template>
-  <!-- « Veto » ne se comprenait pas : on BLOQUE un prénom. Le mot technique
-       reste dans le code et l'API (vetos, poserVeto) ; l'écran dit ce qui
-       arrive. -->
-  <Feuille titre="Bloquer ce prénom" @fermer="emit('fermer')">
+  <!-- « Veto », le mot du couple (et de l'API : vetos, poserVeto). Il avait
+       cédé la place à « Bloquer », qui se confondait avec « Débloquer la
+       liste » — l'achat. Deux façons d'en poser un : « déjà pris », dit à
+       tous et sans limite, ou en secret, compté. -->
+  <Feuille titre="Mettre un veto" @fermer="emit('fermer')">
     <p style="margin:0 0 2px">
       <strong style="font-size:1.35rem">{{ prenom }}</strong>
     </p>
@@ -108,10 +109,10 @@ async function confirmer(fermer: () => void) {
            aria-label="Qui le porte ? (facultatif, visible de toute la liste)"
            placeholder="Qui le porte ? La cousine, le fils de Paul…">
     <input v-else-if="nature === 'secret'" v-model="note" class="champ" maxlength="200"
-           aria-label="Pourquoi le bloquer ? (facultatif, visible de vous seul)"
+           aria-label="Pourquoi ce veto ? (facultatif, visible de vous seul)"
            placeholder="Pourquoi ? (pour vous seul, facultatif)">
     <p v-if="nature === 'secret' && !restants" class="mini" style="margin:8px 0 0">
-      Vos {{ max }} blocages secrets sont utilisés : retirez-en un dans
+      Vos {{ max }} vetos secrets sont utilisés : retirez-en un dans
       Classement › Mes choix, ou choisissez « déjà pris ».
     </p>
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:8px 0 0">

@@ -67,7 +67,6 @@ export default defineEventHandler(async (e) => {
         appliquees,
         // Les votes en bulletins, un par membre et par liste (migration 0005).
         'bulletins': a('bulletins', 'positifs') && a('bulletins', 'negatifs') && a('bulletins', 'nb'),
-        'utilisateurs.cle_acces_hash': a('utilisateurs', 'cle_acces_hash'),
         'groupes.paye_le': a('groupes', 'paye_le'),
         'groupes.offert': a('groupes', 'offert'),
         'groupes.code_observateur': a('groupes', 'code_observateur'),

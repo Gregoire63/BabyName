@@ -8,8 +8,9 @@
  * Ce qui n'y est PAS, et pourquoi (le fichier le dit aussi) :
  *  - les votes, commentaires et pseudos des AUTRES membres : ce sont leurs
  *    donnees, pas les siennes ;
- *  - l'empreinte de la cle d'acces : elle ne sert qu'a verifier la cle, et un
- *    export qui traine dans un dossier de telechargements n'a pas a la porter ;
+ *  - la cle publique des passkeys : elle ne sert qu'a verifier une signature,
+ *    et un export qui traine dans un dossier de telechargements n'a pas a la
+ *    porter ;
  *  - le paiement : l'app ne connait que la date. Carte, e-mail et facture
  *    sont chez Stripe, qui repond de ses propres traitements.
  */
@@ -37,7 +38,6 @@ export default defineEventHandler(async (e) => {
       // Le lot de depart consomme : l'archive du compte, plus ses bulletins
       // (migration 0005).
       q1(`select id, pseudo, email, email_verifie_le as email_verifie_le, cree_le, vu_le as derniere_activite,
-                 cle_acces_hash is not null as cle_acces_active,
                  gestes_depart + coalesce((select sum(b.depart) from membres m
                                              join bulletins b on b.groupe_id = m.groupe_id and b.user_id = m.user_id
                                             where m.user_id = ?1), 0) as prenoms_juges_du_lot_de_depart
@@ -116,12 +116,11 @@ export default defineEventHandler(async (e) => {
       contenu: 'Toutes les données que babyNamed conserve sur votre compte, liste par liste.',
       absent: [
         'Les votes, commentaires et pseudos des autres membres de vos listes : ce sont leurs données.',
-        'L’empreinte de votre ancienne clé d’accès, s’il y en a une : elle ne sert qu’à la vérifier.',
         'La clé publique de vos passkeys : elle ne sert qu’à vérifier une signature, et ne dit rien de vous. Rien de biométrique n’a jamais quitté votre appareil.',
         'Vos données de paiement : babyNamed ne connaît que la date du déblocage. Le reste (carte, e-mail, facture) est chez Stripe.'
       ],
       valeurs_de_vote: 'non, neutre ou oui. « balayage » indique un « non » donné à toute une famille de prénoms d’un seul geste.',
-      vetos: 'Les prénoms que vous avez bloqués en secret, avec leurs graphies (même prononciation) et votre motif.',
+      vetos: 'Vos vetos : les prénoms que vous avez écartés en secret, avec leurs graphies (même prononciation) et votre motif.',
       deja_pris: 'Les prénoms que vous avez marqués « déjà pris » : ils appartiennent à la liste. Si vous effacez votre compte, ils y restent, sans votre nom ni votre note.',
       cadeaux_recus: 'Les codes cadeaux dont vous vous êtes servi : de la part de qui, et le mot qui les accompagnait.',
       quotas: `Le nombre de prénoms jugés le dernier jour de tri, sur chaque liste gratuite, une fois le lot de départ épuisé : le jour suivant le remplace. Effacé automatiquement au bout de ${CONSERVATION.quotaJours} jours.`

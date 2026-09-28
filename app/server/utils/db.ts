@@ -67,8 +67,8 @@ export function estDoublon(err: unknown): boolean {
 // Colonnes à remettre en forme en sortie. Un nom ici vaut pour toutes les
 // requêtes : on nomme ses colonnes en conséquence.
 const BOOLEENS = new Set([
-  'favoris_visibles', 'offert', 'synchronisee', 'paye', 'a_une_cle', 'observateur',
-  'creee_par_moi', 'debloquee', 'debloquee_par_moi', 'cle_acces_active',
+  'favoris_visibles', 'offert', 'synchronisee', 'paye', 'observateur',
+  'creee_par_moi', 'debloquee', 'debloquee_par_moi',
   'rangee_dans_un_trousseau', 'cadeau', 'expire', 'j_aime'
 ])
 const JSONS = new Set(['filtres', 'transports', 'coeurs'])

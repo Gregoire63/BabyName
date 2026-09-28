@@ -1,4 +1,4 @@
-import { lancer } from './navigateur.mjs'
+import { lancer, entrerComme } from './navigateur.mjs'
 const BASE = 'http://127.0.0.1:3100'
 const ok = [], ko = []
 const dit = (c, m) => { (c ? ok : ko).push(m); console.log((c ? '  OK   ' : '  ECHEC') + '  ' + m) }
@@ -10,20 +10,18 @@ const cacher = ctx => ctx.addInitScript(() => {
     document.head?.appendChild(s) }
   document.head ? c() : document.addEventListener('DOMContentLoaded', c) })
 
-async function entrer(cle) {
+async function entrer(qui) {
   const ctx = await nav.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })
   await cacher(ctx)
   const page = await ctx.newPage()
   page.on('pageerror', e => console.log('   [err]', e.message))
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await page.locator('input.champ').fill(cle)
-  await page.getByRole('button', { name: 'Entrer' }).click()
+  await entrerComme(page, qui)
   await page.waitForSelector('.bento', { timeout: 20000 })
   return { ctx, page }
 }
 
-const { page } = await entrer('DEVP-ARNA-2345')
+const { page } = await entrer('Paul')
 
 // ---------- 1. le veto n'est plus public ----------------------------------
 const etat = await page.evaluate(() =>
@@ -58,7 +56,7 @@ const lignes = await sec.locator('.trouve').count()
 dit(lignes > 0, `« bran » trouve ${lignes} prénom(s)`)
 const brandon = sec.locator('.trouve').filter({ has: page.locator('.nom:text-is("Brandon")') })
 dit(await brandon.count() === 1, 'Brandon est dans les résultats')
-dit((await brandon.locator('.puce').innerText()).trim() === 'Bloqué',
+dit((await brandon.locator('.puce').innerText()).trim() === 'Veto',
     `son état est affiché : ${(await brandon.locator('.puce').innerText()).trim()}`)
 await sec.locator('input.chercher').fill('jeanne')
 await page.waitForTimeout(400)
@@ -78,7 +76,7 @@ dit((await jeanne.locator('.puce').innerText()).trim() === 'Non',
     'on peut changer son choix : la recherche la ramène, la carte la rejuge')
 await page.keyboard.press('Escape'); await page.waitForTimeout(500)
 
-// ---------- 4. Mes choix : gardés et vetos --------------------------------
+// ---------- 4. Mes choix : favoris et vetos --------------------------------
 await page.goto(`${BASE}/g/1/classement`, { waitUntil: 'networkidle' })
 await page.waitForSelector('.segment button', { timeout: 20000 })
 const cl = page.locator('.pager > section:nth-child(2)')
@@ -86,11 +84,12 @@ await cl.locator('.segment button', { hasText: 'Mes choix' }).click()
 await page.waitForTimeout(800)
 const blocs = (await cl.locator('.groupe .entete').allInnerTexts()).map(t => t.replace(/\s+/g, ' ').trim())
 console.log('   blocs de Mes choix :', blocs.join(' | '))
-dit(blocs.some(b => b.startsWith('Gardés')), 'le bloc « Gardés » est là')
-dit(blocs.some(b => b.startsWith('Prénoms bloqués')), 'le bloc « Prénoms bloqués » est là')
-await cl.locator('.groupe .entete', { hasText: 'Prénoms bloqués' }).click()
+dit(blocs.some(b => b.startsWith('Favoris')) && !blocs.some(b => /Gardés/.test(b)),
+  'le bloc « Favoris » porte le nom du bouton de la carte (plus de « Gardés »)')
+dit(blocs.some(b => b.startsWith('Vetos secrets')), 'le bloc « Vetos secrets » est là')
+await cl.locator('.groupe .entete', { hasText: 'Vetos secrets' }).click()
 await page.waitForTimeout(400)
-const txtVetos = await cl.locator('.groupe').filter({ hasText: 'Prénoms bloqués' }).innerText()
+const txtVetos = await cl.locator('.groupe').filter({ hasText: 'Vetos secrets' }).innerText()
 dit(/Brandon/.test(txtVetos) && /non/.test(txtVetos), 'mon veto et son motif y sont')
 dit(!/Jayden/.test(txtVetos), 'celui d’Alice n’y est pas')
 await page.screenshot({ path: '/tmp/v2-meschoix.png' })
@@ -101,8 +100,8 @@ await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 20000 
 const cible = await page.locator('.carte.fiche:not(.derriere) .nom').first().innerText()
 // la carte du fond a elle aussi ses boutons (inertes) : on vise celle de devant
 const bVeto = page.locator('.carte.fiche:not(.derriere) .bas .rouge')
-dit(await bVeto.count() === 1 && /Bloquer/.test(await bVeto.innerText()),
-    'le bouton « Bloquer » est sur la carte, avec son icône')
+dit(await bVeto.count() === 1 && (await bVeto.innerText()).trim() === 'Veto',
+    'le bouton « Veto » est sur la carte, avec son icône')
 // Rouge = la couleur « non » de la charte, quelle que soit sa valeur exacte
 // (elle a fonce pour passer le contraste AA : un essai qui figeait 196,86,79
 // aurait interdit de corriger l'accessibilite).
@@ -116,9 +115,9 @@ const [cr, cg, cb] = couleur.match(/\d+/g).map(Number)
 dit(couleur === rouge && cr > cg + 60 && cr > cb + 60, `il est rouge, la couleur « non » de la charte (${couleur})`)
 await bVeto.click()
 await page.waitForSelector('.feuille-corps', { timeout: 6000 })
-dit((await page.locator('.feuille-corps h2').first().innerText()) === 'Bloquer ce prénom',
-    'la confirmation s’ouvre')
-// Deux raisons (déjà pris, en secret) : ici, le blocage secret.
+dit((await page.locator('.feuille-corps h2').first().innerText()) === 'Mettre un veto',
+    'la confirmation s’ouvre : « Mettre un veto »')
+// Deux raisons (déjà pris, en secret) : ici, le veto secret.
 await page.locator('.feuille-corps').getByText('En secret', { exact: true }).click()
 dit(await page.locator('.feuille-corps input.champ').count() === 1, 'avec un champ commentaire')
 await page.waitForTimeout(600)

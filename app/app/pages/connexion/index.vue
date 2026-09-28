@@ -11,7 +11,6 @@ import { passkeysPossibles, connecterPasskey, abandonnerPasskey } from '~/compos
  *    reçoit de quoi y entrer, et l'écran n'en dit rien (inscription.post.ts).
  *  - Connexion : l'e-mail (un lien, doublé d'un code pour l'app installée —
  *    le champ propose aussi les passkeys du téléphone), ou la passkey d'un geste.
- *  - Les comptes d'avant gardent leur clé d'accès, en petit en bas.
  *
  * On arrive sur Connexion après une déconnexion (`?mode=connexion`) : c'est
  * là qu'on veut revenir, pas sur un second compte créé par erreur.
@@ -19,15 +18,12 @@ import { passkeysPossibles, connecterPasskey, abandonnerPasskey } from '~/compos
 const route = useRoute()
 const { ouvrir: ouvrirLegal } = useFeuilleLegale()
 const pseudo = ref('')
-const cle = ref('')
-const mode = ref<'choix' | 'cle'>('choix')
 /** Entré par e-mail : la passkey est proposée avant de continuer (ProposerPasskey). */
 const proposerPasskey = ref(false)
 const ONGLETS = ['inscription', 'connexion'] as const
 const onglet = ref<'inscription' | 'connexion'>(route.query.mode === 'connexion' ? 'connexion' : 'inscription')
 const idOnglets = useId()
 const envoi = ref(false)
-const erreur = ref('')
 const passkeyPossible = ref(false)
 const courrielPossible = useCourrielPossible()
 const erreurPasskey = ref('')
@@ -67,12 +63,6 @@ function suite() {
   return navigateTo({ path: '/', query }, { replace: true })
 }
 
-function messageErreur(e: any, defaut: string) {
-  return e?.data?.statusMessage === 'trop_d_essais'
-    ? 'Trop d’essais d’un coup depuis cette connexion. Réessayez dans un moment.'
-    : defaut
-}
-
 /**
  * Entré par e-mail (inscription ou connexion) : à la première connexion d'un
  * compte sans passkey, on la propose avant de continuer.
@@ -106,7 +96,6 @@ async function avecPasskey() {
 function choisirOnglet(o: 'inscription' | 'connexion', focus = false) {
   if (onglet.value !== o) {
     onglet.value = o
-    erreur.value = ''
     erreurPasskey.value = ''
   }
   if (o === 'connexion') {
@@ -133,21 +122,6 @@ function auClavier(e: KeyboardEvent) {
     : onglet.value === 'inscription' ? 'connexion' : 'inscription'
   choisirOnglet(o, true)
 }
-function versChoix() { mode.value = 'choix'; erreur.value = ''; choisirOnglet(onglet.value) }
-
-async function reprendre() {
-  erreur.value = ''
-  envoi.value = true
-  try {
-    await $fetch('/api/auth/reprendre', { method: 'POST', body: { cle: cle.value } })
-    await rafraichirMoi()
-    await suite()
-  } catch (e: any) {
-    erreur.value = e?.data?.statusMessage === 'cle_inconnue'
-      ? 'Cette clé ne correspond à aucun compte.'
-      : messageErreur(e, 'Clé incomplète.')
-  } finally { envoi.value = false }
-}
 
 /**
  * En developpement : entrer d'un geste avec un compte du jeu d'essai
@@ -156,9 +130,9 @@ async function reprendre() {
  */
 const OutilsDev = import.meta.dev
   ? defineAsyncComponent(() => import('~/outils-dev/OutilsConnexion.vue')) : null
-async function entrerComme(c: string) {
-  cle.value = c
-  await reprendre()
+async function entreEnDev() {
+  await rafraichirMoi()
+  await suite()
 }
 
 onMounted(async () => {
@@ -195,28 +169,6 @@ onBeforeUnmount(() => abandonnerPasskey())
       </div>
       <div class="carte">
         <ProposerPasskey @fini="suite" />
-      </div>
-    </template>
-
-    <!-- l'ancienne clé d'accès -->
-    <template v-else-if="mode === 'cle'">
-      <div class="haut">
-        <img src="/logo.png" alt="" width="58" height="58">
-        <h1>Votre clé</h1>
-      </div>
-      <div class="carte pile">
-        <input v-model="cle" class="champ grand" placeholder="XXXX-XXXX-XXXX"
-               aria-label="Votre clé d’accès, 12 caractères"
-               autocapitalize="characters" autocomplete="off" spellcheck="false"
-               @keyup.enter="reprendre">
-        <button type="button" class="btn btn-1" :disabled="envoi" @click="reprendre">
-          {{ envoi ? 'Vérification…' : 'Entrer' }}
-        </button>
-        <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
-        <p class="mini doux" style="margin:0">
-          Pour les comptes créés avant les passkeys.
-        </p>
-        <button type="button" class="btn btn-0 doux" @click="versChoix">Retour</button>
       </div>
     </template>
 
@@ -283,17 +235,13 @@ onBeforeUnmount(() => abandonnerPasskey())
             <p v-if="erreurPasskey" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreurPasskey }}</p>
             <p v-if="courrielPossible === false && !passkeyPossible" class="mini doux" style="margin:0">
               Ce navigateur ne sait pas se servir d’une passkey. Ouvrez babyNamed sur le
-              téléphone où vous l’avez créée, ou entrez avec votre clé.
+              téléphone où vous l’avez créée.
             </p>
           </template>
         </div>
       </div>
 
-      <button type="button" class="btn btn-0 doux mini" @click="mode = 'cle'; erreur = ''; abandonnerPasskey()">
-        J’ai déjà une clé
-      </button>
-
-      <component :is="OutilsDev" v-if="OutilsDev" :occupe="envoi" @entrer="entrerComme" />
+      <component :is="OutilsDev" v-if="OutilsDev" :occupe="envoi" @entre="entreEnDev" />
     </template>
 
     <PiedLegal compact />
@@ -325,8 +273,6 @@ onBeforeUnmount(() => abandonnerPasskey())
   transition: background .16s, color .16s; }
 .segment-entree button[aria-selected="true"] { background: var(--encre); color: var(--fond); }
 .segment-entree button:focus-visible { outline: 2px solid var(--encre); outline-offset: 2px; }
-.champ.grand { text-align: center; font-size: 1.25rem; letter-spacing: .1em;
-  font-variant-numeric: tabular-nums; padding: 16px 12px; }
 .accueil:focus { outline: none; }
 .supprime { margin: 0; padding: 12px 16px; text-align: center; }
 .attend { margin: 0; padding: 10px 14px; border-radius: var(--r-s); font-size: .92rem;

@@ -255,7 +255,7 @@ function epingler(demande: string, depuisAdresse: boolean) {
       : pris
         ? `${p.l} est déjà pris${pris.motif ? ` (${pris.motif})` : ''} : la liste l’a retiré du jeu.`
       : g.vetos.value.has(p.l)
-        ? `${p.l} : prénom bloqué dans cette liste.`
+        ? `${p.l} a reçu un veto dans cette liste.`
         : v === 0 || v === 1 || v === 2
           ? `Vous avez déjà ${DEJA_DIT[v]} ${p.l} dans cette liste.`
           : `Vous avez déjà jugé ${p.l} dans cette liste.`)

@@ -6,14 +6,14 @@
  *    non ;
  *  - les trois gestes du bas sont dessinés ET nommés : « Infos »,
  *    « Non aux Maël… » (le début de prénom en clair, et combien il en
- *    balaierait), « Bloquer » ;
+ *    balaierait), « Veto » ;
  *  - quand il n'y a rien à balayer de plus que le prénom, le geste du milieu
  *    s'efface sans déplacer les autres ;
  *  - la courbe prend la place qui reste sur un grand écran ; sur un petit,
  *    elle cède, et les gestes restent DANS la carte, au-dessus des boutons de
  *    vote.
  */
-import { lancer, compteur, BASE } from './navigateur.mjs'
+import { lancer, compteur, BASE, entrerComme } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -24,9 +24,7 @@ async function ouvrir(largeur, hauteur) {
   const page = await ctx.newPage()
   page.on('pageerror', e => { erreurs.push(e.message); console.log('   [err]', e.message) })
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await page.locator('input.champ').fill('DEVP-ARNA-2345')
-  await page.getByRole('button', { name: 'Entrer' }).click()
+  await entrerComme(page, 'Paul')
   await page.waitForSelector('.bento', { timeout: 20000 })
   await page.goto(`${BASE}/g/1/swipe`, { waitUntil: 'networkidle' })
   await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 20000 })
@@ -71,8 +69,8 @@ const ficheOuverte = p => p.locator('.voile .feuille').count()
   // =================== 2. LES GESTES DU BAS ================================
   const bas = devant(page).locator('.bas')
   dit(await bas.getByRole('button', { name: `Infos sur ${avant}` }).count() === 1
-      && await bas.getByRole('button', { name: `Bloquer ${avant}` }).count() === 1,
-    '« Infos » et « Bloquer » : nommés par ce qu’ils font, sur ce prénom')
+      && await bas.getByRole('button', { name: `Veto sur ${avant}` }).count() === 1,
+    '« Infos » et « Veto » : nommés par ce qu’ils font, sur ce prénom')
   dit(await bas.locator('.outil svg').count() === 3, 'chacun avec son icône')
 
   // On cherche une carte avec un balayage possible, et une sans.

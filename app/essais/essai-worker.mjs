@@ -3,6 +3,8 @@
  *
  * Lancé par relance-worker.sh : le build de production, dans workerd. Ce
  * qu'on prouve :
+ *  - on entre par un lien de connexion (le seul chemin d'un compte neuf :
+ *    plus de clé d'accès) ;
  *  - une passkey se crée, puis sert à revenir (le 28/09, l'enregistrement
  *    plantait en production, erreur 500 : « tsyringe requires a reflect
  *    polyfill », alors que `nuxt dev` n'en disait rien) ;
@@ -14,6 +16,8 @@ import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const SECRET = process.env.CRON_SECRET
+const JETON = process.env.ESSAI_JETON
+if (!JETON) { console.error('Lancer via relance-worker.sh : il pose le compte et son lien.'); process.exit(2) }
 const nav = await lancer()
 const { ctx, page } = await onglet(nav)
 const pannes = []
@@ -40,10 +44,16 @@ const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
   protocol: 'ctap2', transport: 'internal', hasResidentKey: true,
   hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } })
 
-await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-dit((await api('/api/auth/reprendre', { method: 'POST', body: JSON.stringify({ cle: 'ABCD-EFGH-JKMN' }) })).status === 200,
-  'le compte d’essai entre avec sa clé')
-await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
+// Le lien de l'e-mail (posé par relance-worker.sh) : un bouton avant de le
+// consommer ; puis, compte sans passkey, elle est proposée — on la créera
+// depuis « Mon compte », là où elle cassait.
+await page.goto(`${BASE}/connexion/lien#t=${JETON}`, { waitUntil: 'networkidle' })
+await page.getByRole('button', { name: 'Continuer' }).click()
+await page.getByRole('button', { name: 'Plus tard' }).click({ timeout: 15000 })
+await page.waitForSelector('.bento', { timeout: 20000 })
+dit((await api('/api/auth/moi')).j?.utilisateur?.pseudo === 'Essai', 'le compte d’essai entre par son lien de connexion')
+dit((await api('/api/auth/reprendre', { method: 'POST', body: JSON.stringify({ cle: 'ABCD-EFGH-JKMN' }) })).status === 404,
+  'la route de l’ancienne clé d’accès n’existe plus')
 await page.getByRole('button', { name: /^Mon compte :/ }).click()
 await page.waitForSelector('.feuille-corps', { timeout: 8000 })
 await page.getByRole('button', { name: 'Créer une passkey' }).click()

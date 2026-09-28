@@ -1,4 +1,4 @@
-import { lancer } from './navigateur.mjs'
+import { lancer, entrerComme } from './navigateur.mjs'
 const BASE = 'http://127.0.0.1:3100'
 const ok = [], ko = []
 const dit = (c, m) => { (c ? ok : ko).push(m); console.log((c ? '  OK   ' : '  ECHEC') + '  ' + m) }
@@ -10,11 +10,9 @@ const page = await ctx.newPage()
 page.on('pageerror', e => console.log('   [err]', e.message))
 page.on('console', m => { if (m.type() === 'error' && !/TUNNEL|favicon|fonts/.test(m.text())) console.log('   [js]', m.text()) })
 
-// ---------- connexion avec la vraie cle, contre la vraie base -------------
+// ---------- connexion, contre la vraie base ------------------------------
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVP-ARNA-2345')
-await page.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(page, 'Paul')
 await page.waitForURL(u => !u.pathname.includes('connexion'), { timeout: 15000 })
 await page.waitForSelector('.bento', { timeout: 15000 })
 dit(page.url().endsWith('/'), `apres connexion on est sur ${page.url().replace(BASE, '') || '/'}`)

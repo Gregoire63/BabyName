@@ -5,7 +5,7 @@
  * quel ecart est du bruit. Ce qui se teste ici, c'est autant ce qu'il dit que
  * ce qu'il refuse de dire.
  */
-import { lancer } from './navigateur.mjs'
+import { lancer, entrerComme } from './navigateur.mjs'
 const BASE = 'http://127.0.0.1:3100'
 const ok = [], ko = []
 const dit = (c, m) => { (c ? ok : ko).push(m); console.log((c ? '  OK   ' : '  ECHEC') + '  ' + m) }
@@ -24,9 +24,7 @@ const plat = async sel => (await page.locator(sel).first().innerText().catch(() 
   .replace(/\s+/g, ' ').trim()
 
 await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await page.locator('input.champ').fill('DEVP-ARNA-2345')
-await page.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(page, 'Paul')
 await page.waitForSelector('.bento', { timeout: 20000 })
 
 const ouvrir = async nom => {

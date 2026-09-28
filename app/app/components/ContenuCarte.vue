@@ -158,7 +158,7 @@ const niveau = computed(() => !essai.value ? ''
         </svg>
         <span>Infos</span>
       </button>
-      <!-- Sa place est toujours tenue, meme vide : « Bloquer » reste au meme
+      <!-- Sa place est toujours tenue, meme vide : « Veto » reste au meme
            endroit d'une carte a l'autre, le pouce n'a pas a le chercher. -->
       <button v-if="peutBloquer" type="button" class="btn outil" :class="{ vide: !famille }"
               :aria-label="famille ? `Non aux ${famille.prefixe}… : ${famille.n} prénoms qui commencent par ${famille.prefixe}` : undefined"
@@ -171,11 +171,11 @@ const niveau = computed(() => !essai.value ? ''
         <span class="deborde">Non aux {{ famille?.prefixe }}…</span>
       </button>
       <button v-if="peutBloquer" type="button" class="btn outil rouge"
-              :aria-label="`Bloquer ${p.l}`" @click.stop="emit('veto')">
+              :aria-label="`Veto sur ${p.l}`" @click.stop="emit('veto')">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="8.6" /><path d="m6 6 12 12" />
         </svg>
-        <span>Bloquer</span>
+        <span>Veto</span>
       </button>
     </div>
   </div>

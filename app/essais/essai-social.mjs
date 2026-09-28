@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { lancer } from './navigateur.mjs'
+import { lancer, entrerComme } from './navigateur.mjs'
 // axe-core, s'il est la (ESSAI_AXE ou node_modules) : l'ecran de l'accord est
 // un dialogue que l'essai d'accessibilite n'ouvre pas.
 const AXE = (() => {
@@ -25,14 +25,12 @@ const page = await ctx.newPage()
 const erreurs = []
 page.on('pageerror', e => { erreurs.push(e.message); console.log('   [err]', e.message) })
 
-const entrer = async (cle) => {
+const entrer = async (qui) => {
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await page.locator('input.champ').fill(cle)
-  await page.getByRole('button', { name: 'Entrer' }).click()
+  await entrerComme(page, qui)
   await page.waitForSelector('.bento', { timeout: 20000 })
 }
-await entrer('DEVP-ARNA-2345')
+await entrer('Paul')
 await page.locator('.bento .grande').first().click()
 await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 45000 })
 await page.waitForTimeout(600)
@@ -103,9 +101,7 @@ dit(await page.locator('.fete').count() === 0 && await page.locator('.volets, .o
 const ctxA = await nav.newContext({ viewport: { width: 390, height: 844 } })
 const pageA = await ctxA.newPage()
 await pageA.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-await pageA.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-await pageA.locator('input.champ').fill('DEVP-ARNB-2345')
-await pageA.getByRole('button', { name: 'Entrer' }).click()
+await entrerComme(pageA, 'Alice')
 await pageA.waitForSelector('.bento', { timeout: 20000 })
 for (const p of ['Capucine', 'Apolline', 'Clémence']) {
   await pageA.evaluate(async (p) => fetch('/api/groupes/1/vote', { method: 'POST',
@@ -153,7 +149,7 @@ await page.waitForSelector('text=Qui en est', { timeout: 10000 })
 const avert = await page.locator('.avert').first().innerText().catch(() => '')
 dit(/troisième personne/i.test(avert) && /attendraient/i.test(avert),
     `la conséquence est dite avant d’inviter, en une phrase : « ${avert.replace(/\s+/g, ' ').slice(0, 110)} »`)
-dit(/bloquer/i.test(avert), 'et le pouvoir de bloquer chaque prénom est nommé')
+dit(/un « non » de sa part suffirait à défaire chacun/.test(avert), 'et son pouvoir de défaire chaque accord est nommé')
 dit(/accord/i.test(avert), 'et le nombre d’accords mis en attente est chiffré')
 
 // ---------- 4. sur une liste gratuite, l'accord montre ce que l'achat ouvre --

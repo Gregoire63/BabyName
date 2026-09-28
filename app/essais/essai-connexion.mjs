@@ -11,8 +11,8 @@
  *  2. Lien par e-mail : le code (faux, puis bon), le lien (une seule fois),
  *     la même réponse pour une adresse inconnue, cinq codes faux et le lien
  *     meurt.
- *  3. Ajouter une adresse depuis « Mon compte », puis désactiver l'ancienne
- *     clé : elle n'ouvre plus rien.
+ *  3. Ajouter une adresse depuis « Mon compte ». Plus de clé d'accès : ni
+ *     bouton, ni ligne dans « Mon compte », ni route.
  *  4. « Déconnecter mes autres appareils ».
  *  5. Ce qui se devine ne se devine plus : codes d'invitation (format long,
  *     essais limités), inscriptions à la chaîne.
@@ -21,7 +21,7 @@
  *
  * Limites à leur valeur de production : voir essai-connexion.env.
  */
-import { lancer, onglet, compteur, courrielPour, inscrire, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, courrielPour, inscrire, BASE, entrerComme } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -41,11 +41,10 @@ const api = (page, chemin, init) => page.evaluate(async ([c, i]) => {
   return { status: r.status, j: await r.json().catch(() => null), h: Object.fromEntries(r.headers) }
 }, [chemin, init])
 
-async function entrerCle(page, cle, base = BASE) {
-  await page.goto(`${base}/connexion`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await page.locator('input.champ').fill(cle)
-  await page.getByRole('button', { name: 'Entrer' }).click()
+/** Entrer comme un compte du jeu d'essai (Paul, Alice, Mamie). */
+async function entrer(page, qui) {
+  await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+  await entrerComme(page, qui)
   await page.waitForSelector('.bento', { timeout: 20000 })
 }
 async function ouvrirCompte(page) {
@@ -316,10 +315,15 @@ async function seDeconnecter(page) {
   await ctx.close()
 }
 
-// =================== 3. UNE ADRESSE, PUIS PLUS DE CLÉ ======================
+// =================== 3. UNE ADRESSE ; PLUS DE CLÉ D'ACCÈS ==================
 {
   const { ctx, page } = await nouvel()
-  await entrerCle(page, 'DEVP-ARNA-2345')
+  await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+  dit(await page.getByRole('button', { name: /déjà une clé/ }).count() === 0
+      && !/clé d’accès/i.test(await page.locator('main').innerText()),
+    'la page de connexion ne parle plus de clé d’accès')
+  await entrerComme(page, 'Paul')
+  await page.waitForSelector('.bento', { timeout: 20000 })
   await ouvrirCompte(page)
   await page.getByRole('button', { name: 'Ajouter une adresse' }).click()
   await page.locator('.feuille-corps input[type="email"]').fill('paul@exemple.test')
@@ -333,19 +337,21 @@ async function seDeconnecter(page) {
   dit(!avantConfirmation && moi?.email === 'paul@exemple.test',
     'l’adresse n’est enregistrée qu’une fois prouvée (code reçu)')
 
-  await page.getByRole('button', { name: 'Désactiver la clé' }).click()
-  await page.locator('.feuille-corps').getByRole('button', { name: 'Désactiver la clé' }).last().click()
-  await page.getByText('Clé d’accès désactivée').waitFor({ timeout: 8000 })
-  const r = await fetch(`${BASE}/api/auth/reprendre`, { method: 'POST',
+  dit(!/clé d’accès|Désactiver la clé/i.test(await page.locator('.feuille-corps').innerText())
+      && moi && !('a_une_cle' in moi),
+    '« Mon compte » ne montre plus de clé, et /api/auth/moi n’en dit plus rien')
+  const reprise = await fetch(`${BASE}/api/auth/reprendre`, { method: 'POST',
     headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cle: 'DEVP-ARNA-2345' }) })
-  dit(r.status === 403, 'l’ancienne clé désactivée n’ouvre plus rien')
+  const desactiver = await api(page, '/api/auth/cle', { method: 'DELETE' })
+  dit(reprise.status === 404 && !reprise.headers.get('set-cookie') && desactiver.status === 404,
+    `les routes de la clé n’existent plus (reprendre : HTTP ${reprise.status}, désactiver : HTTP ${desactiver.status})`)
   await ctx.close()
 }
 
 // =================== 4. DÉCONNECTER LES AUTRES APPAREILS ===================
 {
   const tel = await nouvel(), tab = await nouvel()
-  for (const x of [tel, tab]) await entrerCle(x.page, 'DEVP-ARNB-2345')
+  for (const x of [tel, tab]) await entrer(x.page, 'Alice')
   dit((await api(tab.page, '/api/auth/moi')).j?.connecte === true, 'Alice est connectée sur deux appareils')
   await ouvrirCompte(tel.page)
   await tel.page.getByRole('button', { name: 'Déconnecter mes autres appareils' }).click()
@@ -362,7 +368,7 @@ async function seDeconnecter(page) {
 // suffit pas à s'installer en silence.
 {
   const { ctx, page } = await nouvel()
-  await entrerCle(page, 'DEVP-ARNB-2345')
+  await entrer(page, 'Alice')
   await api(page, '/api/auth/email', { method: 'POST', body: JSON.stringify({ email: 'alice.bis@exemple.test' }) })
   const m = await dernierPour('alice.bis@exemple.test')
   const conf = await api(page, '/api/auth/code', { method: 'POST',
@@ -375,7 +381,7 @@ async function seDeconnecter(page) {
 // =================== 5. CE QUI SE DEVINE NE SE DEVINE PLUS =================
 {
   const { ctx, page } = await nouvel()
-  await entrerCle(page, 'DEVM-AMIE-2345')
+  await entrer(page, 'Mamie')
   const liste = await api(page, '/api/groupes', { method: 'POST', body: JSON.stringify({ nom: 'Essai de code' }) })
   dit(/^[A-HJKMNP-TV-Z2-9]{10}$/.test(liste.j?.code_invitation ?? ''),
     `code d’invitation au format long : ${liste.j?.code_invitation} (30^10 valeurs)`)
@@ -388,7 +394,7 @@ async function seDeconnecter(page) {
     `dix codes faux, puis 429 : on ne balaie pas les codes (${statuts.join(',')})`)
   // Le code se tape aussi à voix haute, avec l'espace : « ABCDE FGHJK ».
   const { page: autre } = await nouvel()
-  await entrerCle(autre, 'DEVP-ARNB-2345')
+  await entrer(autre, 'Alice')
   const lisible = `${liste.j.code_invitation.slice(0, 5)} ${liste.j.code_invitation.slice(5)}`.toLowerCase()
   const rej = await api(autre, '/api/groupes/rejoindre', { method: 'POST', body: JSON.stringify({ code: lisible }) })
   dit(rej.status === 200 && rej.j?.nom === 'Essai de code', 'le code lu à voix haute (espace, minuscules) passe')
@@ -408,7 +414,7 @@ async function seDeconnecter(page) {
 // =================== 6. ORIGINE, OBSERVATEUR, TAILLES, EN-TÊTES ============
 {
   const { ctx, page } = await nouvel()
-  await entrerCle(page, 'DEVM-AMIE-2345')        // Mamie : observatrice de « Notre liste »
+  await entrer(page, 'Mamie')        // Mamie : observatrice de « Notre liste »
   const listes = (await api(page, '/api/groupes')).j
   const notre = listes.find(l => l.nom === 'Notre liste')
   const detail = (await api(page, `/api/groupes/${notre.id}`)).j
@@ -430,7 +436,7 @@ async function seDeconnecter(page) {
     { method: 'POST', body: JSON.stringify({ prenom: 'A'.repeat(500), valeur: 2 }) })
   dit(gros.status === 400, `un « prénom » de 500 caractères est refusé (HTTP ${gros.status})`)
   const { page: g } = await nouvel()
-  await entrerCle(g, 'DEVP-ARNB-2345')
+  await entrer(g, 'Alice')
   const filtres = await api(g, `/api/groupes/${notre.id}/filtres`,
     { method: 'PUT', body: JSON.stringify({ x: 'y'.repeat(9000) }) })
   dit(filtres.status === 413, `des filtres de 9 Ko sont refusés (HTTP ${filtres.status})`)

@@ -15,7 +15,7 @@
  *    par le lien de l'e-mail, qui s'ouvre sans lui — et arrive dans la
  *    liste partagée (il arrivait sur un accueil vide).
  */
-import { lancer, onglet, compteur, inscrire, BASE } from './navigateur.mjs'
+import { lancer, onglet, compteur, inscrire, BASE, entrerComme } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -86,9 +86,7 @@ const message = p => p.locator('.retour[role="status"]')
   const { page } = await onglet(nav)
   surveiller(page)
   await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'J’ai déjà une clé' }).click()
-  await page.locator('input.champ').fill('DEVP-ARNA-2345')
-  await page.getByRole('button', { name: 'Entrer' }).click()
+  await entrerComme(page, 'Paul')
   await page.waitForSelector('.bento', { timeout: 20000 })
   const liste = page.locator('a.carte', { hasText: 'Notre liste' }).first()
   await liste.waitFor({ timeout: 20000 })
@@ -112,7 +110,12 @@ const message = p => p.locator('.retour[role="status"]')
   dit(await message(page).count() === 0, 'sans rien redire')
 
   await page.getByRole('button', { name: 'Non à Jean-Baptiste' }).click()
-  await page.waitForTimeout(1100)
+  // La carte part à la fin de son geste (~0,7 à 1 s) : on l'attend, au lieu
+  // d'un délai fixe qui tombait pile sur la limite.
+  await page.waitForFunction(() => {
+    const n = document.querySelector('.carte.fiche:not(.derriere) .nom')
+    return n && n.textContent.trim() !== 'Jean-Baptiste'
+  }, null, { timeout: 5000 }).catch(() => null)
   dit(await nomDevant(page) !== 'Jean-Baptiste', `jugé, il laisse la place (${await nomDevant(page)})`)
   dit(await page.evaluate(g => localStorage.getItem(`pr_epingle_${g}`), gid) === null,
     'et l’épingle est lâchée')
@@ -127,7 +130,7 @@ const message = p => p.locator('.retour[role="status"]')
   const cas = [
     ['louise', 'Louise est déjà dans vos accords.'],
     ['camille', 'Vous avez déjà voté neutre pour Camille dans cette liste.'],
-    ['Jayden', 'Jayden : prénom bloqué dans cette liste.']
+    ['Jayden', 'Jayden a reçu un veto dans cette liste.']
   ]
   for (const [slug, attendu] of cas) {
     await page.goto(`${BASE}/?prenom=${slug}`, { waitUntil: 'networkidle' })

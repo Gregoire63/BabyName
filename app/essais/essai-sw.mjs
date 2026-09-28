@@ -32,7 +32,7 @@ await page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
 await page.waitForSelector('button', { timeout: 15000 })
 const mime = erreurs.filter(e => /MIME type|dynamically imported module/.test(e))
 dit(mime.length === 0, `aucune erreur de module ni de MIME (${mime.length})`)
-dit(await page.getByRole('button', { name: 'J’ai déjà une clé' }).count() === 1,
+dit(await page.getByRole('tab', { name: 'Inscription' }).count() === 1,
     'la page de connexion s’affiche')
 
 await nav.close()
