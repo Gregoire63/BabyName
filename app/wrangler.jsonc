@@ -39,9 +39,11 @@
   // nuxt.config.ts (c'est elle qui choisit la tâche à lancer).
   "triggers": { "crons": ["17 3 * * *"] },
 
-  // Le domaine. À décommenter une fois babynamed.fr ajouté au compte
-  // Cloudflare (serveurs DNS du registrar pointés vers Cloudflare) :
-  // "routes": [{ "pattern": "babynamed.fr", "custom_domain": true }],
+  // Le domaine : la zone babynamed.fr est chez Cloudflare (serveurs DNS
+  // changés chez OVH, qui reste le registrar). « custom_domain » : Cloudflare
+  // crée lui-même l'enregistrement DNS et le certificat. www redirige vers
+  // babynamed.fr par une règle du tableau de bord (Rules → Redirect Rules).
+  "routes": [{ "pattern": "babynamed.fr", "custom_domain": true }],
 
   // L'adresse d'essai en .workers.dev : à fermer (false) une fois le domaine
   // en place — une passkey créée là-bas ne vaut pas sur babynamed.fr.
