@@ -322,7 +322,8 @@ Dans cet ordre, avant d'annoncer la nouvelle adresse :
    comptes (erreur « malformed JSON ») : pas de double import.
 3. **Plus personne sur l'ancienne app** à partir de la photo : ce qui s'y
    écrit ensuite n'est pas copié (au besoin, vider D1 et refaire 1 et 2).
-4. **Vérifier** sur `babynamed.fr` : `/api/sante`, une connexion par clé
+4. **Vérifier** sur `babynamed.fr` : `/api/sante` (avec le secret, voir
+   « Vérifier »), une connexion par clé
    d'accès (reprises telles quelles : une empreinte SHA-256, sans secret), un
    vote. Les sessions et les passkeys de `vercel.app` ne suivent pas : on se
    reconnecte une fois.
@@ -526,7 +527,7 @@ de connexion sont décrites dans « Connexion sans mot de passe ».
 | `NUXT_STRIPE_PRICE_ID_CADEAU` | `price_1UKGV2GaKiRYW6iYqpmXEHlM` (« babyNamed — liste à offrir »). Oubliée, rien ne casse : les cadeaux passent sur le prix de la liste, et se confondent avec les ventes. |
 | `NUXT_STRIPE_WEBHOOK_SECRET` | le `whsec_…` affiché à la création du webhook ci-dessous |
 | `NUXT_PUBLIC_SITE_URL` | déjà dans `wrangler.jsonc` : `https://babynamed.fr` |
-| `CRON_SECRET` | facultatif : ouvre `/api/admin/purger` pour lancer la purge à la main (`Authorization: Bearer …`). La purge de chaque nuit n'en a pas besoin. |
+| `CRON_SECRET` | facultatif : le secret d'administration (`Authorization: Bearer …`). Ouvre `/api/admin/purger` (la purge à la main) et le détail de `/api/sante`. La purge de chaque nuit n'en a pas besoin. |
 | `NUXT_STRIPE_TAX_RATE_ID` | **seulement si assujetti à la TVA** — voir « TVA » plus bas. |
 
 **Toujours le domaine de production** pour le webhook :
@@ -762,7 +763,8 @@ Le schéma vit dans `server/assets/migrations/` et s'applique tout seul (voir
    l'écran) — l'app gratuite, elle, marche. Le médiateur ne ferme pas la
    caisse (une adhésion prend quelques jours, et il faut pouvoir tester avec
    le code promo), mais il est obligatoire avant la première vente réelle.
-   `GET /api/sante` → `legal.bloquants` et `legal.manquants`.
+   `GET /api/sante` (avec le secret, voir « Vérifier ») → `legal.bloquants`
+   et `legal.manquants`.
 2. Les secrets de l'e-mail (`NUXT_EMAIL_CLE`, et l'expéditeur dans
    `wrangler.jsonc`) — voir « Connexion sans mot de passe ». Sans eux, l'app
    ne propose que la passkey : rien ne casse.
@@ -961,7 +963,7 @@ bibliothèque `worker-mailer`, port 465 chiffré). Rien de plus à payer :
    (espace client → E-mails → DKIM) ; ajouter un DMARC
    (`_dmarc` TXT `v=DMARC1; p=none; rua=mailto:contact@babynamed.fr`). Sans
    DKIM, Gmail range les codes en indésirables.
-4. `/api/sante` → `presence.courriel: true` ; s'inscrire avec sa propre
+4. `/api/sante` (avec le secret) → `presence.courriel: true` ; s'inscrire avec sa propre
    adresse pour voir l'e-mail arriver.
 
 Limites à connaître : les boîtes mutualisées d'OVH plafonnent l'envoi (de
@@ -1010,6 +1012,7 @@ Audit du 25 septembre 2026 : ce qui a été trouvé, et ce qui est en place.
 | Lien de connexion détourné par un en-tête `Host` forgé | sur Cloudflare, une requête n'atteint le Worker que par l'un de ses noms : l'adresse de la requête est sûre ; `X-Forwarded-Host` n'est jamais lu |
 | `/api/admin/migrer` (du SQL derrière un secret en clair dans l'URL) | retirée |
 | `/api/sante` publique renvoyait le message d'erreur du pilote de base | message générique en production |
+| `/api/sante` publique détaillait la configuration (secrets posés, vente ouverte, médiateur manquant) | détail réservé au secret d'administration ; en public, `{ "ok": true }` |
 | Nuxt 4.4.8 : failles connues (îlots serveur, cache de payload) | Nuxt 4.5.2, `npm audit` : 0 vulnérabilité |
 
 Déjà bon avant l'audit, et vérifié : requêtes SQL paramétrées partout ;
@@ -1097,7 +1100,15 @@ par `npm run build`, refuse un fichier qui l'oublie.
 
 ## Vérifier
 
-`GET /api/sante` dit ce qui est branché sans révéler aucune valeur :
+`GET /api/sante` dit ce qui est branché sans révéler aucune valeur. En
+production, le détail demande le secret d'administration (`CRON_SECRET`, le
+même que pour la purge à la main) ; sans lui, la route répond seulement
+`{ "ok": true }` (503 et `{ "ok": false }` si la base ne répond pas), de quoi
+brancher une sonde de disponibilité. En développement, tout est lisible.
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:CRON_SECRET" https://babynamed.fr/api/sante
+```
 
 ```json
 { "presence": { "base": true, "base_variable": "DB (Cloudflare D1)", "secret_session": true,

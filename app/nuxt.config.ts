@@ -101,7 +101,7 @@ export default defineNuxtConfig({
 
     // La purge quotidienne (RGPD) tourne seule, chaque nuit (scheduledTasks
     // ci-dessous). CRON_SECRET ouvre en plus /api/admin/purger, pour la
-    // declencher a la main.
+    // declencher a la main, et le detail de /api/sante.
     cronSecret: '',               // CRON_SECRET (lu aussi tel quel)
 
     public: { siteUrl: '', prixListe: '6 €' }   // NUXT_PUBLIC_SITE_URL / NUXT_PUBLIC_PRIX_LISTE

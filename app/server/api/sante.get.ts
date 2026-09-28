@@ -1,5 +1,17 @@
-/** Diagnostic : dit ce qui est configuré, sans jamais révéler de valeur. */
-export default defineEventHandler(async () => {
+import type { H3Event } from 'h3'
+
+/**
+ * Diagnostic : dit ce qui est configuré, sans jamais révéler de valeur.
+ *
+ * Le détail (secrets posés, mentions légales manquantes, vente ouverte,
+ * migrations) se lisait ici par n'importe qui : une carte de la configuration
+ * et, pire, un aveu public (« médiateur manquant, vente ouverte »). En ligne,
+ * il demande donc `Authorization: Bearer <CRON_SECRET>` (server/utils/admin.ts) ;
+ * sans, on ne dit que si l'app et sa base répondent. En développement, tout
+ * reste lisible : essais/relance.sh attend `joignable`.
+ */
+export default defineEventHandler(async (e) => {
+  if (!import.meta.dev && !estAdmin(e)) return etatPublic(e)
   const c = useRuntimeConfig()
   const presence = {
     // La base D1, liée au Worker sous le nom DB (wrangler.jsonc).
@@ -70,8 +82,8 @@ export default defineEventHandler(async () => {
         // Les codes cadeaux (migration 0003).
         'cadeaux': a('cadeaux', 'code_hash') && a('cadeaux', 'expire_le')
       }
-      // Pas de compte des listes vendues ici : cette route est publique, et
-      // le nombre de clients n'a pas a l'etre. Il se lit dans la console D1.
+      // Pas de compte des listes vendues ici : meme reservee, cette route n'a
+      // pas a porter le nombre de clients. Il se lit dans la console D1.
     }
   } catch (err: any) {
     // Le message d'erreur de la base peut en dire trop : il reste dans les
@@ -81,3 +93,15 @@ export default defineEventHandler(async () => {
   }
   return { presence, legal, base: infos }
 })
+
+/** Ce que tout le monde voit : l'app répond, et sa base aussi (503 sinon). */
+async function etatPublic(e: H3Event) {
+  try {
+    await q(`select 1`)
+    return { ok: true }
+  } catch (err: any) {
+    console.error('[sante]', String(err?.message ?? err).slice(0, 200))
+    setResponseStatus(e, 503)
+    return { ok: false }
+  }
+}
