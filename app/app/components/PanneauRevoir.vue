@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { useVerdicts, MOT } from '~/composables/useVerdicts'
-import { expliquerDesaccord, quiPeutEtreExplique, MIN_OUI } from '~/composables/usePortrait'
+import { expliquerDesaccord } from '~/composables/usePortrait'
 
 /**
  * Les desaccords, et la possibilite d'en revenir.
@@ -10,6 +10,9 @@ import { expliquerDesaccord, quiPeutEtreExplique, MIN_OUI } from '~/composables/
  * definitivement un prenom que l'autre adorait, et rien ne le disait jamais.
  * Ici on voit qui a dit quoi, et on peut changer d'avis — « ah, toi tu aimes
  * bien ? bon, pourquoi pas finalement ».
+ *
+ * Aucun texte d'explication (28/09, à la demande de Greg) : les titres des
+ * deux groupes, les pastilles et les boutons se lisent seuls.
  */
 defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
@@ -32,17 +35,6 @@ const pourquoi = (prenom: string) => paye.value
   ? expliquerDesaccord(prenom, g.votes.value as any, g.parNom.value, moiId.value)
   : null
 
-// Si on se tait, on dit une fois pourquoi — sinon la fonction a l'air cassee.
-const silence = computed(() => {
-  if (!paye.value || !aRevoir.value.length) return null
-  if (aRevoir.value.some(v => pourquoi(v.prenom))) return null
-  const gens = quiPeutEtreExplique(g.votes.value as any, moiId.value)
-    .filter(x => x.oui < MIN_OUI)
-  if (!gens.length) return null
-  const q = gens[0]!
-  return `On pourra dire ce qui vous sépare quand ${q.pseudo} aura gardé ${MIN_OUI} prénoms que vous avez jugés tous les deux (${q.oui} pour l'instant). En dessous, une moyenne ne veut rien dire.`
-})
-
 /**
  * DEUX GROUPES : ce que j'ai refuse, ce que l'autre a refuse.
  *
@@ -58,14 +50,11 @@ const eux = computed(() => autresDecideurs.value.length === 1 ? autresDecideurs.
 /** « qu’Alice » mais « que Paul » ; « d’Alice », « de Paul ». */
 const voyelle = (nom: string) => /^[aeiouyhàâäéèêëîïôöùûü]/i.test(nom)
 const que = (nom: string) => voyelle(nom) ? `qu’${nom}` : `que ${nom}`
-const de = (nom: string) => voyelle(nom) ? `d’${nom}` : `de ${nom}`
 
 const groupes = computed(() => [
   { cle: 'moi', titre: 'Ceux que vous n’avez pas aimés',
-    aide: `${eux.value ? `${eux.value} a dit oui` : 'D’autres ont dit oui'} : si vous changez d’avis, le prénom peut rejoindre vos accords.`,
     liste: aRevoir.value.filter(v => v.mien === 0) },
   { cle: 'eux', titre: eux.value ? `Ceux ${que(eux.value)} n’a pas aimés` : 'Ceux que les autres n’ont pas aimés',
-    aide: `Vous avez dit oui ; c’est ${eux.value ? `du côté ${de(eux.value)}` : 'de leur côté'} que ça coince : parlez-en.`,
     liste: aRevoir.value.filter(v => v.mien !== 0) }
 ].filter(gr => gr.liste.length))
 
@@ -91,15 +80,10 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
     <div v-if="!aRevoir.length" class="vide">
       <Etincelles :taille="34" couleur="var(--menthe)" />
       <h2>Aucun désaccord</h2>
-      <p>Les prénoms où l’un dit oui et l’autre non arriveront ici.</p>
       <button class="btn" @click="g.allerA('swipe')">Aller trier</button>
     </div>
 
     <template v-else>
-      <p class="mini doux" style="margin:0">
-        Un oui d’un côté, un non de l’autre. Chacun peut changer son vote ici.
-      </p>
-      <p v-if="silence" class="mini doux" style="margin:0">{{ silence }}</p>
       <button v-if="!paye" class="btn btn-0 mini" style="align-self:flex-start"
               @click="g.ouvrirDebloquer()">
         Savoir ce qui vous sépare sur chacun
@@ -109,7 +93,6 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
         <h3 :id="`revoir-${gr.cle}`" class="titre-groupe">
           {{ gr.titre }} <span class="puce">{{ gr.liste.length }}</span>
         </h3>
-        <p class="mini doux" style="margin:0">{{ gr.aide }}</p>
         <article v-for="v in gr.liste" :key="v.prenom" class="carte desaccord">
           <div class="ligne" style="gap:10px">
             <button class="nom" @click="g.ouvrirFiche(v.prenom)">{{ v.prenom }}</button>

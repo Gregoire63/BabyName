@@ -25,8 +25,6 @@ async function entrer(cle) {
   await c.click(); await page.waitForTimeout(2500)
   return { page, gid: page.url().split('/')[4] }
 }
-const plat = async (p, sel) => (await p.locator(sel).first().innerText().catch(() => ''))
-  .replace(/\s+/g, ' ').trim()
 
 const aRevoir = async (p, gid) => {
   await p.goto(`${BASE}/g/${gid}/classement`, { waitUntil: 'networkidle' })
@@ -43,9 +41,9 @@ const noms = await paul.locator('.desaccord .nom').allInnerTexts()
 dit(noms.length > 0, `désaccords : ${noms.join(', ')}`)
 dit(await paul.locator('.pourquoi').count() === 0,
     'rien n’est expliqué tant que la moyenne d’en face ne veut rien dire')
-const avant = await plat(paul, '.pile')
-dit(/Alice aura gardé 12/.test(avant),
-    `et l’écran dit pourquoi il se tait : « ${(avant.match(/On pourra dire[^.]*\./) ?? [''])[0]} »`)
+// Aucun texte d'explication (retirés le 28/09) : titres, pastilles et boutons.
+dit(await paul.locator('#volet-revoir p.mini.doux').count() === 0,
+    'et aucun paragraphe d’explication n’encombre « À revoir »')
 
 // ============ 2. Alice remplit son profil, court ========================
 // Sept prénoms de plus, tous d'une ou deux syllabes, tous déjà jugés par Paul
