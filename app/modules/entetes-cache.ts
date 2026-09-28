@@ -33,6 +33,8 @@ function fichierEntetes(): string {
     regle('/*', ENTETES_COMMUNES),
     // Noms hachés : vraiment immuables. Tous à plat dans /_nuxt/.
     regle('/_nuxt/:fichier', { 'cache-control': IMMUABLE }),
+    // Les polices des fiches (scripts/seo.mjs) : l'empreinte est dans le nom.
+    regle('/statique/:fichier', { 'cache-control': IMMUABLE }),
     // Le signal de nouveau build (latest.json) : jamais figé.
     regle('/_nuxt/builds/:fichier', { 'cache-control': SANS_CACHE }),
     // Un fichier par build : immuable.
@@ -52,7 +54,7 @@ export default defineNuxtModule({
       if (!String(nitro.options.preset).startsWith('cloudflare')) return
       nitro.hooks.hook('compiled', async () => {
         await writeFile(resolve(nitro.options.output.publicDir, '_headers'), fichierEntetes())
-        nitro.logger.success(`En-tetes de cache et de securite poses (_headers, ${4 + SECTIONS_STATIQUES.length} regles).`)
+        nitro.logger.success(`En-tetes de cache et de securite poses (_headers, ${5 + SECTIONS_STATIQUES.length} regles).`)
       })
     })
   }

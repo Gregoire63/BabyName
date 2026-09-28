@@ -93,6 +93,23 @@ dit(!!mince && /<meta name="robots" content="noindex, follow">/.test(lire(`preno
   `une fiche mince (ni sens ni origine : ${mince}) est en noindex et hors du sitemap`)
 dit(!/noindex/.test(louise), 'une fiche pleine reste indexable')
 
+// ---------- la mise en page -------------------------------------------------
+// Aucun script exécutable : la politique de contenu des fiches n'en admet pas
+// en ligne (seul le JSON-LD, qui n'est pas du code).
+dit([...louise.matchAll(/<script\b([^>]*)>/g)].every(m => /type="application\/ld\+json"/.test(m[1])),
+  'aucun script exécutable sur une fiche : les animations sont du CSS')
+const polices = [...louise.matchAll(/url\((\/statique\/nunito-[a-z-]+-\d+\.[0-9a-f]{10}\.woff2)\)/g)].map(m => m[1])
+dit(polices.length === 4 && polices.every(u => { try { readFileSync(join(sortie, u)); return true } catch { return false } }),
+  `Nunito servie par le site, sous des noms à empreinte (${polices.length} fichiers présents)`)
+dit([...louise.matchAll(/<link rel="preload" href="(\/statique\/[^"]+)" as="font" type="font\/woff2" crossorigin>/g)].length === 2,
+  'les deux graisses du texte latin sont préchargées')
+const css = louise.match(/<style>(.*?)<\/style>/s)?.[1] ?? ''
+const horsMouvement = css.split('@media (prefers-reduced-motion:no-preference)')[0]
+dit(!/animation(-name)?:/.test(horsMouvement) && /animation:/.test(css),
+  'toutes les animations vivent sous prefers-reduced-motion: no-preference')
+dit(/class="trait" pathLength="1"/.test(louise) && /<figure class="carte graphe">/.test(louise),
+  'la courbe est prête à se tracer (pathLength) dans sa carte')
+
 // ---------- sitemap --------------------------------------------------------
 const dates = new Set([...sitemap.matchAll(/<lastmod>(.*?)<\/lastmod>/g)].map(m => m[1]))
 const aujourdhui = new Date().toISOString().slice(0, 10)
