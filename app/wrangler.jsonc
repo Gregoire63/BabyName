@@ -45,9 +45,10 @@
   // babynamed.fr par une règle du tableau de bord (Rules → Redirect Rules).
   "routes": [{ "pattern": "babynamed.fr", "custom_domain": true }],
 
-  // L'adresse d'essai en .workers.dev : à fermer (false) une fois le domaine
-  // en place — une passkey créée là-bas ne vaut pas sur babynamed.fr.
-  "workers_dev": true,
+  // L'adresse d'essai en .workers.dev : fermée, babynamed.fr est en place.
+  // Ouverte, elle servirait la même app sur un second nom : une passkey ou
+  // une session créée là-bas ne vaut pas sur babynamed.fr.
+  "workers_dev": false,
   // Pas d'adresse publique par version : elles partageraient la vraie base.
   "preview_urls": false,
 
