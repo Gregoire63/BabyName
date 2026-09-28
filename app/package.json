@@ -4,12 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",
-    "build": "node scripts/verifier-migrations.mjs && node scripts/seo.mjs && nuxt build",
+    "build": "node scripts/verifier-migrations.mjs && node scripts/seo.mjs && node scripts/seo-plus.mjs && nuxt build",
     "preview": "nuxt build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run build && wrangler deploy && node scripts/indexnow.mjs",
+    "indexnow": "node scripts/indexnow.mjs",
     "postinstall": "nuxt prepare",
     "dev:neuf": "node --input-type=commonjs -e \"require('node:fs').rmSync('.data',{recursive:true,force:true})\" && nuxt dev",
-    "seo": "node scripts/seo.mjs",
+    "seo": "node scripts/seo.mjs && node scripts/seo-plus.mjs",
     "base:migrer": "wrangler d1 migrations apply DB --remote --config wrangler.jsonc",
     "base:copier-neon": "node scripts/neon-vers-d1.mjs"
   },

@@ -65,7 +65,7 @@ self.addEventListener('fetch', e => {
   // robots : du statique complet, pas la coquille. On ne s'en mele pas —
   // sinon la premiere fiche visitee ecrasait '/' dans le cache et l'app hors
   // ligne ouvrait sur Louise.
-  if (/^\/(prenoms?|choisir-un-prenom-a-deux)\//.test(u.pathname)
+  if (/^\/(prenoms?|choisir-un-prenom-a-deux|tester-prenom-nom-de-famille|idee-cadeau-futurs-parents)\//.test(u.pathname)
       || ['/sitemap.xml', '/robots.txt', '/llms.txt'].includes(u.pathname)) return
 
   // Coquille SPA : reseau d'abord, cache seulement si on est hors ligne.

@@ -18,3 +18,11 @@ public/statique/
 public/sitemap.xml
 public/robots.txt
 public/llms.txt
+public/0f5cbc8e26a39832c708ce22ae3b9d1d.txt
+.seo-empreintes.json
+
+# Etat local d'IndexNow (ce qui a deja ete signale a Bing)
+.indexnow-envoye.json
+# Genere par scripts/seo-plus.mjs
+public/tester-prenom-nom-de-famille/
+public/idee-cadeau-futurs-parents/
