@@ -112,6 +112,29 @@ const aPage = p => pages.has(p.slug)
  * tout le site ; on elargira quand le domaine aura fait ses preuves.
  */
 const mince = p => !p.m && !p.g.length
+/**
+ * Ouverture PROGRESSIVE a Google. Un domaine neuf qui pousse 6 600 fiches d'un
+ * coup est crawle lentement, et la plupart restent « detectees, non
+ * indexees » : le budget part dans la longue traine au lieu des fiches qui ont
+ * une vraie demande. Phase 1 : on n'indexe que les prenoms donnes aujourd'hui
+ * (>= INDEX_NAISSANCES naissances sur 3 ans) ou qui ont ete courants (pic >=
+ * INDEX_PIC pour 10 000 naissances une annee au moins depuis 1986 : Nathalie,
+ * Kevin… qu'on cherche encore pour leur sens). Les autres restent en ligne,
+ * noindex, follow, hors sitemap.
+ * Pour elargir, quand la Search Console montre l'essentiel indexe : baisser
+ * les seuils (ou SEO_INDEX_NAISSANCES / SEO_INDEX_PIC) et monter MAJ.
+ */
+const INDEX_NAISSANCES = Number(process.env.SEO_INDEX_NAISSANCES ?? 100)
+const INDEX_PIC = Number(process.env.SEO_INDEX_PIC ?? 5)
+const pic = p => (Array.isArray(p.sr) && p.sr.length ? Math.max(...p.sr) : 0)
+const indexable = p => !mince(p) && (p.n >= INDEX_NAISSANCES || pic(p) >= INDEX_PIC)
+/**
+ * IndexNow (Bing, Yandex, Seznam, Naver ; Bing alimente aussi ChatGPT
+ * Search). La cle n'est pas un secret : publiee a la racine du site, elle
+ * prouve que le domaine est a nous. scripts/indexnow.mjs la relit ici et
+ * envoie, apres chaque deploiement, les URL dont le HTML a change.
+ */
+const INDEXNOW_CLE = '0f5cbc8e26a39832c708ce22ae3b9d1d'
 const url = p => `/prenom/${p.slug}/`
 
 // ---------------------------------------------------------------- mise en forme
@@ -656,7 +679,7 @@ ${cta(p)}
 <ul class="rangs">${voir.join('')}</ul></section>
 `
   return page({
-    chemin: url(p), titre, description, corps, indexer: !mince(p), genre: genreDe(p.sexe),
+    chemin: url(p), titre, description, corps, indexer: indexable(p), genre: genreDe(p.sexe),
     fil: [{ n: `Lettre ${lettre.toUpperCase()}`, u: `/prenoms/lettre/${lettre}/` }, { n: p.l, u: url(p) }]
   })
 }
@@ -756,7 +779,9 @@ for (const o of origines) {
 
 // ---------------------------------------------------------------- écriture
 const sortie = chemin => resolve(SORTIE, '.' + chemin, 'index.html')
+const empreintes = new Map()                   // chemin -> hash du HTML, pour IndexNow
 function ecrire(chemin, html) {
+  empreintes.set(chemin, createHash('sha1').update(html).digest('hex').slice(0, 16))
   const f = sortie(chemin)
   mkdirSync(dirname(f), { recursive: true })
   writeFileSync(f, html)
@@ -777,7 +802,7 @@ for (const r of rangs.values()) r.sort((a, b) => ORDRE[a.L.type] - ORDRE[b.L.typ
 const urls = []
 for (const e of pages.values()) {
   ecrire(url(e[0]), fiche(e))
-  if (!mince(e[0])) urls.push(url(e[0]))
+  if (indexable(e[0])) urls.push(url(e[0]))
 }
 
 // Les origines, de la plus représentée à la plus rare : c'est l'ordre dans
@@ -1044,4 +1069,13 @@ Disallow: /?
 Sitemap: ${SITE}/sitemap.xml
 `)
 
+// IndexNow : la cle a la racine, et l'empreinte de chaque URL du sitemap,
+// hors public/ (jamais servie), que scripts/indexnow.mjs compare au dernier envoi.
+writeFileSync(resolve(SORTIE, `${INDEXNOW_CLE}.txt`), INDEXNOW_CLE)
+writeFileSync(resolve(SORTIE === PUBLIC ? RACINE : SORTIE, '.seo-empreintes.json'), JSON.stringify({
+  site: SITE, cle: INDEXNOW_CLE,
+  urls: Object.fromEntries(['/', ...urls].map(u => [u, empreintes.get(u) ?? MAJ]))
+}, null, 1))
+
+console.log(`[seo] indexables : ${tetes.filter(indexable).length} fiches sur ${pages.size} (>= ${INDEX_NAISSANCES} naissances ou pic >= ${INDEX_PIC}/10 000)`)
 console.log(`[seo] ${pages.size} fiches, ${listes.length + lettres.length + 2} listes, page de l’app, llms.txt, sitemap ${urls.length + 1} URL, domaine ${SITE}`)
