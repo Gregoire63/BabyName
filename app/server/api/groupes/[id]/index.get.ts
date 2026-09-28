@@ -17,7 +17,7 @@ function parTete<T extends { prenom: string; tete: string | null }>(lignes: T[])
 export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
-  const [groupe, membres, av, vetos, dejaPris, favoris] = await Promise.all([
+  const [groupe, membres, av, vetos, dejaPris, favoris, proprio] = await Promise.all([
     // Les codes d'invitation ne vont qu'a ceux qui decident (voir
     // groupes/index.get.ts) : un observateur ne fait entrer personne.
     // Debloquee par un cadeau : on dit de qui, s'il l'a signe.
@@ -33,7 +33,7 @@ export default defineEventHandler(async (e) => {
           from groupes where id = ?1`, [gid, moi.role !== 'observateur']),
     q(`select m.user_id, u.pseudo, m.role, m.poids from membres m
          join utilisateurs u on u.id = m.user_id where m.groupe_id = ?1
-        order by m.rejoint_le`, [gid]),
+        order by m.rejoint_le, m.user_id`, [gid]),
     avancement(gid),
     q<{ prenom: string; tete: string | null; motif: string | null; user_id: string }>(
       `select prenom, tete, motif, user_id from vetos where groupe_id = ?1`, [gid]),
@@ -42,7 +42,9 @@ export default defineEventHandler(async (e) => {
       `select d.prenom, d.tete, d.motif, d.user_id, u.pseudo as auteur, d.pose_le
          from deja_pris d left join utilisateurs u on u.id = d.user_id
         where d.groupe_id = ?1 order by d.pose_le`, [gid]),
-    q(`select prenom from favoris where groupe_id = ?1 and user_id = ?2`, [gid, moi.user_id])
+    q(`select prenom from favoris where groupe_id = ?1 and user_id = ?2`, [gid, moi.user_id]),
+    // Qui peut supprimer la liste pour tous ; les autres la quittent.
+    proprietaire(gid)
   ])
 
   /**
@@ -58,7 +60,7 @@ export default defineEventHandler(async (e) => {
    * c'est tout son principe (deja-pris.post.ts).
    */
   return {
-    groupe, membres, avancement: av, moi,
+    groupe, membres, avancement: av, moi, proprietaire: proprio,
     quota: await quotaEtat(gid, moi.user_id),
     vetos: vetos.map(v => v.prenom),
     mes_vetos: parTete(vetos.filter(v => v.user_id === moi.user_id))

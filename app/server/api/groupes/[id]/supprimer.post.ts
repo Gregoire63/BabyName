@@ -1,8 +1,9 @@
 /**
  * Supprimer une liste, pour tous ses membres.
  *
- * Réservé à ceux qui décident, comme renommer (nom.put.ts) : un observateur
- * regarde, il ne fait pas disparaître le travail des autres.
+ * Réservé au propriétaire (server/utils/proprietaire.ts) : c'est aussi le
+ * travail des autres qui disparaît. Les autres membres quittent la liste
+ * (quitter.post.ts), elle leur survit.
  *
  * Tout part d'un coup, en cascade depuis `groupes` : membres, bulletins,
  * blocages, favoris, classements, commentaires, prénoms « déjà pris ». Un code
@@ -20,7 +21,9 @@
 export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
-  if (moi.role !== 'parent') throw createError({ statusCode: 403, statusMessage: 'reserve_aux_parents' })
+  if (moi.user_id !== await proprietaire(gid)) {
+    throw createError({ statusCode: 403, statusMessage: 'reserve_au_proprietaire' })
+  }
   const { confirmation } = await readBody<{ confirmation?: string }>(e) ?? {}
   if (String(confirmation ?? '').trim().toUpperCase() !== 'SUPPRIMER') {
     throw createError({ statusCode: 400, statusMessage: 'confirmation_requise' })

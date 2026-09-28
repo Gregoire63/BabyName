@@ -231,13 +231,13 @@ const filtresActifs = computed(() => {
 })
 
 /**
- * Supprimer la liste, pour tout le monde.
+ * Supprimer la liste, pour tout le monde — son propriétaire seulement.
  *
  * Même garde-fou que pour le compte (FeuilleCompte) : un mot à taper, pas un
  * « Êtes-vous sûr ? » qu'on valide par réflexe. Ici plus encore, parce que ce
  * sont aussi les votes des AUTRES qui partent : l'écran les nomme, et dit que
- * le déblocage ne se reporte pas. Réservé à ceux qui décident (le serveur le
- * vérifie aussi : groupes/[id]/supprimer.post.ts).
+ * le déblocage ne se reporte pas. Le serveur le vérifie aussi
+ * (groupes/[id]/supprimer.post.ts, server/utils/proprietaire.ts).
  */
 const demandeSuppression = ref(false)
 const confirmation = ref('')
@@ -265,9 +265,51 @@ async function supprimerListe() {
     await $fetch(`/api/groupes/${g.gid}/supprimer`, { method: 'POST', body: { confirmation: 'SUPPRIMER' } })
     oublierListe(String(g.gid))
     await navigateTo('/')
-  } catch {
-    erreurSuppression.value = 'La suppression n’a pas abouti. Rien n’a été effacé ; réessayez dans un instant.'
+  } catch (err: any) {
+    erreurSuppression.value = err?.statusMessage === 'reserve_au_proprietaire'
+      ? 'Seul le propriétaire de la liste peut la supprimer.'
+      : 'La suppression n’a pas abouti. Rien n’a été effacé ; réessayez dans un instant.'
     suppressionEnCours.value = false
+    await g.recharger().catch(() => null)
+  }
+}
+
+/**
+ * Le propriétaire : celui qui a créé la liste ; s'il la quitte, le plus
+ * ancien de ceux qui décident (server/utils/proprietaire.ts). Lui seul la
+ * supprime pour tous ; chacun peut la quitter.
+ */
+const moiId = computed(() => g.etat.value?.moi?.user_id ?? '')
+const proprietaireId = computed(() => (g.etat.value as any)?.proprietaire ?? null)
+const jeSuisProprietaire = computed(() => !!moiId.value && proprietaireId.value === moiId.value)
+/** Qui reprendrait la liste si le propriétaire partait : le plus ancien des autres qui décident. */
+const successeur = computed(() => (g.etat.value?.membres ?? [])
+  .find((m: any) => m.role !== 'observateur' && m.user_id !== moiId.value)?.pseudo as string | undefined)
+/** Partir laisse-t-il quelqu'un pour décider ? Sinon, quitter reviendrait à supprimer. */
+const peutQuitter = computed(() => !jeSuisProprietaire.value || !!successeur.value)
+
+/**
+ * Quitter la liste : ses votes partent, la liste reste aux autres.
+ *
+ * Moins grave que supprimer (les autres ne perdent rien), mais irréversible
+ * pour soi : deux gestes, et l'écran dit ce qui part. Pas de mot à taper.
+ */
+const demandeQuitter = ref(false)
+const quitterEnCours = ref(false)
+const erreurQuitter = ref('')
+const mesDejaPris = computed(() => (g.etat.value as any)?.deja_pris?.some((d: any) => d.mien) ?? false)
+
+async function quitterListe() {
+  if (quitterEnCours.value) return
+  quitterEnCours.value = true
+  erreurQuitter.value = ''
+  try {
+    await $fetch(`/api/groupes/${g.gid}/quitter`, { method: 'POST', body: { confirmation: 'QUITTER' } })
+    oublierListe(String(g.gid))
+    await navigateTo('/')
+  } catch {
+    erreurQuitter.value = 'Ça n’a pas marché : vous êtes toujours dans la liste. Réessayez dans un instant.'
+    quitterEnCours.value = false
   }
 }
 </script>
@@ -292,8 +334,9 @@ async function supprimerListe() {
           <h2 style="flex:1">Nom</h2>
           <span class="mini doux" role="status">{{ renomme ? 'Enregistré' : '' }}</span>
         </div>
-        <input ref="champNom" v-model="nouveauNom" class="champ" aria-label="Nom de la liste" maxlength="60"
-               @input="nomListe.planifier" @blur="nomListe.maintenant()" @keyup.enter="quitter">
+        <input v-if="!jObserve" ref="champNom" v-model="nouveauNom" class="champ" aria-label="Nom de la liste"
+               maxlength="60" @input="nomListe.planifier" @blur="nomListe.maintenant()" @keyup.enter="quitter">
+        <p v-else style="margin:0;font-weight:700">{{ g.etat.value.groupe.nom }}</p>
       </section>
 
       <section class="carte pile achat" :class="{ debloquee: paye }" aria-labelledby="titre-achat">
@@ -431,6 +474,7 @@ async function supprimerListe() {
         <h2>Qui en est</h2>
         <div v-for="m in g.etat.value.avancement" :key="m.user_id" class="ligne">
           <span style="flex:1">{{ m.pseudo }}</span>
+          <span v-if="m.user_id === proprietaireId" class="puce">propriétaire</span>
           <span v-if="m.role === 'observateur'" class="puce">observe</span>
           <span class="mini doux">{{ m.votes }} {{ pluriel(m.votes, 'jugé', 'jugés') }}</span>
         </div>
@@ -442,7 +486,7 @@ async function supprimerListe() {
       <section class="carte pile">
         <div class="ligne">
           <h2 style="flex:1">Filtres</h2>
-          <button class="btn btn-0 mini" @click="g.ouvrirFiltres()">Modifier</button>
+          <button v-if="!jObserve" class="btn btn-0 mini" @click="g.ouvrirFiltres()">Modifier</button>
         </div>
         <div v-if="filtresActifs.length" class="ligne" style="flex-wrap:wrap;gap:6px">
           <span v-for="f in filtresActifs" :key="f" class="puce">{{ f }}</span>
@@ -450,9 +494,35 @@ async function supprimerListe() {
         <p v-else class="mini doux" style="margin:0">Aucun filtre.</p>
       </section>
 
-      <section v-if="!jObserve" class="carte pile" aria-label="Supprimer cette liste">
+      <section class="carte pile" aria-label="Quitter ou supprimer cette liste">
+        <template v-if="peutQuitter">
+          <button v-if="!demandeQuitter" type="button" class="btn btn-0 mini danger"
+                  style="align-self:flex-start" @click="demandeQuitter = true; demandeSuppression = false">
+            Quitter cette liste
+          </button>
+          <div v-else class="pile suppression" role="group" aria-labelledby="titre-quitter-liste">
+            <p id="titre-quitter-liste" class="mini" style="margin:0">
+              <strong>Vous quittez « {{ g.etat.value.groupe.nom }} »</strong> : ce que vous y avez donné
+              (votes, blocages, favoris, commentaires) est effacé. Les autres membres gardent la liste<template
+                v-if="jeSuisProprietaire && successeur">, et {{ successeur }} en devient propriétaire</template>.
+              <template v-if="mesDejaPris">Les prénoms « déjà pris » que vous avez ajoutés y restent, sans votre nom.</template>
+            </p>
+            <p v-if="erreurQuitter" class="mini" role="alert" style="color:var(--non);margin:0">
+              {{ erreurQuitter }}
+            </p>
+            <div class="ligne">
+              <button type="button" class="btn mini btn-danger" :disabled="quitterEnCours" @click="quitterListe">
+                {{ quitterEnCours ? 'Un instant…' : 'Quitter la liste' }}
+              </button>
+              <button type="button" class="btn btn-0 mini doux"
+                      @click="demandeQuitter = false; erreurQuitter = ''">Annuler</button>
+            </div>
+          </div>
+        </template>
+
+        <template v-if="jeSuisProprietaire">
         <button v-if="!demandeSuppression" type="button" class="btn btn-0 mini danger"
-                style="align-self:flex-start" @click="demandeSuppression = true">
+                style="align-self:flex-start" @click="demandeSuppression = true; demandeQuitter = false">
           Supprimer cette liste
         </button>
 
@@ -479,6 +549,7 @@ async function supprimerListe() {
             <button type="button" class="btn btn-0 mini doux" @click="annulerSuppression">Annuler</button>
           </div>
         </div>
+        </template>
       </section>
 
       <section class="carte pile" aria-labelledby="titre-compte">
