@@ -52,6 +52,15 @@ const prenomDemande = computed(() => {
 })
 const prenomVu = ref('')
 
+/**
+ * Un chemin de retour vers les pages publiques. L'entrée de l'app remplace
+ * l'adresse (navigateTo … replace) et, installée, l'app n'a pas de bouton
+ * « Retour » : sans ce lien, qui arrivait d'une fiche prénom ne pouvait plus
+ * y revenir. Calculé au montage (document.referrer n'existe que côté client).
+ */
+const referrer = ref('')
+const retour = computed(() => retourPublic(referrer.value, prenomDemande.value, prenomVu.value))
+
 /** Invitation et prénom suivent jusqu'à l'accueil, qui en fait l'entrée. */
 function suite() {
   oublierEntree()
@@ -136,6 +145,7 @@ async function entreEnDev() {
 }
 
 onMounted(async () => {
+  referrer.value = document.referrer
   if (await rafraichirMoi()) return suite()
   passkeyPossible.value = passkeysPossibles()
   if (onglet.value === 'connexion') choisirOnglet('connexion')
@@ -174,6 +184,10 @@ onBeforeUnmount(() => abandonnerPasskey())
 
     <!-- inscription ou connexion -->
     <template v-else>
+      <!-- vers les pages publiques : un vrai lien, ce ne sont pas des pages de l'app -->
+      <a :href="retour.href" class="retour">
+        <span aria-hidden="true">←</span> {{ retour.texte }}
+      </a>
       <div class="haut">
         <img src="/logo.png" alt="" width="66" height="66">
         <h1>babyNamed</h1>
@@ -252,7 +266,9 @@ onBeforeUnmount(() => abandonnerPasskey())
 .accueil { height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
   /* toute la largeur défile (la barre au bord de la fenêtre, pas au milieu
      de l'écran) ; la colonne, elle, garde 460 px */
-  padding: max(clamp(24px, 9vh, 96px), env(safe-area-inset-top)) max(18px, calc(50% - 230px))
+  /* haut : juste de quoi respirer (avant : jusqu'à 9vh, soit ~70 px sur un
+     téléphone — un défilement pour rien, le formulaire passait sous le pli) */
+  padding: max(clamp(12px, 2.5vh, 28px), env(safe-area-inset-top)) max(18px, calc(50% - 230px))
     calc(28px + env(safe-area-inset-bottom)); }
 /* Ancré en HAUT, pas centré : centré, tout sautait dès qu'un bloc arrivait
    après coup (la bannière d'un prénom, les outils de dev) — en revenant des
@@ -260,6 +276,22 @@ onBeforeUnmount(() => abandonnerPasskey())
    clavier couvre le bas de l'écran : un formulaire en haut reste visible.
    Le pied de page, lui, reste en bas. */
 .accueil > :last-child { margin-top: auto; }
+/* Écran bas (la plupart des téléphones) : le formulaire d'inscription entier
+   doit tenir sans défiler — logo et espacements se resserrent. */
+@media (max-height: 860px) {
+  .accueil { gap: 12px; }
+  .haut { gap: 4px; }
+  .haut img { width: 52px; height: 52px; border-radius: 14px; }
+  .haut h1 { font-size: 1.45rem; }
+}
+@media (max-height: 700px) {
+  .haut img { width: 44px; height: 44px; border-radius: 12px; }
+  .haut h1 { font-size: 1.3rem; }
+}
+.retour { align-self: flex-start; margin: -8px 0 -6px; padding: 8px 2px; font-weight: 700;
+  font-size: .95rem; color: var(--doux); text-decoration: none; }
+.retour:hover { color: var(--texte); }
+.retour:focus-visible { outline: 2px solid var(--encre); outline-offset: 2px; border-radius: 6px; }
 .haut { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .haut img { border-radius: 17px; }
 .haut h1 { font-size: 1.7rem; }

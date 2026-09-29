@@ -41,16 +41,17 @@ function fermer() { visible.value = false }
 const geste = useFeuille(fermer, dedans)
 
 /**
- * Au-dessus du clavier. Quand il sort (iPhone surtout), la feuille remonte de
- * la hauteur cachee et se borne a ce qui reste visible : le champ ou l'on tape
- * et les resultats restent sous les yeux. Voir useClavier.
+ * Au-dessus du clavier. Quand il sort, le voile epouse exactement la partie
+ * visible de l'ecran (son haut et sa hauteur) : la feuille, posee en bas du
+ * voile, s'arrete au ras du clavier, et le champ ou l'on tape comme les
+ * resultats restent sous les yeux. Voir useClavier.
  */
 const clavier = useClavier()
-const styleVoile = computed(() => clavier.bas.value
-  ? { paddingBottom: `${clavier.bas.value}px` } : {})
+const styleVoile = computed(() => clavier.ouvert.value
+  ? { top: `${clavier.haut.value}px`, bottom: 'auto', height: `${clavier.visible.value}px` } : {})
 const styleCorps = computed(() => {
   const s: Record<string, string> = { ...(geste.style.value as Record<string, string>) }
-  if (clavier.bas.value) {
+  if (clavier.ouvert.value) {
     const h = `${Math.max(160, clavier.visible.value - (props.plein ? 0 : 12))}px`
     s.maxHeight = h
     if (props.plein) s.height = h

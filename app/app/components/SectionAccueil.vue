@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { chargerCatalogue, frequenceLisible, trouverPrenom, type Prenom, type Filtres }
+import { chargerCatalogue, frequenceLisible, pourcentAn, trouverPrenom, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
 import { listeCourante } from '~/composables/useListeCourante'
 
@@ -409,14 +409,14 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           <div class="carte tuile colonne large">
             <p class="etiquette">Ça monte</p>
             <button v-for="p in stats.monte" :key="p.l" class="rang" @click="ouvrir(p.l)">
-              <span class="q">{{ p.l }}</span><em style="color:var(--non)">+{{ p.t.toFixed(0) }} %</em>
+              <span class="q">{{ p.l }}</span><em :style="{ color: Math.round(p.t) ? 'var(--non)' : 'var(--doux)' }">{{ pourcentAn(p.t) }}</em>
             </button>
           </div>
 
           <div class="carte tuile colonne large">
             <p class="etiquette">Ça retombe</p>
             <button v-for="p in stats.tombe" :key="p.l" class="rang" @click="ouvrir(p.l)">
-              <span class="q">{{ p.l }}</span><em style="color:var(--oui)">{{ p.t.toFixed(0) }} %</em>
+              <span class="q">{{ p.l }}</span><em :style="{ color: Math.round(p.t) ? 'var(--oui)' : 'var(--doux)' }">{{ pourcentAn(p.t) }}</em>
             </button>
           </div>
 
