@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
+import type { StatutPaiement } from '~/composables/etatGroupe'
 /**
  * Ce que l'achat apporte, dit en entier avant de payer.
  *
@@ -41,7 +42,7 @@ const nomListe = computed(() => g.etat.value?.groupe?.nom ?? 'cette liste')
 // plus large ne doit pas afficher les limites par defaut.
 const quota = computed(() => g.etat.value?.quota)
 const GRATUIT = computed(() => [
-  `${quota.value?.depart?.limite ?? 150} prénoms pour commencer, puis ${quota.value?.limite_jour ?? 15} par jour, sans jamais être bloqué`,
+  `${quota.value?.depart?.limite ?? 150} swipes pour commencer, puis ${quota.value?.limite_jour ?? 15} swipes par jour`,
   'Les 19 608 prénoms et la recherche complète',
   'Les accords et le classement',
   'L’origine, la signification et la courbe sur chaque fiche',
@@ -94,17 +95,43 @@ async function utiliserCadeau(fermer: () => void) {
   } finally { envoiCadeau.value = false }
 }
 
+/**
+ * Deux parents, un seul achat. Tant que la feuille est ouverte, on relit
+ * l'etat du paiement : l'autre a ouvert sa page de paiement → on le dit et on
+ * ne laisse pas payer une seconde fois ; il a paye → la liste se debloque ici
+ * aussi, toute seule, et la feuille se ferme.
+ */
+const statut = ref<StatutPaiement | null>(null)
+const payeeParAutre = ref(false)
+const autreEnCours = computed(() => statut.value?.en_cours && !statut.value.en_cours.moi
+  ? statut.value.en_cours : null)
+const heure = (iso: string | null | undefined) => iso
+  ? new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''
+async function relireStatut() {
+  const s = await g.verifierPaiement()
+  if (!s) return
+  statut.value = s
+  if (s.paye && !payeeParAutre.value) {
+    payeeParAutre.value = true
+    setTimeout(() => emit('fermer'), 2200)
+  }
+}
+let sondage: any = null
+onMounted(() => { relireStatut(); sondage = setInterval(relireStatut, 4000) })
+onUnmounted(() => clearInterval(sondage))
+
 async function payer() {
   if (envoi.value || !accord.value) return
   envoi.value = true; erreur.value = ''
   try {
     const r = await $fetch<any>(`/api/groupes/${g.gid}/paiement`,
       { method: 'POST', body: { consentement: true } })
-    if (r?.deja) { await g.recharger(); emit('fermer'); return }
+    if (r?.deja) { await relireStatut(); return }
     if (r?.url) { window.location.href = r.url; return }
     erreur.value = 'Le paiement n’a pas pu s’ouvrir.'
   } catch (e: any) {
     const code = e?.statusMessage ?? e?.data?.statusMessage
+    if (code === 'paiement_en_cours') { await relireStatut(); return }
     erreur.value = code === 'paiement_non_configure' || code === 'vente_fermee'
       ? 'Le paiement n’est pas encore ouvert. Il le sera très bientôt.'
       : code === 'consentement_requis'
@@ -169,11 +196,22 @@ async function payer() {
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:12px 0 0">{{ erreur }}</p>
 
     <template #pied="{ fermer }">
-      <button type="button" class="btn btn-1" style="width:100%" :disabled="envoi || !accord"
+      <p v-if="payeeParAutre" class="annonce ok" role="status">
+        {{ statut?.par ?? 'Quelqu’un' }} vient de débloquer la liste : swipes illimités pour vous
+        aussi. Rien à payer.
+      </p>
+      <p v-else-if="autreEnCours" class="annonce" role="status">
+        <strong>{{ autreEnCours.par ?? 'Un membre de la liste' }} est en train de payer cette
+        liste.</strong> Inutile de payer deux fois : elle se débloquera ici toute seule.
+        En cas d’abandon, vous pourrez payer à partir de {{ heure(autreEnCours.jusqu) }}.
+      </p>
+
+      <button type="button" class="btn btn-1" style="width:100%"
+              :disabled="envoi || !accord || !!autreEnCours || payeeParAutre"
               :aria-describedby="accord ? undefined : 'accord-requis'" @click="payer">
         {{ envoi ? 'Ouverture…' : `Débloquer cette liste (${prix})` }}
       </button>
-      <p v-if="!accord" id="accord-requis" class="mini doux" style="margin:0;text-align:center">
+      <p v-if="!accord && !autreEnCours && !payeeParAutre" id="accord-requis" class="mini doux" style="margin:0;text-align:center">
         Cochez la case d’accord pour continuer.
       </p>
       <button v-if="!cadeauOuvert" type="button" class="btn btn-0 mini" style="width:100%"
@@ -205,6 +243,9 @@ async function payer() {
 </template>
 
 <style scoped>
+.annonce { margin: 0; padding: 11px 13px; border-radius: var(--r-s);
+  border: 1px solid var(--trait); background: var(--fond); font-size: .85rem; }
+.annonce.ok { border-color: var(--oui); color: var(--oui); }
 .inclus { list-style: none; margin: 0; padding: 0; }
 .portee { padding: 10px 12px; border-radius: var(--r-s); line-height: 1.45;
   background: color-mix(in srgb, var(--menthe) 30%, transparent); }

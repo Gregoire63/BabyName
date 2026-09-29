@@ -9,6 +9,7 @@ import { useEnregistrementDiffere, type OptionsEnvoi } from '~/composables/useEn
  */
 const props = defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
+const quota = computed(() => g.etat.value?.quota)
 
 // La recherche d'un prénom est partie sous la loupe du tri (FeuilleRecherche) :
 // c'est là qu'on est quand on y pense.
@@ -349,6 +350,10 @@ async function quitterListe() {
             <strong>Débloque cette liste pour la vie</strong>, pour tous ses
             membres.
           </p>
+          <p class="quota-compare">
+            <span>Gratuit : {{ quota?.limite_jour ?? 15 }} swipes par jour</span>
+            <strong>Débloquée : illimité</strong>
+          </p>
           <ul class="inclus-court">
             <li v-for="i in INCLUS" :key="i.titre">{{ i.titre }}</li>
           </ul>
@@ -584,6 +589,10 @@ async function quitterListe() {
 .achat { background: linear-gradient(160deg, color-mix(in srgb, var(--menthe) 38%, var(--carte)) 0%, var(--carte) 70%); }
 .achat.debloquee { background: color-mix(in srgb, var(--menthe) 26%, var(--carte)); }
 .prix { font-size: 1.25rem; font-weight: 800; }
+.quota-compare { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline;
+  font-size: .85rem; }
+.quota-compare span { color: var(--doux); text-decoration: line-through; }
+.quota-compare strong { color: var(--encre); }
 .inclus-court { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px;
   font-size: .82rem; }
 .deux-facons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

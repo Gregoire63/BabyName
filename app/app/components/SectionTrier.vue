@@ -325,6 +325,57 @@ const quotaAtteint = computed(() =>
   paye.value ? faits.value >= plafond.value : (reste.value !== null && reste.value <= 0))
 
 /**
+ * Bloque par la version gratuite : l'offre s'ouvre d'elle-meme, DEUX fois au
+ * plus par jour et par liste. Une fois quand le mur tombe, une fois en
+ * revenant sur l'onglet « Trier ». Apres, plus rien jusqu'au lendemain : le
+ * bouton du mur reste la pour qui veut. Au-dela, une offre qui insiste se
+ * ferme par reflexe sans etre lue.
+ * Un observateur ne peut pas payer : on ne lui montre rien.
+ */
+const jObserve = computed(() => g.etat.value?.moi?.role === 'observateur')
+const bloqueGratuit = computed(() => quotaAtteint.value && !paye.value && !jObserve.value)
+const OFFRE_MAX_JOUR = 2
+const jourLocal = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}` }
+const cleOffre = () => `pr_offre_${g.gid}_${jourLocal()}`
+function offresVues(): number {
+  try { return Number(localStorage.getItem(cleOffre())) || 0 } catch { return 0 }
+}
+let offresSession = 0 // si le stockage est bloque, on compte au moins en memoire
+let minuteurOffre: any = null
+function proposerOffre(delai = 0) {
+  clearTimeout(minuteurOffre)
+  minuteurOffre = setTimeout(() => {
+    if (!bloqueGratuit.value || !props.actif) return
+    if (document.querySelector('[aria-modal="true"]')) return
+    const vues = Math.max(offresVues(), offresSession)
+    if (vues >= OFFRE_MAX_JOUR) return
+    offresSession = vues + 1
+    try { localStorage.setItem(cleOffre(), String(offresSession)) } catch { /* memoire seule */ }
+    g.ouvrirDebloquer()
+  }, delai)
+}
+// 1) Le mur tombe pendant le tri. Le delai laisse la derniere carte finir
+//    son envol. Pas a l'ouverture d'une liste deja bloquee : ce n'est pas
+//    « atteindre le max », c'est revenir voir ses accords.
+let aVoteIci = false // le mur doit tomber SOUS un vote, pas au chargement
+watch(bloqueGratuit, (b, avant) => { if (b && !avant && aVoteIci) proposerOffre(700) })
+// 2) Retour sur l'onglet « Trier » alors que la liste est bloquee.
+watch(() => props.actif, (a, avant) => { if (a && avant === false) proposerOffre(250) })
+onUnmounted(() => clearTimeout(minuteurOffre))
+
+// Bloque devant le mur : si l'autre parent paie pendant ce temps, le mur doit
+// tomber tout seul. Une relecture legere toutes les 15 s, seulement ici,
+// seulement ecran allume (le retour sur l'app, lui, relit dans VueGroupe).
+let sondagePaiement: any = null
+watch(() => bloqueGratuit.value && props.actif, (oui) => {
+  clearInterval(sondagePaiement)
+  if (oui) sondagePaiement = setInterval(() => {
+    if (document.visibilityState === 'visible') g.verifierPaiement()
+  }, 15000)
+}, { immediate: true })
+onUnmounted(() => clearInterval(sondagePaiement))
+
+/**
  * Vrai le temps qu'un vote remplace la carte de devant.
  *
  * Dans ce cas precis, la carte qui arrive est celle qu'on regardait deja
@@ -550,6 +601,7 @@ async function voter(valeur: 0 | 1 | 2) {
   const p = carte.value
   if (!p || quotaAtteint.value || envol.value) return
   const etaitEpingle = epingle.value === p
+  aVoteIci = true
   // Un prenom rejuge depuis la recherche : il etait deja dans mes votes.
   const rejuge = etaitEpingle && epingleDejaJuge
 
@@ -809,10 +861,10 @@ async function confirmerFamille() {
           cette liste.
         </p>
         <p class="mini doux" style="margin:0">
-          Débloquer cette liste pour la vie ({{ prixListe }}) : plus aucune limite, pour
-          tous ses membres.
+          Débloquer cette liste pour la vie ({{ prixListe }}) : swipes illimités chaque
+          jour, pour tous ses membres.
         </p>
-        <button class="btn btn-1" @click="g.ouvrirDebloquer()">Voir ce que ça ouvre</button>
+        <button v-if="!jObserve" class="btn btn-1" @click="g.ouvrirDebloquer()">Swipes illimités ({{ prixListe }})</button>
       </div>
 
       <div v-else-if="!carte" class="vide">

@@ -8,8 +8,8 @@
  */
 export const INCLUS_DEBLOCAGE = [
   {
-    titre: 'Le tri sans limite',
-    texte: 'Ni limite de départ, ni quota du jour, pour vous deux. Le rappel d’hygiène reste (juger deux cents prénoms d’affilée donne de moins bonnes décisions), mais il se passe.'
+    titre: 'Swipes illimités, chaque jour',
+    texte: 'Fini le quota du jour et la limite de départ, pour vous deux. Le rappel d’hygiène reste (juger deux cents prénoms d’affilée donne de moins bonnes décisions), mais il se passe.'
   },
   {
     titre: 'L’essai avec votre nom de famille',
