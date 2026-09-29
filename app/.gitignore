@@ -26,3 +26,7 @@ public/0f5cbc8e26a39832c708ce22ae3b9d1d.txt
 # Genere par scripts/seo-plus.mjs
 public/tester-prenom-nom-de-famille/
 public/idee-cadeau-futurs-parents/
+
+# Genere par scripts/seo.mjs (recherche, fiches INSEE rendues par le Worker)
+public/chercher-un-prenom/
+server/assets/fiches/

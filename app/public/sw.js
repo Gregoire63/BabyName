@@ -7,7 +7,7 @@
    servi par le reseau d'abord, ou revalide en arriere-plan. Un fichier sans
    nom hache garde en cache-d'abord, c'est une application figee pour
    toujours sur le telephone de quelqu'un. */
-const VERSION = 'bn-8'   // bn-8 : les pages SEO statiques ne remplacent plus la coquille
+const VERSION = 'bn-9'   // bn-9 : /chercher-un-prenom/ est une page statique (bn-8 : les pages SEO ne remplacent plus la coquille)
 const COQUILLE = `coquille-${VERSION}`
 const BIENS = `biens-${VERSION}`
 
@@ -65,7 +65,7 @@ self.addEventListener('fetch', e => {
   // robots : du statique complet, pas la coquille. On ne s'en mele pas —
   // sinon la premiere fiche visitee ecrasait '/' dans le cache et l'app hors
   // ligne ouvrait sur Louise.
-  if (/^\/(prenoms?|choisir-un-prenom-a-deux|tester-prenom-nom-de-famille|idee-cadeau-futurs-parents)\//.test(u.pathname)
+  if (/^\/(prenoms?|choisir-un-prenom-a-deux|tester-prenom-nom-de-famille|idee-cadeau-futurs-parents|chercher-un-prenom)\//.test(u.pathname)
       || ['/sitemap.xml', '/robots.txt', '/llms.txt'].includes(u.pathname)) return
 
   // Coquille SPA : reseau d'abord, cache seulement si on est hors ligne.

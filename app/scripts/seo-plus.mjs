@@ -120,17 +120,32 @@ const offrirModele = MODELE.match(/<aside class="offrir r"[\s\S]*?<\/aside>/)?.[
 
 const bascule = (base, s) => `<nav class="bascule" aria-label="Filles ou garçons"><a href="${base}filles/"${s === 'f' ? ' aria-current="page"' : ''}>Filles</a><a href="${base}garcons/"${s === 'm' ? ' aria-current="page"' : ''}>Garçons</a></nav>`
 
-const tend = p => p.n < SEUIL_TENDANCE ? '<span>–</span>'
-  : `<span class="${p.t > 0 ? 'monte' : p.t < 0 ? 'baisse' : ''}">${p.t > 0 ? '+' : ''}${dec(p.t)} %</span>`
+// Même règle que scripts/seo.mjs : sur téléphone, l'entier arrondi et des
+// en-têtes courts (le CSS, partagé, choisit entre les deux formes).
+const deuxFormes = (long, court) => long === court ? long
+  : `<span class="v-long">${long}</span><span class="v-court">${court}</span>`
+const tete2 = (long, court, titre = long) =>
+  `<span class="long">${long}</span><abbr class="court" title="${titre}">${court}</abbr>`
+// Arrondi d'abord, signe et couleur ensuite : jamais « -0 % » en rouge (0 est
+// gris, classe .nul). Même règle que tendanceHtml dans scripts/seo.mjs.
+const arrondi = (t, n = 1) => { const r = Number(t.toFixed(n)); return r === 0 ? 0 : r }
+const pctTendance = (t, n = 1) => { const r = arrondi(t, n); return `${r > 0 ? '+' : r < 0 ? '−' : ''}${dec(Math.abs(r), n)}` }
+const classeTendance = (t, n = 1) => { const r = arrondi(t, n); return r > 0 ? 'monte' : r < 0 ? 'baisse' : 'nul' }
+const tend = p => {
+  if (p.n < SEUIL_TENDANCE) return '<span>–</span>'
+  const long = `<span class="${classeTendance(p.t)}">${pctTendance(p.t)}\u202f%</span>`
+  const court = `<span class="${classeTendance(p.t, 0)}">${pctTendance(p.t, 0)}\u202f%</span>`
+  return deuxFormes(long, court)
+}
 
 function tableau(xs, legende, cols = 'standard') {
   const tete = cols === 'projection'
-    ? `<th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="n">Rang ${AN1 - 2}-${AN1}</th><th scope="col" class="n">Naissances/an en 2027</th>`
-    : `<th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="o">Origine</th><th scope="col" class="n">Naissances</th><th scope="col" class="n">Tendance</th>`
+    ? `<th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="n">${tete2(`Rang ${AN1 - 2}-${AN1}`, 'Rang')}</th><th scope="col" class="n">${tete2('Naissances/an en 2027', 'En 2027', 'Naissances par an en 2027')}</th>`
+    : `<th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="o">Origine</th><th scope="col" class="n">${tete2('Naissances', 'Naiss.')}</th><th scope="col" class="n">Tendance</th>`
   const ligne = (x, i) => {
-    const nom = `<td><a href="${url(x)}"><b>${esc(x.l)}</b></a>${x.m ? `<small>${esc(x.m)}</small>` : ''}</td>`
+    const nom = `<td><a href="${url(x)}"><b>${esc(x.l)}</b></a></td>`
     return cols === 'projection'
-      ? `<tr><td class="rg">${i + 1}</td>${nom}<td class="n">${x.rangActuel ? nf(x.rangActuel) : '–'}${x.entree ? ' <span class="monte">nouveau</span>' : ''}</td><td class="n">≈ ${nf(x.proj)}</td></tr>`
+      ? `<tr><td class="rg">${i + 1}</td>${nom}<td class="n">${x.rangActuel ? nf(x.rangActuel) : '–'}${x.entree ? ' <span class="monte">nouveau</span>' : ''}</td><td class="n"><span class="v-long">≈ </span>${nf(x.proj)}</td></tr>`
       : `<tr><td class="rg">${i + 1}</td>${nom}<td class="o">${esc(x.g.map(ORIGINE_LIB).join(', '))}</td><td class="n">${nf(x.n)}</td><td class="n">${tend(x)}</td></tr>`
   }
   return `<div class="tableau r"><table><caption>${esc(legende)}</caption>
@@ -426,6 +441,15 @@ function liensPartout() {
   for (const r of ['prenom', 'prenoms', 'choisir-un-prenom-a-deux', ...[...ecrites.keys()].map(c => c.split('/')[1])]) {
     const f = resolve(SORTIE, r)
     if (existsSync(f) && statSync(f).isDirectory()) parcourir(f)
+  }
+  // Le modele des fiches rendues par le Worker (scripts/fiches-insee.mjs) :
+  // meme pied de page que les autres.
+  const modele = resolve(RACINE, 'server/assets/fiches/modele.html')
+  if (existsSync(modele)) {
+    const m = readFileSync(modele, 'utf8')
+    if (!m.includes(`href="${OUTIL}">Tester avec son nom`) && motifExplorer.test(m)) {
+      writeFileSync(modele, m.replace(motifExplorer, (x) => x + ajout).replace(motifMarque, (x) => x + ajoutMarque))
+    }
   }
   // Portail : un bloc « Pour choisir » avant les listes.
   const portail = resolve(SORTIE, 'prenoms/index.html')

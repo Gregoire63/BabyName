@@ -24,6 +24,8 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync } from 'nod
 import { createHash } from 'node:crypto'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { construireRecherche, CLIENT as RECHERCHE_CLIENT } from './recherche.mjs'
+import { construireFichesInsee } from './fiches-insee.mjs'
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PUBLIC = resolve(RACINE, 'public')
@@ -142,6 +144,22 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, ch =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch])
 const nf = x => Math.round(x).toLocaleString('fr-FR')
 const dec = (x, n = 1) => x.toLocaleString('fr-FR', { maximumFractionDigits: n, minimumFractionDigits: 0 })
+/**
+ * Une tendance en % : on ARRONDIT d'abord, et le signe comme la couleur
+ * suivent l'arrondi. Une pente de -0,03 s'affichait « -0 % » en rouge ; elle
+ * donne « 0 % », en gris.
+ */
+const arrondi = (t, n = 1) => { const r = Number(t.toFixed(n)); return r === 0 ? 0 : r }
+const pctTendance = (t, n = 1) => { const r = arrondi(t, n); return `${r > 0 ? '+' : r < 0 ? '−' : ''}${dec(Math.abs(r), n)}` }
+const classeTendance = (t, n = 1) => { const r = arrondi(t, n); return r > 0 ? 'monte' : r < 0 ? 'baisse' : 'nul' }
+/** Les deux formes (1 décimale / entier), chacune avec SA couleur : -0,4 est
+ *  rouge en long mais « 0 % » gris en court. Le CSS choisit selon l'écran. */
+const tendanceHtml = t => {
+  const long = `<span class="${classeTendance(t)}">${pctTendance(t)}\u202f%</span>`
+  const court = `<span class="${classeTendance(t, 0)}">${pctTendance(t, 0)}\u202f%</span>`
+  return pctTendance(t) === pctTendance(t, 0) ? long
+    : `<span class="v-long">${long}</span><span class="v-court">${court}</span>`
+}
 const unSur = f => f > 0 ? `1 bébé sur ${nf(10000 / f)}` : 'quasi jamais'
 const GENRE = { f: 'féminin', m: 'masculin', fm: 'mixte' }
 const genreNom = { f: 'filles', m: 'garçons', fm: 'mixtes' }
@@ -228,6 +246,30 @@ for (const poids of [500, 800]) {
 const FONTES = polices.map(p => `@font-face{font-family:Nunito;font-style:normal;font-weight:${p.poids};font-display:optional;src:url(${p.url}) format("woff2");unicode-range:${p.plage}}`).join('')
 const PRECHARGE = polices.filter(p => p.jeu === 'latin')
   .map(p => `<link rel="preload" href="${p.url}" as="font" type="font/woff2" crossorigin>`).join('\n')
+
+// ---------------------------------------------------------------- recherche
+/**
+ * La recherche de prénom : un champ en grand sur /prenoms/ et sur sa page à
+ * elle (/chercher-un-prenom/), une loupe dans l'en-tête de TOUTES les pages.
+ * Index et moteur dans /statique/ (scripts/recherche.mjs, recherche-client.js).
+ */
+const CHERCHER = '/chercher-un-prenom/'
+const enStatique = (nom, ext, contenu) => {
+  const f = `${nom}.${createHash('sha256').update(contenu).digest('hex').slice(0, 10)}.${ext}`
+  writeFileSync(resolve(SORTIE, 'statique', f), contenu)
+  return `/statique/${f}`
+}
+const RECH = construireRecherche({ tous, pages, slugDe, racine: RACINE })
+const RECHERCHE_JS = enStatique('recherche', 'js', RECHERCHE_CLIENT
+  .replace("'__INDEX__'", () => JSON.stringify(enStatique('recherche', 'txt', RECH.index)))
+  .replace('__INSEE__', () => JSON.stringify(Object.fromEntries([...RECH.lettres].map(([l, t]) => [l, enStatique(`insee-${l}`, 'txt', t)])))))
+const LOUPE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></svg>'
+let idRecherche = 0
+/** Le grand champ : /prenoms/ et /chercher-un-prenom/. Sans JavaScript, il
+ *  envoie vers la page de recherche, qui explique quoi chercher. */
+const formRecherche = (adresse = false) => { const id = `q${++idRecherche}`; return `<form class="cherche grand" action="${CHERCHER}" method="get" role="search"${adresse ? ' data-adresse="1"' : ''}>
+<label class="vh" for="${id}">Chercher un prénom</label><div class="champ-ligne">${LOUPE}<input id="${id}" name="q" type="search" placeholder="Un prénom : Louise, Maël, Aëlys…" enterkeyhint="search" autocapitalize="words" spellcheck="false"><button class="b" type="submit">Chercher</button></div>
+<ul class="suggestions"></ul><div class="verdict" aria-live="polite"></div></form>` }
 
 // ---------------------------------------------------------------- gabarit
 /**
@@ -350,8 +392,19 @@ td small{display:block;margin-top:2px;font-size:14px;line-height:1.35;color:var(
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .monte{color:var(--oui);font-weight:800}
 .baisse{color:var(--non);font-weight:800}
+.nul{color:var(--doux)}
 @media (max-width:560px){.o{display:none}table{font-size:15px}td,th{padding:11px 6px}td.n,th.n{padding-left:4px}td small{overflow-wrap:anywhere}}
 @media (max-width:360px){table{font-size:14px}th{font-size:12px}td,th{padding:10px 4px}th.rg,td.rg{width:2em}}
+th .court,.v-court{display:none}th .court{text-decoration:none}
+/* Téléphones étroits, ou texte agrandi dans les réglages d'accessibilité : on
+   gagne la place du libellé long et de la décimale plutôt que de faire
+   défiler le tableau de côté. */
+/* Les colonnes de chiffres gardent de l'air à droite (la dernière collait au
+   bord de la carte) ; c'est la colonne Prénom, la seule dont le texte peut
+   passer à la ligne, qui cède la place. */
+td.n,th.n{width:1%}
+td:last-child,th:last-child{padding-right:14px}
+@media (max-width:430px){th .long,.v-long{display:none}th .court,.v-court{display:inline}td,th{padding-left:5px;padding-right:5px}th.rg,td.rg{width:1.7em}td.n,th.n{padding-left:12px}td:last-child,th:last-child{padding-right:16px}}
 ul.noms{columns:2 9em;column-gap:20px;margin:0;padding:0;list-style:none}
 @media (min-width:760px){ul.noms{columns:4 9em}}
 ul.noms li{break-inside:avoid;padding:3px 0}
@@ -381,6 +434,35 @@ a.suite:hover{text-decoration:underline}
 .suite-bloc{margin:14px 0 0}
 h2 small{margin-left:4px;font-size:.62em;color:var(--doux);letter-spacing:0}
 .vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+header.h .actions{display:flex;align-items:center;gap:4px}
+header.h .loupe{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;color:var(--texte)}
+header.h .loupe:hover{background:color-mix(in srgb,var(--trait) 70%,transparent)}
+header.h .loupe svg,.cherche .champ-ligne>svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+.cherche{position:relative}
+.cherche .champ-ligne{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 16px;border-radius:999px;background:var(--carte);border:1px solid var(--trait);box-shadow:var(--ombre);color:var(--doux)}
+.cherche .champ-ligne:focus-within{border-color:var(--encre);box-shadow:0 0 0 1px var(--encre),var(--ombre)}
+.cherche input{flex:1;min-width:0;border:0;background:none;font:inherit;font-weight:700;color:var(--texte);padding:10px 0;outline:none;-webkit-appearance:none;appearance:none}
+.cherche input::-webkit-search-cancel-button{display:none}
+.cherche.grand{margin:22px 0 0}
+.cherche.grand input{font-size:19px}
+.cherche .b{padding:11px 20px;font:inherit;font-size:16px;font-weight:800;border:0;cursor:pointer}
+@media (max-width:420px){.cherche .b{padding:11px 14px}.cherche.grand input{font-size:17px}}
+.suggestions{list-style:none;margin:8px 0 0;padding:0;border-radius:18px;background:var(--carte);border:1px solid var(--trait);overflow:hidden;text-align:left}
+.suggestions:empty{display:none}
+.suggestions li+li{border-top:1px solid var(--trait)}
+.suggestions a{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:11px 16px;text-decoration:none}
+.suggestions a:hover,.suggestions a:focus{background:color-mix(in srgb,var(--menthe) 35%,var(--carte));outline:none}
+.suggestions small{color:var(--doux);font-size:14px;white-space:nowrap}
+.verdict{margin:12px 0 0;text-align:left}
+.verdict:empty{display:none}
+.verdict>p{margin:0 0 .6em;padding:14px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait);font-size:16px;line-height:1.5}
+.verdict>p.t,.verdict>p.doux{padding:0;border:0;background:none}
+.verdict>p.t{font-weight:800;margin-top:12px}
+.recherche-voile{position:fixed;inset:0;z-index:20;padding:12px;background:rgba(16,19,33,.45);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.recherche-voile[hidden]{display:none}
+.recherche-boite{max-width:620px;max-height:100%;margin:0 auto;padding:4px;overflow-y:auto}
+.recherche-boite .fermer{flex:none;width:42px;height:42px;border:0;border-radius:50%;background:none;color:var(--doux);font:inherit;font-size:18px;cursor:pointer}
+html.recherche-ouverte{overflow:hidden}
 section[id]{scroll-margin-top:84px}
 .rangs{display:grid;gap:8px;margin:0;padding:0;list-style:none}
 .rangs a{display:flex;align-items:baseline;gap:12px;padding:12px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait);text-decoration:none;transition:border-color .18s}
@@ -467,7 +549,7 @@ const actuel = oui => oui ? ' aria-current="page"' : ''
 const PLAN = `<nav class="plan" aria-label="Plan du site">
 ${[['filles', 'Filles'], ['garcons', 'Garçons']].map(([g, t]) => `<div><p class="t">${t}</p><ul>
 <li><a href="/prenoms/tendance/${g}/">Qui montent</a></li><li><a href="/prenoms/populaires/${g}/">Les plus donnés</a></li><li><a href="/prenoms/rares/${g}/">Rares</a></li></ul></div>`).join('\n')}
-<div><p class="t">Explorer</p><ul><li><a href="/prenoms/">Tous les prénoms</a></li><li><a href="/prenoms/origines/">Par origine</a></li><li><a href="/prenoms/#lettres">Par lettre</a></li></ul></div>
+<div><p class="t">Explorer</p><ul><li><a href="${CHERCHER}">Chercher un prénom</a></li><li><a href="/prenoms/">Tous les prénoms</a></li><li><a href="/prenoms/origines/">Par origine</a></li><li><a href="/prenoms/#lettres">Par lettre</a></li></ul></div>
 <div><p class="t">${MARQUE}</p><ul><li><a href="${APP}">L’application</a></li><li><a href="/offrir" rel="nofollow">Offrir ${MARQUE}</a></li></ul></div>
 </nav>`
 
@@ -497,7 +579,7 @@ ${jsonld.map(j => `<script type="application/ld+json">${JSON.stringify(j).replac
 </head><body>
 <a class="aller" href="#contenu">Aller au contenu</a>
 <header class="h"><div class="l"><a class="m" href="/prenoms/"><img src="/logo.png" alt="" width="30" height="30">${MARQUE}</a>
-<a class="b p" href="${appel.href}">${esc(appel.texte)}</a></div></header>
+<div class="actions"><a class="loupe" href="${CHERCHER}" aria-label="Chercher un prénom">${LOUPE}</a><a class="b p" href="${appel.href}">${esc(appel.texte)}</a></div></div></header>
 <nav class="rubriques" aria-label="Rubriques"><div class="l"><ul>
 ${RUBRIQUES(genre).map(([id, t, u]) => `<li><a href="${u}"${actuel(id === rubrique)}>${t}</a></li>`).join('')}
 </ul></div></nav>
@@ -510,6 +592,7 @@ ${PLAN}
 <p>Chiffres : INSEE, fichier des prénoms (naissances en France de ${AN0} à ${AN1}). Origines et significations : Wiktionnaire et relecture ; quand le sens est incertain, la fiche le dit.</p>
 <p><a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/conditions">Conditions</a> · <a href="/accessibilite">Accessibilité</a></p>
 </div></footer>
+<script src="${RECHERCHE_JS}" defer></script>
 </body></html>`
 }
 
@@ -626,7 +709,7 @@ function fiche(entrees) {
     ...(p.rv ? ['Prénom rétro qui revient'] : [])]
   // La popularité en trois faits, pas en un paragraphe.
   const faits = [pic, fiable
-    ? `Sur les dernières années, ${esc(p.l)} est ${tendanceMot(p.t)} (${p.t > 0 ? '+' : ''}${dec(p.t)} % par an).`
+    ? `Sur les dernières années, ${esc(p.l)} est ${tendanceMot(p.t)} (${pctTendance(p.t)} % par an).`
     : `Avec environ ${nf(parAn)} bébé${parAn > 1 ? 's' : ''} par an, ${esc(p.l)} reste trop peu donné pour dessiner une tendance fiable : l’INSEE arrondit chaque année à 5.`,
   phraseClasse].filter(Boolean)
   const graphies = [...autresGraphies, ...groupe.filter(x => !autresGraphies.includes(x))].slice(0, 20)
@@ -650,7 +733,7 @@ function fiche(entrees) {
 <div><b>${unSur(p.f)}</b><span>en France, filles et garçons</span></div>
 ${rang <= 2000 ? `<div><b>${rang}<sup>${rang === 1 ? 'er' : 'e'}</sup></b><span>prénom ${p.sexe === 'fm' ? 'le plus donné' : p.sexe === 'f' ? 'féminin' : 'masculin'}</span></div>` : ''}
 ${fiable
-  ? `<div><b>${p.t > 0 ? '+' : p.t < 0 ? '−' : ''}${dec(Math.abs(p.t))} %/an</b><span>tendance récente : ${tendanceMot(p.t)}</span></div>`
+  ? `<div><b>${pctTendance(p.t)} %/an</b><span>tendance récente : ${tendanceMot(p.t)}</span></div>`
   : `<div><b>≈ ${nf(parAn)}</b><span>bébé${parAn > 1 ? 's' : ''} par an</span></div>`}
 <div><b>${nf(p.o)}/100</b><span>originalité</span></div>
 </div>
@@ -703,12 +786,15 @@ const offrir = `<aside class="offrir r" aria-label="Offrir ${MARQUE}"><div><b>Un
  * et l'unité sont dans la légende, lue avant le tableau.
  */
 function tableau(xs, colonne = 'tendance') {
-  const tend = t => `<span class="${t > 0 ? 'monte' : t < 0 ? 'baisse' : ''}">${t > 0 ? '+' : ''}${dec(t)} %</span>`
+  // Sur un écran étroit, on affiche l'entier arrondi (« +53 % » pour 52,6) :
+  // la décimale faisait déborder la dernière colonne. Les deux formes sont
+  // dans la page, le CSS choisit.
+  const tend = tendanceHtml
   const legende = `Naissances en France de ${AN1 - 2} à ${AN1} (INSEE)${colonne === 'tendance'
     ? ' ; tendance : évolution moyenne par an sur les dernières années.' : ' ; originalité sur 100 : plus elle est haute, plus le prénom est rare.'}`
   return `<div class="tableau r"><table><caption>${legende}</caption>
-<thead><tr><th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="o">Origine</th><th scope="col" class="n">Naissances</th><th scope="col" class="n">${colonne === 'tendance' ? 'Tendance' : 'Originalité'}</th></tr></thead><tbody>
-${xs.map((x, i) => `<tr><td class="rg">${i + 1}</td><td><a href="${url(x)}"><b>${esc(x.l)}</b></a>${x.m ? `<small>${esc(x.m)}</small>` : ''}</td><td class="o">${esc(liste(x.g.map(ORIGINE_LIB)))}</td><td class="n">${nf(x.n)}</td><td class="n">${colonne === 'tendance' ? tend(x.t) : `${nf(x.o)}/100`}</td></tr>`).join('')}
+<thead><tr><th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="o">Origine</th><th scope="col" class="n"><span class="long">Naissances</span><abbr class="court" title="Naissances">Naiss.</abbr></th><th scope="col" class="n">${colonne === 'tendance' ? 'Tendance' : '<span class="long">Originalité</span><abbr class="court" title="Originalité sur 100">Orig.</abbr>'}</th></tr></thead><tbody>
+${xs.map((x, i) => `<tr><td class="rg">${i + 1}</td><td><a href="${url(x)}"><b>${esc(x.l)}</b></a></td><td class="o">${esc(liste(x.g.map(ORIGINE_LIB)))}</td><td class="n">${nf(x.n)}</td><td class="n">${colonne === 'tendance' ? tend(x.t) : `${nf(x.o)}<span class="v-long">/100</span>`}</td></tr>`).join('')}
 </tbody></table></div>`
 }
 
@@ -878,7 +964,7 @@ ${bloc('f', 'Filles')}${bloc('m', 'Garçons')}
  */
 const CLASSEMENTS = [
   { type: 'tendance', titre: 'Qui montent', desc: `La plus forte progression par an, parmi les prénoms donnés au moins 150 fois de ${AN1 - 2} à ${AN1}.`,
-    stat: x => `${x.t > 0 ? '+' : ''}${dec(x.t, 0)} %`, nom: 'qui montent' },
+    stat: x => `${pctTendance(x.t, 0)} %`, nom: 'qui montent' },
   { type: 'populaires', titre: 'Les plus donnés', desc: `Le top 100 des naissances en France, de ${AN1 - 2} à ${AN1}.`,
     stat: x => nf(x.n), nom: 'les plus donnés' },
   { type: 'rares', titre: 'Rares, et qui ont du sens', desc: 'Peu donnés mais portés, avec une signification établie.',
@@ -897,7 +983,7 @@ ecrire('/prenoms/', page({
   chemin: '/prenoms/',
   titre: `Prénoms : ${nf(pages.size)} fiches avec signification, origine et popularité`,
   description: `Signification, origine et courbe de popularité de ${nf(pages.size)} prénoms donnés en France, d’après les naissances INSEE. Tendances, prénoms rares, par origine.`,
-  corps: `<section class="hero">${h1('Trouver un prénom')}<p class="sous">${nf(pages.size)} prénoms donnés en France, avec leurs vrais chiffres : le sens, l’origine, et les naissances depuis ${AN0}.</p></section>
+  corps: `<section class="hero">${h1('Trouver un prénom')}<p class="sous">${nf(pages.size)} prénoms donnés en France, avec leurs vrais chiffres : le sens, l’origine, et les naissances depuis ${AN0}.</p>${formRecherche()}</section>
 <section class="bloc"><h2>Les classements</h2><div class="classements">${CLASSEMENTS.map(carteClassement).join('')}</div></section>
 <section class="bloc r"><h2>Par origine</h2><ul class="origines six">${listesOrigines.slice(0, 6).map(carteOrigine).join('')}</ul>
 <p class="suite-bloc"><a class="suite" href="/prenoms/origines/">Les ${listesOrigines.length} origines</a></p></section>
@@ -906,6 +992,50 @@ ${offrir}
 ${cta(null)}`
 }))
 urls.unshift('/prenoms/')
+
+ecrire(CHERCHER, page({
+  chemin: CHERCHER,
+  titre: 'Chercher un prénom : existe-t-il en France ? Sens, origine, popularité',
+  description: `Vérifiez si un prénom existe et combien de bébés le portent en France depuis ${AN0}, d’après l’INSEE. Signification, origine, orthographes proches et prénoms qui sonnent pareil.`,
+  fil: [{ n: 'Chercher un prénom', u: CHERCHER }],
+  corps: `<section class="hero court">${h1('Chercher un prénom')}<p class="sous">Tapez un prénom : sa fiche, combien de bébés l’ont reçu depuis 1900, et ceux qui s’en approchent.</p>${formRecherche(true)}</section>
+<section class="bloc r"><h2>Ce prénom existe-t-il ?</h2><p>La recherche couvre tous les prénoms publiés par l’INSEE, donnés en France de ${AN0} à ${AN1}, même les plus rares. Un prénom qui n’y figure pas n’a pas forcément jamais été donné : l’INSEE ne publie un prénom qu’à partir de 3 naissances, en dessous il reste dans l’ombre du secret statistique.</p>
+<p>Et un prénom inédit reste possible : depuis la loi du 8 janvier 1993, les parents choisissent librement. L’officier d’état civil ne peut que saisir le procureur s’il juge le prénom contraire à l’intérêt de l’enfant.</p></section>
+<section class="bloc r"><h2>Orthographes et prénoms qui sonnent pareil</h2><p>Maëlys, Maelys, Maélis : pour l’INSEE, ce sont des prénoms différents, comptés à part. La recherche vous propose les orthographes voisines et les prénoms qui se prononcent de la même façon, avec le nombre de bébés de chacun. Pratique pour savoir si l’orthographe que vous aimez est rare, ou si le prénom est en fait très courant sous une autre forme.</p></section>
+<section class="bloc r"><h2>Ce que dit chaque fiche</h2><ul class="puces"><li>La signification et l’origine, quand elles sont établies.</li><li>La courbe des naissances depuis ${AN0}.</li><li>La tendance récente : il monte, il se maintient ou il recule.</li><li>Les autres orthographes et leur poids.</li></ul></section>
+${cta(null)}`,
+  jsonld: [{
+    '@context': 'https://schema.org', '@type': 'WebApplication', name: 'Chercher un prénom',
+    url: SITE + CHERCHER, applicationCategory: 'ReferenceApplication', operatingSystem: 'Web', inLanguage: 'fr-FR',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' }, isPartOf: { '@type': 'WebSite', name: MARQUE, url: SITE + '/' }
+  }]
+}))
+urls.splice(1, 0, CHERCHER)
+
+// ---------------------------------------------------------------- fiches INSEE
+/**
+ * Tout prénom publié par l'INSEE a sa fiche. Ceux qui n'ont pas de page ici
+ * (rares, sans sens établi, ou plus donnés depuis 1986) sont rendus par le
+ * Worker à la demande : voir scripts/fiches-insee.mjs. On écrit ici le modèle
+ * (dans server/assets, il part avec le Worker) et les tranches de données.
+ * Noindex : des chiffres seuls ne font pas une page pour Google.
+ */
+{
+  const F = construireFichesInsee({ pages, slugDe, racine: RACINE })
+  const tranches = Object.fromEntries([...F.tranches].map(([k, t]) => [k, enStatique(`fiche-${k}`, 'txt', t)]))
+  const modele = page({
+    chemin: '/prenom/__SLUG__/', titre: '__TITRE__', description: '__DESCRIPTION__', indexer: false,
+    corps: '__CORPS__', genre: 'filles',
+    fil: [{ n: 'Lettre __LETTRE_MAJ__', u: '/prenoms/lettre/__LETTRE__/' }, { n: '__NOM__', u: '/prenom/__SLUG__/' }]
+  })
+  const dossier = resolve(RACINE, 'server/assets/fiches')
+  mkdirSync(dossier, { recursive: true })
+  writeFileSync(resolve(dossier, 'modele.html'), modele)
+  writeFileSync(resolve(dossier, 'sommaire.json'), JSON.stringify({
+    an1: F.an1, lettres, chercher: CHERCHER, prix: PRIX, tranches
+  }))
+  console.log(`fiches INSEE : ${F.total} prénoms, ${F.tranches.size} tranches, rendues par le Worker`)
+}
 
 // ---------------------------------------------------------------- l'application
 /**
