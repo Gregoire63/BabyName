@@ -20,3 +20,6 @@ data/build/
 # insee.fr, le Wiktionnaire et query.wikidata.org sont bloques par le proxy
 # d'egress ; ces fichiers ont ete recuperes a la main via le navigateur et ne
 # se retelechargent pas avec un script. Les perdre coute une journee.
+
+# Marketing (videos TikTok, voix, scripts) : hors du depot
+marketing/
