@@ -28,5 +28,7 @@ export default defineEventHandler(async (e) => {
   const r = await livrer(s)
   const g = await q1<{ paye: boolean }>(
     `select (paye_le is not null) as paye from groupes where id = ?1`, [gid])
-  return { ok: true, paye: !!g?.paye, raison: r.livre ? undefined : r.raison }
+  const par = r.livre ? undefined : (await q1<{ pseudo: string | null }>(
+    `select u.pseudo from groupes g join utilisateurs u on u.id = g.paye_par where g.id = ?1`, [gid]))?.pseudo
+  return { ok: true, paye: !!g?.paye, raison: r.livre ? undefined : r.raison, par }
 })

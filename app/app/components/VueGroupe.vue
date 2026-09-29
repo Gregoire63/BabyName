@@ -2,7 +2,7 @@
 import { chargerCatalogue, filtrer, filtresParDefaut, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
 import { marquerListeCourante } from '~/composables/useListeCourante'
-import { CLE_GROUPE, type EtatGroupe, type EntreeDejaPris } from '~/composables/etatGroupe'
+import { CLE_GROUPE, type EtatGroupe, type EntreeDejaPris, type StatutPaiement } from '~/composables/etatGroupe'
 
 const props = defineProps<{ depart?: string; segmentDepart?: string }>()
 
@@ -250,12 +250,36 @@ function flechesPager(e: KeyboardEvent) {
   e.preventDefault()
 }
 
+/**
+ * L'autre parent a paye pendant que j'avais l'app ouverte : elle doit se
+ * debloquer seule, et le dire — sinon je vois encore le mur, et je paie une
+ * seconde fois. Relu au retour sur l'app, et souvent quand on est bloque
+ * (SectionTrier, FeuilleDebloquer).
+ */
+const payeParAutre = ref<string | null>(null)
+async function verifierPaiement(): Promise<StatutPaiement | null> {
+  const avant = !!etat.value?.groupe?.paye
+  const s = await $fetch<StatutPaiement>(`/api/groupes/${gid}/paiement-statut`).catch(() => null)
+  if (s?.paye && !avant) {
+    await recharger().catch(() => null)
+    payeParAutre.value = s.par
+    // Pas de bandeau « c'est debloque » par-dessus mon propre retour de Stripe.
+    if (!confirmation.value) confirmation.value = 'partenaire'
+  }
+  return s
+}
+function auRetourSurApp() {
+  if (document.visibilityState === 'visible' && pret.value && !etat.value?.groupe?.paye) verifierPaiement()
+}
+onMounted(() => document.addEventListener('visibilitychange', auRetourSurApp))
+onUnmounted(() => document.removeEventListener('visibilitychange', auRetourSurApp))
+
 const partage: EtatGroupe = {
   gid, etat, catalogue, parNom, origines, filtres, dejaVotes, aimes, vetos,
   mesVetos, poserVeto, retirerVeto, dejaPris, parDejaPris, ajouterDejaPris,
   retirerDejaPris, graphiesDe, favoris, basculerFavori,
   communs, rechargerCommuns, votes, rechargerVotes, voter,
-  pret, recharger, ouvrirFiche, ouvrirFiltres, allerA, ouvrirDebloquer
+  pret, recharger, ouvrirFiche, ouvrirFiltres, allerA, ouvrirDebloquer, verifierPaiement
 }
 provide(CLE_GROUPE, partage)
 
@@ -349,7 +373,7 @@ onMounted(async () => {
  * d'adresse. On se contente de recharger jusqu'a ce que le serveur, lui, dise
  * que c'est paye.
  */
-const confirmation = ref<'attente' | 'ok' | 'lent' | 'cadeau' | null>(null)
+const confirmation = ref<'attente' | 'ok' | 'lent' | 'cadeau' | 'partenaire' | 'doublon' | null>(null)
 const cadeauDe = computed(() => etat.value?.groupe?.cadeau_de as string | null)
 
 async function attendrePaiement() {
@@ -359,6 +383,13 @@ async function attendrePaiement() {
   if (route.query.offerte === '1') {
     history.replaceState(history.state, '', `/g/${gid}/${ONGLETS[index.value]!.id}`)
     if (etat.value?.groupe?.paye) confirmation.value = 'cadeau'
+    return
+  }
+  // Retour par « annuler » : la page Stripe se ferme et rend la place, sinon
+  // l'autre parent ne pourrait pas payer pendant une demi-heure.
+  if (route.query.paye === '0') {
+    history.replaceState(history.state, '', `/g/${gid}/${ONGLETS[index.value]!.id}`)
+    $fetch(`/api/groupes/${gid}/annuler-paiement`, { method: 'POST' }).catch(() => null)
     return
   }
   if (route.query.paye !== '1') return
@@ -373,6 +404,9 @@ async function attendrePaiement() {
     try {
       const r = await $fetch<any>(`/api/groupes/${gid}/confirmer-paiement`,
         { method: 'POST', body: { session_id: session } })
+      if (r?.paye && r?.raison === 'deja_payee_rembourse') {
+        await recharger(); payeParAutre.value = r.par ?? null; confirmation.value = 'doublon'; return
+      }
       if (r?.paye) { await recharger(); confirmation.value = 'ok'; return }
     } catch { /* le webhook prendra le relais */ }
   }
@@ -460,6 +494,14 @@ async function attendrePaiement() {
       </template>
       <template v-else-if="confirmation === 'ok'">
         C’est débloqué, pour vous et pour tout le monde sur cette liste.
+      </template>
+      <template v-else-if="confirmation === 'partenaire'">
+        {{ payeParAutre ?? 'Quelqu’un' }} vient de débloquer la liste : swipes illimités pour vous
+        aussi.
+      </template>
+      <template v-else-if="confirmation === 'doublon'">
+        {{ payeParAutre ?? 'Quelqu’un' }} avait débloqué la liste juste avant vous. Votre paiement
+        est remboursé automatiquement, en entier (quelques jours sur votre relevé).
       </template>
       <template v-else-if="confirmation === 'cadeau'">
         C’est débloqué{{ cadeauDe ? `, un cadeau de ${cadeauDe}` : ', un beau cadeau' }}, pour vous

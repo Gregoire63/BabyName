@@ -75,7 +75,7 @@ function aplatir(o: Record<string, any>, prefixe = ''): [string, string][] {
   return out
 }
 
-async function appel(chemin: string, corps: Record<string, any>) {
+async function appel(chemin: string, corps: Record<string, any>, entetes: Record<string, string> = {}) {
   const k = cles()
   if (!k.secret) throw createError({ statusCode: 503, statusMessage: 'paiement_non_configure' })
   const r = await fetch(`${k.api}/${chemin}`, {
@@ -83,7 +83,8 @@ async function appel(chemin: string, corps: Record<string, any>) {
     headers: {
       authorization: `Bearer ${k.secret}`,
       'content-type': 'application/x-www-form-urlencoded',
-      'stripe-version': VERSION_API
+      'stripe-version': VERSION_API,
+      ...entetes
     },
     body: new URLSearchParams(aplatir(corps)).toString()
   })
@@ -253,7 +254,9 @@ export async function creerSessionCadeau(opts: {
  * la preuve, lisible dans le Dashboard, de ce qui a ete accepte et quand.
  */
 export async function creerSession(opts: {
-  gid: number, uid: string, siteUrl: string, retour?: string, email?: string | null, consentementLe: string
+  gid: number, uid: string, siteUrl: string, retour?: string, email?: string | null, consentementLe: string,
+  /** Échéance de la page de paiement (secondes Unix, 30 min au moins chez Stripe). */
+  expireA?: number
 }) {
   const k = cles()
   const direct = !k.managed
@@ -276,6 +279,9 @@ export async function creerSession(opts: {
     locale: 'fr',
     client_reference_id: String(opts.gid),
     metadata: meta,
+    // La reservation de la liste (paiement.post.ts) dure exactement autant :
+    // passe ce delai, la page ne peut plus encaisser, l'autre parent peut payer.
+    expires_at: opts.expireA,
     // `{CHECKOUT_SESSION_ID}` est remplace par Stripe : au retour, l'app peut
     // demander elle-meme si c'est paye, sans attendre le webhook.
     success_url: `${opts.retour ?? opts.siteUrl}/g/${opts.gid}/swipe?paye=1&session_id={CHECKOUT_SESSION_ID}`,
@@ -384,11 +390,52 @@ export async function livrer(session: any): Promise<{ livre: boolean; raison?: s
   // `where paye_le is null` : un second passage ne réécrit ni la date ni
   // l'acheteur. L'acheteur peut avoir efface son compte entre-temps : la
   // cle etrangere refuserait son id, on ne le note alors pas.
-  await ecrire(`update groupes set paye_le = ${MAINTENANT},
+  const r = await ecrire(`update groupes set paye_le = ${MAINTENANT},
                        paye_par = (select id from utilisateurs where id = ?2),
-                       offert = ?3, paiement_ref = ?4
+                       offert = ?3, paiement_ref = ?4,
+                       paiement_en_cours_par = null, paiement_en_cours_session = null,
+                       paiement_en_cours_jusqu = null
                  where id = ?1 and paye_le is null`, [gid, uid, offert, ref])
+
+  /**
+   * Le filet : la liste etait DEJA debloquee par un autre paiement (l'autre
+   * parent, un code cadeau). La reservation empeche presque toujours d'en
+   * arriver la, mais pas tout : une page ouverte avant elle, deux webhooks
+   * dans la meme seconde. Ce second paiement n'achete rien : on le rembourse
+   * aussitot, en entier. La cle d'idempotence rend le remboursement unique
+   * meme si le webhook et le retour du navigateur passent tous les deux ici.
+   */
+  if (r.changes === 0 && ref) {
+    const g = await q1<{ paiement_ref: string | null }>(
+      `select paiement_ref from groupes where id = ?1 and paye_le is not null`, [gid])
+    if (g && g.paiement_ref !== ref) {
+      await rembourserDoublon(ref, gid)
+      return { livre: false, raison: 'deja_payee_rembourse', groupe: gid }
+    }
+  }
   return { livre: true, groupe: gid, offert }
+}
+
+/** Rembourse en entier un paiement qui n'a rien achete (liste deja debloquee). */
+export async function rembourserDoublon(paymentIntent: string, gid: number) {
+  try {
+    await appel('refunds', {
+      payment_intent: paymentIntent,
+      reason: 'duplicate',
+      metadata: { groupe_id: String(gid), motif: 'liste_deja_debloquee' }
+    }, { 'idempotency-key': `doublon-${paymentIntent}` })
+    console.info('[stripe] doublon rembourse', { liste: gid })
+  } catch (err) {
+    // Deja rembourse, ou Stripe indisponible : les logs le disent, et le
+    // Dashboard montre le paiement (metadonnees groupe_id) pour le faire a la main.
+    console.error('[stripe] remboursement du doublon impossible', { liste: gid }, err)
+  }
+}
+
+/** Fait expirer une page de paiement encore ouverte : elle ne pourra plus encaisser. */
+export async function expirerSession(id: string) {
+  if (!/^cs_[A-Za-z0-9_]+$/.test(id)) return
+  try { await appel(`checkout/sessions/${id}/expire`, {}) } catch { /* deja fermee */ }
 }
 
 /**

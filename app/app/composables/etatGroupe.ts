@@ -70,8 +70,21 @@ export interface EtatGroupe {
   /** Ouvre la feuille « Debloquer » — appelee depuis le tri, les reglages
    *  et la fiche, donc elle vit au-dessus d'eux. */
   ouvrirDebloquer: () => void
+  /**
+   * Relit l'etat du paiement (une seule ligne cote serveur). Si l'autre parent
+   * vient de debloquer la liste, recharge tout et le dit. Renvoie le statut.
+   */
+  verifierPaiement: () => Promise<StatutPaiement | null>
   /** allerA('classement', 'revoir') : onglet, et volet si le tiroir en a. */
   allerA: (onglet: string, segment?: string) => void
+}
+
+export interface StatutPaiement {
+  paye: boolean
+  /** Qui a paye (pseudo), une fois payee. */
+  par: string | null
+  /** Une page de paiement ouverte, pas encore payee. */
+  en_cours: { par: string | null; moi: boolean; jusqu: string | null } | null
 }
 
 export const CLE_GROUPE = Symbol('groupe') as InjectionKey<EtatGroupe>
