@@ -39,7 +39,7 @@ const MARQUE = 'babyNamed'
  * apprend vite a ignorer un lastmod qui ment. A monter quand les donnees ou
  * les gabarits changent vraiment.
  */
-const MAJ = '2026-09-28'
+const MAJ = '2026-09-30'
 /** La page qui presente l'application elle-meme, statique : c'est elle que
  *  lisent les robots et les IA, la racine « / » n'etant qu'une coquille JS. */
 const APP = '/choisir-un-prenom-a-deux/'
@@ -125,9 +125,17 @@ const mince = p => !p.m && !p.g.length
  * noindex, follow, hors sitemap.
  * Pour elargir, quand la Search Console montre l'essentiel indexe : baisser
  * les seuils (ou SEO_INDEX_NAISSANCES / SEO_INDEX_PIC) et monter MAJ.
+ *
+ * ABANDONNE le 30/09/2026, seuils a 0 : la Search Console a donne tort a la
+ * phase 1. Sur 24 h, 216 des 401 fiches vues dans Google etaient des fiches
+ * que la phase 1 venait de passer en noindex (Maywen, Elyakim, Jaiden…) :
+ * 54 % des impressions, a la position moyenne 16 contre 23 pour les autres.
+ * Sur un prenom rare, la concurrence est faible et un domaine neuf se classe ;
+ * c'est la ou il peut gagner. Seules les fiches minces restent en noindex.
+ * Les seuils restent la, a 0, si le crawl venait a caler.
  */
-const INDEX_NAISSANCES = Number(process.env.SEO_INDEX_NAISSANCES ?? 100)
-const INDEX_PIC = Number(process.env.SEO_INDEX_PIC ?? 5)
+const INDEX_NAISSANCES = Number(process.env.SEO_INDEX_NAISSANCES ?? 0)
+const INDEX_PIC = Number(process.env.SEO_INDEX_PIC ?? 0)
 const pic = p => (Array.isArray(p.sr) && p.sr.length ? Math.max(...p.sr) : 0)
 const indexable = p => !mince(p) && (p.n >= INDEX_NAISSANCES || pic(p) >= INDEX_PIC)
 /**
