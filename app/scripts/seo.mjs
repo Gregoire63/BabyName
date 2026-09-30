@@ -20,7 +20,7 @@
  *
  * Domaine : NUXT_PUBLIC_SITE_URL, sinon babynamed.fr.
  */
-import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -146,6 +146,19 @@ const indexable = p => !mince(p) && (p.n >= INDEX_NAISSANCES || pic(p) >= INDEX_
  */
 const INDEXNOW_CLE = '0f5cbc8e26a39832c708ce22ae3b9d1d'
 const url = p => `/prenom/${p.slug}/`
+/**
+ * L'ecriture arabe des prenoms d'origine arabe (pipeline/ecriture_arabe.py) :
+ * on cherche « Jad en arabe », « Reem signification islam ». Une graphie sans
+ * entree prend celle d'un prenom d'origine arabe qui se prononce pareil
+ * (Nour -> Noor).
+ */
+const ARABE_FICHIER = resolve(RACINE, 'scripts/donnees/ecriture-arabe.json')
+const ARABE = existsSync(ARABE_FICHIER) ? JSON.parse(readFileSync(ARABE_FICHIER, 'utf8')) : {}
+const arabeDe = (() => {
+  const parGroupe = new Map()
+  for (const p of tous) if (ARABE[p.l] && p.g.includes('arabe') && !parGroupe.has(p.gp)) parGroupe.set(p.gp, ARABE[p.l])
+  return p => p.g.includes('arabe') ? (ARABE[p.l] ?? parGroupe.get(p.gp) ?? null) : null
+})()
 
 // ---------------------------------------------------------------- mise en forme
 const esc = s => String(s ?? '').replace(/[&<>"']/g, ch =>
@@ -347,7 +360,7 @@ h1.long{font-size:clamp(31px,8.4vw,50px);line-height:1.08}
 .hero .sous{margin:12px 0 0;max-width:36em;font-size:17px;line-height:1.55}
 .hero.court{margin-bottom:16px;padding:26px 22px 22px}
 .sens{margin:10px 0 0;font-size:clamp(21px,5.8vw,28px);line-height:1.25;font-weight:800}
-.sens small{display:inline-block;vertical-align:middle;margin-left:6px;padding:3px 10px;border-radius:999px;background:var(--voile);font-size:13px;letter-spacing:0}
+.arabe{margin:8px 0 0;font-size:clamp(24px,7vw,32px);line-height:1.3;font-weight:700}.arabe small{display:inline-block;vertical-align:middle;margin-left:10px;padding:3px 10px;border-radius:999px;background:var(--voile);font-size:13px;font-weight:800}.sens small{display:inline-block;vertical-align:middle;margin-left:6px;padding:3px 10px;border-radius:999px;background:var(--voile);font-size:13px;letter-spacing:0}
 .etiquettes{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0 0;padding:0;list-style:none}
 .etiquettes li{padding:5px 12px;border-radius:999px;background:var(--voile);font-size:14px;font-weight:800}
 .hero .b{margin-top:22px}
@@ -686,9 +699,11 @@ function fiche(entrees) {
   const origines = p.g.map(ORIGINE_F)
   const genre = GENRE[p.sexe]
 
-  const phraseSens = p.m
+  const enArabe = arabeDe(p)
+  const phraseSens = (p.m
     ? `${esc(p.l)} ${p.cf === 2 ? 'signifie' : 'signifierait'} « ${esc(p.m)} »${origines.length ? `, d’origine ${esc(liste(origines))}` : ''}.`
-    : origines.length ? `${esc(p.l)} est un prénom d’origine ${esc(liste(origines))} ; sa signification n’est pas établie de façon fiable.` : `L’origine et la signification de ${esc(p.l)} ne sont pas établies de façon fiable : nous préférons ne rien inventer.`
+    : origines.length ? `${esc(p.l)} est un prénom d’origine ${esc(liste(origines))} ; sa signification n’est pas établie de façon fiable.` : `L’origine et la signification de ${esc(p.l)} ne sont pas établies de façon fiable : nous préférons ne rien inventer.`)
+    + (enArabe ? ` En arabe, il s’écrit <span lang="ar" dir="rtl">${esc(enArabe)}</span>.` : '')
   const doute = p.m && p.cf !== 2
     ? `<p class="doute">${p.cf === 1 ? 'Sens probable : les sources concordent en partie.' : 'Sens incertain : les sources divergent ou sont rares.'}</p>` : ''
 
@@ -698,9 +713,10 @@ function fiche(entrees) {
     : `Dans des écoles de 200 enfants nés ces années-là, on trouverait en moyenne un${p.sexe === 'f' ? 'e' : ''} ${esc(p.l)} toutes les <b>${1 / ecole < 10 ? dec(1 / ecole) : nf(1 / ecole)}</b> écoles${groupe.length ? ', toutes graphies confondues' : ''}.`
 
   const pic = p.p && p.p < AN0 ? `Depuis 1900, son année record reste ${p.p}.` : p.p ? `Ce prénom a atteint son pic en ${p.p}.` : ''
+  const ar = arabeDe(p)
   const titre = p.m
-    ? `${p.l} : signification, origine et popularité du prénom`
-    : `${p.l} : origine et popularité du prénom`
+    ? `${p.l}${ar ? ` (${ar})` : ''} : signification, origine et popularité du prénom`
+    : `${p.l}${ar ? ` (${ar})` : ''} : origine et popularité du prénom`
   const fiable = p.n >= SEUIL_TENDANCE
   const parAn = Math.max(1, Math.round(p.n / 3))
   const description = descriptionFiche({
@@ -711,8 +727,9 @@ function fiche(entrees) {
 
   // L'essentiel d'abord, en haut : le sens, le genre, l'origine. Les phrases
   // longues restent plus bas, pour qui veut le détail.
-  const sensTete = p.m
-    ? `<p class="sens">« ${esc(p.m)} »${p.cf === 2 ? '' : `<small>${p.cf === 1 ? 'sens probable' : 'sens incertain'}</small>`}</p>` : ''
+  const sensTete = (p.m
+    ? `<p class="sens">« ${esc(p.m)} »${p.cf === 2 ? '' : `<small>${p.cf === 1 ? 'sens probable' : 'sens incertain'}</small>`}</p>` : '')
+    + (ar ? `<p class="arabe"><span lang="ar" dir="rtl">${esc(ar)}</span><small>en arabe</small></p>` : '')
   const etiquettes = [`Prénom ${genre}`, ...(origines.length ? [`Origine ${liste(origines)}`] : []),
     ...(p.rv ? ['Prénom rétro qui revient'] : [])]
   // La popularité en trois faits, pas en un paragraphe.
