@@ -27,7 +27,7 @@ const props = withDefaults(defineProps<{
   /** Ce qu'on en avait dit, quand la recherche l'a ramene pour le rejuger. */
   dejaDit?: number | null
 }>(), { interactif: true, famille: null, dejaDit: null })
-const emit = defineEmits<{ fiche: []; favori: []; famille: []; veto: []; graphies: [] }>()
+const emit = defineEmits<{ fiche: []; favori: []; famille: []; veto: []; graphies: []; tempete: [] }>()
 const g = useGroupeCourant()
 
 // Un observateur juge, il ne bloque pas : les boutons qui bloquent ou
@@ -82,14 +82,18 @@ const niveau = computed(() => !essai.value ? ''
         </span>
         <span v-if="dejaDit !== null" class="puce deja" :class="`d${dejaDit}`">{{ DIT[dejaDit] }}</span>
         <!-- Un nom de tempête : l'icône seule, juste après le genre (toujours
-             sur la première ligne). Ce qu'elle a fait est dans la fiche — un
-             toucher sur la carte. -->
-        <span v-if="tempete" class="puce orage" role="img" :aria-label="tempete" :title="tempete">
+             sur la première ligne). La toucher ouvre sa feuille — quelle
+             tempête, quand, quel bilan —, comme « Voir plus » les graphies.
+             Un bouton : le geste qui commence dessus ne fait pas glisser la
+             carte, et le toucher n'ouvre pas la fiche. -->
+        <button v-if="tempete" type="button" class="puce orage" :title="tempete"
+                :aria-label="`${tempete}. En savoir plus`" aria-haspopup="dialog"
+                @click.stop="emit('tempete')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M7.5 17H7a4 4 0 0 1-.9-7.9 5.6 5.6 0 0 1 10.8-1.4A4.2 4.2 0 0 1 17.6 17h-1.1" />
             <path d="m12.6 11.6-2.6 4.6h3.6L11 20.8" />
           </svg>
-        </span>
+        </button>
         <span v-for="o in p.g" :key="o" class="puce origine">{{ o }}</span>
       </span>
       <button type="button" class="etoile" :class="{ on: g.favoris.value.has(p.l) }"
@@ -235,9 +239,15 @@ const niveau = computed(() => !essai.value ? ''
 
 .deja { font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Encre et non menthe : ce n'est ni le genre ni une origine. L'icône a la
-   hauteur d'une ligne de texte (1,5 em) : l'étiquette, celle des autres. */
-.orage { padding: 5px 8px; flex: none;
+   hauteur d'une ligne de texte (1,5 em) : l'étiquette, celle des autres.
+   C'est un bouton : il s'enfonce sous le doigt, comme Favoris, et sa zone de
+   toucher déborde un peu l'étiquette (34 px de haut) sans la grossir. */
+.orage { padding: 5px 8px; flex: none; border: 0; font: inherit; font-size: .74rem; cursor: pointer;
+  position: relative; transition: transform .12s, background .15s;
   background: color-mix(in srgb, var(--encre) 11%, transparent); color: var(--encre); }
+.orage::after { content: ''; position: absolute; inset: -3px -2px; }
+.orage:active { transform: scale(.88); background: color-mix(in srgb, var(--encre) 18%, transparent); }
+@media (hover: hover) { .orage:hover { background: color-mix(in srgb, var(--encre) 16%, transparent); } }
 .orage svg { width: 1.5em; height: 1.5em; display: block; fill: none; stroke: currentColor;
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .deja.d0 { background: color-mix(in srgb, var(--non) 22%, transparent); }

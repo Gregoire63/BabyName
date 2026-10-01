@@ -2,7 +2,7 @@
 import { anneesBarres, bebesParAn, frequenceLisible, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeSiPresent } from '~/composables/etatGroupe'
 import { projeter, ecart, CLASSE } from '~/composables/useProjectionClasse'
-import { memeEcriture, titreTempete } from '~/utils/tempetes'
+import { memeEcriture } from '~/utils/tempetes'
 const props = defineProps<{ p: Prenom }>()
 const emit = defineEmits<{ fermer: [] }>()
 const g = useGroupeSiPresent()
@@ -55,8 +55,8 @@ const fiable = computed(() => tendanceFiable(props.p))
 const barres = anneesBarres()
 
 /**
- * Les tempêtes de ce prénom (utils/tempetes) : c'est ici que l'icône de la
- * carte s'explique, donc tout en haut, sans avoir à défiler. « Se dit
+ * Les tempêtes de ce prénom (utils/tempetes), tout en haut, sans avoir à
+ * défiler : le même détail que la feuille de l'icône de la carte. « Se dit
  * comme » quand l'orthographe diffère (Eléanore, la tempête Eleanor).
  */
 const tempetes = computed(() => props.p.tp ?? [])
@@ -122,11 +122,7 @@ const lecture = computed(() => {
             </svg>
             {{ commeTempete ? 'Se dit comme une tempête' : tempetes.length > 1 ? 'Nom de tempêtes' : 'Nom de tempête' }}
           </h3>
-          <p v-for="t in tempetes" :key="`${t.nom}-${t.an}`">
-            <strong>{{ titreTempete(t) }}</strong>
-            <span class="quand"> · {{ t.quand }}, {{ t.ou }}</span><br>
-            {{ t.bilan }}
-          </p>
+          <DetailTempete v-for="t in tempetes" :key="`${t.nom}-${t.an}`" :t="t" :prenom="p.l" />
         </section>
 
         <section v-if="sommet" class="bloc">
@@ -242,16 +238,16 @@ const lecture = computed(() => {
 .bloc h3 { color: var(--doux); text-transform: uppercase; font-size: .7rem; letter-spacing: .06em; }
 .lecture { margin: 0; padding: 12px 14px; border-radius: 13px; background: var(--fond);
   border: 1px solid var(--trait); font-size: .92rem; }
-/* Encre, comme l'icône de la carte. */
-.tempetes { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px;
+/* Encre, comme l'icône de la carte. Le détail de chaque tempête est celui de
+   la feuille de l'icône (DetailTempete). */
+.tempetes { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px;
   border-radius: 13px; border: 1px solid var(--trait);
   background: color-mix(in srgb, var(--encre) 6%, var(--carte)); }
 .tempetes h3 { display: flex; align-items: center; gap: 6px; color: var(--doux);
   text-transform: uppercase; font-size: .7rem; letter-spacing: .06em; }
 .tempetes h3 svg { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--encre);
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.tempetes p { margin: 0; font-size: .9rem; line-height: 1.4; }
-.tempetes .quand { color: var(--doux); }
+.tempetes > .tempete + .tempete { padding-top: 10px; border-top: 1px solid var(--trait); }
 .classe { display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
   padding: 14px; border-radius: 15px; border: 1px solid var(--trait);
   background: color-mix(in srgb, var(--menthe) 22%, var(--carte)); }

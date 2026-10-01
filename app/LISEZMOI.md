@@ -872,10 +872,18 @@ ramène sur le lien, qui renvoie aussitôt dans la liste.
 
 ## Les prénoms qui ont déjà été des tempêtes
 
-Une icône d'orage sur la carte, dans la rangée du haut à côté du genre ; le
-détail tout en haut de la fiche : quel ouragan, quand, où, quel bilan. Irma,
-Hugo ou Garance ne s'entendent plus tout à fait comme avant là où ils ont
+Une icône d'orage sur la carte, dans la rangée du haut à côté du genre. La
+toucher ouvre sa feuille (`FeuilleTempete.vue`, comme « Voir plus » ouvre
+les graphies) : quel ouragan, quand, où, **il y a combien d'années**, le
+bilan, ce qui a marqué (une forêt, une rosace, un record), si le nom a été
+**rayé des listes**, et un lien vers la source. La fiche du prénom redit la
+même chose tout en haut (`DetailTempete.vue`, un seul gabarit). Irma, Hugo
+ou Garance ne s'entendent plus tout à fait comme avant là où ils ont
 frappé : mieux vaut le savoir en choisissant qu'à la première rentrée.
+
+L'icône est un bouton : un geste qui commence dessus ne fait pas glisser la
+carte, et son toucher n'ouvre pas la fiche. Le ton reste celui d'un
+bulletin : le bilan une fois, pas le détail des victimes.
 
 Seulement celles qui ont **marqué la France** (`app/utils/tempetes.ts`,
 critères et sources en tête du fichier) :
@@ -899,9 +907,10 @@ comme l'ouragan Hugo ; les accents ne comptent pas (Ciarán, Ciaran). C'est
 rattaché au chargement du catalogue (`tp`, `useCatalogue.ts`), donc présent
 sur la carte d'un groupe comme sur la fiche d'une graphie rare.
 
-Ajouter une tempête : une entrée dans `TEMPETES`, sa source en commentaire ;
-pour un même nom, la plus marquante d'abord (c'est elle que l'icône
-annonce). Rien à toucher côté serveur ni dans le catalogue.
+Ajouter une tempête : une entrée dans `TEMPETES` (bilan, ce qui a marqué,
+`retire` si le NHC a rayé le nom, `source`) ; pour un même nom, la plus
+marquante d'abord (c'est elle que l'icône annonce). Rien à toucher côté
+serveur ni dans le catalogue.
 
 ## Retirer un prénom : déjà pris, ou veto
 

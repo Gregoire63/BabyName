@@ -60,6 +60,8 @@ const familleAEcarter = ref<Prenom[] | null>(null)
 const rechercheOuverte = ref(false)
 /** La carte dont on regarde les autres graphies (feuille à onglets). */
 const graphiesDe = ref<Prenom | null>(null)
+/** La carte dont on lit la tempête (l'icône d'orage, voir utils/tempetes). */
+const tempeteDe = ref<Prenom | null>(null)
 const prixListe = (useRuntimeConfig().public.prixListe as string) || '6 €'
 /** Des filtres differents de ceux d'origine ? (La recherche n'en est plus un.) */
 const filtresActifs = computed(() => {
@@ -925,6 +927,7 @@ async function confirmerFamille() {
 
           <ContenuCarte :p="carte" :famille="familleCarte" :deja-dit="dejaDit"
                         @fiche="g.ouvrirFiche(carte.l)" @graphies="graphiesDe = carte"
+                        @tempete="tempeteDe = carte"
                         @favori="basculerFavori" @famille="demanderFamille"
                         @veto="demanderVeto" />
         </article>
@@ -982,6 +985,8 @@ async function confirmerFamille() {
                       @choisir="epinglerChoisi" />
 
     <FeuilleGraphies v-if="graphiesDe" :p="graphiesDe" @fermer="graphiesDe = null" />
+
+    <FeuilleTempete v-if="tempeteDe" :p="tempeteDe" @fermer="tempeteDe = null" />
 
     <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec"
                 @fermer="match = null"
