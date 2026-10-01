@@ -60,9 +60,9 @@ sh essais/relance-worker.sh essais/essai-worker.mjs      # SANS_BUILD=1 : garder
 | `essai-groupes` | une carte par prononciation, un vote qui vaut pour toutes les graphies |
 | `essai-promesse` | la carte du fond est celle qui arrive — la pile ne se remélange pas sous le doigt |
 | `essai-geste` | le swipe part quand le verdict s'affiche, pas dix pixels plus loin |
-| `essai-quota` | un départ puis un filet quotidien, un mur qui dit que demain ça repart ; le quota est en base, suit la personne, et un compte jetable ne rapporte pas un départ entier |
+| `essai-quota` | un départ puis un filet quotidien, un mur qui dit que demain ça repart ; **le dernier swipe se sait d'avance** (rien derrière la carte, aucune autre carte devant avant le mur) ; le quota est en base, suit la personne, et un compte jetable ne rapporte pas un départ entier |
 | `essai-social` | **aucun refus n'est jamais annoncé** ; le match est un moment qu'on ferme soi-même |
-| `essai-paiement` | l'offre dit tout, prix TTC, **case d'accord jamais pré-cochée** et sans laquelle rien ne part, aucun champ de carte, le serveur refuse le payant sans paiement |
+| `essai-paiement` | l'offre dit tout, prix TTC, **case d'accord jamais pré-cochée** et sans laquelle rien ne part — mais **bouton jamais grisé** : sans la case, il la signale, juste au-dessus de lui ; aucun champ de carte, le serveur refuse le payant sans paiement |
 | `essai-caisse` | tout le trajet contre un **faux Stripe local** : accord exigé, session, facture et renonciation, webhook signé, prélèvement, code à 100 %, rotation du secret, retour sans webhook, **re-verrouillage** sur remboursement total ou litige perdu |
 | `essai-cadeau` | **offrir sans compte**, dans une feuille (sur `/offrir` comme depuis l'accueil) contre un faux Stripe : rien sans la case d'accord ; une session de CADEAU (code dans les métadonnées et sur la facture, rétractation tant qu'il n'a pas servi, pas de code promo, aucune liste visée) ; le code au retour, « en cours » tant que ce n'est pas encaissé, le même à chaque rechargement ; le lien traverse la connexion (« Mamie Jo vous offre babyNamed ») et crée une liste débloquée ; tapé dans « Débloquer » ou « Rejoindre » ; **un code ne sert qu'une fois** ; remboursé, il s'annule et re-verrouille la liste ; échu, il n'ouvre plus rien ; WCAG sur les trois écrans |
 | `essai-rgpd` | l'export donne tout ce qui est à soi et **rien des autres** ; l'effacement ne détruit pas les listes partagées ni un déblocage payé ; une session orpheline tombe en 401 ; la purge n'efface que l'inactif, et seulement avec son secret |
@@ -86,6 +86,7 @@ sh essais/relance-worker.sh essais/essai-worker.mjs      # SANS_BUILD=1 : garder
 | `essai-prenom` | le prénom d'une fiche publique (`?prenom=`) traverse la connexion et la création de liste, et arrive **en première carte, même hors des filtres** ; épinglé jusqu'au jugement ; déjà jugé, en accord ou sous veto, on le dit sans le rejouer ; **le code d'invitation traverse l'inscription, même par le lien de l'e-mail** ; le bouton retour ne boucle pas |
 | `essai-portrait` | le portrait parle sur 12 oui et **se tait** sur 5 |
 | `essai-classement` | les désaccords, et le changement d'avis qui fait passer un prénom en commun ; **remettre une famille écartée** d'un geste (le non donné un par un reste) |
+| `essai-communs` | **qui a dit quoi** (« Oui à deux » mis en avant, sinon ♥ Paul / ~ vous), **l'ordre rangé au doigt** par la poignée, partagé par les deux parents, tenu au rechargement, aussi au clavier ; un nouvel accord attend à la fin, « nouveau » ; l'observatrice voit l'ordre sans les noms et ne range pas |
 | `essai-veto` `essai-carte` `essai-nav` `essai-fond` `essai-glisse` `essai-chargement` `essai-sw` | vetos, carte, navigation, transitions, squelettes, service worker |
 
 ## Le jeu d'essai

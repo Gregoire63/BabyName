@@ -1,0 +1,16 @@
+-- ============================================================================
+--  L'ordre des accords, rangé à la main
+--
+--  « Communs » se range au doigt : on glisse un prénom au-dessus d'un autre.
+--  Un seul ordre pour la liste, pas un par personne : c'est la courte liste
+--  du couple, la décider ensemble veut dire la voir dans le même ordre. Le
+--  dernier qui la range a raison, comme sur une feuille posée entre eux.
+--
+--  groupes.ordre_communs : un tableau JSON de prénoms, du premier au dernier
+--  (api/groupes/[id]/ordre-communs.put.ts). Un accord qui n'y est pas suit,
+--  dans l'ordre du score (communsVisibles, server/utils/votes.ts). Rien de
+--  personnel : il part avec la liste.
+--
+--  Pas de « -- » ni de « ; » dans une chaîne (voir decouper, db.ts).
+-- ============================================================================
+alter table groupes add column ordre_communs text;

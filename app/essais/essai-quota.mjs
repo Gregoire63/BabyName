@@ -5,6 +5,8 @@
  * gratuit » : 3 de départ par personne, 4 pour la liste, puis 2 par jour) :
  *  - le départ se juge d'une traite, puis le filet du jour, puis le mur —
  *    qui dit que demain ça repart ;
+ *  - le dernier swipe du jour se sait d'avance : pas de carte derrière, et
+ *    le mur tombe dès qu'elle part, sans montrer la suivante ;
  *  - le quota suit la PERSONNE : une autre liste gratuite ne rend ni départ
  *    ni filet ;
  *  - le serveur refuse, pas seulement l'écran, et vider son cache ne rend
@@ -47,16 +49,41 @@ dit(avant?.paye === false && avant?.phase === 'depart' && avant?.depart?.limite 
     && avant?.limite_jour === 2 && avant?.reste === 5,
     `au départ : 3 de départ + 2 du jour = 5 (${JSON.stringify(avant)})`)
 
-let swipes = 0, phases = []
+let swipes = 0, phases = [], dernier = null
 for (let i = 0; i < 9; i++) {
   const bouton = page.getByRole('button', { name: 'Oui' })
   if (!await bouton.count()) break
-  await bouton.first().click()
+  if ((await etat(gid)).quota?.reste === 1) {
+    // Le dernier geste du jour se sait d'avance : rien derrière la carte, et
+    // pendant le vote, aucune autre carte ne passe devant avant le mur. On
+    // relève image par image ce qui est devant, du geste jusqu'au mur.
+    const nom = (await page.locator('.carte.fiche:not(.derriere) .nom').innerText()).trim()
+    dernier = {
+      nom, derriere: await page.locator('.carte.fiche.derriere').count(),
+      entete: (await page.locator('.titre').innerText()).replace(/\s+/g, ' ')
+    }
+    const releve = page.evaluate(() => new Promise(fini => {
+      const vus = new Set(), t0 = performance.now()
+      const tic = () => {
+        for (const e of document.querySelectorAll('.carte.fiche:not(.derriere) .nom')) vus.add(e.textContent.trim())
+        const mur = !!document.querySelector('.vide h2')
+        if (!mur && performance.now() - t0 < 4000) requestAnimationFrame(tic)
+        else fini({ vus: [...vus], mur, ms: Math.round(performance.now() - t0) })
+      }
+      requestAnimationFrame(tic)
+    }))
+    await bouton.first().click()
+    Object.assign(dernier, await releve)
+  } else await bouton.first().click()
   swipes++
   await page.waitForTimeout(800)
   phases.push((await etat(gid)).quota?.phase)
 }
 dit(swipes === 5, `le mur tombe après ${swipes} swipes (3 de départ, 2 du jour)`)
+dit(dernier?.derriere === 0 && /Dernier swipe pour aujourd’hui/.test(dernier?.entete ?? ''),
+    `au dernier swipe, rien derrière la carte, et l’en-tête le dit (« ${dernier?.entete} »)`)
+dit(dernier?.mur && dernier.vus.length === 1 && dernier.vus[0] === dernier.nom,
+    `pendant le dernier vote, aucune autre carte ne passe devant : ${dernier?.vus.join(', ')}, puis le mur (${dernier?.ms} ms)`)
 dit(phases[1] === 'depart' && phases[2] === 'jour',
     `le départ s’épuise d’abord, le filet prend le relais (${phases.join(' → ')})`)
 const ecran = await texte()

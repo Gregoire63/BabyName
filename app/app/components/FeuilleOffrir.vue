@@ -34,8 +34,25 @@ const erreur = ref('')
 const OutilsDev = import.meta.dev
   ? defineAsyncComponent(() => import('~/outils-dev/OutilsCadeau.vue')) : null
 
+/**
+ * Le bouton n'est jamais grisé (comme dans FeuilleDebloquer) : sans la case,
+ * il l'amène sous les yeux, la signale et lui donne le focus. Elle reste dans
+ * le texte, après le mot : ici on tape, et un pied plus haut mangerait la
+ * place au-dessus du clavier.
+ */
+const accordManque = ref(false)
+const caseAccord = ref<HTMLInputElement>()
+watch(accord, (v) => { if (v) accordManque.value = false })
+
 async function offrir() {
-  if (envoi.value || !accord.value) return
+  if (envoi.value) return
+  if (!accord.value) {
+    accordManque.value = true
+    caseAccord.value?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    caseAccord.value?.focus({ preventScroll: true })
+    try { navigator.vibrate?.(25) } catch { /* pas de vibreur : le contour suffit */ }
+    return
+  }
   envoi.value = true
   erreur.value = ''
   try {
@@ -94,8 +111,10 @@ async function offrir() {
       </label>
     </div>
 
-    <label class="accord">
-      <input v-model="accord" type="checkbox" aria-describedby="accord-offrir">
+    <label class="accord" :class="{ manque: accordManque }">
+      <input ref="caseAccord" v-model="accord" type="checkbox"
+             :aria-invalid="accordManque || undefined"
+             :aria-describedby="accordManque ? 'accord-offrir accord-offrir-requis' : 'accord-offrir'">
       <span>
         J’accepte les
         <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions générales de vente</a>
@@ -112,7 +131,11 @@ async function offrir() {
     <component :is="OutilsDev" v-if="OutilsDev" :de-la-part="deLaPart" :message="message" />
 
     <template #pied>
-      <button type="button" class="btn btn-1" style="width:100%" :disabled="envoi || !accord" @click="offrir">
+      <p v-if="accordManque" id="accord-offrir-requis" class="mini" role="alert"
+         style="color:var(--non);margin:0;text-align:center">
+        Cochez la case d’accord, juste au-dessus, pour payer.
+      </p>
+      <button type="button" class="btn btn-1" style="width:100%" :disabled="envoi" @click="offrir">
         {{ envoi ? 'Ouverture…' : `Offrir (${prix})` }}
       </button>
       <p class="mini doux" style="margin:0;text-align:center">
@@ -138,4 +161,9 @@ async function offrir() {
   border-radius: var(--r-s); border: 1px solid var(--trait); background: var(--fond);
   font-size: .84rem; line-height: 1.45; cursor: pointer; }
 .accord input { width: 20px; height: 20px; flex: none; margin: 1px 0 0; accent-color: var(--encre); }
+.accord { transition: border-color .15s, background .15s; }
+.accord.manque { border-color: var(--non); background: color-mix(in srgb, var(--non) 9%, var(--fond));
+  animation: secoue .32s ease-in-out; }
+@keyframes secoue { 25% { transform: translateX(-5px) } 50% { transform: translateX(5px) } 75% { transform: translateX(-3px) } }
+@media (prefers-reduced-motion: reduce) { .accord.manque { animation: none; } }
 </style>

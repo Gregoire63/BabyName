@@ -279,20 +279,40 @@ await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 25000 
 // on attend qu'il ne reste que la liste.
 await page.waitForFunction(() => document.querySelectorAll('main#contenu').length === 1, null, { timeout: 5000 })
 await page.locator('main#contenu').focus()
-const mur = page.getByRole('button', { name: 'Voir ce que ça ouvre' })
+const mur = page.locator('.vide h2', { hasText: /C’est tout pour aujourd’hui/ })
 for (let i = 0; i < 9 && !(await mur.count()); i++) {
   await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(900)
 }
 dit(await mur.count() > 0, 'le mur du quota s’atteint entièrement au clavier')
+// Le mur ouvre l'offre de lui-même (SectionTrier, proposerOffre) : on la
+// referme pour auditer le mur, puis on la rouvre par son bouton, au clavier.
+if (await page.waitForSelector('[role="dialog"]', { timeout: 2500 }).then(() => true).catch(() => false)) {
+  await page.keyboard.press('Escape'); await page.waitForTimeout(700)
+}
 await auditer('Mur du quota')
-if (await mur.count()) {
-  await mur.first().click()
+const versOffre = page.getByRole('button', { name: /Swipes illimités/ })
+if (await mur.count() && await versOffre.count()) {
+  await versOffre.first().focus()
+  await page.keyboard.press('Enter')
   await page.waitForSelector('[role="dialog"]')
+  await page.waitForTimeout(500)
   await auditer('Achat (débloquer)')
   const payer = page.getByRole('button', { name: /Débloquer cette liste \(/ })
-  dit(await payer.isDisabled(), 'sans la case d’accord, le paiement ne peut pas partir')
-  await page.getByRole('checkbox', { name: /conditions générales de vente/ }).check()
-  dit(!await payer.isDisabled(), 'la case cochée, le bouton s’active')
+  dit(!await payer.isDisabled(), 'le bouton de paiement n’est jamais grisé')
+  await payer.focus()
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(400)
+  const signal = await page.evaluate(() => ({
+    focus: !!document.activeElement?.matches('input[type="checkbox"]'),
+    alerte: document.querySelector('#accord-requis')?.textContent?.trim() ?? ''
+  }))
+  dit(signal.focus && /Cochez cette case/.test(signal.alerte),
+    `sans la case, Entrée sur le bouton mène à la case, qui le dit (« ${signal.alerte} »)`)
+  await auditer('Achat (case signalée)')
+  await page.keyboard.press('Space')
+  dit(await page.getByRole('checkbox', { name: /conditions générales de vente/ }).isChecked()
+      && await page.locator('#accord-requis').count() === 0,
+    'la case se coche au clavier, et le signalement s’efface')
   await page.keyboard.press('Escape')
   await page.waitForTimeout(500)
 }

@@ -321,8 +321,24 @@ watch(() => quotaVif.value?.phase, (phase, avant) => {
     setTimeout(() => { bascule.value = false }, 5000)
   }
 })
-const quotaAtteint = computed(() =>
-  paye.value ? faits.value >= plafond.value : (reste.value !== null && reste.value <= 0))
+/**
+ * LE DERNIER GESTE DU JOUR SE SAIT D'AVANCE.
+ *
+ * Le serveur dit ce qui reste : à 1, la carte de devant est la dernière
+ * qu'on jugera aujourd'hui. On le savait, et on montrait quand même la
+ * suivante — derrière la carte, puis devant le temps que la réponse du vote
+ * arrive : une carte promise, aussitôt reprise par le mur. Désormais rien
+ * derrière la dernière carte, et le mur tombe dès qu'elle s'envole, sans
+ * attendre le serveur (sa réponse le confirme, ou le lève si le vote n'a pas
+ * pu partir). Sur une liste débloquée, le plafond d'hygiène fait de même :
+ * `faits` y monte au moment du geste, le mur tombait déjà à temps.
+ */
+const dernierGeste = computed(() => paye.value
+  ? faits.value + 1 >= plafond.value
+  : reste.value === 1)
+const murAnticipe = ref(false)
+const quotaAtteint = computed(() => murAnticipe.value
+  || (paye.value ? faits.value >= plafond.value : (reste.value !== null && reste.value <= 0)))
 
 /**
  * Bloque par la version gratuite : l'offre s'ouvre d'elle-meme, DEUX fois au
@@ -400,7 +416,9 @@ function demanderVeto() {
 const contexte = computed(() => g.pret.value
   ? (paye.value
       ? `${faits.value}/${plafond.value} jugés · ${pioche.value.length.toLocaleString('fr-FR')} possibles`
-      : `${reste.value ?? '…'} swipes restants · ${pioche.value.length.toLocaleString('fr-FR')} possibles`)
+      : reste.value === 1
+        ? `Dernier swipe pour aujourd’hui · ${pioche.value.length.toLocaleString('fr-FR')} possibles`
+        : `${reste.value ?? '…'} swipes restants · ${pioche.value.length.toLocaleString('fr-FR')} possibles`)
   : '…')
 
 onMounted(() => {
@@ -604,6 +622,9 @@ async function voter(valeur: 0 | 1 | 2) {
   aVoteIci = true
   // Un prenom rejuge depuis la recherche : il etait deja dans mes votes.
   const rejuge = etaitEpingle && epingleDejaJuge
+  // Le dernier geste gratuit du jour : le mur prendra la place de la pile
+  // des que la carte sera partie (voir dernierGeste).
+  const dernier = dernierGeste.value && !paye.value
 
   // On laisse la carte partir AVANT de toucher a la pile : si on retire le
   // prenom tout de suite, le noeud est remplace et il n'y a plus rien a
@@ -611,6 +632,7 @@ async function voter(valeur: 0 | 1 | 2) {
   envoler(valeur)
   await new Promise(r => setTimeout(r, 330))
 
+  if (dernier) murAnticipe.value = true
   echange.value = true
   // Les autres graphies du meme son quittent la pile avec la carte : sans ca
   // elles reviendraient une par une, ce qui est exactement ce qu'on evite.
@@ -643,6 +665,9 @@ async function voter(valeur: 0 | 1 | 2) {
       return null
     })
   if (r?.quota) quotaVif.value = r.quota
+  // Le serveur a parle : c'est son quota qui tient le mur, ou le leve (un
+  // vote qui n'a pas pu partir n'a rien consomme).
+  murAnticipe.value = false
   // Un vote change : la loupe, « Mes choix » et « À revoir » doivent le voir
   // tout de suite, sans recharger toute la liste à chaque geste.
   if (r) rangerVotes(p.l, variantes, valeur, r.votes)
@@ -880,8 +905,10 @@ async function confirmerFamille() {
              par image, il creait un trou de ~90 ms sans aucune carte derriere,
              suivi d'un fondu de 340 ms. On voyait une carte se materialiser la
              ou elle aurait du etre deja posee. -->
+        <!-- Rien derriere la derniere carte du jour : on ne montre pas un
+             prenom qu'on ne pourra pas juger (voir dernierGeste). -->
         <Transition name="fond">
-          <article v-if="suivante" :key="suivante.l" class="carte fiche derriere"
+          <article v-if="suivante && !dernierGeste" :key="suivante.l" class="carte fiche derriere"
                    :class="{ monte: envol, sec: echange }">
             <ContenuCarte :p="suivante" :interactif="false" :famille="familleSuivante" />
           </article>

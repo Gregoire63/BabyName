@@ -118,8 +118,20 @@ dit(p.url().endsWith('/offrir') && (await p.locator('h1').innerText()).trim() ==
     && (await feuilleOffrir.locator('h2').first().innerText()).trim() === 'Offrir babyNamed',
   'la page /offrir s’ouvre sans compte, sans passer par la connexion — le formulaire dans une feuille')
 const bouton = feuilleOffrir.getByRole('button', { name: /^Offrir \(6/ })
-dit(await bouton.isDisabled(), 'le bouton attend la case d’accord, jamais pré-cochée')
+// Jamais grisé : sans la case, le bouton la signale au lieu de payer.
+dit(!await bouton.isDisabled() && await p.locator('.accord input[type="checkbox"]:checked').count() === 0,
+  'le bouton n’est jamais grisé, et la case d’accord n’est jamais pré-cochée')
 await auditer(p, null, 'La page Offrir')
+const avantClic = recus.length
+await bouton.click()
+await p.waitForTimeout(600)
+const signal = await p.evaluate(() => {
+  const c = document.querySelector('.accord input[type="checkbox"]')
+  return { focus: document.activeElement === c, invalide: c?.getAttribute('aria-invalid') === 'true',
+           phrase: document.querySelector('#accord-offrir-requis')?.textContent?.trim() ?? '' }
+})
+dit(recus.length === avantClic && signal.focus && signal.invalide && /Cochez la case/.test(signal.phrase),
+  `sans la case, rien ne part vers Stripe : la case est signalée et reçoit le focus (« ${signal.phrase} »)`)
 const avant = recus.length
 let r = await api(p, '/api/cadeaux/acheter', 'POST', { de_la_part: 'X' })
 dit(r.status === 400 && r.j?.statusMessage === 'consentement_requis' && recus.length === avant,

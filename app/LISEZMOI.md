@@ -469,6 +469,10 @@ au moment où l'envie de continuer était la plus forte.
 
 - Le mur tombe à la deuxième ou troisième soirée, accords à l'écran — et dit
   que demain ça repart : un mur définitif se quitte, il ne s'achète pas.
+- Le dernier swipe du jour se sait d'avance (le serveur dit ce qui reste) :
+  rien derrière la dernière carte, et le mur tombe dès qu'elle s'envole. On
+  montrait la carte suivante le temps que le vote revienne, puis le mur la
+  reprenait.
 - Le départ par **liste** ferme la porte aux comptes jetables : sans e-mail,
   un compte se crée en trois secondes, et chaque compte invité rapportait
   150 prénoms.
@@ -798,6 +802,27 @@ il faut **1,2 écart-type** sur un axe où il est réellement constant. Sinon
 l'écran se tait — et dit une fois pourquoi, sans quoi la fonction a l'air
 cassée. Une explication calculée sur cinq prénoms serait crédible et fausse,
 le seul type d'erreur que personne ne remarque.
+
+### Les accords : qui a dit quoi, et dans quel ordre
+
+« 2 oui · 1 neutre » ne disait pas qui. Un accord porte désormais les voix
+des décideurs (`voix`, dans `communsVisibles`) : un oui de tous se dit
+« Oui à deux », carte mise en avant ; sinon une pastille par voix, ♥ Alice,
+~ vous — les signes des boutons du tri. Sur un accord chacun a déjà jugé :
+le vote aveugle tient. Mais seuls les décideurs lisent les noms ; un
+observateur garde les nombres, la famille n'a pas à savoir lequel des deux
+n'était que « neutre ».
+
+**L'ordre se range au doigt** : la poignée ⠿ de chaque carte, ou au clavier
+la poignée puis haut et bas. **Un seul ordre pour la liste**, pas un par
+personne : c'est la courte liste du couple, la décider ensemble veut dire la
+voir dans le même ordre (le dernier qui range a raison).
+`groupes.ordre_communs` (migration 0010) garde le tableau entier des prénoms
+(`PUT /api/groupes/:id/ordre-communs`, refusé à un observateur). Sans
+rangement, l'ordre est celui du score : les oui de tous d'abord. Un accord
+arrivé après le dernier rangement attend à la fin, marqué « nouveau ». Le
+classement pondéré et les duels avaient été retirés parce que l'ordre fin ne
+servait pas ; ranger soi-même les cinq derniers prénoms, si.
 
 ### Les observateurs
 

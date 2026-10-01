@@ -290,9 +290,20 @@ export function accords(decideurs: { positifs: Votes; poids: number }[], exclus:
  * `nb_commentaires` suit la même règle que commentaires.get.ts : la carte
  * repliée dit « 1 mot », sinon le mot de Mamie dort sous un prénom que
  * personne ne pense à déplier.
+ *
+ * `voix` : qui, parmi les décideurs, a dit oui et qui a dit neutre — « je ne
+ * sais plus qui a voté quoi ». Sur un accord, chaque décideur a déjà donné son
+ * avis : le vote aveugle est tenu. Mais seuls les décideurs le lisent : un
+ * observateur garde les nombres, la famille n'a pas à savoir lequel des deux
+ * parents n'était que « neutre ».
+ *
+ * L'ORDRE est celui de la liste (groupes.ordre_communs, migration 0010),
+ * rangé à la main dans « Communs » — un seul pour tous, c'est la courte liste
+ * du couple. Les accords qu'il ne connaît pas encore (arrivés depuis) suivent,
+ * dans l'ordre du score, et se disent `nouveau`.
  */
 export async function communsVisibles(groupeId: number, moi: string) {
-  const [membres, exclus, mots] = await lot([
+  const [membres, exclus, mots, groupe] = await lot([
     // Mes non, et seulement si j'observe : ils disent si j'ai donné mon avis.
     // Un décideur l'a toujours donné sur un accord — on ne les lit pas.
     [`select m.user_id, m.role, m.poids, u.pseudo, b.positifs,
@@ -305,19 +316,22 @@ export async function communsVisibles(groupeId: number, moi: string) {
     [`select prenom from vetos where groupe_id = ?1
       union select prenom from deja_pris where groupe_id = ?1`, [groupeId]],
     [`select prenom, count(*) as n, sum(user_id = ?2) as miens
-        from commentaires where groupe_id = ?1 group by prenom`, [groupeId, moi]]
+        from commentaires where groupe_id = ?1 group by prenom`, [groupeId, moi]],
+    [`select ordre_communs from groupes where id = ?1`, [groupeId]]
   ])
   const lus = membres!.rows.map((m: any) => ({ ...m, positifs: lireVotes(m.positifs) }))
   const decideurs = lus.filter(m => m.role !== 'observateur')
   const observateurs = lus.filter(m => m.role === 'observateur')
   const mien = lus.find(m => m.user_id === moi)
+  const jeDecide = !!mien && mien.role !== 'observateur'
   const mesPos: Votes = mien?.positifs ?? {}
   const mesNeg = lireVotes(mien?.negatifs)
   const jaiVote = (p: string) => mien?.role !== 'observateur'
     || Object.hasOwn(mesPos, p) || Object.hasOwn(mesNeg, p)
   const commentaires = new Map(mots!.rows.map((r: any) => [r.prenom as string, r]))
+  const ordre = lireOrdre((groupe!.rows[0] as any)?.ordre_communs)
 
-  return accords(decideurs, new Set(exclus!.rows.map((r: any) => r.prenom))).map((a) => {
+  const tous = accords(decideurs, new Set(exclus!.rows.map((r: any) => r.prenom))).map((a) => {
     const vu = jaiVote(a.prenom)
     const coeurs = !vu ? [] : observateurs
       .map(o => ({ o, e: entreeDe(o.positifs, a.prenom) }))
@@ -325,13 +339,31 @@ export async function communsVisibles(groupeId: number, moi: string) {
       .sort((x, y) => x.e![1] - y.e![1])
       .map(x => ({ pseudo: x.o.pseudo as string, moi: x.o.user_id === moi ? 1 : 0 }))
     const k = commentaires.get(a.prenom)
+    // Les oui d'abord, puis les neutres ; dans l'ordre d'arrivée dans la liste.
+    const voix = !jeDecide ? [] : decideurs
+      .map(d => ({ pseudo: d.pseudo as string, moi: d.user_id === moi ? 1 : 0,
+                   valeur: entreeDe(d.positifs, a.prenom)![0] as 1 | 2 }))
+      .sort((x, y) => y.valeur - x.valeur)
     return {
       ...a,
       coeurs,
+      voix,
       j_aime: entreeDe(mesPos, a.prenom)?.[0] === 2,
-      nb_commentaires: k ? Number(vu ? k.n : k.miens) : 0
+      nb_commentaires: k ? Number(vu ? k.n : k.miens) : 0,
+      nouveau: ordre.size > 0 && !ordre.has(a.prenom)
     }
   })
+  // Le tri de `accords` (score) reste celui des nouveaux : sort() est stable.
+  const rang = (p: string) => ordre.get(p) ?? ordre.size
+  return tous.sort((x, y) => rang(x.prenom) - rang(y.prenom))
+}
+
+/** L'ordre rangé à la main : prénom → place. Illisible ou absent : aucun. */
+function lireOrdre(brut: unknown): Map<string, number> {
+  try {
+    const l = typeof brut === 'string' ? JSON.parse(brut) : null
+    return new Map(Array.isArray(l) ? l.filter((x): x is string => typeof x === 'string').map((p, i) => [p, i]) : [])
+  } catch { return new Map() }
 }
 
 /** Le nombre d'accords de chacune de mes listes (l'accueil), en deux

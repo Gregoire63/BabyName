@@ -34,6 +34,20 @@ const erreur = ref('')
 const accord = ref(false)
 const tva = mentionTva()
 
+/**
+ * LE BOUTON DE PAIEMENT N'EST JAMAIS GRISÉ.
+ *
+ * Il l'était tant que la case n'était pas cochée — et la case vivait en bas du
+ * texte, hors de l'écran : on voyait un bouton mort, sans savoir pourquoi. La
+ * case est désormais juste au-dessus du bouton, et le bouton répond toujours :
+ * sans la case, il la montre (contour rouge, phrase, focus) au lieu de payer.
+ * La règle ne change pas — sans accord, rien ne part, et le serveur l'exige
+ * aussi (consentement_requis).
+ */
+const accordManque = ref(false)
+const caseAccord = ref<HTMLInputElement>()
+watch(accord, (v) => { if (v) accordManque.value = false })
+
 const membres = computed(() => g.etat.value?.avancement?.length ?? 1)
 
 const INCLUS = INCLUS_DEBLOCAGE
@@ -121,7 +135,14 @@ onMounted(() => { relireStatut(); sondage = setInterval(relireStatut, 4000) })
 onUnmounted(() => clearInterval(sondage))
 
 async function payer() {
-  if (envoi.value || !accord.value) return
+  if (envoi.value) return
+  if (!accord.value) {
+    accordManque.value = true
+    await nextTick()
+    caseAccord.value?.focus()
+    try { navigator.vibrate?.(25) } catch { /* pas de vibreur : le contour suffit */ }
+    return
+  }
   envoi.value = true; erreur.value = ''
   try {
     const r = await $fetch<any>(`/api/groupes/${g.gid}/paiement`,
@@ -177,23 +198,9 @@ async function payer() {
     <h3 class="titre-bloc">Comment ça se passe</h3>
     <p class="mini doux" style="margin:0">
       Paiement sur la page sécurisée de Stripe : babyNamed ne voit jamais votre carte.
-      La liste se débloque aussitôt, et la facture arrive par e-mail.
+      La liste se débloque aussitôt, et la facture arrive par e-mail. Le reste est dans les
+      <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions de vente</a>.
     </p>
-
-    <label class="accord">
-      <input v-model="accord" type="checkbox" aria-describedby="accord-detail">
-      <span>
-        J’accepte les
-        <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions générales de vente</a>
-        et je demande l’accès immédiat à la liste débloquée.
-        <span id="accord-detail" class="doux">
-          Je renonce ainsi à mon droit de rétractation de 14 jours
-          (art. L221-28 13° du Code de la consommation).
-        </span>
-      </span>
-    </label>
-
-    <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:12px 0 0">{{ erreur }}</p>
 
     <template #pied="{ fermer }">
       <p v-if="payeeParAutre" class="annonce ok" role="status">
@@ -206,18 +213,44 @@ async function payer() {
         En cas d’abandon, vous pourrez payer à partir de {{ heure(autreEnCours.jusqu) }}.
       </p>
 
+      <!-- La case juste au-dessus du bouton, toujours sous les yeux : c'est
+           elle qu'on doit cocher pour payer (voir accordManque). -->
+      <!-- Repliée quand on tape un code cadeau (rien à payer, et le clavier
+           mange la place) ; elle revient si l'on touche quand même le bouton. -->
+      <label v-if="!autreEnCours && !payeeParAutre && (!cadeauOuvert || accord || accordManque)"
+             class="accord" :class="{ manque: accordManque }">
+        <input ref="caseAccord" v-model="accord" type="checkbox"
+               :aria-invalid="accordManque || undefined"
+               :aria-describedby="accordManque ? 'accord-detail accord-requis' : 'accord-detail'">
+        <span>
+          J’accepte les
+          <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions générales de vente</a>
+          et je demande l’accès immédiat à la liste débloquée.
+          <span id="accord-detail" class="doux">
+            Je renonce ainsi à mon droit de rétractation de 14 jours
+            (art. L221-28 13° du Code de la consommation).
+          </span>
+        </span>
+      </label>
+      <p v-if="accordManque" id="accord-requis" class="mini" role="alert" style="color:var(--non);margin:0">
+        Cochez cette case pour payer.
+      </p>
+      <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
+
       <button type="button" class="btn btn-1" style="width:100%"
-              :disabled="envoi || !accord || !!autreEnCours || payeeParAutre"
-              :aria-describedby="accord ? undefined : 'accord-requis'" @click="payer">
+              :disabled="envoi || !!autreEnCours || payeeParAutre" @click="payer">
         {{ envoi ? 'Ouverture…' : `Débloquer cette liste (${prix})` }}
       </button>
-      <p v-if="!accord && !autreEnCours && !payeeParAutre" id="accord-requis" class="mini doux" style="margin:0;text-align:center">
-        Cochez la case d’accord pour continuer.
-      </p>
-      <button v-if="!cadeauOuvert" type="button" class="btn btn-0 mini" style="width:100%"
-              @click="ouvrirCadeau">
-        Vous avez un code cadeau ?
-      </button>
+      <!-- Côte à côte : la case est montée dans le pied, il doit rester de la
+           place au texte sur un petit écran. -->
+      <div v-if="!cadeauOuvert" class="liens">
+        <button type="button" class="btn btn-0 mini" @click="ouvrirCadeau">
+          Vous avez un code cadeau ?
+        </button>
+        <button type="button" class="btn btn-0 mini doux" @click="fermer">
+          Plus tard
+        </button>
+      </div>
       <div v-else class="cadeau">
         <p v-if="merciCadeau" class="mini merci" role="status">{{ merciCadeau }}</p>
         <template v-else>
@@ -233,7 +266,7 @@ async function payer() {
           <p v-if="erreurCadeau" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreurCadeau }}</p>
         </template>
       </div>
-      <button type="button" class="btn btn-0 mini doux" style="width:100%" @click="fermer">
+      <button v-if="cadeauOuvert" type="button" class="btn btn-0 mini doux" style="width:100%" @click="fermer">
         Plus tard
       </button>
       <component :is="OutilsDev" v-if="OutilsDev" :gid="Number(g.gid)"
@@ -251,15 +284,23 @@ async function payer() {
   background: color-mix(in srgb, var(--menthe) 30%, transparent); }
 .item { display: flex; gap: 10px; align-items: flex-start; padding: 11px 0;
   border-top: 1px solid var(--trait); }
-.accord { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0 0;
-  padding: 12px 14px; border-radius: var(--r-s); border: 1px solid var(--trait);
-  background: var(--fond); font-size: .84rem; line-height: 1.45; cursor: pointer; }
-.accord input { width: 20px; height: 20px; flex: none; margin: 1px 0 0; accent-color: var(--encre); }
+/* Dans le pied, à côté du bouton : plus serrée que dans le texte. */
+.accord { display: flex; gap: 10px; align-items: flex-start; margin: 0;
+  padding: 10px 12px; border-radius: var(--r-s); border: 1px solid var(--trait);
+  background: var(--fond); font-size: .78rem; line-height: 1.4; cursor: pointer;
+  transition: border-color .15s, background .15s; }
+.accord input { width: 22px; height: 22px; flex: none; margin: 0; accent-color: var(--encre); }
+.accord.manque { border-color: var(--non); background: color-mix(in srgb, var(--non) 9%, var(--fond));
+  animation: secoue .32s ease-in-out; }
+@keyframes secoue { 25% { transform: translateX(-5px) } 50% { transform: translateX(5px) } 75% { transform: translateX(-3px) } }
+@media (prefers-reduced-motion: reduce) { .accord.manque { animation: none; } }
 .item strong { font-size: .94rem; }
 .titre-bloc { margin: 18px 0 6px; font-size: .72rem; text-transform: uppercase;
   letter-spacing: .05em; color: var(--doux); font-weight: 700; }
 .gratuit { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
 .cadeau { display: flex; flex-direction: column; gap: 6px; }
+.liens { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 6px; margin-top: -4px; }
+.liens .btn { padding-left: 14px; padding-right: 14px; }
 .merci { margin: 0; padding: 10px 12px; border-radius: var(--r-s); text-align: center;
   background: color-mix(in srgb, var(--menthe) 45%, var(--carte)); }
 </style>

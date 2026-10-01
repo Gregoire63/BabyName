@@ -49,10 +49,16 @@ for (let i = 0; i < 8; i++) {
   try { await b.first().click({ timeout: 4000 }) } catch { break }
   await page.waitForTimeout(700)
 }
-const versOffre = page.getByRole('button', { name: /Voir ce que ça ouvre|Débloquer/ })
-dit(await versOffre.count() > 0, 'le mur du quota mène à l’offre')
-await versOffre.first().click()
-await page.waitForTimeout(700)
+// Le mur ouvre l'offre de lui-même (deux fois par jour au plus, voir
+// SectionTrier) ; son bouton « Swipes illimités » y mène aussi.
+const ouverteSeule = await page.waitForSelector('.feuille-corps', { timeout: 5000 }).then(() => true).catch(() => false)
+if (!ouverteSeule) {
+  await page.getByRole('button', { name: /Swipes illimités/ }).click()
+  await page.waitForSelector('.feuille-corps', { timeout: 5000 }).catch(() => {})
+}
+dit(await page.locator('.feuille-corps').count() > 0,
+    `le mur du quota mène à l’offre (${ouverteSeule ? 'ouverte d’elle-même' : 'par son bouton'})`)
+await page.waitForTimeout(500)
 
 const feuille = await plat('.feuille-corps')
 dit(/6\s?€|€/.test(feuille), `le prix est affiché : « ${feuille.slice(0, 40)} »`)
@@ -61,8 +67,8 @@ dit(/chaque liste se débloque à part/i.test(feuille) && /autres listes restent
     && /Pas toute l’application/i.test(feuille),
     'il est dit que c’est CETTE liste qui se débloque, pas toute l’app')
 dit(/nom de famille/i.test(feuille) && /classe/i.test(feuille)
-    && /lecture seule/i.test(feuille) && /sans limite/i.test(feuille),
-    'les cinq fonctions payantes sont nommées')
+    && /lecture seule/i.test(feuille) && /illimités|sans limite/i.test(feuille),
+    'les fonctions payantes sont nommées (swipes illimités, nom de famille, classe, lecture seule)')
 dit(/reste gratuit/i.test(feuille), 'l’écran dit aussi ce qui reste gratuit')
 dit(!/carte bancaire|numéro de carte|cvv|expiration/i.test(feuille),
     'aucun champ de carte bancaire dans l’application')
@@ -73,13 +79,27 @@ dit(await page.locator('.feuille-corps input[type="tel"], .feuille-corps input[n
 const payer = page.getByRole('button', { name: /Débloquer cette liste \(/ })
 dit(await page.locator('.feuille-corps input[type="checkbox"]:checked').count() === 0,
     'la case d’accord n’est jamais pré-cochée')
-dit(await payer.isDisabled(), 'sans elle, le bouton de paiement reste inactif')
+// Jamais grisé : sans la case, le bouton la montre au lieu de payer.
+dit(!await payer.isDisabled(), 'le bouton de paiement n’est jamais grisé')
+const avantClic = net.length
+await payer.click()
+await page.waitForTimeout(500)
+const caseVue = await page.evaluate(() => {
+  const c = document.querySelector('.feuille-corps input[type="checkbox"]')
+  return { focus: document.activeElement === c, invalide: c?.getAttribute('aria-invalid') === 'true',
+           phrase: document.querySelector('#accord-requis')?.textContent?.trim() ?? '',
+           pres: !!c?.closest('.feuille-pied') }
+})
+dit(!net.slice(avantClic).some(u => /\/paiement(\?|$)/.test(u)) && caseVue.invalide && caseVue.focus
+    && /Cochez cette case/.test(caseVue.phrase),
+    `sans la case, rien ne part : la case est signalée et reçoit le focus (« ${caseVue.phrase} »)`)
+dit(caseVue.pres, 'la case est juste au-dessus du bouton, dans le pied de la feuille')
 dit(/accès immédiat/.test(feuille) && /rétractation/.test(feuille) && /L221-28/.test(feuille),
     'elle dit ce qu’on accepte : l’exécution immédiate, donc la fin du droit de rétractation')
 dit(/conditions générales de vente/.test(feuille), 'avec un lien vers les conditions de vente')
 dit(/TTC/.test(feuille) && /TVA/.test(feuille), 'le prix est annoncé TTC, avec sa mention de TVA')
 await page.getByRole('checkbox', { name: /conditions générales de vente/ }).check()
-dit(!await payer.isDisabled(), 'case cochée : le paiement peut partir')
+dit(await page.locator('#accord-requis').count() === 0, 'case cochée : le signalement s’efface, le paiement peut partir')
 
 // --- le paiement n'est pas configuré ici : on doit le DIRE, pas planter ---
 await payer.click()
