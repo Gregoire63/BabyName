@@ -2,6 +2,7 @@
 import { anneesBarres, bebesParAn, frequenceLisible, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { tester } from '~/composables/useNomComplet'
+import { resumeTempetes } from '~/utils/tempetes'
 
 /**
  * Le contenu d'une carte de tri.
@@ -48,6 +49,9 @@ const barres = anneesBarres()
 
 const DIT = ['Vous aviez dit non', 'Vous aviez dit neutre', 'Vous aviez dit oui'] as const
 
+/** Irma, Hugo, Klaus… : une icône, le détail dans la fiche (utils/tempetes). */
+const tempete = computed(() => props.p.tp?.length ? resumeTempetes(props.p.l, props.p.tp) : '')
+
 /**
  * « Ça donne quoi avec notre nom ? », sur chaque carte.
  *
@@ -77,6 +81,15 @@ const niveau = computed(() => !essai.value ? ''
           {{ p.sexe === 'fm' ? 'mixte' : p.sexe === 'f' ? 'fille' : 'garçon' }}
         </span>
         <span v-if="dejaDit !== null" class="puce deja" :class="`d${dejaDit}`">{{ DIT[dejaDit] }}</span>
+        <!-- Un nom de tempête : l'icône seule, juste après le genre (toujours
+             sur la première ligne). Ce qu'elle a fait est dans la fiche — un
+             toucher sur la carte. -->
+        <span v-if="tempete" class="puce orage" role="img" :aria-label="tempete" :title="tempete">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7.5 17H7a4 4 0 0 1-.9-7.9 5.6 5.6 0 0 1 10.8-1.4A4.2 4.2 0 0 1 17.6 17h-1.1" />
+            <path d="m12.6 11.6-2.6 4.6h3.6L11 20.8" />
+          </svg>
+        </span>
         <span v-for="o in p.g" :key="o" class="puce origine">{{ o }}</span>
       </span>
       <button type="button" class="etoile" :class="{ on: g.favoris.value.has(p.l) }"
@@ -221,6 +234,12 @@ const niveau = computed(() => !essai.value ? ''
 .resume dd.baisse { color: var(--oui); }
 
 .deja { font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Encre et non menthe : ce n'est ni le genre ni une origine. L'icône a la
+   hauteur d'une ligne de texte (1,5 em) : l'étiquette, celle des autres. */
+.orage { padding: 5px 8px; flex: none;
+  background: color-mix(in srgb, var(--encre) 11%, transparent); color: var(--encre); }
+.orage svg { width: 1.5em; height: 1.5em; display: block; fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .deja.d0 { background: color-mix(in srgb, var(--non) 22%, transparent); }
 .deja.d2 { background: color-mix(in srgb, var(--oui) 22%, transparent); }
 

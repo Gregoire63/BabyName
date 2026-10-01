@@ -74,7 +74,7 @@ jeu d'une famille.
 
 ## Les essais
 
-`essais/` contient trente essais de bout en bout — vrai navigateur, vrai
+`essais/` contient une quarantaine d'essais de bout en bout — vrai navigateur, vrai
 serveur, vraie base — soit près de 600 assertions. Ils ne testent pas des
 fonctions, ils testent des promesses : « le refus ne se dit jamais », « un
 observateur ne casse pas un accord », « aucun champ de carte bancaire dans
@@ -869,6 +869,39 @@ nouvelle carte. `ref=seo` n'est lu par rien : l'app ne mesure pas d'audience.
 
 Les redirections **remplacent** l'entrée d'historique : sinon le bouton retour
 ramène sur le lien, qui renvoie aussitôt dans la liste.
+
+## Les prénoms qui ont déjà été des tempêtes
+
+Une icône d'orage sur la carte, dans la rangée du haut à côté du genre ; le
+détail tout en haut de la fiche : quel ouragan, quand, où, quel bilan. Irma,
+Hugo ou Garance ne s'entendent plus tout à fait comme avant là où ils ont
+frappé : mieux vaut le savoir en choisissant qu'à la première rentrée.
+
+Seulement celles qui ont **marqué la France** (`app/utils/tempetes.ts`,
+critères et sources en tête du fichier) :
+
+- en métropole, au moins 3 morts, ou 250 000 foyers privés d'électricité, ou
+  des dizaines de communes en catastrophe naturelle ;
+- outre-mer, depuis 1980, au moins 3 morts, ou des dégâts à l'échelle d'une
+  île (sans-abri par milliers, maisons par centaines, récoltes, eau) ;
+- ailleurs, les quatre que tout le monde a vus aux informations : Katrina,
+  Sandy, Milton, Melissa.
+
+Soit 37 tempêtes et 36 prénoms : 29 cartes de la pile par défaut, 92
+graphies en tout. Écartées exprès : celles à un ou deux morts (Louis,
+Amélie, Mathis, Amy… : personne ne s'en souvient), les rôles indirects
+(Leslie), les noms qui ne sont pas le prénom (Clotilda n'est pas Clotilde,
+Tomas aurait marqué tous les Thomas), tout ce qui précède 1980.
+
+**À l'oreille**, comme les votes : une tempête marque tout son groupe de
+prononciation (`gp`). Eléanore « se dit comme la tempête Eleanor », Ugo
+comme l'ouragan Hugo ; les accents ne comptent pas (Ciarán, Ciaran). C'est
+rattaché au chargement du catalogue (`tp`, `useCatalogue.ts`), donc présent
+sur la carte d'un groupe comme sur la fiche d'une graphie rare.
+
+Ajouter une tempête : une entrée dans `TEMPETES`, sa source en commentaire ;
+pour un même nom, la plus marquante d'abord (c'est elle que l'icône
+annonce). Rien à toucher côté serveur ni dans le catalogue.
 
 ## Retirer un prénom : déjà pris, ou veto
 

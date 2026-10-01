@@ -2,6 +2,7 @@
 import { anneesBarres, bebesParAn, frequenceLisible, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeSiPresent } from '~/composables/etatGroupe'
 import { projeter, ecart, CLASSE } from '~/composables/useProjectionClasse'
+import { memeEcriture, titreTempete } from '~/utils/tempetes'
 const props = defineProps<{ p: Prenom }>()
 const emit = defineEmits<{ fermer: [] }>()
 const g = useGroupeSiPresent()
@@ -53,6 +54,16 @@ const sexeTexte = computed(() =>
 const fiable = computed(() => tendanceFiable(props.p))
 const barres = anneesBarres()
 
+/**
+ * Les tempêtes de ce prénom (utils/tempetes) : c'est ici que l'icône de la
+ * carte s'explique, donc tout en haut, sans avoir à défiler. « Se dit
+ * comme » quand l'orthographe diffère (Eléanore, la tempête Eleanor).
+ */
+const tempetes = computed(() => props.p.tp ?? [])
+const commeTempete = computed(() => tempetes.value.length > 0
+  && !tempetes.value.some(t => memeEcriture(props.p.l, t)))
+const idTempetes = useId()
+
 /** Une phrase, pas un tableau : ce que le chiffre veut dire concretement. */
 const lecture = computed(() => {
   const p = props.p
@@ -102,6 +113,21 @@ const lecture = computed(() => {
         <div v-if="p.g.length" class="ligne" style="flex-wrap:wrap;gap:6px">
           <span v-for="o in p.g" :key="o" class="puce">{{ o }}</span>
         </div>
+
+        <section v-if="tempetes.length" class="tempetes" :aria-labelledby="idTempetes">
+          <h3 :id="idTempetes">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7.5 17H7a4 4 0 0 1-.9-7.9 5.6 5.6 0 0 1 10.8-1.4A4.2 4.2 0 0 1 17.6 17h-1.1" />
+              <path d="m12.6 11.6-2.6 4.6h3.6L11 20.8" />
+            </svg>
+            {{ commeTempete ? 'Se dit comme une tempête' : tempetes.length > 1 ? 'Nom de tempêtes' : 'Nom de tempête' }}
+          </h3>
+          <p v-for="t in tempetes" :key="`${t.nom}-${t.an}`">
+            <strong>{{ titreTempete(t) }}</strong>
+            <span class="quand"> · {{ t.quand }}, {{ t.ou }}</span><br>
+            {{ t.bilan }}
+          </p>
+        </section>
 
         <section v-if="sommet" class="bloc">
           <h3>Depuis {{ AN0 }}</h3>
@@ -216,6 +242,16 @@ const lecture = computed(() => {
 .bloc h3 { color: var(--doux); text-transform: uppercase; font-size: .7rem; letter-spacing: .06em; }
 .lecture { margin: 0; padding: 12px 14px; border-radius: 13px; background: var(--fond);
   border: 1px solid var(--trait); font-size: .92rem; }
+/* Encre, comme l'icône de la carte. */
+.tempetes { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px;
+  border-radius: 13px; border: 1px solid var(--trait);
+  background: color-mix(in srgb, var(--encre) 6%, var(--carte)); }
+.tempetes h3 { display: flex; align-items: center; gap: 6px; color: var(--doux);
+  text-transform: uppercase; font-size: .7rem; letter-spacing: .06em; }
+.tempetes h3 svg { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--encre);
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tempetes p { margin: 0; font-size: .9rem; line-height: 1.4; }
+.tempetes .quand { color: var(--doux); }
 .classe { display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
   padding: 14px; border-radius: 15px; border: 1px solid var(--trait);
   background: color-mix(in srgb, var(--menthe) 22%, var(--carte)); }

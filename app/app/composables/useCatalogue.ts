@@ -1,3 +1,5 @@
+import { tempetesDuGroupe, type Tempete } from '~/utils/tempetes'
+
 /**
  * Catalogue embarqué : 19 608 prénoms — tout ce que l'INSEE publie sur
  * 2023-2025 — 435 Ko gzip, chargé une fois puis gardé en mémoire. Tout le
@@ -46,6 +48,12 @@ export interface Prenom {
    * l'INSEE les publie. Elïa : 5, 5, 0, 15, 5, 15, 20, 15, 15.
    */
   nb: number[] | null
+  /**
+   * Les tempêtes qui ont porté ce prénom — ou un prénom qui se dit pareil
+   * (Eléanore et la tempête Eleanor). Rempli au chargement sur tout le
+   * groupe de prononciation ; absent pour presque tous. Voir utils/tempetes.
+   */
+  tp?: Tempete[]
 }
 
 export interface Filtres {
@@ -194,9 +202,12 @@ export async function chargerCatalogue() {
       // Une graphie confidentielle qui explose ne doit pas tirer tout le
       // groupe : la tendance se pondere par le poids reel de chaque graphie.
       const tgp = f > 0 ? Math.round((ft / f) * 10) / 10 : membres[0]!.t
+      // Une tempête s'entend sur tout le groupe : Ugo se dit comme Hugo.
+      const tp = tempetesDuGroupe(membres.map(m => m.l))
       for (const m of membres) {
         m.fgp = fgp; m.ngp = membres.length; m.tgp = tgp
         if (membres.length > 1) m.variantes = membres.filter(x => x !== m).map(x => x.l)
+        if (tp) m.tp = tp
       }
     }
     if (typeof d.seuil_tendance === 'number') seuilTendance = d.seuil_tendance
