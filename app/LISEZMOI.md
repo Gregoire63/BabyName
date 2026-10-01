@@ -1119,7 +1119,17 @@ qui marche et à qui écrire.
   accord, confirmation « écarter la famille ».
 - Lecteurs d'écran : titre par écran annoncé (`NuxtRouteAnnouncer`), prénom
   suivant annoncé dans le tri, courbes décrites, états des filtres dits.
-- Mouvement réduit : tout s'arrête. L'app n'est plus bloquée en portrait.
+- Mouvement réduit : tout s'arrête, le fond qui respire compris (il reprend
+  alors le lavis immobile). L'app n'est plus bloquée en portrait.
+
+**Le fond qui respire** (`Ambiance.vue`) : le lavis menthe et pêche du haut
+dérive doucement, et deux reflets, un menthe et un pêche, se croisent dans
+le bas de l'écran. Un fond par page (il glisse avec elle pendant les
+transitions, la page qui bouge est isolée), animé seulement en `translate`,
+`scale`, `rotate` et `opacity` : le compositeur le déplace, **rien ne se
+repeint** (`essai-ambiance` le mesure : zéro Paint en trois secondes). Il se
+fige sous une feuille ou une fiche, dont le voile floute ce qui est
+derrière.
 
 `essai-accessibilite.mjs` passe axe-core (WCAG 2.0/2.1 A et AA) sur chaque
 écran et chaque dialogue, en clair et en sombre, et vérifie au clavier ce

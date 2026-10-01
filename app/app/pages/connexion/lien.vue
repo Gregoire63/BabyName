@@ -60,6 +60,10 @@ onMounted(async () => {
 </script>
 
 <template>
+  <div class="page-lien">
+  <!-- Le fond vit à côté du contenu, pas dedans : « .lien > :first-child » et
+       « :last-child » centrent le premier et le dernier bloc. -->
+  <Ambiance />
   <main id="contenu" class="lien" tabindex="-1">
     <div class="haut">
       <img src="/logo.png" alt="" width="58" height="58">
@@ -106,9 +110,11 @@ onMounted(async () => {
 
     <PiedLegal compact />
   </main>
+  </div>
 </template>
 
 <style scoped>
+.page-lien { height: 100%; }
 .lien { height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
   /* toute la largeur défile (la barre au bord de la fenêtre, pas au milieu
      de l'écran) ; la colonne, elle, garde 460 px */

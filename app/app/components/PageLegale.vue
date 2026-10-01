@@ -23,6 +23,7 @@ const depuis = computed(() => dateDeVersion(props.version))
 
 <template>
   <div class="page-legale">
+    <Ambiance />
     <header class="barre">
       <button type="button" class="retour" @click="retour">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" /></svg>

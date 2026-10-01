@@ -68,6 +68,7 @@ async function copier(quoi: 'lien' | 'code') {
 
 <template>
   <main id="contenu" class="accueil" tabindex="-1">
+    <Ambiance />
     <div class="haut">
       <NuxtLink to="/" aria-label="babyNamed, accueil">
         <img src="/logo.png" alt="" width="66" height="66">

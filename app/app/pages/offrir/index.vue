@@ -18,6 +18,7 @@ onMounted(() => { ouvert.value = true })
 
 <template>
   <main id="contenu" class="offrir" tabindex="-1">
+    <Ambiance />
     <!-- en tête : la feuille est fixe, et le pied reste le dernier élément -->
     <FeuilleOffrir v-if="ouvert" :annule="annule" @fermer="ouvert = false" />
     <div class="haut">

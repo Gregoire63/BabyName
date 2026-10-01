@@ -263,6 +263,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
 <template>
   <div class="ecran page">
+    <Ambiance />
     <main id="contenu" class="defile page" tabindex="-1">
       <header class="tete">
         <img src="/logo.png" alt="" width="34" height="34">

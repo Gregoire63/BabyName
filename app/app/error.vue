@@ -23,6 +23,7 @@ const versApp = () => clearError({ redirect: '/' })
 
 <template>
   <main id="contenu" class="erreur" tabindex="-1">
+    <Ambiance />
     <div class="haut">
       <img src="/logo.png" alt="" width="66" height="66">
       <p class="code" aria-hidden="true">{{ introuvable ? '404' : 'Oups' }}</p>

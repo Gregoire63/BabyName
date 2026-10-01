@@ -167,6 +167,7 @@ onBeforeUnmount(() => abandonnerPasskey())
 
 <template>
   <main id="contenu" class="accueil" tabindex="-1">
+    <Ambiance />
     <p v-if="compteSupprime" class="carte mini supprime" role="status">
       Votre compte et vos données ont été supprimés.
     </p>

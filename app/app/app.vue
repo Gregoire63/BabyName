@@ -260,7 +260,12 @@ button { font: inherit; color: inherit; }
   /* Opaques pendant le glissement : le fond etait sur <body> seulement, et
      la page qui arrivait laissait voir celle qui partait au travers — les
      pages legales comme la liste. Le meme fond que body, donc rien ne change
-     une fois arrive. */
+     une fois arrive.
+     Isolees : chaque page porte son fond anime (Ambiance.vue, derriere son
+     contenu). Isolee, la page le peint par-dessus ce fond opaque et
+     l'emporte dans son glissement ; sinon il passait sous le fond de la page,
+     et reapparaissait d'un coup, deplace, a l'arrivee. */
+  isolation: isolate;
   background: var(--lavis), var(--fond);
   transition: transform .34s cubic-bezier(.32,.72,0,1), opacity .34s ease;
 }

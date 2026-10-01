@@ -421,6 +421,7 @@ async function attendrePaiement() {
 
 <template>
   <div class="cadre">
+    <Ambiance />
     <!-- Les trois volets sont dans le DOM en meme temps (on glisse de l'un a
          l'autre) : ceux qu'on ne regarde pas sont inertes, sinon un lecteur
          d'ecran les lit a la suite et la tabulation s'y perd. -->
