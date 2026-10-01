@@ -155,7 +155,11 @@ await page.waitForSelector('.carte.fiche:not(.derriere) .essai-nom', { timeout: 
 const essaiCarte = (await page.locator('.carte.fiche:not(.derriere) .essai-nom').first().innerText().catch(() => ''))
   .replace(/\s+/g, ' ')
 const prenomCarte = (await page.locator('.carte.fiche:not(.derriere) .nom').first().innerText()).trim()
-dit(essaiCarte.includes(`${prenomCarte} Arnaud`) && /[A-Z]\.A\./.test(essaiCarte),
+// Le verdict suit le nom ; plus d'initiales seules (la remarque les donne
+// quand elles forment un sigle, et aucun sigle ne finit par le A d'Arnaud).
+const verdictCarte = essaiCarte.replace(`${prenomCarte} Arnaud`, '').trim()
+dit(essaiCarte.startsWith(`${prenomCarte} Arnaud`) && verdictCarte.length > 3
+    && !/\b[A-Z]\.A\./.test(essaiCarte),
     `la carte montre le prénom avec le nom, et ce qui s’entend : « ${essaiCarte} »`)
 
 // --- la projection complète ----------------------------------------------

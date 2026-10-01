@@ -67,12 +67,17 @@ const niveau = computed(() => !essai.value ? ''
 
 <template>
   <div class="contenu" :inert="!props.interactif ? true : undefined">
-    <div class="ligne" style="justify-content:space-between">
-      <span class="ligne" style="gap:6px;min-width:0">
+    <!-- L'origine monte ici, à côté du genre : sur sa propre ligne, au milieu,
+         elle coûtait près de 40 px à la courbe, et cette ligne-ci avait la
+         place. Trop d'étiquettes pour une ligne (trois origines, un « vous
+         aviez dit ») : elles passent à la ligne, jamais sous le bouton. -->
+    <div class="tete">
+      <span class="etiquettes">
         <span class="puce">
           {{ p.sexe === 'fm' ? 'mixte' : p.sexe === 'f' ? 'fille' : 'garçon' }}
         </span>
         <span v-if="dejaDit !== null" class="puce deja" :class="`d${dejaDit}`">{{ DIT[dejaDit] }}</span>
+        <span v-for="o in p.g" :key="o" class="puce origine">{{ o }}</span>
       </span>
       <button type="button" class="etoile" :class="{ on: g.favoris.value.has(p.l) }"
               :aria-pressed="g.favoris.value.has(p.l)" @click.stop="emit('favori')">
@@ -103,14 +108,13 @@ const niveau = computed(() => !essai.value ? ''
       <p v-else-if="p.me" class="sens doux">« {{ p.me }} »</p>
     </div>
 
-    <div v-if="essai" class="essai-nom" :class="niveau">
-      <p class="complet"><strong>{{ p.l }} {{ nomFamille }}</strong><span>{{ essai.initiales }}</span></p>
-      <p class="remarques">{{ essai.remarques.map(r => r.court).join(' · ') }}</p>
-    </div>
-
-    <div v-if="p.g.length" class="ligne" style="flex-wrap:wrap;gap:6px">
-      <span v-for="o in p.g" :key="o" class="puce">{{ o }}</span>
-    </div>
+    <!-- Une ligne : le nom complet et le verdict, qui passe dessous s'il ne
+         tient pas. Les initiales n'y sont plus : elles ne disent quelque chose
+         que quand elles forment un sigle, et la remarque le dit alors. -->
+    <p v-if="essai" class="essai-nom" :class="niveau">
+      <strong>{{ p.l }} {{ nomFamille }}</strong>
+      <span class="remarques">{{ essai.remarques.map(r => r.court).join(' · ') }}</span>
+    </p>
 
     <!-- Deux chiffres, chacun avec ce qu'il mesure : « 1 sur 194 » seul ne
          disait pas de quoi. Pas les syllabes : chacun les compte en lisant
@@ -187,6 +191,13 @@ const niveau = computed(() => !essai.value ? ''
 .contenu { display: flex; flex-direction: column; gap: 11px; flex: 1; min-height: 0; }
 .milieu { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 11px; }
 
+/* Les étiquettes à gauche, le bouton à droite ; sur une ligne, l'étiquette est
+   centrée sur le bouton (min-height), sur deux, il reste en face de la première. */
+.tete { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.etiquettes { display: flex; flex-wrap: wrap; align-items: center; align-content: center;
+  gap: 6px; min-width: 0; min-height: 34px; }
+.tete .etoile { flex: none; }
+
 .identite { display: flex; flex-direction: column; gap: 6px; }
 .nom { font-size: clamp(2.4rem, 10.5vw, 3.1rem); letter-spacing: -.035em; margin: 2px 0 0;
   line-height: 1.02; overflow-wrap: anywhere; }
@@ -214,14 +225,13 @@ const niveau = computed(() => !essai.value ? ''
 .deja.d2 { background: color-mix(in srgb, var(--oui) 22%, transparent); }
 
 /* Le nom complet et ce qui s'entend : vert si ca coule, peche si ca merite
-   attention, rouge si ca accroche. */
-.essai-nom { border-radius: 13px; padding: 8px 11px; display: flex; flex-direction: column; gap: 1px;
+   attention, rouge si ca accroche. Une ligne quand ca tient (32 px, contre 58
+   sur deux lignes) ; le verdict passe dessous plutot que d'etre coupe. */
+.essai-nom { margin: 0; border-radius: 12px; padding: 6px 11px; display: flex; flex-wrap: wrap;
+  align-items: baseline; column-gap: 8px; row-gap: 1px; line-height: 1.3;
   border: 1px solid var(--trait); background: var(--fond); }
-.essai-nom p { margin: 0; }
-.essai-nom .complet { display: flex; justify-content: space-between; gap: 8px; font-size: .92rem; }
-.essai-nom .complet strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.essai-nom .complet span { font-size: .74rem; color: var(--doux); font-weight: 700; flex: none; }
-.essai-nom .remarques { font-size: .78rem; line-height: 1.35; }
+.essai-nom strong { font-size: .88rem; min-width: 0; overflow-wrap: anywhere; }
+.essai-nom .remarques { font-size: .78rem; }
 .essai-nom.bien { border-color: color-mix(in srgb, var(--oui) 40%, var(--trait)); }
 .essai-nom.bien .remarques { color: var(--oui); }
 .essai-nom.attention { background: color-mix(in srgb, var(--peche) 30%, var(--fond)); }
@@ -233,12 +243,22 @@ const niveau = computed(() => !essai.value ? ''
   background: color-mix(in srgb, var(--peche) 45%, transparent); }
 
 /* La courbe prend toute la place qui reste ; faute de place, c'est elle qui
-   cede (jusqu'a disparaitre), pas le reste de la carte. */
-.graphe { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
+   cede, pas le reste de la carte. Elle cede d'abord ses legendes : sous
+   120 px l'axe (la tete dit deja « depuis 1986 »), sous 80 px la tete. Avant,
+   la carte d'Amael avec un nom de famille gardait la tete, rognait l'axe et
+   ne laissait que 28 px de courbe.
+   `container-type: size` : sa hauteur vient de la place restante, jamais de
+   son contenu, et ses enfants la lisent (@container). */
+.graphe { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px;
+  container-type: size; }
 .graphe-tete, .graphe-axe { margin: 0; display: flex; justify-content: space-between;
   font-size: .68rem; color: var(--doux); font-weight: 600; }
 .graphe-corps { flex: 1; min-height: 30px; position: relative; }
 .graphe-corps :deep(svg) { position: absolute; inset: 0; }
+/* Apres les regles qu'elles corrigent : un @container n'ajoute aucune
+   specificite, place avant il perdait contre « display: flex ». */
+@container (max-height: 119px) { .graphe-axe { display: none; } }
+@container (max-height: 79px) { .graphe-tete { display: none; } }
 
 .bas { flex: none; display: flex; justify-content: space-around; align-items: stretch; gap: 6px;
   padding-top: 2px; border-top: 1px solid var(--trait); }
@@ -252,12 +272,11 @@ const niveau = computed(() => !essai.value ? ''
 .rouge { color: var(--non); }
 .outil.vide { visibility: hidden; }
 
-/* Ecran court : on resserre, et la courbe perd sa legende avant de perdre
-   sa place. */
+/* Ecran court : on resserre (les legendes de la courbe, elles, suivent la
+   place qu'elle a vraiment : voir .graphe). */
 @media (max-height: 700px) {
   .contenu, .milieu { gap: 8px; }
   .nom { font-size: 2.15rem; }
-  .graphe-tete { display: none; }
   .outil { padding-top: 5px; }
 }
 

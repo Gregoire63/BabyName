@@ -44,15 +44,51 @@ const initialesDe = (...mots: string[]) =>
   mots.flatMap(m => m.split(/[-\s’']+/)).filter(Boolean)
       .map(m => sansAccents(m)[0] ?? '').join('')
 
-/** Noyaux vocaliques de la clé : une approximation suffisante du compte. */
-function syllabesCle(cle: string): number {
-  let n = 0, dedans = false
-  for (const c of cle) {
-    const v = estVoyelle(c)
-    if (v && !dedans) n++
-    dedans = v
+/**
+ * Le nombre de syllabes, compté comme le pipeline le compte
+ * (pipeline/build_metrics.py, syllables_fr) : c'est sa colonne « y » qui
+ * nourrit les filtres, et l'essai doit dire le même chiffre qu'eux.
+ * essai-nom-complet le vérifie sur les 19 608 prénoms.
+ *
+ * Pas sur la clé de prononciation : elle efface accents et tréma, et
+ * « Amaël Raturat » y faisait cinq syllabes (amael : deux), « Léo Roy » deux,
+ * donc « très court ». Ici le tréma ouvre un noyau (A-ma-ël), une voyelle
+ * accentuée aussi (Lé-o).
+ */
+const VOYELLES_ECRITES = new Set('aeiouyàâäéèêëîïôöùûüÿœ')
+const TREMA = new Set('ëïü')
+// noyaux de plusieurs lettres, du plus long au plus court (l'ordre compte)
+const NOYAUX = ['eau', 'oeu', 'aient', 'ai', 'ei', 'au', 'ou', 'oi', 'eu',
+                'ui', 'ay', 'oy', 'ea', 'ie', 'ye', 'aa']
+// obstruante + liquide : force la diérèse (Ga-bri-el, mais Pierre)
+const ATTAQUES = new Set(['br', 'cr', 'dr', 'fr', 'gr', 'pr', 'tr', 'vr', 'bl', 'cl', 'fl', 'gl', 'pl'])
+
+export function syllabes(nom: string): number {
+  let total = 0
+  // NFC : un « ë » tapé en deux caractères (e + tréma) reste un ë.
+  for (const mot of String(nom).normalize('NFC').toLowerCase().split(/[- ’']/)) {
+    if (!mot) continue
+    let n = 0, i = 0
+    while (i < mot.length) {
+      const c = mot[i]!
+      if (!VOYELLES_ECRITES.has(c)) { i++; continue }
+      if (TREMA.has(c)) { n++; i++; continue }
+      let noyau = NOYAUX.find(d => mot.startsWith(d, i) && !(d.length > 1 && TREMA.has(mot[i + 1]!)))
+      if ((noyau === 'ie' || noyau === 'ea') && i >= 2 && ATTAQUES.has(mot.slice(i - 2, i))) noyau = undefined
+      n++
+      i += noyau ? noyau.length : 1
+    }
+    // -e / -es final muet, sauf après une voyelle (Léa, Zoé) ou une attaque
+    // obstruante + liquide (Lé-an-dre, Am-bre).
+    if (mot.length > 2) {
+      const q = mot.endsWith('es') ? 2 : 1
+      const fin = mot.slice(-q)
+      if ((fin === 'e' || fin === 'es') && !VOYELLES_ECRITES.has(mot[mot.length - q - 1]!)
+          && !ATTAQUES.has(mot.slice(Math.max(0, mot.length - q - 2), mot.length - q))) n--
+    }
+    total += Math.max(n, 1)
   }
-  return Math.max(1, n)
+  return Math.max(total, 1)
 }
 
 export function tester(prenom: string, nomFamille: string): VerdictNom | null {
@@ -84,7 +120,7 @@ export function tester(prenom: string, nomFamille: string): VerdictNom | null {
   }
 
   // 4. Longueur totale.
-  const syl = syllabesCle(p.cle) + syllabesCle(n.cle)
+  const syl = syllabes(prenom) + syllabes(nf)
   if (syl <= 2) {
     remarques.push({ gravite: 'attention', court: `très court : ${syl} syllabes`,
       texte: `Très court à dire : ${syl} syllabes en tout.` })
@@ -102,7 +138,9 @@ export function tester(prenom: string, nomFamille: string): VerdictNom | null {
   }
 
   if (!remarques.length) {
-    remarques.push({ gravite: 'bien', court: `rien n’accroche · ${syl} syllabes`,
+    // Sur la carte, le verdict seul : le compte n'y apprend rien quand rien
+    // n'accroche (il reste dans le texte long, et sur l'outil public).
+    remarques.push({ gravite: 'bien', court: 'rien n’accroche',
       texte: `Rien n'accroche : ${syl} syllabes, l'enchaînement est net.` })
   }
   return {

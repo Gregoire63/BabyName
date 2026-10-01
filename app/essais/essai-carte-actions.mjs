@@ -11,7 +11,12 @@
  *    s'efface sans déplacer les autres ;
  *  - la courbe prend la place qui reste sur un grand écran ; sur un petit,
  *    elle cède, et les gestes restent DANS la carte, au-dessus des boutons de
- *    vote.
+ *    vote ;
+ *  - une carte chargée (Amaël : graphies, sens, nom de famille, origine,
+ *    message de rareté) garde une vraie courbe : l'origine est montée à côté
+ *    du genre, l'essai du nom tient sur une ligne. Sur 393×805, la courbe
+ *    était tombée à 28 px, axe rogné. Plus serré encore, elle perd ses
+ *    légendes au lieu de les voir coupées.
  */
 import { lancer, compteur, BASE, entrerComme } from './navigateur.mjs'
 
@@ -119,6 +124,59 @@ const ficheOuverte = p => p.locator('.voile .feuille').count()
   dit(await stat.evaluate(el => el.scrollWidth <= el.clientWidth + 1),
     `le premier chiffre tient sans être coupé (« ${(await stat.innerText()).trim()} »)`)
   await ctx.close()
+}
+
+// =================== 4. UNE CARTE CHARGÉE =================================
+async function carteChargee(largeur, hauteur) {
+  const { ctx, page } = await ouvrir(largeur, hauteur)
+  await page.evaluate(() => fetch('/api/groupes/1/nom-famille', { method: 'PUT',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nom: 'Raturat' }) }))
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForSelector('.carte.fiche:not(.derriere) .nom', { timeout: 20000 })
+  await page.getByRole('button', { name: 'Chercher un prénom' }).click()
+  await page.waitForSelector('.feuille-corps input.chercher', { timeout: 8000 })
+  await page.locator('.feuille-corps input.chercher').fill('Amaël')
+  await page.waitForTimeout(600)
+  await page.locator('.trouve').filter({ has: page.locator('.nom:text-is("Amaël")') }).first().click()
+  await page.waitForFunction(() => {
+    const e = [...document.querySelectorAll('.carte.fiche:not(.derriere)')]
+    return e.length === 1 && e[0].querySelector('.nom')?.textContent?.trim() === 'Amaël'
+  }, null, { timeout: 8000 })
+  await page.waitForTimeout(700)
+  const m = await devant(page).evaluate(c => {
+    const bas = c.querySelector('.milieu').getBoundingClientRect().bottom
+    // « vue » : affichée en entier ; « rognée » : affichée mais coupée par le bas.
+    const etat = s => {
+      const e = c.querySelector(s)
+      if (!e || getComputedStyle(e).display === 'none') return 'cachée'
+      return e.getBoundingClientRect().bottom <= bas + 0.5 ? 'vue' : 'rognée'
+    }
+    const corps = c.querySelector('.graphe-corps').getBoundingClientRect()
+    return {
+      courbe: Math.round(Math.min(corps.bottom, bas) - corps.top),
+      essai: Math.round(c.querySelector('.essai-nom').getBoundingClientRect().height),
+      essaiTexte: c.querySelector('.essai-nom').innerText.replace(/\s+/g, ' ').trim(),
+      enHaut: [...c.querySelectorAll('.tete .puce')].map(e => e.textContent.trim()),
+      alerte: !!c.querySelector('.alerte'), tete: etat('.graphe-tete'), axe: etat('.graphe-axe')
+    }
+  })
+  await ctx.close()
+  return m
+}
+{
+  // L'écran de la capture d'origine (Android, PWA) : la courbe y faisait 28 px.
+  const m = await carteChargee(393, 805)
+  dit(m.alerte && m.enHaut.includes('celtique') && m.enHaut[0] === 'garçon',
+    `l’origine est en haut, à côté du genre (${m.enHaut.join(', ')}), le message de rareté est là`)
+  dit(m.essaiTexte === 'Amaël Raturat rien n’accroche' && m.essai <= 40,
+    `l’essai du nom tient sur une ligne, sans initiales ni compte (« ${m.essaiTexte} », ${m.essai} px)`)
+  dit(m.courbe >= 70 && m.tete === 'vue' && m.axe === 'vue',
+    `393×805 : la courbe garde ${m.courbe} px, avec sa tête et son axe`)
+}
+{
+  const m = await carteChargee(360, 740)
+  dit(m.courbe >= 50 && m.tete !== 'rognée' && m.axe !== 'rognée',
+    `360×740 : ${m.courbe} px de courbe, légendes ${m.tete} / ${m.axe} (jamais coupées)`)
 }
 
 dit(erreurs.length === 0, `aucune erreur JS (${erreurs.length})`)
