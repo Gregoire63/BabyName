@@ -803,6 +803,19 @@ l'écran se tait — et dit une fois pourquoi, sans quoi la fonction a l'air
 cassée. Une explication calculée sur cinq prénoms serait crédible et fausse,
 le seul type d'erreur que personne ne remarque.
 
+### « À revoir » : deux volets qui se replient
+
+Les désaccords sont rangés en deux groupes : ceux que vous n'avez pas aimés,
+ceux que l'autre n'a pas aimés. Avec des dizaines de prénoms, on ne s'y
+retrouvait plus : chaque groupe se replie d'un toucher sur son en-tête
+(`PanneauRevoir.vue`), qui garde le compte. L'en-tête reste collé en haut
+pendant qu'on fait défiler son groupe : on le replie de n'importe où ;
+replié de là, l'écran remonte au début du groupe au lieu de laisser au
+milieu de l'autre. Ce qui est replié est retenu sur l'appareil, par liste
+(`pr_<liste>_revoir_replies`, effacé avec la liste et à la déconnexion).
+Motif ARIA « accordéon » : titre, bouton, `aria-expanded`, `aria-controls` ;
+replié, le groupe n'est plus dans la page.
+
 ### Les accords : qui a dit quoi, et dans quel ordre
 
 « 2 oui · 1 neutre » ne disait pas qui. Un accord porte désormais les voix
