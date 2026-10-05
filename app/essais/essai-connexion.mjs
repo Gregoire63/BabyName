@@ -21,7 +21,7 @@
  *
  * Limites à leur valeur de production : voir essai-connexion.env.
  */
-import { lancer, onglet, compteur, courrielPour, inscrire, BASE, entrerComme } from './navigateur.mjs'
+import { lancer, onglet, compteur, courrielPour, inscrire, BASE, entrerComme, composer } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -77,6 +77,13 @@ async function seDeconnecter(page) {
   dit(await prenom.count() === 1 && await adresse.count() === 1, 'Inscription : un prénom et une adresse e-mail')
 
   await prenom.fill('Z')
+  // Un clavier qui compose encore l'adresse ne laisse pas le bouton grisé.
+  dit(await page.getByRole('button', { name: 'Créer mon compte' }).isDisabled(), 'sans adresse, le bouton d’envoi est grisé')
+  await adresse.focus()
+  const enCours = await composer(page, 'zoe')
+  dit(await page.getByRole('button', { name: 'Créer mon compte' }).isEnabled(),
+    'il s’active dès la première lettre, même si le clavier compose encore le mot')
+  await enCours.valider()
   await adresse.fill('zoe@exemple.test')
   await page.getByRole('button', { name: 'Créer mon compte' }).click()
   await page.getByRole('alert').waitFor({ timeout: 8000 })

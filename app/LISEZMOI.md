@@ -1213,6 +1213,50 @@ coupe au premier `;` du corps (« incomplete input »), alors que SQLite, le
 local et l'app acceptent le fichier. `scripts/verifier-migrations.mjs`, lancé
 par `npm run build`, refuse un fichier qui l'oublie.
 
+## Ce qu'un clavier de téléphone change
+
+Deux choses qu'un navigateur d'ordinateur ne montre pas. Ensemble, elles
+faisaient que la recherche d'un prénom n'affichait ses résultats qu'une fois
+le clavier rangé (05/10).
+
+**Il compose le mot avant de le valider.** Un clavier Android garde le mot
+en cours « en composition » (souligné, les suggestions au-dessus) jusqu'à
+l'espace, Entrée ou sa fermeture. Or `v-model` attend la fin d'une
+composition pour mettre son modèle à jour : le champ affichait « mar », la
+liste restait vide, et Entrée validait le mot puis prenait dans la foulée un
+premier résultat que personne n'avait vu. Tout champ auquel l'écran **répond
+pendant qu'on écrit** lit donc chaque `input` (`app/utils/frappe.ts`) :
+
+```vue
+<input :value="recherche" @input="recherche = frappe($event)">
+```
+
+C'est le cas de la recherche du tri, de « Déjà pris », des deux confirmations
+`SUPPRIMER` et de l'adresse e-mail, dont le bouton se dégrise à la frappe. Un
+champ qu'on ne lit qu'à l'envoi peut garder `v-model`.
+
+**Il couvre le bas de l'écran, et ne le dit pas toujours.** Selon le
+navigateur, la page est redimensionnée (Android, `interactive-widget=
+resizes-content`), ou seule la « vue visible » rétrécit (iPhone), ou rien ne
+bouge. `useClavier` compare le cadre des éléments fixes à la vue visible —
+pas `innerHeight`, qui la suit parfois sans que la page change — et une
+feuille s'arrête au ras du clavier. La recherche, elle, ne compte pas
+là-dessus : sa feuille est **haute dès l'ouverture** (`<Feuille haute>`), le
+champ épinglé en haut (slot `#fixe`), les résultats juste dessous. Rien ne
+saute quand la liste s'allonge, et même sans aucun signal du navigateur les
+premiers résultats sont au-dessus du clavier. Faire défiler la liste range le
+clavier. **Entrée aussi, et elle ne choisit rien** : le premier résultat prend
+le focus (au clavier, une seconde Entrée le choisit). Le prénom tapé en
+entier est toujours la première ligne.
+
+Sur les pages publiques, le grand champ de `/prenoms/` et de
+`/chercher-un-prenom/` est dans le fil de la page, ses suggestions dessous.
+Quand on y entre sur un téléphone, il monte en haut de l'écran, juste sous
+l'en-tête (`scripts/recherche-client.js`). Sur un ordinateur, rien ne bouge.
+
+`essai-recherche` et `essai-seo` gardent tout ça ; « Taper comme un
+téléphone », dans essais/LISEZMOI.md, dit comment un essai compose un mot.
+
 ## Ce que `nuxt dev` ne montre pas
 
 `nuxt dev` tourne sous Node, fichier par fichier ; la production est un

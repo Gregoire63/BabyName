@@ -18,7 +18,7 @@
  *     refuse ses ajouts.
  *  7. Alice efface son compte : Mathilde reste, sans auteur ni note.
  */
-import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme, composer } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -52,6 +52,14 @@ const texte0 = (await carte.innerText()).replace(/\s+/g, ' ')
 dit(/Mathilde/.test(texte0) && /ma sœur · Alice/.test(texte0),
   'la carte « Déjà pris » montre Mathilde, la note et qui l’a ajoutée')
 dit(/\+ 2 graphies/.test(texte0), 'avec ses graphies comptées (Matilde, Mathylde)')
+
+// Un clavier Android compose le mot en cours : les propositions n'attendent
+// pas qu'il le valide (voir app/utils/frappe.ts).
+await carte.locator('#champ-deja-pris').focus()
+const enCours = await composer(page, 'lou')
+dit(await carte.locator('.suggestions .suggestion').count() > 0,
+  'les propositions suivent chaque lettre, même pendant que le clavier compose le mot')
+await enCours.valider()
 
 await carte.locator('#champ-deja-pris').fill('louis')
 await page.waitForTimeout(300)

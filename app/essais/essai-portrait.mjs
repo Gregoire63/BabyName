@@ -71,7 +71,9 @@ dit(/ce qu'on vous a montré|ce qu’on vous a montré|vous avez vu/i.test(tout)
 
 // ---- le silence : Alice n'a que 5 oui visibles, on ne l'invente pas ----
 dit(/Alice/.test(tout), 'Alice a sa carte')
-const carteAlice = await plat('.carte:has-text("Alice")')
+// Dans le volet Portrait : depuis que les accords disent qui a dit quoi, une
+// carte des Communs porte aussi « Alice », et elle vient avant dans la page.
+const carteAlice = await plat('#volet-portrait .carte:has(h2:text-is("Alice"))')
 dit(/pas encore assez|honnête/i.test(carteAlice),
     `et on y dit qu’il n’y a pas de quoi conclure : « ${carteAlice.slice(0, 90)} »`)
 dit(!/Là où ça coince/.test(tout),

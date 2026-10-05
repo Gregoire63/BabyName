@@ -16,7 +16,7 @@
  * seme un compte « Fantome », inactif depuis 25 mois.
  */
 import { readFileSync } from 'node:fs'
-import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme, composer } from './navigateur.mjs'
 
 const SECRET = process.env.CRON_SECRET
 if (!SECRET) { console.error('Lancer via relance.sh : essai-rgpd.env n’a pas été chargé.'); process.exit(2) }
@@ -108,6 +108,12 @@ const refus = await A1.api('/api/moi/supprimer', { method: 'POST', body: JSON.st
 dit(refus.status === 400, 'sans le mot de confirmation, le serveur refuse (au cas où l’écran serait contourné)')
 await A1.page.getByRole('button', { name: 'Supprimer mon compte' }).click()
 const champ = A1.page.getByRole('textbox', { name: /tapez SUPPRIMER/i })
+// Un clavier Android compose encore le mot : le bouton s'active quand même.
+await champ.focus()
+const enCours = await composer(A1.page, 'supprimer')
+dit(await A1.page.getByRole('button', { name: 'Supprimer définitivement' }).isEnabled(),
+    'le bouton s’active dès le mot écrit, même si le clavier le compose encore')
+await enCours.valider()
 await champ.fill('supprimer')
 const [rep] = await Promise.all([
   A1.page.waitForResponse(r => r.url().includes('/api/moi/supprimer')),

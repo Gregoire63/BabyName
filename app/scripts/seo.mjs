@@ -330,6 +330,7 @@ header.h img{width:30px;height:30px;border-radius:9px}
 .b:hover{transform:translateY(-2px);box-shadow:0 12px 26px -12px rgba(26,35,78,.6)}
 .b:focus-visible{outline:3px solid var(--encre);outline-offset:3px}
 .b.p{padding:9px 16px;font-size:15px}
+@media (max-width:370px){header.h .l{gap:8px}header.h .b.p{padding:9px 12px;font-size:14px}}
 nav.rubriques{border-bottom:1px solid var(--trait)}
 nav.rubriques ul{display:flex;gap:14px;margin:0;padding:0;list-style:none;overflow-x:auto;scrollbar-width:none}
 nav.rubriques ul::-webkit-scrollbar{display:none}
@@ -473,7 +474,9 @@ header.h .loupe svg,.cherche .champ-ligne>svg{width:22px;height:22px;flex:none;f
 .suggestions li+li{border-top:1px solid var(--trait)}
 .suggestions a{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:11px 16px;text-decoration:none}
 .suggestions a:hover,.suggestions a:focus{background:color-mix(in srgb,var(--menthe) 35%,var(--carte));outline:none}
-.suggestions small{color:var(--doux);font-size:14px;white-space:nowrap}
+.suggestions b{flex:none}
+.suggestions small{color:var(--doux);font-size:14px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:380px){.suggestions a{padding:11px 12px}.suggestions small{font-size:13px}}
 .verdict{margin:12px 0 0;text-align:left}
 .verdict:empty{display:none}
 .verdict>p{margin:0 0 .6em;padding:14px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait);font-size:16px;line-height:1.5}

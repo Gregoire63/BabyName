@@ -86,6 +86,29 @@
       (e.n >= 5 ? ' · ' + nf(e.n) + ' bébés en 3 ans' : ' · rare aujourd’hui') + '</small></a></li>'
   }
 
+  /* ------------------------------------------------------------ le clavier du téléphone */
+  /* Il prend la moitié basse de l'écran, et les suggestions s'écrivent SOUS le
+     champ : elles y restaient cachées, il fallait ranger le clavier pour les
+     lire. Dès qu'on entre dans le grand champ, il monte donc en haut de
+     l'écran, juste sous l'en-tête : la liste a la place de se lire au-dessus
+     du clavier. Sur un ordinateur rien ne recouvre la page, elle ne bouge pas. */
+  var media = function (q) { return !!(window.matchMedia && window.matchMedia(q).matches) }
+  var TACTILE = media('(pointer: coarse)')
+  function auDessusDuClavier(form, champ) {
+    var jusqua = 0
+    var monter = function () {
+      if (document.activeElement !== champ) return
+      var entete = document.querySelector('header.h')
+      var haut = entete ? Math.max(0, entete.getBoundingClientRect().bottom) : 0
+      var ecart = form.getBoundingClientRect().top - haut - 8
+      if (Math.abs(ecart) > 12) window.scrollBy({ top: ecart, behavior: media('(prefers-reduced-motion: reduce)') ? 'auto' : 'smooth' })
+    }
+    // Le clavier sort en glissant et le navigateur replace la page à sa façon :
+    // on passe après lui, et encore une fois quand la vue a fini de rétrécir.
+    champ.addEventListener('focus', function () { jusqua = Date.now() + 1500; setTimeout(monter, 300) })
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (Date.now() < jusqua) monter() })
+  }
+
   /* ------------------------------------------------------------ un champ */
   function brancher(form) {
     var champ = form.querySelector('input[name=q]')
@@ -111,6 +134,7 @@
     }
     champ.addEventListener('input', tape)
     champ.addEventListener('focus', charger, { once: true })
+    if (TACTILE && form.classList.contains('grand')) auDessusDuClavier(form, champ)
     champ.addEventListener('keydown', function (ev) {
       if (ev.key === 'ArrowDown') { var a = liste.querySelector('a'); if (a) { ev.preventDefault(); a.focus() } }
     })
@@ -141,6 +165,8 @@
             : '<p><b>Aucun bébé « ' + titre + ' »</b> dans les naissances publiées depuis 1900. L’INSEE ne publie un prénom qu’à partir de 3 naissances : en dessous, il peut exister sans apparaître. Et rien n’interdit de le donner.</p>'
           html += p.length ? '<p class="t">Proches, par l’écriture ou le son :</p><ul class="suggestions">' + p.map(ligne).join('') + '</ul>' : ''
           verdict.innerHTML = html
+          // La réponse s'écrit sous le champ : sur un téléphone, on range le clavier pour qu'elle se lise.
+          if (TACTILE) champ.blur()
         })
       })
     })

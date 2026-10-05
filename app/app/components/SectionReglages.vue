@@ -541,8 +541,10 @@ async function quitterListe() {
           <label for="liste-confirmation" class="mini">
             Pour confirmer, tapez <strong>SUPPRIMER</strong>
           </label>
-          <input id="liste-confirmation" v-model="confirmation" class="champ" autocomplete="off"
-                 autocapitalize="characters" spellcheck="false" @keyup.enter="supprimerListe">
+          <!-- Pas de v-model : le bouton se dégrise dès le mot écrit (utils/frappe.ts). -->
+          <input id="liste-confirmation" :value="confirmation" class="champ" autocomplete="off"
+                 autocapitalize="characters" spellcheck="false"
+                 @input="confirmation = frappe($event)" @keyup.enter="supprimerListe">
           <p v-if="erreurSuppression" class="mini" role="alert" style="color:var(--non);margin:0">
             {{ erreurSuppression }}
           </p>

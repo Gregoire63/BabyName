@@ -19,7 +19,10 @@
  *    figure, l'accueil qui montre ce que contient chaque classement, les
  *    origines de la plus représentée à la plus rare ;
  *  - rien ne dépasse à droite sur un téléphone de 360 px, tableaux compris
- *    (ils débordaient le 28/09).
+ *    (ils débordaient le 28/09), et l'en-tête y tient sur une ligne ;
+ *  - sur un téléphone, le grand champ de recherche monte sous l'en-tête
+ *    quand on y entre : les suggestions se lisent au-dessus du clavier, au
+ *    lieu de s'écrire dessous. Sur un ordinateur, la page ne bouge pas.
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs'
@@ -101,10 +104,12 @@ dit(!!mince && /<meta name="robots" content="noindex, follow">/.test(lire(`preno
 dit(!/noindex/.test(louise), 'une fiche pleine reste indexable')
 
 // ---------- la mise en page -------------------------------------------------
-// Aucun script exécutable : la politique de contenu des fiches n'en admet pas
-// en ligne (seul le JSON-LD, qui n'est pas du code).
-dit([...louise.matchAll(/<script\b([^>]*)>/g)].every(m => /type="application\/ld\+json"/.test(m[1])),
-  'aucun script exécutable sur une fiche : les animations sont du CSS')
+// Aucun script EN LIGNE : la politique de contenu des pages statiques n'en
+// admet pas (script-src 'self'). Restent le JSON-LD, qui n'est pas du code,
+// et la recherche de l'en-tête, servie par le site depuis /statique/.
+dit([...louise.matchAll(/<script\b([^>]*)>/g)].every(m =>
+  /type="application\/ld\+json"/.test(m[1]) || /\bsrc="\/statique\/[^"]+\.js"/.test(m[1])),
+  'aucun script en ligne sur une fiche : du JSON-LD et la recherche servie par le site, les animations sont du CSS')
 const polices = [...louise.matchAll(/url\((\/statique\/nunito-[a-z-]+-\d+\.[0-9a-f]{10}\.woff2)\)/g)].map(m => m[1])
 dit(polices.length === 4 && polices.every(u => { try { readFileSync(join(sortie, u)); return true } catch { return false } }),
   `Nunito servie par le site, sous des noms à empreinte (${polices.length} fichiers présents)`)
@@ -146,7 +151,8 @@ dit(/aria-current="page" aria-label="Prénoms en L">L<\/a>/.test(lettreL) && /re
 const serveur = createServer((q, r) => {
   const f = join(sortie, decodeURIComponent(q.url.split('?')[0]), q.url.endsWith('/') ? 'index.html' : '')
   if (!existsSync(f)) { r.writeHead(404); r.end(); return }
-  r.writeHead(200, { 'content-type': f.endsWith('.html') ? 'text/html; charset=utf-8' : f.endsWith('.woff2') ? 'font/woff2' : 'application/octet-stream' })
+  r.writeHead(200, { 'content-type': f.endsWith('.html') ? 'text/html; charset=utf-8' : f.endsWith('.woff2') ? 'font/woff2'
+    : f.endsWith('.js') ? 'text/javascript; charset=utf-8' : f.endsWith('.txt') ? 'text/plain; charset=utf-8' : 'application/octet-stream' })
   r.end(readFileSync(f))
 }).listen(0)
 const port = serveur.address().port
@@ -161,9 +167,55 @@ for (const chemin of ['/prenoms/', '/prenoms/tendance/filles/', '/prenoms/rares/
     .map(e => e.scrollWidth - e.clientWidth).reduce((a, b) => Math.max(a, b), 0))
   if (d > 0) debords.push(`${chemin} (+${d} px)`)
 }
+dit(debords.length === 0, `à 360 px, rien ne dépasse à droite : ni la page, ni un tableau, ni les rubriques (${debords.join(', ') || 'aucun débordement'})`)
+await onglet.goto(`http://127.0.0.1:${port}/prenoms/`, { waitUntil: 'networkidle' })
+const entete = await onglet.evaluate(() => ({
+  haut: Math.round(document.querySelector('header.h').getBoundingClientRect().height),
+  bouton: Math.round(document.querySelector('header.h .b').getBoundingClientRect().height) }))
+dit(entete.bouton < 50, `à 360 px, le bouton de l’en-tête tient sur une ligne (bouton de ${entete.bouton} px, en-tête de ${entete.haut} px)`)
+await ctx.close()
+
+// ---------- la recherche, clavier sorti ---------------------------------------
+// Un petit téléphone (360×640) dont le clavier prend 290 px : ce qui se lit
+// tient au-dessus de 350 px. Le navigateur d'essai n'a pas de clavier, il ne
+// replace rien tout seul : on voit exactement ce que fait la page.
+const CLAVIER = 290
+for (const chemin of ['/prenoms/', '/chercher-un-prenom/']) {
+  const tel = await nav.newContext({ viewport: { width: 360, height: 640 }, hasTouch: true, isMobile: true })
+  const p = await tel.newPage()
+  await p.goto(`http://127.0.0.1:${port}${chemin}`, { waitUntil: 'networkidle' })
+  const champ = p.locator('form.cherche.grand input[name=q]')
+  const avant = await champ.evaluate(el => Math.round(el.getBoundingClientRect().bottom))
+  await champ.tap()
+  await p.waitForTimeout(900)
+  await champ.pressSequentially('ma', { delay: 40 })
+  await p.waitForFunction(() => document.querySelectorAll('form.cherche.grand .suggestions li').length > 0, null, { timeout: 8000 }).catch(() => {})
+  await p.waitForTimeout(300)
+  const m = await p.evaluate((k) => {
+    const bord = window.innerHeight - k, f = document.querySelector('form.cherche.grand')
+    const c = f.querySelector('input').getBoundingClientRect()
+    const l = [...f.querySelectorAll('.suggestions li')].map(x => x.getBoundingClientRect())
+    const entete = Math.round(document.querySelector('header.h').getBoundingClientRect().bottom)
+    return { champ: Math.round(c.top), bord, lignes: l.length, entete,
+      lisibles: l.filter(r => r.top >= entete && r.bottom <= bord + 1).length }
+  }, CLAVIER)
+  dit(m.champ >= m.entete && m.champ < m.entete + 40 && m.lisibles >= 3,
+    `${chemin} sur un téléphone : le champ monte sous l’en-tête (y=${m.champ}, en-tête ${m.entete} ; il finissait à ${avant}), ${m.lisibles} suggestions sur ${m.lignes} au-dessus du clavier`)
+  await tel.close()
+}
+const bureau = await nav.newContext({ viewport: { width: 1280, height: 800 } })
+const pb = await bureau.newPage()
+await pb.goto(`http://127.0.0.1:${port}/prenoms/`, { waitUntil: 'networkidle' })
+await pb.locator('form.cherche.grand input[name=q]').click()
+await pb.waitForTimeout(900)
+await pb.keyboard.type('ma', { delay: 40 })
+await pb.waitForTimeout(600)
+const b2 = await pb.evaluate(() => ({ y: Math.round(scrollY), lignes: document.querySelectorAll('form.cherche.grand .suggestions li').length,
+  colle: getComputedStyle(document.querySelector('header.h')).position }))
+dit(b2.y === 0 && b2.lignes > 0 && b2.colle === 'sticky',
+  `sur un ordinateur, la page ne bouge pas quand on entre dans le champ (${b2.lignes} suggestions, défilement ${b2.y})`)
 await nav.close()
 serveur.close()
-dit(debords.length === 0, `à 360 px, rien ne dépasse à droite : ni la page, ni un tableau, ni les rubriques (${debords.join(', ') || 'aucun débordement'})`)
 
 // ---------- sitemap --------------------------------------------------------
 const dates = new Set([...sitemap.matchAll(/<lastmod>(.*?)<\/lastmod>/g)].map(m => m[1]))

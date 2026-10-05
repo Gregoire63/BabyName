@@ -132,10 +132,12 @@ async function retirer(d: { prenom: string; mien: boolean }) {
     </p>
 
     <div v-if="!jObserve" class="ajout">
-      <input id="champ-deja-pris" ref="champNom" v-model="saisie" class="champ"
+      <!-- Pas de v-model : les propositions suivent chaque lettre, même
+           pendant que le clavier compose le mot (utils/frappe.ts). -->
+      <input id="champ-deja-pris" ref="champNom" :value="saisie" class="champ"
              aria-label="Ajouter un prénom déjà pris" placeholder="Ajouter un prénom : Louise, Mathéo…"
              autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false"
-             enterkeyhint="next" @keydown.enter.prevent="entree">
+             enterkeyhint="next" @input="saisie = frappe($event)" @keydown.enter.prevent="entree">
       <ul v-if="suggestions.length" class="suggestions" aria-label="Prénoms qui correspondent">
         <li v-for="p in suggestions" :key="p.l">
           <button v-if="!retire(p.l)" type="button" class="suggestion" @click="choisir(p)">

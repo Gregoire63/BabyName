@@ -9,7 +9,9 @@
  *    le parent. D'ou la regle d'usage ci-dessous.
  *  - le geste : on la tire vers le bas pour la fermer, avec la resistance et
  *    le seuil de useFeuille.
- *  - le decor : voile, poignee, titre, corps qui defile, pied fixe.
+ *  - le decor : voile, poignee, titre, corps qui defile, pied fixe — et, au
+ *    besoin, une zone fixe sous le titre (slot `fixe`) : un champ de recherche
+ *    qui ne doit pas partir avec la liste qu'il fait defiler.
  *
  * USAGE — le parent ne coupe jamais la feuille lui-meme :
  *
@@ -24,7 +26,14 @@ const props = withDefaults(defineProps<{
   /** Occupe tout l'ecran plutot que de s'arreter a 92 % : pour un parcours
    *  en plusieurs etapes, ou une demi-hauteur donne l'impression d'un bout. */
   plein?: boolean
-}>(), { plein: false })
+  /** Toujours a sa pleine hauteur (92 %), meme presque vide : pour une
+   *  recherche. Posee en bas et haute comme son contenu, la feuille changeait
+   *  de taille a chaque lettre — le champ ou l'on tape montait et descendait
+   *  avec le nombre de resultats, et une liste courte restait derriere le
+   *  clavier la ou le navigateur ne dit pas qu'il est sorti. Haute des
+   *  l'ouverture, le champ est en haut de l'ecran et n'en bouge plus. */
+  haute?: boolean
+}>(), { plein: false, haute: false })
 
 const emit = defineEmits<{ fermer: [] }>()
 
@@ -47,14 +56,24 @@ const geste = useFeuille(fermer, dedans)
  * resultats restent sous les yeux. Voir useClavier.
  */
 const clavier = useClavier()
+/** Sous cette hauteur, une feuille haute ne montre plus trois resultats. */
+const ASSEZ = 300
 const styleVoile = computed(() => clavier.ouvert.value
   ? { top: `${clavier.haut.value}px`, bottom: 'auto', height: `${clavier.visible.value}px` } : {})
 const styleCorps = computed(() => {
   const s: Record<string, string> = { ...(geste.style.value as Record<string, string>) }
   if (clavier.ouvert.value) {
-    const h = `${Math.max(160, clavier.visible.value - (props.plein ? 0 : 12))}px`
-    s.maxHeight = h
-    if (props.plein) s.height = h
+    let h = Math.max(160, clavier.visible.value - (props.plein ? 0 : 12))
+    if (props.haute) {
+      // Le haut d'une feuille haute reste ou il etait (8 % sous le haut de
+      // l'ecran) : seul son bas remonte avec le clavier, et le champ ne
+      // saute pas a chaque fois qu'il sort ou rentre. Sauf sur un petit
+      // ecran, ou ces 8 % sont une ligne de resultats : la, on prend tout.
+      const stable = clavier.haut.value + clavier.visible.value - Math.round(clavier.cadre.value * .08)
+      if (stable >= ASSEZ && stable < h) h = stable
+    }
+    s.maxHeight = `${h}px`
+    if (props.plein || props.haute) s.height = `${h}px`
   }
   return s
 })
@@ -62,13 +81,17 @@ const styleCorps = computed(() => {
 // focus a la fermeture. Voir useDialogue.
 useDialogue(corps, fermer)
 
-defineExpose({ fermer })
+/** Revenir en haut de ce qui defile : une recherche qui change de resultats. */
+function remonter() { if (dedans.value) dedans.value.scrollTop = 0 }
+
+defineExpose({ fermer, remonter })
 </script>
 
 <template>
   <Transition name="feuille" @after-leave="emit('fermer')">
     <div v-if="visible" class="feuille-voile" :style="styleVoile" @click.self="fermer">
-      <section ref="corps" class="feuille-corps" :class="{ plein: props.plein }" :style="styleCorps"
+      <section ref="corps" class="feuille-corps" :class="{ plein: props.plein, haute: props.haute }"
+               :style="styleCorps"
                role="dialog" aria-modal="true" tabindex="-1"
                :aria-labelledby="props.titre ? idTitre : undefined"
                :aria-label="props.titre ? undefined : 'Fenêtre'">
@@ -82,6 +105,10 @@ defineExpose({ fermer })
               <span aria-hidden="true">✕</span>
             </button>
           </div>
+        </div>
+
+        <div v-if="$slots.fixe" class="feuille-fixe pile">
+          <slot name="fixe" :fermer="fermer" />
         </div>
 
         <div ref="dedans" class="feuille-dedans pile">
@@ -102,6 +129,7 @@ defineExpose({ fermer })
 .feuille-corps { width: 100%; max-width: 560px; max-height: 92%; background: var(--carte);
   border-radius: 22px 22px 0 0; display: flex; flex-direction: column; min-height: 0; }
 .feuille-corps.plein { max-height: 100%; height: 100%; border-radius: 0; max-width: none; }
+.feuille-corps.haute { height: 92%; }
 /* Le conteneur recoit le focus a l'ouverture (pour que le titre soit lu) :
    il n'a pas a s'encadrer, ce n'est pas une commande. */
 .feuille-corps:focus { outline: none; }
@@ -116,6 +144,8 @@ defineExpose({ fermer })
   padding: 8px 10px; cursor: pointer; border-radius: 50%; flex: none; }
 .feuille-x:active { background: var(--fond); }
 
+/* sous le titre, au-dessus de ce qui defile : ne bouge pas */
+.feuille-fixe { flex: none; padding: 4px 20px 6px; }
 .feuille-dedans { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   touch-action: pan-y; padding: 8px 20px 18px; }
 .feuille-pied { flex: none; padding: 10px 20px calc(14px + env(safe-area-inset-bottom));

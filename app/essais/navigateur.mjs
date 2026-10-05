@@ -96,6 +96,51 @@ export async function inscrire(page, pseudo, email, { parLien = false, passkey =
 }
 
 /**
+ * Taper comme un clavier Android. Il « compose » le mot en cours : le champ
+ * l'affiche, souligné, mais le mot n'est validé qu'à l'espace, à Entrée ou
+ * quand le clavier se range. Tant qu'il ne l'est pas, un `v-model` n'a rien
+ * vu — d'où `frappe()` (app/utils/frappe.ts) pour tout champ auquel l'écran
+ * répond pendant qu'on écrit. Sans cette composition, un essai tape comme un
+ * clavier d'ordinateur et ne voit pas la différence.
+ *
+ * Le champ doit avoir le focus. Rend `valider()`, qui termine la composition
+ * comme le fait le clavier en se rangeant.
+ */
+export async function composer(page, mot) {
+  const cdp = await page.context().newCDPSession(page)
+  for (let i = 1; i <= mot.length; i++) {
+    await cdp.send('Input.imeSetComposition', { text: mot.slice(0, i), selectionStart: i, selectionEnd: i })
+  }
+  await page.waitForTimeout(150)
+  return {
+    valider: async () => {
+      await cdp.send('Input.insertText', { text: mot })
+      await cdp.detach().catch(() => {})
+    }
+  }
+}
+
+/**
+ * Un doigt qui glisse de `dy` px sur l'élément `selecteur` : un défilement,
+ * pas un toucher. Les événements tactiles sont fabriqués dans la page — on
+ * éprouve ce que l'app en fait, pas le défilement du navigateur.
+ */
+export async function glisser(page, selecteur, dy, pas = 6) {
+  await page.evaluate(([sel, dy, pas]) => {
+    const el = document.querySelector(sel)
+    const r = el.getBoundingClientRect()
+    const x = r.left + r.width / 2, y = r.top + Math.min(r.height / 2, 120)
+    const doigt = yy => new Touch({ identifier: 1, target: el, clientX: x, clientY: yy })
+    const envoyer = (type, yy, leve) => el.dispatchEvent(new TouchEvent(type, {
+      bubbles: true, cancelable: true, changedTouches: [doigt(yy)],
+      touches: leve ? [] : [doigt(yy)], targetTouches: leve ? [] : [doigt(yy)] }))
+    envoyer('touchstart', y)
+    for (let i = 1; i <= pas; i++) envoyer('touchmove', y + dy * i / pas)
+    envoyer('touchend', y + dy, true)
+  }, [selecteur, dy, pas])
+}
+
+/**
  * Entrer comme un compte du jeu d'essai — Paul, Alice, Mamie — depuis la
  * page de connexion déjà ouverte : un geste sur le bloc « Base locale »
  * (outils-dev/OutilsConnexion.vue, route /api/dev/entrer). Depuis que la

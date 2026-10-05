@@ -152,8 +152,10 @@ async function supprimerCompte() {
         <label for="compte-confirmation" class="mini">
           Pour confirmer, tapez <strong>SUPPRIMER</strong>
         </label>
-        <input id="compte-confirmation" v-model="confirmation" class="champ" autocomplete="off"
-               autocapitalize="characters" spellcheck="false" @keyup.enter="supprimerCompte">
+        <!-- Pas de v-model : le bouton se dégrise dès le mot écrit (utils/frappe.ts). -->
+        <input id="compte-confirmation" :value="confirmation" class="champ" autocomplete="off"
+               autocapitalize="characters" spellcheck="false"
+               @input="confirmation = frappe($event)" @keyup.enter="supprimerCompte">
         <p v-if="erreurSuppression" class="mini" role="alert" style="color:var(--non);margin:0">
           {{ erreurSuppression }}
         </p>

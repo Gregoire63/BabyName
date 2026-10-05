@@ -113,10 +113,14 @@ function changer() { envoye.value = ''; code.value = ''; erreur.value = '' }
     <form v-if="!envoye" class="pile" style="gap:10px" novalidate @submit.prevent="envoyer">
       <slot name="avant" />
       <label :for="idEmail" class="mini doux">Votre adresse e-mail</label>
-      <input :id="idEmail" v-model="email" class="champ" type="email"
+      <!-- Pas de v-model : le bouton se dégrise dès la première lettre, même
+           si le clavier compose encore (utils/frappe.ts). `change` : un
+           remplissage automatique ne passe pas toujours par `input`. -->
+      <input :id="idEmail" :value="email" class="champ" type="email"
              inputmode="email" autocapitalize="off" spellcheck="false"
              :autocomplete="but === 'connexion' ? 'username webauthn' : 'email'"
-             placeholder="vous@exemple.fr">
+             placeholder="vous@exemple.fr"
+             @input="email = frappe($event)" @change="email = frappe($event)">
       <button type="submit" class="btn btn-1" :disabled="envoi || !email.trim()">
         {{ envoi ? 'Envoi…' : LIBELLES[but] }}
       </button>

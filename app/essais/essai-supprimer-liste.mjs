@@ -14,7 +14,7 @@
  *  - l'écran dit, avant, qui perd quoi ; « Annuler » ne touche à rien ;
  *  - l'appareil oublie la liste ; l'ancienne adresse ramène à l'accueil.
  */
-import { lancer, onglet, compteur, BASE, entrerComme } from './navigateur.mjs'
+import { lancer, onglet, compteur, BASE, entrerComme, composer } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const nav = await lancer()
@@ -143,6 +143,12 @@ await bouton(P, 'Supprimer cette liste').click()
 const definitif = bouton(P, 'Supprimer définitivement')
 dit(await definitif.isDisabled(), 'le bouton final reste grisé tant que le mot n’est pas tapé')
 dit(!/compris/.test(await P.page.locator('#titre-suppression-liste').innerText()), 'seul membre : personne d’autre n’est nommé')
+// Sur un clavier Android le mot reste « en composition » tant qu'on n'a pas
+// quitté le champ : le bouton n'attend pas ça pour s'activer.
+await P.page.locator('#liste-confirmation').focus()
+const enCours = await composer(P.page, 'supprimer')
+dit(await definitif.isEnabled(), 'il s’active dès le mot écrit, même si le clavier le compose encore')
+await enCours.valider()
 await P.page.locator('#liste-confirmation').fill('supprimer')
 dit(await definitif.isEnabled(), 'le mot tapé (en minuscules, ça compte), il s’active')
 await definitif.click()
