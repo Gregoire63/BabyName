@@ -34,15 +34,31 @@ const index = ref(Math.max(0, ONGLETS.findIndex(o => o.id === (props.depart ?? '
 const vues = ref<Set<number>>(new Set([index.value]))
 const segment = ref(props.segmentDepart ?? 'communs')
 
+/**
+ * CE QUI EST GROS NE SE REMPLACE QUE D'UN BLOC (`shallowRef`).
+ *
+ * Le catalogue, les votes, les prénoms déjà jugés : des milliers d'entrées,
+ * lues à chaque geste par les filtres, le tri et les volets du classement. Un
+ * `ref` les rend réactives en profondeur — chaque lecture d'un champ passe
+ * par Vue, qui note qui lit quoi. C'était l'essentiel du quart de seconde
+ * que coûtait chaque vote. Or on n'en modifie jamais un morceau : on remplace
+ * le tableau ou l'ensemble entier (`x.value = nouveau`), et c'est tout ce
+ * que `shallowRef` surveille.
+ *
+ * La règle qui va avec : NE JAMAIS modifier sur place (`.push`, `.add`,
+ * `v.valeur = …`) ce qui est ici — l'écran ne le verrait pas. `etat` et
+ * `communs` restent des `ref` : ils sont petits, et deux endroits y changent
+ * un champ sur place (le compte de « Qui en est », les commentaires).
+ */
 const etat = ref<any>(null)
-const catalogue = ref<Prenom[]>([])
-const origines = ref<string[]>([])
+const catalogue = shallowRef<Prenom[]>([])
+const origines = shallowRef<string[]>([])
 const filtres = ref<Filtres>(filtresParDefaut())
-const dejaVotes = ref<Set<string>>(new Set())
-const aimes = ref<Prenom[]>([])
+const dejaVotes = shallowRef<Set<string>>(new Set())
+const aimes = shallowRef<Prenom[]>([])
 /** Les prénoms bloqués en secret, par qui que ce soit (graphies comprises) :
  *  le serveur ne dit pas qui. */
-const vetosSecrets = ref<Set<string>>(new Set())
+const vetosSecrets = shallowRef<Set<string>>(new Set())
 const mesVetos = ref<{ prenom: string; motif: string | null; variantes: string[] }[]>([])
 const dejaPris = ref<EntreeDejaPris[]>([])
 /** Chaque graphie d'un prénom déjà pris → son entrée. */
@@ -57,9 +73,9 @@ const parDejaPris = computed(() => {
 /** Tout ce qui est retiré du jeu, pour tout le monde : blocages secrets et
  *  déjà pris. C'est ce qui sort de la pile, des accords et de « À revoir ». */
 const vetos = computed(() => new Set([...vetosSecrets.value, ...parDejaPris.value.keys()]))
-const favoris = ref<Set<string>>(new Set())
+const favoris = shallowRef<Set<string>>(new Set())
 const communs = ref<any[]>([])
-const votes = ref<any[]>([])
+const votes = shallowRef<any[]>([])
 const pret = ref(false)
 const fiche = ref<Prenom | null>(null)
 // Le panneau de filtres vit ici, pas dans l'onglet de tri : on doit pouvoir
@@ -430,12 +446,18 @@ async function attendrePaiement() {
       <section :aria-label="ONGLETS[0]!.t" :inert="index !== 0 || undefined">
         <SectionTrier v-if="vues.has(0)" :actif="index === 0" />
       </section>
+      <!-- Hors de vue, ces deux-là ne suivent plus les votes (EnVeille) : le
+           tri ne paie pas, à chaque geste, des écrans qu'on ne regarde pas. -->
       <section :aria-label="ONGLETS[1]!.t" :inert="index !== 1 || undefined">
-        <SectionClassement v-if="vues.has(1)" :actif="index === 1"
-                           :segment="segment" @segment="segment = $event" />
+        <EnVeille v-if="vues.has(1)" :actif="index === 1">
+          <SectionClassement :actif="index === 1"
+                             :segment="segment" @segment="segment = $event" />
+        </EnVeille>
       </section>
       <section :aria-label="ONGLETS[2]!.t" :inert="index !== 2 || undefined">
-        <SectionReglages v-if="vues.has(2)" :actif="index === 2" />
+        <EnVeille v-if="vues.has(2)" :actif="index === 2">
+          <SectionReglages :actif="index === 2" />
+        </EnVeille>
       </section>
     </main>
 

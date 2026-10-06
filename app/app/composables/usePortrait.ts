@@ -274,48 +274,95 @@ const AXES: Axe[] = [
   { nom: "l'époque", valeur: p => (p.p >= 1900 ? p.p : null), dire: x => `un sommet vers ${Math.round(x)}` }
 ]
 
+/**
+ * Les explications de TOUS les désaccords d'un coup.
+ *
+ * La version d'origine expliquait un prénom à la fois, en relisant tous les
+ * votes pour chacun : qui a refusé, puis ses oui, puis leurs moyennes.
+ * « À revoir » l'appelait pour chaque ligne, deux fois par ligne — un calcul
+ * en (désaccords × votes), refait à chaque ouverture du volet et à chaque
+ * vote. Mesuré avec 600 votes : 2,3 s sur un ordinateur, 7 s processeur
+ * ralenti quatre fois, pendant lesquelles rien ne répond.
+ *
+ * Ici les votes sont lus UNE fois : le premier « non » d'un autre sur chaque
+ * prénom, les oui de chacun, puis — par personne qui refuse, et une seule
+ * fois — ce que ses oui ont de constant sur chaque axe. Mêmes règles, mêmes
+ * phrases, au mot près.
+ */
+export function expliquerDesaccords(
+  prenoms: Iterable<string>,
+  votes: VoteVisible[],
+  parNom: Map<string, Prenom>,
+  moiId: string
+): Map<string, Explication> {
+  // Qui a dit non a CE prenom, en dehors de moi (le premier, dans l'ordre des
+  // votes) ; et les oui de chacun.
+  const refusDe = new Map<string, VoteVisible>()
+  const ouiDe = new Map<string, Prenom[]>()
+  for (const v of votes) {
+    if (v.valeur === 0 && v.user_id !== moiId && !refusDe.has(v.prenom)) refusDe.set(v.prenom, v)
+    if (v.valeur !== 2) continue
+    const q = parNom.get(v.prenom)
+    if (!q) continue
+    const l = ouiDe.get(v.user_id)
+    if (l) l.push(q); else ouiDe.set(v.user_id, [q])
+  }
+
+  // Ce que les oui d'une personne ont de constant, axe par axe. null : pas
+  // assez de oui, ou rien de constant sur cet axe.
+  type Constante = { axe: Axe; m: number; sd: number } | null
+  const profils = new Map<string, Constante[] | null>()
+  const profilDe = (userId: string): Constante[] | null => {
+    const connu = profils.get(userId)
+    if (connu !== undefined) return connu
+    const sesOui = ouiDe.get(userId) ?? []
+    const profil = sesOui.length < MIN_OUI ? null : AXES.map((axe): Constante => {
+      const xs = sesOui.map(axe.valeur).filter((x): x is number => x !== null)
+      if (xs.length < MIN_OUI) return null
+      const sd = ecartType(xs)
+      return sd > 0 ? { axe, m: moyenne(xs), sd } : null
+    })
+    profils.set(userId, profil)
+    return profil
+  }
+
+  const explications = new Map<string, Explication>()
+  for (const prenom of prenoms) {
+    const p = parNom.get(prenom)
+    const refus = refusDe.get(prenom)
+    if (!p || !refus) continue
+    const profil = profilDe(refus.user_id)
+    if (!profil) continue
+
+    let meilleur: { axe: Axe; m: number; x: number; ecarts: number } | null = null
+    for (const c of profil) {
+      if (!c) continue
+      const x = c.axe.valeur(p)
+      if (x === null) continue
+      const ecarts = Math.abs(x - c.m) / c.sd
+      if (ecarts >= ECART_MIN && (!meilleur || ecarts > meilleur.ecarts)) {
+        meilleur = { axe: c.axe, m: c.m, x, ecarts }
+      }
+    }
+    if (!meilleur) continue
+
+    const { axe, m, x } = meilleur
+    explications.set(prenom, {
+      pseudo: refus.pseudo,
+      texte: `Ce n'est peut-être pas ${p.l} : c'est ${axe.nom}. ${refus.pseudo} garde des prénoms à ${axe.dire(m)} en moyenne, ${p.l} est à ${axe.dire(x)}.`
+    })
+  }
+  return explications
+}
+
+/** Un seul prénom : la même chose, pour qui n'en a qu'un à expliquer. */
 export function expliquerDesaccord(
   prenom: string,
   votes: VoteVisible[],
   parNom: Map<string, Prenom>,
   moiId: string
 ): Explication | null {
-  const p = parNom.get(prenom)
-  if (!p) return null
-
-  // Qui a dit non a CE prenom, en dehors de moi.
-  const refus = votes.find(v => v.prenom === prenom && v.valeur === 0 && v.user_id !== moiId)
-  if (!refus) return null
-
-  const sesOui: Prenom[] = []
-  for (const v of votes) {
-    if (v.user_id !== refus.user_id || v.valeur !== 2) continue
-    const q = parNom.get(v.prenom)
-    if (q) sesOui.push(q)
-  }
-  if (sesOui.length < MIN_OUI) return null
-
-  let meilleur: { axe: Axe; m: number; x: number; ecarts: number } | null = null
-  for (const axe of AXES) {
-    const xs = sesOui.map(axe.valeur).filter((x): x is number => x !== null)
-    if (xs.length < MIN_OUI) continue
-    const x = axe.valeur(p)
-    if (x === null) continue
-    const sd = ecartType(xs)
-    if (sd <= 0) continue
-    const m = moyenne(xs)
-    const ecarts = Math.abs(x - m) / sd
-    if (ecarts >= ECART_MIN && (!meilleur || ecarts > meilleur.ecarts)) {
-      meilleur = { axe, m, x, ecarts }
-    }
-  }
-  if (!meilleur) return null
-
-  const { axe, m, x } = meilleur
-  return {
-    pseudo: refus.pseudo,
-    texte: `Ce n'est peut-être pas ${p.l} : c'est ${axe.nom}. ${refus.pseudo} garde des prénoms à ${axe.dire(m)} en moyenne, ${p.l} est à ${axe.dire(x)}.`
-  }
+  return expliquerDesaccords([prenom], votes, parNom, moiId).get(prenom) ?? null
 }
 
 /** Assez de matière pour expliquer un refus ? Sert à dire pourquoi on se tait. */

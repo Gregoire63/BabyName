@@ -85,6 +85,7 @@ sh essais/relance-worker.sh essais/essai-worker.mjs      # SANS_BUILD=1 : garder
 | `essai-historique` | **les textes légaux s'ouvrent dans une feuille** qui monte du bas et redescend en se fermant (conditions depuis la connexion : l'adresse, l'historique et le formulaire ne bougent pas) ; onglets et liens d'un texte à l'autre restent dans la feuille, Échap la ferme ; arrivé par un lien direct, un texte reste une page dont le Retour ramène à l'app ; vers une liste, **la page qui glisse est opaque** ; les onglets d'une liste n'empilent rien |
 | `essai-dev` | les outils de la base locale : entrer d'un geste, âge du jeu d'essai, nouvelle journée, quotas à zéro, débloquer / rebloquer sans Stripe, base neuve sans arrêter le serveur |
 | `essai-seo` | ce que lisent les moteurs et les IA : page de l'app statique (WebApplication, FAQ) aux limites **lues dans le schéma**, llms.txt au bon domaine, robots.txt qui ferme `/?…` sans écarter les robots d'IA, boutons en nofollow, mentions légales sur chaque fiche, lastmod stable, coquille lisible sans JavaScript ; **navigation** (rubriques, filles ou garçons d'un geste, fiche reliée à ses classements, accueil qui montre chaque classement, origines rangées, lettres voisines) ; **rien ne dépasse à droite à 360 px**, tableaux compris, en-tête sur une ligne ; **sur un téléphone, le grand champ de recherche monte sous l'en-tête** et ses suggestions se lisent au-dessus du clavier (sur un ordinateur la page ne bouge pas) |
+| `essai-fluidite` | **l'app ne ralentit pas avec l'usage**, sur une liste semée de 450 + 360 votes : un vote ne fige pas l'écran, autres onglets ouverts ou non ; pendant qu'on trie, rien ne bouge dans le classement (il est en veille) et il est à jour au retour ; « À revoir » s'ouvre sans geler sur des centaines de désaccords, et ses explications sont celles de la règle, au mot près ; les cartes hors écran ne sont pas mises en page ; la tête de pile est celle de l'ordre complet ; le catalogue n'est pas réactif |
 | `essai-prenom` | le prénom d'une fiche publique (`?prenom=`) traverse la connexion et la création de liste, et arrive **en première carte, même hors des filtres** ; épinglé jusqu'au jugement ; déjà jugé, en accord ou sous veto, on le dit sans le rejouer ; **le code d'invitation traverse l'inscription, même par le lien de l'e-mail** ; le bouton retour ne boucle pas |
 | `essai-portrait` | le portrait parle sur 12 oui et **se tait** sur 5 |
 | `essai-revoir` | **« À revoir » en deux volets qui se replient** : en-têtes en motif accordéon (bouton dans un titre, aria-expanded, aria-controls, compte lu « 3 prénoms »), un toucher replie un groupe sans toucher l'autre, replié il quitte la page (rien de tabulable), au clavier aussi ; retenu au rechargement ; l'en-tête reste collé en haut pendant qu'on fait défiler son groupe, et replié de là l'écran remonte au début du groupe ; changer d'avis dans un volet ouvert fait suivre le compte ; WCAG ouvert et replié, clair et sombre |
@@ -111,6 +112,22 @@ Le clavier qui couvre le bas de l'écran se simule aussi (`CLAVIERS`, dans
 `essai-recherche`) : une fausse « vue visible » à la façon d'un iPhone, une
 autre où `innerHeight` la suit, et le cas où le navigateur ne dit rien.
 `glisser()` fait défiler au doigt.
+
+## Mesurer sur une liste qui a servi
+
+Le jeu d'essai tient en trente votes : ce qui coûte plus cher à chaque prénom
+jugé n'y paraît pas. `essai-fluidite` sème 450 votes pour Paul et 360 pour
+Alice par l'API avant de mesurer — une carte par prononciation, comme le tri,
+avec ses graphies. Pour une mesure de temps ou de mémoire :
+
+- cliquer depuis la page (`page.evaluate`) plutôt que par `getByRole`, qui
+  calcule le nom accessible de tous les boutons de la page : des secondes
+  sur une longue liste, mises sur le compte de l'app ;
+- attendre par `locator().waitFor()` plutôt que `page.waitForSelector()`,
+  dont la poignée retient l'élément — et sa page entière — en mémoire : une
+  « fuite » de vingt mégaoctets par aller-retour, qui n'existait pas ;
+- ralentir le processeur (`Emulation.setCPUThrottlingRate`, 4 pour un
+  téléphone moyen) et mesurer le build de production, pas `nuxt dev`.
 
 ## Le jeu d'essai
 

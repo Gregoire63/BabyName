@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { useVerdicts, MOT } from '~/composables/useVerdicts'
-import { expliquerDesaccord } from '~/composables/usePortrait'
+import { expliquerDesaccords, type Explication } from '~/composables/usePortrait'
 
 /**
  * Les desaccords, et la possibilite d'en revenir.
@@ -15,7 +15,6 @@ import { expliquerDesaccord } from '~/composables/usePortrait'
  * deux groupes, les pastilles et les boutons se lisent seuls. Les deux
  * groupes se replient (01/10, à sa demande aussi : voir basculer()).
  */
-defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
 const { aRevoir } = useVerdicts()
 
@@ -32,9 +31,12 @@ const match = ref<{ prenom: string; avec: string[] } | null>(null)
 const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
 const moiId = computed(() => g.etat.value?.moi?.user_id ?? '')
 
-const pourquoi = (prenom: string) => paye.value
-  ? expliquerDesaccord(prenom, g.votes.value as any, g.parNom.value, moiId.value)
-  : null
+// Toutes les explications d'un coup, et seulement quand les votes changent :
+// calculées ligne par ligne dans le gabarit, elles relisaient tous les votes
+// pour chaque désaccord (voir expliquerDesaccords).
+const pourquoi = computed<Map<string, Explication>>(() => paye.value
+  ? expliquerDesaccords(aRevoir.value.map(v => v.prenom), g.votes.value as any, g.parNom.value, moiId.value)
+  : new Map())
 
 /**
  * DEUX GROUPES : ce que j'ai refuse, ce que l'autre a refuse.
@@ -184,7 +186,7 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
             <BoutonsVerdict :valeur="v.mien" :nom="v.prenom" :occupe="occupe === v.prenom"
                             @choisir="changer(v.prenom, $event, v.autres)" />
           </div>
-          <p v-if="pourquoi(v.prenom)" class="pourquoi">{{ pourquoi(v.prenom)!.texte }}</p>
+          <p v-if="pourquoi.has(v.prenom)" class="pourquoi">{{ pourquoi.get(v.prenom)!.texte }}</p>
           <div class="ligne avis">
             <span class="puce" :class="`a${v.mien}`">Vous · {{ MOT[v.mien ?? 1] }}</span>
             <span v-for="a in v.autres" :key="a.pseudo" class="puce"
@@ -204,7 +206,10 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
 </template>
 
 <style scoped>
-.desaccord { padding: 13px 15px; display: flex; flex-direction: column; gap: 9px; }
+/* Des dizaines de désaccords : ceux qui sont hors de l'écran ne sont ni
+   stylés, ni mis en page, ni peints tant qu'on n'y arrive pas. */
+.desaccord { padding: 13px 15px; display: flex; flex-direction: column; gap: 9px;
+  content-visibility: auto; contain-intrinsic-size: auto 118px; }
 .groupe-revoir { display: flex; flex-direction: column; }
 .groupe-revoir + .groupe-revoir { margin-top: 10px; }
 /* Replié depuis le bas de son groupe, l'écran remonte à lui : sous la zone

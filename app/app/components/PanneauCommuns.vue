@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
-defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
 
 // La liste des communs est chargee avec le reste de la liste : l'onglet en a
@@ -66,17 +65,8 @@ function coeursLisibles(c: any): string {
   return `${noms.slice(0, -1).join(', ')} et ${noms.at(-1)}`
 }
 
-/** Qui traîne : un commun ne sort que si tout le monde a voté dessus. */
-const enRetard = computed(() => {
-  // Les décideurs seulement : un observateur (Mamie) n'est pas attendu par
-  // les accords — dire « la liste reste incomplète tant qu'elle n'a pas
-  // rattrapé » était faux, et culpabilisait la personne qui n'y peut rien.
-  const a = (g.etat.value?.avancement ?? []).filter((x: any) => x.role !== 'observateur')
-  if (a.length < 2) return null
-  const max = Math.max(...a.map((x: any) => x.votes))
-  const lent = a.find((x: any) => x.votes < max * 0.6)
-  return lent ? { pseudo: lent.pseudo, manque: max - lent.votes } : null
-})
+// « Qui traîne » vit dans RappelRetard : il suit le compte de votes de
+// chacun, qui change à chaque geste du tri, et n'a pas à entraîner la liste.
 
 /**
  * QUI A DIT QUOI.
@@ -136,6 +126,10 @@ function saisir(e: PointerEvent, i: number) {
   if (!peutRanger.value || saisie.value || (e.pointerType === 'mouse' && e.button !== 0)) return
   e.preventDefault()
   ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  // Hors de l'écran, une carte n'est pas mise en page (content-visibility,
+  // voir le style) : elle n'a qu'une hauteur estimée. Pour ranger il faut les
+  // vraies — `tient` les rend toutes, tout de suite, avant de mesurer.
+  liste.value?.classList.add('tient')
   const r = cartes().map(c => c.getBoundingClientRect())
   hauteurs = r.map(x => x.height)
   centres = r.map(x => x.top + x.height / 2)
@@ -261,10 +255,7 @@ onUnmounted(() => { cancelAnimationFrame(auto); clearTimeout(minuteurClavier) })
 
 <template>
   <div class="pile">
-    <p v-if="enRetard" class="rappel mini">
-      {{ enRetard.manque }} votes manquent à {{ enRetard.pseudo }} : la liste reste incomplète
-      tant que {{ enRetard.pseudo }} n’a pas rattrapé.
-    </p>
+    <RappelRetard />
 
     <div v-if="!communs.length" class="vide">
       <Etincelles :taille="34" couleur="var(--menthe)" />
@@ -376,6 +367,11 @@ onUnmounted(() => { cancelAnimationFrame(auto); clearTimeout(minuteurClavier) })
 .liste.tient { user-select: none; -webkit-user-select: none; }
 .liste.pose > .commun { transition: none; }
 .commun { padding: 14px 16px; position: relative; transition: transform .18s ease, box-shadow .18s; }
+/* Une longue liste d'accords : ce qui est hors de l'écran n'est ni stylé, ni
+   mis en page, ni peint tant qu'on n'y arrive pas. Ouvrir le classement ou
+   revenir sur ce volet ne coûte plus que ce qu'on en voit. Pas pendant qu'on
+   range : la carte tenue a besoin des vraies places de toutes les autres. */
+.liste:not(.tient) > .commun { content-visibility: auto; contain-intrinsic-size: auto 76px; }
 .commun.tenue { box-shadow: 0 12px 30px rgba(26,35,78,.22); }
 /* Oui de tout le monde : la carte le dit avant même qu'on lise. */
 .commun.tous { border-color: color-mix(in srgb, var(--oui) 45%, var(--trait));
@@ -429,8 +425,6 @@ onUnmounted(() => { cancelAnimationFrame(auto); clearTimeout(minuteurClavier) })
   background: color-mix(in srgb, var(--oui) 16%, var(--carte)); }
 .coeur[aria-pressed="true"] svg { fill: var(--oui); }
 .coeur:disabled { opacity: .6; }
-.rappel { margin: 0; padding: 10px 13px; border-radius: 12px;
-  background: color-mix(in srgb, var(--peche) 42%, transparent); }
 
 @media (prefers-reduced-motion: reduce) {
   .commun { transition: none; }

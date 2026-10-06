@@ -23,6 +23,19 @@ import type { Ref } from 'vue'
  */
 const pile: symbol[] = []
 
+/**
+ * « Un dialogue est ouvert », dit à la feuille de style : `html.dialogue`.
+ *
+ * Le fond qui respire se fige sous un dialogue (Ambiance.vue). Il le lisait
+ * dans `body:has([aria-modal="true"])` — une règle que le navigateur doit
+ * revérifier à CHAQUE changement de la page, en la parcourant tout entière
+ * pour s'assurer qu'aucun dialogue n'y est apparu. Sur une liste bien
+ * remplie, c'était l'essentiel du style recalculé après chaque vote : sept
+ * parcours de milliers de nœuds par carte. Une classe posée ici, aux deux
+ * seuls moments où la réponse change, ne coûte rien entre-temps.
+ */
+const marquer = () => document.documentElement.classList.toggle('dialogue', pile.length > 0)
+
 const FOCUSABLES = [
   'a[href]', 'button:not([disabled])', 'input:not([disabled]):not([type="hidden"])',
   'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]:not([tabindex="-1"])',
@@ -84,6 +97,7 @@ export function useDialogue(racine: Ref<HTMLElement | undefined | null>, fermer:
     if (pile.includes(moi)) return
     precedent = document.activeElement instanceof HTMLElement ? document.activeElement : null
     pile.push(moi)
+    marquer()
     defaire = isoler(el)
     document.addEventListener('keydown', auClavier, true)
     if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1')
@@ -96,6 +110,7 @@ export function useDialogue(racine: Ref<HTMLElement | undefined | null>, fermer:
     const i = pile.indexOf(moi)
     if (i < 0) return
     pile.splice(i, 1)
+    marquer()
     document.removeEventListener('keydown', auClavier, true)
     defaire?.(); defaire = null
     // On rend le focus à ce qui l'avait — s'il existe encore et n'est pas

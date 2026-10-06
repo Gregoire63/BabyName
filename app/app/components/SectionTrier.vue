@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { filtrer, filtresParDefaut, ordonner, trouverPrenom, sansAccent, type Prenom }
+import { filtrer, filtresParDefaut, premiers, trouverPrenom, sansAccent, type Prenom }
   from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 
@@ -73,12 +73,16 @@ const boiteFamille = ref<HTMLElement>()
 useDialogue(boiteFamille, () => { familleAEcarter.value = null })
 const cleJour = `pr_${g.gid}_${new Date().toISOString().slice(0, 10)}`
 
+/** Ce que les filtres laissent passer. Ne change que quand ON CHANGE LES
+ *  FILTRES : un vote n'a pas a repasser les 19 608 prenoms au crible. */
+const passentLesFiltres = computed(() =>
+  g.pret.value ? filtrer(g.catalogue.value, g.filtres.value) : [])
+
 /** Tout ce qui reste a juger, graphie par graphie. Sert au balayage de
  *  famille, qui doit voir les graphies une a une. */
 const dispoBrut = computed(() => {
-  if (!g.pret.value) return []
-  return filtrer(g.catalogue.value, g.filtres.value)
-    .filter(p => !g.dejaVotes.value.has(p.l) && !g.vetos.value.has(p.l))
+  const juges = g.dejaVotes.value, vetos = g.vetos.value
+  return passentLesFiltres.value.filter(p => !juges.has(p.l) && !vetos.has(p.l))
 })
 
 /**
@@ -103,20 +107,33 @@ const dispo = computed(() => {
     // du groupe, or un vote ne doit porter que sur celles que les filtres ont
     // laissees passer et qui restent a juger. Sans cet ecrasement, dire non a
     // Elyo repondrait pour un Hélio que la liste avait exclu.
-    out.push({ ...p, variantes: suite.get(p.gp)! })
+    //
+    // Sauf quand il n'y a rien a ecraser — le prenom n'a pas d'autre graphie,
+    // ou elles sont toutes encore la : la fiche du catalogue sert telle
+    // quelle. C'est le cas de neuf cartes sur dix, et recopier 7 500 fiches
+    // apres chaque vote se payait.
+    const restantes = suite.get(p.gp)!
+    const toutes = p.variantes
+    const pareil = toutes ? toutes.length === restantes.length && toutes.every((l, i) => l === restantes[i])
+      : restantes.length === 0
+    out.push(pareil ? p : { ...p, variantes: restantes })
   }
   return out
 })
 
-/** L'ordre courant. Il change a chaque « oui » : ordonner() remonte ce qui
- *  ressemble aux prenoms aimes, et au 3e oui il bascule carrement du tri par
- *  frequence au tri par affinite. */
-const suite = computed(() => ordonner(dispo.value, g.aimes.value))
+const TETE = 2
+/** Le debut de l'ordre courant : de quoi tenir la tete de pile (deux cartes
+ *  retenues, deux pour les remplacer). L'ordre change a chaque « oui » — ce
+ *  qui ressemble aux prenoms aimes remonte, et au 3e oui on passe carrement
+ *  du tri par frequence au tri par affinite (useCatalogue : ordonner). On
+ *  n'en calcule que le debut : ranger toute la pile apres chaque vote pour
+ *  n'en montrer que deux cartes etait du travail perdu. */
+const devant = computed(() => premiers(dispo.value, g.aimes.value, TETE * 2))
 
 /**
  * LA TETE DE PILE EST FIGEE.
  *
- * `suite` est recalculee a chaque vote. Sans ce verrou, le prenom qu'on
+ * L'ordre est recalcule a chaque vote. Sans ce verrou, le prenom qu'on
  * apercevait derriere la carte n'etait pas celui qui arrivait ensuite : il
  * etait remplace par un autre au moment meme du vote, ce qui se voyait comme
  * un rechargement. Promettre une carte et en donner une autre, c'est le seul
@@ -129,18 +146,17 @@ const suite = computed(() => ordonner(dispo.value, g.aimes.value))
  *
  * Cout : l'affinite ne prend effet qu'une carte plus tard. Cela ne se voit pas.
  */
-const TETE = 2
-const tete = ref<Prenom[]>([])
+const tete = shallowRef<Prenom[]>([])
 
-watch(suite, (liste) => {
-  const valides = new Map(liste.map(p => [p.l, p]))
+watch(devant, (premieres) => {
+  const pile = dispo.value
   const garde: Prenom[] = []
   const vus = new Set<string>()
   for (const p of tete.value) {
-    const frais = valides.get(p.l)          // on reprend l'objet a jour
+    const frais = pile.find(x => x.l === p.l)   // on reprend l'objet a jour
     if (frais && !vus.has(p.l)) { garde.push(frais); vus.add(p.l) }
   }
-  for (const p of liste) {
+  for (const p of premieres) {
     if (garde.length >= TETE) break
     if (!vus.has(p.l)) { garde.push(p); vus.add(p.l) }
   }
@@ -161,7 +177,7 @@ watch(suite, (liste) => {
  * est jugée (ou reçoit un veto), elle se lâche, et la carte qu'on voyait
  * derrière est bien celle qui arrive.
  */
-const epingle = ref<Prenom | null>(null)
+const epingle = shallowRef<Prenom | null>(null)
 /** Epingle depuis la recherche un prenom DEJA juge : on le rejuge. Le vote
  *  existant ne doit donc pas la lacher tout de suite (voir le watch). */
 let epingleDejaJuge = false
@@ -295,12 +311,8 @@ watch(() => g.pret.value, (pret) => {
   if (retenue) epingler(retenue, false)
 }, { immediate: true })
 
-/** La pile entiere : la tete figee, puis le reste dans l'ordre courant.
- *  Sert au decompte affiche et a « ecarter la famille ». */
-const pioche = computed(() => {
-  const vus = new Set(tete.value.map(p => p.l))
-  return [...tete.value, ...suite.value.filter(p => !vus.has(p.l))]
-})
+/** Combien de cartes restent dans la pile (une par prononciation). */
+const nbPossibles = computed(() => dispo.value.length)
 const plafond = computed(() => HYGIENE + bonus.value)
 
 /** Le mur vient-il du depart de la LISTE (nouveau membre sur une liste deja
@@ -417,10 +429,10 @@ function demanderVeto() {
 /** La ligne de contexte sous le nom de la liste : ou j'en suis, ce qui reste. */
 const contexte = computed(() => g.pret.value
   ? (paye.value
-      ? `${faits.value}/${plafond.value} jugés · ${pioche.value.length.toLocaleString('fr-FR')} possibles`
+      ? `${faits.value}/${plafond.value} jugés · ${nbPossibles.value.toLocaleString('fr-FR')} possibles`
       : reste.value === 1
-        ? `Dernier swipe pour aujourd’hui · ${pioche.value.length.toLocaleString('fr-FR')} possibles`
-        : `${reste.value ?? '…'} swipes restants · ${pioche.value.length.toLocaleString('fr-FR')} possibles`)
+        ? `Dernier swipe pour aujourd’hui · ${nbPossibles.value.toLocaleString('fr-FR')} possibles`
+        : `${reste.value ?? '…'} swipes restants · ${nbPossibles.value.toLocaleString('fr-FR')} possibles`)
   : '…')
 
 onMounted(() => {

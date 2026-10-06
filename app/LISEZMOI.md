@@ -1257,6 +1257,63 @@ l'en-tête (`scripts/recherche-client.js`). Sur un ordinateur, rien ne bouge.
 `essai-recherche` et `essai-seo` gardent tout ça ; « Taper comme un
 téléphone », dans essais/LISEZMOI.md, dit comment un essai compose un mot.
 
+## Ce qui grossit avec l'usage
+
+Une liste qui a servi n'est pas le jeu d'essai : des centaines de prénoms
+jugés, des dizaines d'accords et de désaccords. Le 05/10, « à force de
+naviguer », les swipes et les changements d'écran prenaient des secondes.
+Rien ne fuyait (la mémoire est stable d'un aller-retour à l'autre) : c'est le
+travail fait à chaque geste qui grossissait avec la liste. Mesuré sur le build
+de production, processeur ralenti quatre fois (un téléphone moyen), 600
+prénoms jugés par l'un et 480 par l'autre :
+
+| | avant | après |
+|---|---|---|
+| écran figé à chaque swipe | 0,8 à 0,9 s | moins de 0,06 s |
+| … une fois le classement ouvert | **8 s par swipe** | pareil qu'au-dessus |
+| ouvrir « À revoir » | 7 à 8 s | 0,3 s |
+| ouvrir « Mes choix » | 6 à 7 s | 0,1 s |
+| ouvrir le classement | 0,9 s | 0,6 s |
+| revenir à l'accueil, rentrer dans la liste | 1,2 à 1,6 s | 0,5 à 0,7 s |
+| mémoire | 50 Mo | 15 Mo |
+
+Cinq règles en sortent. Chacune a coûté des secondes :
+
+- **Ce qui est gros n'est pas réactif.** Les 19 608 fiches du catalogue sont
+  `markRaw` (useCatalogue.ts) ; les votes, les prénoms déjà jugés, les oui et
+  les favoris sont des `shallowRef` (VueGroupe.vue). On les **remplace d'un
+  bloc** (`x.value = nouveau`), on ne les modifie jamais sur place : l'écran
+  ne le verrait pas. Dans un `ref`, chaque `p.sexe` lu par un filtre passait
+  par Vue ; refaire la pile après un vote prenait un quart de seconde sur un
+  ordinateur, et le catalogue pesait 35 Mo de plus.
+- **Ce qu'on ne regarde pas ne travaille pas.** Les onglets d'une liste et
+  les volets du classement restent montés une fois ouverts. `<EnVeille
+  :actif>` leur sert l'état de la liste « en veille » (`enVeille`, dans
+  etatGroupe.ts) : ils ne suivent les votes que pendant qu'on les regarde, et
+  rattrapent d'un coup au retour. Un volet qui ne se sert pas de `actif` ne
+  le reçoit pas en prop : il se redessinait à chaque changement de volet.
+- **Pas de calcul sur tous les votes par ligne.** « À revoir » expliquait
+  chaque désaccord en relisant tous les votes, deux fois par ligne
+  (`expliquerDesaccords` le fait maintenant une fois pour toute la liste,
+  mêmes phrases).
+- **On ne range que ce qu'on montre.** La pile montre deux cartes :
+  `premiers()` prend la tête de l'ordre sans trier les 7 500 autres, les
+  filtres ne repassent pas sur le catalogue à chaque vote, et la note
+  d'affinité se calcule une fois par prénom, pas à chaque comparaison.
+- **Pas de règle que le navigateur doit revérifier sur toute la page.** Le
+  fond se figeait par `body:has([aria-modal="true"])` : à chaque changement
+  de la page, le navigateur la reparcourait en entier (33 000 nœuds sur une
+  grosse liste). `useDialogue` pose `html.dialogue` à la place. Les cartes
+  hors écran des longues listes ne sont ni stylées ni mises en page
+  (`content-visibility: auto`).
+
+`essai-fluidite` garde tout ça sur une liste semée de 450 + 360 votes.
+
+Pour mesurer soi-même : « Mesurer sur une liste qui a servi », dans
+essais/LISEZMOI.md — avec les deux pièges de l'outil qui ont d'abord fait
+croire à une fuite de mémoire, puis à une feuille de recherche de huit
+secondes.
+
 ## Ce que `nuxt dev` ne montre pas
 
 `nuxt dev` tourne sous Node, fichier par fichier ; la production est un

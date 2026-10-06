@@ -10,7 +10,6 @@ import { portraits, divergence, MIN_OUI } from '~/composables/usePortrait'
  * ne peut donc rien apprendre ici qu'on ne puisse deja lire ailleurs dans
  * l'application — seulement le lire autrement.
  */
-defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
 
 const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)

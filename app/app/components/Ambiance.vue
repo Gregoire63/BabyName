@@ -102,9 +102,12 @@ const decalage = `-${(Math.random() * 40).toFixed(1)}s`
 }
 </style>
 
-<!-- Hors du style « scoped » : `:global(body:has(…)) .halo` y perdait sa fin
-     (Vue ne gardait que `body:has(…)`), et rien ne se figeait. -->
+<!-- Hors du style « scoped » : la classe est sur <html>, hors du composant. -->
 <style>
-/* Sous un voile qui floute (feuille, fiche, effet d'accord) : on fige. */
-body:has([aria-modal="true"]) .ambiance .halo { animation-play-state: paused; }
+/* Sous un voile qui floute (feuille, fiche, effet d'accord) : on fige.
+   `html.dialogue` est posée par useDialogue. Surtout pas
+   `body:has([aria-modal="true"])` : le navigateur revérifiait cette règle à
+   chaque changement de la page, en la parcourant tout entière (voir
+   useDialogue). */
+html.dialogue .ambiance .halo { animation-play-state: paused; }
 </style>

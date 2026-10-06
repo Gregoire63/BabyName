@@ -25,7 +25,8 @@ const VOLETS = [
 ]
 
 // Chaque volet ne se monte qu'une fois ouvert, et reste monte ensuite : on ne
-// rejoue pas un chargement a chaque aller-retour.
+// rejoue pas un chargement a chaque aller-retour. Monte ne veut pas dire au
+// travail : celui qu'on ne regarde pas est en veille (EnVeille.vue).
 const vus = ref<Set<string>>(new Set([props.segment]))
 watch(() => props.segment, s => { vus.value = new Set([...vus.value, s]) })
 
@@ -83,19 +84,29 @@ const resume = computed(() => {
 
     <div id="volet-communs" v-show="segment === 'communs'" role="tabpanel"
          aria-labelledby="onglet-communs">
-      <PanneauCommuns v-if="vus.has('communs')" :actif="ici('communs')" />
+      <!-- Pas de prop `actif` aux volets qui n'en font rien : la recevoir les
+           faisait redessiner en entier à chaque changement de volet. -->
+      <EnVeille v-if="vus.has('communs')" :actif="ici('communs')">
+        <PanneauCommuns />
+      </EnVeille>
     </div>
     <div id="volet-revoir" v-show="segment === 'revoir'" role="tabpanel"
          aria-labelledby="onglet-revoir">
-      <PanneauRevoir v-if="vus.has('revoir')" :actif="ici('revoir')" />
+      <EnVeille v-if="vus.has('revoir')" :actif="ici('revoir')">
+        <PanneauRevoir />
+      </EnVeille>
     </div>
     <div id="volet-choix" v-show="segment === 'choix'" role="tabpanel"
          aria-labelledby="onglet-choix">
-      <PanneauMesChoix v-if="vus.has('choix')" :actif="ici('choix')" />
+      <EnVeille v-if="vus.has('choix')" :actif="ici('choix')">
+        <PanneauMesChoix :actif="ici('choix')" />
+      </EnVeille>
     </div>
     <div id="volet-portrait" v-show="segment === 'portrait'" role="tabpanel"
          aria-labelledby="onglet-portrait">
-      <PanneauPortrait v-if="vus.has('portrait')" :actif="ici('portrait')" />
+      <EnVeille v-if="vus.has('portrait')" :actif="ici('portrait')">
+        <PanneauPortrait />
+      </EnVeille>
     </div>
   </div>
 </template>

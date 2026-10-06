@@ -210,8 +210,19 @@ export async function chargerCatalogue() {
         if (tp) m.tp = tp
       }
     }
+    // LE CATALOGUE N'EST PAS RÉACTIF, et il ne doit jamais le devenir.
+    //
+    // 19 608 fiches qui ne changent plus une fois chargées. Posées dans un
+    // `ref`, Vue les enveloppait une à une : chaque `p.sexe`, chaque `p.y` lu
+    // par un filtre ou un tri passait par un intermédiaire qui note qui lit
+    // quoi. Refaire la pile après un vote coûtait ainsi un quart de seconde
+    // sur un ordinateur, près d'une seconde processeur ralenti quatre fois
+    // (un téléphone moyen) — à CHAQUE geste —, et 35 Mo de mémoire. `markRaw`
+    // dit à Vue de les laisser telles quelles, où qu'on les range ensuite
+    // (une fiche ouverte, une épingle, la tête de pile).
+    for (const p of liste) markRaw(p)
     if (typeof d.seuil_tendance === 'number') seuilTendance = d.seuil_tendance
-    cache = { liste, origines: d.origines, annees: d.serie_annees ?? [1986, 2025],
+    cache = { liste: markRaw(liste), origines: d.origines, annees: d.serie_annees ?? [1986, 2025],
               barres: d.barres_annees ?? [2011, 2025] }
     return cache
   })()
@@ -225,20 +236,28 @@ export function filtrer(liste: Prenom[], f: Filtres): Prenom[] {
   const iout = new Set(f.initiales_out.map(x => x.toUpperCase()))
   const eout = new Set(f.finales_out.map(x => sansAccent(x)))
   const sexes = new Set(f.sexe)
+  // Les réglages se lisent UNE fois, avant la boucle : `f` est réactif, et le
+  // relire champ par champ pour chacun des 19 608 prénoms coûtait plus cher
+  // que le filtre lui-même.
+  const rares = f.inclure_rares, compose = f.compose, risque = f.risque_max
+  const carMin = f.car[0], carMax = f.car[1]
+  const sylMin = f.syllabes[0], sylMax = f.syllabes[1]
+  const oMin = f.originalite[0], oMax = f.originalite[1]
+  const sens = f.sens_requis, objet = f.exclure_objet, revival = f.revival_seulement
 
   return liste.filter(p => {
-    if (p.q && !f.inclure_rares) return false
+    if (p.q && !rares) return false
     if (!sexes.has(p.sexe)) return false
-    if (p.c < f.car[0] || p.c > f.car[1]) return false
-    if (p.y < f.syllabes[0] || p.y > f.syllabes[1]) return false
-    if (f.compose !== null && p.k !== f.compose) return false
-    if (p.o < f.originalite[0] || p.o > f.originalite[1]) return false
-    if (p.r > f.risque_max) return false
-    if (f.sens_requis && !p.m) return false
-    if (f.exclure_objet && p.ob) return false
+    if (p.c < carMin || p.c > carMax) return false
+    if (p.y < sylMin || p.y > sylMax) return false
+    if (compose !== null && p.k !== compose) return false
+    if (p.o < oMin || p.o > oMax) return false
+    if (p.r > risque) return false
+    if (sens && !p.m) return false
+    if (objet && p.ob) return false
     if (iout.size && iout.has(p.i)) return false
     if (eout.size && eout.has(sansAccent(p.e))) return false
-    if (f.revival_seulement && !p.rv) return false
+    if (revival && !p.rv) return false
     if (oout.size && p.g.some(o => oout.has(o))) return false
     if (oin.size && !p.g.some(o => oin.has(o))) return false
     if (rech && !p.slug.includes(rech)) return false
@@ -251,9 +270,13 @@ export function filtrer(liste: Prenom[], f: Filtres): Prenom[] {
  * que les premiers écrans parlent. Dès qu'il y a des « oui », on remonte ce
  * qui leur ressemble (origine, syllabes, initiale, rareté comparable) — sinon
  * l'utilisateur abandonne avant d'avoir vu ce qui l'intéresse.
+ *
+ * `noteur` rend la note d'un prénom pour ces oui-là ; l'ordre est celui des
+ * notes, de la plus haute à la plus basse, et à note égale celui de la liste
+ * (le catalogue : du plus donné au moins donné).
  */
-export function ordonner(liste: Prenom[], aimes: Prenom[]): Prenom[] {
-  if (aimes.length < 3) return [...liste].sort((a, b) => b.n - a.n)
+function noteur(aimes: Prenom[]): (p: Prenom) => number {
+  if (aimes.length < 3) return p => p.n
 
   const orig = new Map<string, number>()
   let sylTot = 0, oTot = 0
@@ -267,7 +290,7 @@ export function ordonner(liste: Prenom[], aimes: Prenom[]): Prenom[] {
   const oMoy = oTot / aimes.length
   const n = aimes.length
 
-  const affinite = (p: Prenom) => {
+  return (p: Prenom) => {
     let s = 0
     for (const o of p.g) s += 2.2 * ((orig.get(o) ?? 0) / n)
     s += 1.0 * ((init.get(p.i) ?? 0) / n)
@@ -276,7 +299,39 @@ export function ordonner(liste: Prenom[], aimes: Prenom[]): Prenom[] {
     s += 0.6 * Math.min(1, p.n / 3000)        // un peu de popularité, pas trop
     return s
   }
-  return [...liste].sort((a, b) => affinite(b) - affinite(a))
+}
+
+/** Toute la pile, dans l'ordre. */
+export function ordonner(liste: Prenom[], aimes: Prenom[]): Prenom[] {
+  // Une note par prénom, calculée UNE fois, puis le tri sur les notes : la
+  // calculer dans la comparaison la refaisait deux fois par comparaison.
+  const note = noteur(aimes)
+  const notes = liste.map((p, i) => ({ i, s: note(p) }))
+  notes.sort((a, b) => b.s - a.s)
+  return notes.map(x => liste[x.i]!)
+}
+
+/**
+ * Les `k` premiers de cet ordre — exactement `ordonner(liste, aimes).slice(0, k)`
+ * — sans ranger toute la pile.
+ *
+ * Le tri ne montre que deux cartes à la fois. Ranger 7 500 prénoms après
+ * chaque vote pour n'en lire que la tête était du travail perdu ; un seul
+ * passage qui retient les meilleurs suffit.
+ */
+export function premiers(liste: Prenom[], aimes: Prenom[], k: number): Prenom[] {
+  const note = noteur(aimes)
+  const tete: { p: Prenom; s: number }[] = []
+  for (const p of liste) {
+    const s = note(p)
+    // À note égale, celui qui était déjà là reste devant (ordre de la liste).
+    if (tete.length === k && s <= tete[k - 1]!.s) continue
+    let j = tete.length
+    while (j > 0 && tete[j - 1]!.s < s) j--
+    tete.splice(j, 0, { p, s })
+    if (tete.length > k) tete.pop()
+  }
+  return tete.map(x => x.p)
 }
 
 /** Toutes les variantes d'une même famille (Jean-*, Mael/Maël/Maëlle…). */

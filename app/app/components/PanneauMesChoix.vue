@@ -66,11 +66,15 @@ watch(() => props.actif, a => { if (a) chargerFamilles() }, { immediate: true })
 
 async function remettre(prenoms: string[]) {
   remise.value = prenoms[0] ?? ''
-  await $fetch(`/api/groupes/${g.gid}/remettre`,
-    { method: 'POST', body: { prenoms } }).catch(() => null)
+  // AVANT d'attendre le serveur. Ce volet ne suit plus la liste dès qu'on le
+  // quitte (EnVeille) : relus après la réponse, les prénoms déjà jugés
+  // pourraient dater d'avant un swipe fait entre-temps, et le réécrire
+  // l'effacerait. Ici, on lit et on écrit dans le même geste.
   const s = new Set(g.dejaVotes.value)
   for (const p of prenoms) s.delete(p)
   g.dejaVotes.value = s
+  await $fetch(`/api/groupes/${g.gid}/remettre`,
+    { method: 'POST', body: { prenoms } }).catch(() => null)
   remise.value = ''
   await Promise.all([g.rechargerVotes(), chargerFamilles()])
 }

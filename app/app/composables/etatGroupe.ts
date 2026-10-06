@@ -1,4 +1,4 @@
-import type { InjectionKey, Ref, ComputedRef } from 'vue'
+import type { InjectionKey, Ref, ComputedRef, ShallowRef } from 'vue'
 import type { Prenom, Filtres } from '~/composables/useCatalogue'
 
 /** Un prénom « déjà pris » : retiré pour toute la liste, et dit. */
@@ -105,6 +105,38 @@ const CHAMPS = [
   'voter', 'pret', 'recharger', 'ouvrirFiche', 'ouvrirFiltres', 'allerA',
   'ouvrirDebloquer'
 ] as const
+
+/**
+ * LE MÊME ÉTAT, « EN VEILLE » : il ne bouge que pendant qu'on le regarde.
+ *
+ * Les onglets d'une liste et les volets du classement restent montés une fois
+ * ouverts. Branchés en direct sur les votes, ils recalculaient et
+ * redessinaient à chaque geste du tri des écrans que personne ne voyait
+ * (voir EnVeille.vue, qui pose cet état pour tout ce qu'il contient).
+ *
+ * Ce qui change à chaque geste — les votes, les accords, les prénoms déjà
+ * jugés, les oui, les favoris — est donc servi par une copie qui ne suit sa
+ * source que tant que `actif()` est vrai, et la rattrape d'un coup quand il le
+ * redevient. Hors de vue, l'effet ne lit même plus la source : zéro travail.
+ *
+ * Écrire dans la copie écrit dans la source (« l'ordre des accords », rangé
+ * depuis un volet). Le reste — `etat`, les filtres, les fonctions — passe tel
+ * quel : ça change rarement, et tout le monde doit le voir tout de suite.
+ */
+export function enVeille(g: EtatGroupe, actif: () => boolean): EtatGroupe {
+  const suivre = <T>(source: Ref<T>): Ref<T> => {
+    const vu = shallowRef(source.value) as ShallowRef<T>
+    // `sync` : ce qu'un volet vient d'écrire, ou ce que le serveur vient de
+    // répondre, se relit à la ligne suivante — pas au prochain rendu.
+    watchEffect(() => { if (actif()) vu.value = source.value }, { flush: 'sync' })
+    return computed({ get: () => vu.value, set: (v: T) => { source.value = v } }) as unknown as Ref<T>
+  }
+  return {
+    ...g,
+    votes: suivre(g.votes), communs: suivre(g.communs), dejaVotes: suivre(g.dejaVotes),
+    aimes: suivre(g.aimes), favoris: suivre(g.favoris)
+  }
+}
 
 /**
  * Meme etat, mais tolere l'absence.
