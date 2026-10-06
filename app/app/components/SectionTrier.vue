@@ -54,7 +54,6 @@ onUnmounted(() => clearTimeout(minuteur))
 const PAS_BONUS = 40
 const bonus = ref(0)
 const faits = ref(0)
-const match = ref<{ prenom: string; avec: string[] } | null>(null)
 const retour = ref<{ prenom: string; qui: string[] } | null>(null)
 const familleAEcarter = ref<Prenom[] | null>(null)
 const rechercheOuverte = ref(false)
@@ -711,7 +710,9 @@ async function voter(valeur: 0 | 1 | 2) {
   const accord = valeur === 2 && autres.every((v: any) => v.valeur === 2)
                  && tous.length >= nbMembres
   if (accord) {
-    match.value = { prenom: p.l, avec: autres.map((v: any) => v.pseudo) }
+    // La fête est tenue par la liste : on a pu quitter le tri avant la
+    // réponse, et elle doit arriver là où l'on est (voir feter).
+    g.feter(p.l, autres.map((v: any) => v.pseudo))
     // La pastille des accords doit le compter sans attendre qu'on recharge.
     g.rechargerCommuns()
     return
@@ -999,10 +1000,6 @@ async function confirmerFamille() {
     <FeuilleGraphies v-if="graphiesDe" :p="graphiesDe" @fermer="graphiesDe = null" />
 
     <FeuilleTempete v-if="tempeteDe" :p="tempeteDe" @fermer="tempeteDe = null" />
-
-    <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec"
-                @fermer="match = null"
-                @communs="match = null; g.allerA('communs')" />
 
 
     <Transition name="confirme">

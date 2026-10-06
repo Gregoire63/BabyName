@@ -61,8 +61,12 @@ export interface EtatGroupe {
    */
   votes: Ref<{ prenom: string; user_id: string; pseudo: string; valeur: number }[]>
   rechargerVotes: () => Promise<void>
-  /** Changer mon vote sur un prenom, depuis n'importe quel ecran. */
-  voter: (prenom: string, valeur: 0 | 1 | 2) => Promise<void>
+  /** Changer mon vote sur un prenom, depuis n'importe quel ecran. Vrai si ce
+   *  vote vient de FAIRE un accord (le prénom n'en était pas un, il en est un). */
+  voter: (prenom: string, valeur: 0 | 1 | 2) => Promise<boolean>
+  /** Fêter un accord, où qu'on soit dans la liste : la fête vit au-dessus des
+   *  onglets (voir VueGroupe). `revoir` : y proposer « ce qui vous sépare ». */
+  feter: (prenom: string, avec: string[], revoir?: boolean) => void
   pret: Ref<boolean>
   recharger: () => Promise<void>
   ouvrirFiche: (nom: string) => void
@@ -102,7 +106,7 @@ const CHAMPS = [
   'aimes', 'vetos', 'mesVetos', 'poserVeto', 'retirerVeto', 'dejaPris',
   'parDejaPris', 'ajouterDejaPris', 'retirerDejaPris', 'graphiesDe', 'favoris',
   'basculerFavori', 'communs', 'rechargerCommuns', 'votes', 'rechargerVotes',
-  'voter', 'pret', 'recharger', 'ouvrirFiche', 'ouvrirFiltres', 'allerA',
+  'voter', 'feter', 'pret', 'recharger', 'ouvrirFiche', 'ouvrirFiltres', 'allerA',
   'ouvrirDebloquer'
 ] as const
 
@@ -122,6 +126,12 @@ const CHAMPS = [
  * Écrire dans la copie écrit dans la source (« l'ordre des accords », rangé
  * depuis un volet). Le reste — `etat`, les filtres, les fonctions — passe tel
  * quel : ça change rarement, et tout le monde doit le voir tout de suite.
+ *
+ * Une précaution pour ce qui vit dessous : une fonction qui attend le serveur
+ * peut reprendre après qu'on a quitté son écran, et ce qu'elle relit alors
+ * date du départ. On lit et on écrit dans le même geste, avant d'attendre
+ * (PanneauMesChoix.remettre) ; ou on demande à la liste, qui sait toujours
+ * (`voter` dit lui-même s'il vient de faire un accord).
  */
 export function enVeille(g: EtatGroupe, actif: () => boolean): EtatGroupe {
   const suivre = <T>(source: Ref<T>): Ref<T> => {

@@ -10,6 +10,11 @@ import { tester } from '~/composables/useNomComplet'
  * reste du temps on trie, ici on trouve. L'effet reprend les etincelles du
  * logo, rien d'autre — pas de confettis multicolores qui n'appartiennent a
  * aucune identite.
+ *
+ * Il n'y en a qu'un, tenu par la liste (VueGroupe, `g.feter`) et non par
+ * l'onglet qui a fait l'accord : la réponse du serveur peut arriver après
+ * qu'on en est parti, et un dialogue ouvert dans un écran qu'on ne regarde
+ * plus fige toute la page.
  */
 const props = withDefaults(defineProps<{
   prenom: string

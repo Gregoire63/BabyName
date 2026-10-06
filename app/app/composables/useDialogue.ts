@@ -16,7 +16,8 @@ import type { Ref } from 'vue'
  *  - il rend le reste de la page inerte (`inert`) : ni tabulable, ni lu,
  *    ni cliquable — y compris pour VoiceOver, qui ignore parfois aria-modal ;
  *  - Tab et Maj+Tab bouclent à l'intérieur ;
- *  - Échap ferme — seulement le dialogue du dessus quand deux s'empilent.
+ *  - Échap ferme — seulement le dialogue du dessus quand deux s'empilent ;
+ *  - il se ferme de lui-même s'il devient inerte (voir lacherSiInerte).
  *
  * Le rôle, `aria-modal` et `aria-labelledby` restent dans le gabarit : c'est
  * là qu'on les lit.
@@ -93,12 +94,35 @@ export function useDialogue(racine: Ref<HTMLElement | undefined | null>, fermer:
     }
   }
 
+  /**
+   * Un dialogue qu'on ne peut plus toucher ne retient pas la page.
+   *
+   * Il rend inerte tout ce qui n'est pas lui. S'il le devient à son tour —
+   * son onglet est passé de côté pendant qu'il était ouvert — plus rien ne
+   * répond, ni lui ni le reste, et il faut recharger la page. Le cas existe :
+   * la recherche ouverte dans le tri, la fête d'un accord qui arrive
+   * par-dessus, et « Voir nos accords », qui change d'onglet (essai-fete).
+   *
+   * Plutôt que de compter sur chaque écran pour y penser, le dialogue du
+   * DESSUS se ferme dès qu'un de ses ancêtres est inerte. Celui du dessous
+   * l'est normalement, le temps que l'autre se ferme : on ne le touche pas.
+   */
+  let guet: MutationObserver | null = null
+  function lacherSiInerte() {
+    const el = racine.value
+    if (el && pile[pile.length - 1] === moi && el.closest('[inert]')) fermer()
+  }
+
   function ouvrir(el: HTMLElement) {
     if (pile.includes(moi)) return
     precedent = document.activeElement instanceof HTMLElement ? document.activeElement : null
     pile.push(moi)
     marquer()
     defaire = isoler(el)
+    // Après isoler : ses propres `inert` ne sont pas des nouvelles.
+    guet = new MutationObserver(lacherSiInerte)
+    guet.observe(document.body, { attributes: true, attributeFilter: ['inert'], subtree: true })
+    lacherSiInerte()
     document.addEventListener('keydown', auClavier, true)
     if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1')
     // preventScroll : le dialogue arrive en glissant, un défilement forcé
@@ -112,6 +136,7 @@ export function useDialogue(racine: Ref<HTMLElement | undefined | null>, fermer:
     pile.splice(i, 1)
     marquer()
     document.removeEventListener('keydown', auClavier, true)
+    guet?.disconnect(); guet = null
     defaire?.(); defaire = null
     // On rend le focus à ce qui l'avait — s'il existe encore et n'est pas
     // lui-même devenu inerte (un dialogue d'en dessous, par exemple).

@@ -1191,6 +1191,24 @@ derrière.
 qu'aucun outil ne voit. Il lui faut axe-core : `npm i -D axe-core` (ou
 `ESSAI_AXE=/chemin/axe.min.js`).
 
+**Un dialogue ne s'ouvre jamais là où on ne le voit pas.** Il rend inerte tout
+ce qui n'est pas lui : ouvert dans un onglet qu'on vient de quitter (inerte,
+lui aussi) ou dans un volet replié, il fige la page entière — plus rien ne
+répond, il faut recharger. C'était le cas de la fête d'un accord, qui attend
+la réponse du serveur : un oui, un changement d'onglet avant qu'elle
+n'arrive, et l'écran restait sur « Vous êtes d'accord » sans qu'aucun bouton
+ne marche. Deux règles depuis :
+
+- ce qui s'ouvre **après une réponse du serveur** est tenu par la liste,
+  au-dessus des onglets : `g.feter()`, comme `g.ouvrirFiche()` et
+  `g.ouvrirDebloquer()`. Une feuille rangée dans un onglet ne s'ouvre que
+  d'un toucher dans cet onglet ;
+- le dialogue du dessus **se ferme de lui-même** si un de ses ancêtres devient
+  inerte (`useDialogue`) : la recherche restée ouverte dans le tri sous une
+  fête dont on touche « Voir nos accords », par exemple.
+
+`essai-fete` rejoue ces cas avec un serveur ralenti.
+
 ## Schéma
 
 `server/assets/migrations/` fait foi : un fichier numéroté par changement

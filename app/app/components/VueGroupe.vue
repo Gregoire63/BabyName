@@ -97,11 +97,18 @@ async function rechargerVotes() {
  * Changer mon vote depuis n'importe quel ecran — le tri, « A revoir », « Mes
  * choix ». Un seul chemin : la regle du balayage et celle du vote aveugle sont
  * cote serveur, on ne les rejoue pas ici.
+ *
+ * Renvoie vrai si ce vote vient de FAIRE un accord. C'est lu ici, sur l'état
+ * de la liste, et non depuis l'écran qui a voté : un volet qu'on a quitté
+ * avant la réponse ne suit plus les accords (EnVeille), il comparerait deux
+ * fois la même liste.
  */
 async function voter(prenom: string, valeur: 0 | 1 | 2) {
+  const etait = communs.value.some((c: any) => c.prenom === prenom)
   await $fetch(`/api/groupes/${gid}/vote`, { method: 'POST', body: { prenom, valeur } })
   const s = new Set(dejaVotes.value); s.add(prenom); dejaVotes.value = s
   await Promise.all([rechargerVotes(), rechargerCommuns()])
+  return !etait && communs.value.some((c: any) => c.prenom === prenom)
 }
 
 /**
@@ -204,6 +211,24 @@ function ouvrirFiltres() { filtresOuverts.value = true }
 const debloquerOuvert = ref(false)
 function ouvrirDebloquer() { fiche.value = null; debloquerOuvert.value = true }
 
+/**
+ * LA FÊTE D'UN ACCORD EST TENUE PAR LA LISTE, pas par l'écran qui l'a faite.
+ *
+ * Elle s'ouvre quand le serveur a répondu : un tiers de seconde après le
+ * geste au mieux, plusieurs sur un réseau de téléphone. Entre-temps on a pu
+ * changer d'onglet ou de volet. Rangée dans le tri et dans « À revoir »,
+ * elle s'ouvrait alors dans un écran qu'on ne regardait plus : dessinée
+ * par-dessus tout mais inerte (un onglet de côté l'est), ou pas dessinée du
+ * tout (un volet replié). Et comme un dialogue rend inerte tout ce qui n'est
+ * pas lui, plus rien ne répondait — il fallait recharger la page.
+ *
+ * Ici, au-dessus des onglets, elle arrive où l'on est (essai-fete).
+ */
+const fete = ref<{ prenom: string; avec: string[]; revoir: boolean } | null>(null)
+function feter(prenom: string, avec: string[], revoir = true) {
+  fete.value = { prenom, avec, revoir }
+}
+
 /** Combien de prénoms passent les filtres en cours — affiché dans le panneau. */
 const nbFiltres = computed(() =>
   catalogue.value.length ? filtrer(catalogue.value, filtres.value).length : 0)
@@ -294,7 +319,7 @@ const partage: EtatGroupe = {
   gid, etat, catalogue, parNom, origines, filtres, dejaVotes, aimes, vetos,
   mesVetos, poserVeto, retirerVeto, dejaPris, parDejaPris, ajouterDejaPris,
   retirerDejaPris, graphiesDe, favoris, basculerFavori,
-  communs, rechargerCommuns, votes, rechargerVotes, voter,
+  communs, rechargerCommuns, votes, rechargerVotes, voter, feter,
   pret, recharger, ouvrirFiche, ouvrirFiltres, allerA, ouvrirDebloquer, verifierPaiement
 }
 provide(CLE_GROUPE, partage)
@@ -504,6 +529,9 @@ async function attendrePaiement() {
     </nav>
 
     <FichePrenom v-if="fiche" :p="fiche" @fermer="fiche = null" />
+
+    <EffetMatch v-if="fete" :prenom="fete.prenom" :avec="fete.avec" :revoir="fete.revoir"
+                @fermer="fete = null" @communs="fete = null; allerA('communs')" />
 
     <FiltresPanneau v-if="filtresOuverts" v-model="filtres" :origines="origines"
                     :nb="nbFiltres" :nb-rares="nbRares" @fermer="fermerFiltres" />

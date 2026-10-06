@@ -62,6 +62,7 @@ sh essais/relance-worker.sh essais/essai-worker.mjs      # SANS_BUILD=1 : garder
 | `essai-geste` | le swipe part quand le verdict s'affiche, pas dix pixels plus loin |
 | `essai-quota` | un départ puis un filet quotidien, un mur qui dit que demain ça repart ; **le dernier swipe se sait d'avance** (rien derrière la carte, aucune autre carte devant avant le mur) ; le quota est en base, suit la personne, et un compte jetable ne rapporte pas un départ entier |
 | `essai-social` | **aucun refus n'est jamais annoncé** ; le match est un moment qu'on ferme soi-même |
+| `essai-fete` | **la fête d'un accord arrive là où l'on est**, serveur ralenti d'une seconde et demie : après un swipe puis un changement d'onglet, après un « finalement oui » puis un changement de volet ou d'onglet, elle se voit, se touche et se ferme, et la page répond ensuite ; partie à l'accueil, pas de fête ; « Voir nos accords » y mène depuis partout ; une recherche restée ouverte dessous ne fige rien |
 | `essai-paiement` | l'offre dit tout, prix TTC, **case d'accord jamais pré-cochée** et sans laquelle rien ne part — mais **bouton jamais grisé** : sans la case, il la signale, juste au-dessus de lui ; aucun champ de carte, le serveur refuse le payant sans paiement |
 | `essai-caisse` | tout le trajet contre un **faux Stripe local** : accord exigé, session, facture et renonciation, webhook signé, prélèvement, code à 100 %, rotation du secret, retour sans webhook, **re-verrouillage** sur remboursement total ou litige perdu |
 | `essai-cadeau` | **offrir sans compte**, dans une feuille (sur `/offrir` comme depuis l'accueil) contre un faux Stripe : rien sans la case d'accord ; une session de CADEAU (code dans les métadonnées et sur la facture, rétractation tant qu'il n'a pas servi, pas de code promo, aucune liste visée) ; le code au retour, « en cours » tant que ce n'est pas encaissé, le même à chaque rechargement ; le lien traverse la connexion (« Mamie Jo vous offre babyNamed ») et crée une liste débloquée ; tapé dans « Débloquer » ou « Rejoindre » ; **un code ne sert qu'une fois** ; remboursé, il s'annule et re-verrouille la liste ; échu, il n'ouvre plus rien ; WCAG sur les trois écrans |
@@ -128,6 +129,21 @@ avec ses graphies. Pour une mesure de temps ou de mémoire :
   « fuite » de vingt mégaoctets par aller-retour, qui n'existait pas ;
 - ralentir le processeur (`Emulation.setCPUThrottlingRate`, 4 pour un
   téléphone moyen) et mesurer le build de production, pas `nuxt dev`.
+
+## Partir avant la réponse du serveur
+
+En local le serveur répond en dix millisecondes : on ne quitte jamais un écran
+avant lui. Sur un téléphone, si — et ce qui s'ouvre à la réponse (la fête d'un
+accord) s'ouvrait alors dans un onglet qu'on ne regardait plus, inerte, en
+figeant toute la page. `essai-fete` retient le vote une seconde et demie
+(`page.route`), et change d'écran entre-temps.
+
+Ses gestes sont de vrais touchers aux coordonnées de l'élément
+(`page.touchscreen.tap`), pas des `click()` : lancé depuis la page, un
+`click()` traverse `inert` et l'essai passerait sur un écran figé ; celui de
+Playwright, lui, attend tout son délai avant d'échouer. Et deux boutons
+portent la classe `loupe` dans l'en-tête du tri — les filtres, puis la
+recherche : viser par le nom (`aria-label`).
 
 ## Le jeu d'essai
 

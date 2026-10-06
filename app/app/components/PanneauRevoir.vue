@@ -19,7 +19,6 @@ const g = useGroupeCourant()
 const { aRevoir } = useVerdicts()
 
 const occupe = ref('')
-const match = ref<{ prenom: string; avec: string[] } | null>(null)
 
 /**
  * « Ce n'est peut-etre pas Marius, c'est trois syllabes. »
@@ -139,15 +138,14 @@ function replier(el: Element, fini: () => void) {
 async function changer(prenom: string, valeur: 0 | 1 | 2,
                        autres: { pseudo: string; observateur: boolean }[]) {
   occupe.value = prenom
-  const avant = new Set(g.communs.value.map((c: any) => c.prenom))
   try {
-    await g.voter(prenom, valeur)
     // Devenu commun a l'instant : c'est le moment qui merite la fete, et c'est
     // celui qui change d'avis qui la voit — l'autre l'a deja vue, ou la verra.
-    const apres = new Set(g.communs.value.map((c: any) => c.prenom))
-    if (!avant.has(prenom) && apres.has(prenom)) {
+    // La liste le dit (voter) et tient la fête (feter) : ce volet a pu être
+    // quitté avant la réponse, il ne suit alors plus les accords.
+    if (await g.voter(prenom, valeur)) {
       // « Vous etes d'accord avec… » ne nomme que ceux dont l'accord compte.
-      match.value = { prenom, avec: autres.filter(a => !a.observateur).map(a => a.pseudo) }
+      g.feter(prenom, autres.filter(a => !a.observateur).map(a => a.pseudo), false)
     }
   } finally { occupe.value = '' }
 }
@@ -199,9 +197,6 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
         </Transition>
       </section>
     </template>
-
-    <EffetMatch v-if="match" :prenom="match.prenom" :avec="match.avec" :revoir="false"
-                @fermer="match = null" />
   </div>
 </template>
 
