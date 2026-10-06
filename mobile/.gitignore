@@ -1,0 +1,33 @@
+# dépendances
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Les dossiers natifs sont fabriqués à chaque construction (expo prebuild,
+# EAS Build) à partir d'app.json : on ne les garde pas.
+/ios
+/android
+
+# Jamais dans le dépôt, qui est public : clés de signature, et le fichier de
+# Firebase (voir app.config.ts).
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+google-services.json
+GoogleService-Info.plist
+.env*.local
+
+# Metro, TypeScript, macOS
+.metro-health-check*
+*.tsbuildinfo
+.DS_Store
+npm-debug.*

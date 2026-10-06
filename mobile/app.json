@@ -1,0 +1,96 @@
+{
+  "expo": {
+    "name": "babyNamed",
+    "slug": "babynamed",
+    "version": "1.0.0",
+    "scheme": "babynamed",
+    "orientation": "portrait",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#fbfaf9",
+    "locales": {
+      "fr": "./langues/fr.json"
+    },
+    "ios": {
+      "bundleIdentifier": "fr.babynamed.app",
+      "supportsTablet": false,
+      "associatedDomains": [
+        "applinks:babynamed.fr",
+        "webcredentials:babynamed.fr"
+      ],
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "fr"
+      }
+    },
+    "android": {
+      "package": "fr.babynamed.app",
+      "adaptiveIcon": {
+        "backgroundImage": "./assets/android-icon-background.png",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "allowBackup": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "babynamed.fr",
+              "pathPrefix": "/rejoindre/"
+            },
+            {
+              "scheme": "https",
+              "host": "babynamed.fr",
+              "path": "/connexion/app"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "permissions": [],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#fbfaf9",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "dark": {
+            "backgroundColor": "#101321",
+            "image": "./assets/splash-icon-dark.png"
+          }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#1a234e",
+          "defaultChannel": "accords",
+          "mode": "production"
+        }
+      ]
+    ]
+  }
+}
