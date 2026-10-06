@@ -22,7 +22,7 @@ Le détail des règles des stores : `claude/apps-mobiles.md` (doc du projet).
 |---|---|
 | Les types | `npm run typer` |
 | La logique : navigation, pont, liens, notifications, panne, « Retour », page tuée par le téléphone | `npm run essais` (61 essais ; la vue web est une doublure qui exécute pour de bon les scripts qu'on lui injecte) |
-| Que ces essais voient quelque chose | chaque garde de `Coquille.tsx` sabotée tour à tour (27) : toutes repérées |
+| Que ces essais voient quelque chose | chaque garde de `Coquille.tsx` sabotée tour à tour (28) : toutes repérées |
 | La configuration : `app.json`, les greffons, les deux projets natifs fabriqués | `npx expo prebuild --no-install` |
 | Le JavaScript s'empaquette pour les deux plateformes | `npx expo export` |
 | `eas.json` | lu par l'analyseur d'EAS |
@@ -95,7 +95,17 @@ Dans l'ordre. Les comptes développeur Apple et Google existent déjà.
      (`npx eas-cli credentials` → Android) ;
    - vérifier : https://babynamed.fr/.well-known/apple-app-site-association et
      https://babynamed.fr/.well-known/assetlinks.json répondent (404 tant que
-     les variables manquent).
+     les variables manquent) ;
+   - **l'ordre compte** : un téléphone lit ces fichiers quand il INSTALLE
+     l'app, pas quand on touche un lien. Les variables d'abord (celle d'Apple
+     se connaît avant toute construction ; celles d'Android après la
+     première), le site en ligne, les deux adresses qui répondent — et
+     seulement ensuite l'installation. Une app installée trop tôt : la
+     désinstaller, la réinstaller. Attendre ne suffit pas : sur iPhone, Apple
+     garde sa propre copie du fichier, sans moyen de la purger, et le
+     téléphone ne la relit qu'une fois par semaine environ ; Android 14 et
+     avant ne relisent qu'à l'installation ou à une mise à jour, Android 15
+     sous sept jours.
 
 5. **Le compte de démonstration**, que les deux stores demandent pour valider :
    `NUXT_DEMO_EMAIL` (une adresse impossible, en `.test` : `demo@babynamed.test`)
@@ -128,6 +138,10 @@ Ce que les essais d'ici ne peuvent pas dire. Sur iPhone ET sur Android :
 - **Liens** : une invitation (`/rejoindre/…`) touchée dans un message ouvre
   l'app, dans la liste ; le lien de connexion demandé depuis l'app ouvre
   l'app ; celui demandé depuis Safari ou Chrome reste dans le navigateur.
+  Pour savoir si l'iPhone a bien relié le site à l'app : coller une
+  invitation dans Notes, appui long — « Ouvrir dans babyNamed » doit être
+  proposé. Sur Android : `adb shell pm get-app-links fr.babynamed.app` doit
+  dire `verified` pour babynamed.fr.
 - **Notifications** : « Me prévenir d'un nouvel accord » pose la question du
   téléphone ; un accord fait depuis un autre compte arrive, app ouverte et app
   fermée ; la toucher mène aux accords.

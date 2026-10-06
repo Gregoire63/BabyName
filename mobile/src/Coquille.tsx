@@ -375,7 +375,11 @@ export function Coquille() {
       {/* Android, bord à bord : le clavier ne redimensionne plus la fenêtre,
           c'est à l'app de lui faire de la place. iOS : la vue web s'en charge,
           comme Safari — la page le sait (useClavier, côté site). */}
-      <KeyboardAvoidingView style={styles.plein} behavior={Platform.OS === 'android' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.plein} behavior={Platform.OS === 'android' ? 'padding' : undefined}
+        // En panne, notre écran recouvre la vue web — qui montre alors, dessous,
+        // la page d'erreur du téléphone : un lecteur d'écran ne doit pas y entrer.
+        accessibilityElementsHidden={panne}
+        importantForAccessibility={panne ? 'no-hide-descendants' : 'auto'}>
         <WebView
           key={generation}
           ref={vue}

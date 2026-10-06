@@ -616,12 +616,17 @@ test('pas de réseau à l’ouverture : un écran pour le dire, et « Réessayer
   expect(SplashScreen.hide).toHaveBeenCalled()
   // La vue web ne passe pas à son propre écran d'erreur : c'est le nôtre qui se montre.
   expect(erreur.preventDefault).toHaveBeenCalled()
+  // … et ce qu'elle affiche dessous (la page d'erreur du téléphone) est caché aux lecteurs d'écran.
+  const dessous = () => rendu.root.findByProps({ testID: 'vue-web' }).parent!.parent!
+  const cache = (n: any): boolean => !!n && (n.props.importantForAccessibility === 'no-hide-descendants' || cache(n.parent))
+  expect(cache(dessous())).toBe(true)
 
   const montages = mockVueWeb.montages
   const bouton = rendu.root.find(n => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function')
   await act(async () => { bouton.props.onPress() })
   expect(texteAffiche()).not.toContain('Pas de connexion')
   expect(mockVueWeb.montages).toBe(montages + 1)
+  expect(cache(dessous())).toBe(false)
 })
 
 test('iPhone, sans réseau à l’ouverture : l’erreur arrive sans adresse, et c’est bien notre panne', async () => {

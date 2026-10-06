@@ -9,7 +9,7 @@ export function Panne({ sombre, fond, reessayer }: { sombre: boolean; fond: stri
   const encre = sombre ? '#eef0f7' : '#1a234e'
   const doux = sombre ? '#9298b2' : '#5f6480'
   return (
-    <View style={[styles.plein, { backgroundColor: fond }]} accessibilityViewIsModal>
+    <View style={[styles.plein, { backgroundColor: fond }]} accessibilityViewIsModal accessibilityLiveRegion="polite">
       <Text style={[styles.titre, { color: encre }]} accessibilityRole="header">Pas de connexion</Text>
       <Text style={[styles.texte, { color: doux }]}>
         babyNamed n’a pas pu s’ouvrir. Vérifiez votre connexion, puis réessayez.
