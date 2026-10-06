@@ -12,6 +12,7 @@
  * c'est à ce moment-là seulement qu'il perd son droit de rétractation.
  */
 export default defineEventHandler(async (e) => {
+  refuserDansUneApp(e)   // rien ne se vend dans une app des stores (utils/vente.ts)
   // Une page publique qui ouvre des sessions chez Stripe : on borne, par
   // adresse, ce qu'un script pourrait en ouvrir pour rien.
   await limiter(e, 'cadeau-achat', ipDe(e), 20, 3600)

@@ -36,6 +36,11 @@ function poser(cle: string, v: string) {
 /** À l'ouverture : note la provenance si rien n'est encore noté. */
 export function noterProvenance() {
   if (lire(CLE)) return
+  // L'app des stores a son propre stockage : sa première ouverture est une
+  // arrivée par le store (app-ios, app-android), quoi qu'on ait vu avant
+  // dans un navigateur.
+  const app = coquilleDepuis(navigator.userAgent)
+  if (app) { poser(CLE, `app-${app.plateforme}`); return }
   const q = new URLSearchParams(location.search)
   let p = propre(q.get('ref')) ?? propre(q.get('utm_source'))
   if (!p && document.referrer) {

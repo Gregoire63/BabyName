@@ -34,7 +34,9 @@ voisin : `essai-caisse.env` pose des clés Stripe bidon et pointe l'API sur un
 faux Stripe (port 3199) ; `essai-connexion.env` remet les limites d'essais à
 leur valeur de production (le développement les multiplie par 50) ;
 `essai-rgpd.env` pose un `CRON_SECRET` pour que la
-purge existe. `relance.sh` les charge pour leur essai seulement — les autres
+purge existe ; `essai-coquille.env` règle les apps des stores (un faux service
+de notifications sur le port 3198, de quoi faire répondre les deux fichiers
+`.well-known`, le compte de démonstration). `relance.sh` les charge pour leur essai seulement — les autres
 gardent un serveur sans clé, et `essai-paiement` peut vérifier que l'écran
 d'achat le dit.
 
@@ -48,6 +50,19 @@ pas d'autre porte) et passe l'essai :
 ```bash
 sh essais/relance-worker.sh essais/essai-worker.mjs      # SANS_BUILD=1 : garder le build
 ```
+
+Lui aussi lit le fichier voisin de l'essai (`essai-worker.env`) : chaque ligne
+devient une variable du Worker.
+
+**L'app des stores, sans téléphone.** `ongletApp(nav, 'android' | 'ios')`
+(`navigateur.mjs`) ouvre un onglet qui se présente comme elle : son agent
+utilisateur — ce à quoi le site et le serveur la reconnaissent — et le pont
+natif, tenu par l'essai. `natif.recus` : tout ce que la page a dit au
+téléphone ; `natif.permission`, `natif.reponse` : où en sont les notifications
+et ce qu'on répondra à la question du téléphone ; `natif.dire(message)` : ce
+que le téléphone dit à la page (un lien reçu, « Retour », le retour au
+premier plan). Ce que cela ne dit pas — la vraie vue web, le vrai clavier,
+les vraies notifications — se regarde sur un appareil (`mobile/LISEZMOI.md`).
 
 `essai-caisse` se lance aussi en Managed Payments :
 `NUXT_STRIPE_MANAGED_PAYMENTS=1 sh essais/relance.sh essais/essai-caisse.mjs`.
@@ -67,7 +82,8 @@ sh essais/relance-worker.sh essais/essai-worker.mjs      # SANS_BUILD=1 : garder
 | `essai-caisse` | tout le trajet contre un **faux Stripe local** : accord exigé, session, facture et renonciation, webhook signé, prélèvement, code à 100 %, rotation du secret, retour sans webhook, **re-verrouillage** sur remboursement total ou litige perdu |
 | `essai-cadeau` | **offrir sans compte**, dans une feuille (sur `/offrir` comme depuis l'accueil) contre un faux Stripe : rien sans la case d'accord ; une session de CADEAU (code dans les métadonnées et sur la facture, rétractation tant qu'il n'a pas servi, pas de code promo, aucune liste visée) ; le code au retour, « en cours » tant que ce n'est pas encaissé, le même à chaque rechargement ; le lien traverse la connexion (« Mamie Jo vous offre babyNamed ») et crée une liste débloquée ; tapé dans « Débloquer » ou « Rejoindre » ; **un code ne sert qu'une fois** ; remboursé, il s'annule et re-verrouille la liste ; échu, il n'ouvre plus rien ; WCAG sur les trois écrans |
 | `essai-rgpd` | l'export donne tout ce qui est à soi et **rien des autres** ; l'effacement ne détruit pas les listes partagées ni un déblocage payé ; une session orpheline tombe en 401 ; la purge n'efface que l'inactif, et seulement avec son secret |
-| `essai-worker` | **dans le Worker de production** (relance-worker.sh) : on entre par un lien de connexion, une passkey se crée puis sert à revenir, son message s'affiche sous le bouton ; `/api/sante` ne dit que `{ ok }` sans le secret ; aucune réponse 500 |
+| `essai-worker` | **dans le Worker de production** (relance-worker.sh) : on entre par un lien de connexion, une passkey se crée puis sert à revenir, son message s'affiche sous le bouton ; `/api/sante` ne dit que `{ ok }` sans le secret ; **les apps des stores** : les deux fichiers `.well-known` et les deux adresses que l'app ouvre sont servis, le compte de démonstration entre sans e-mail, l'achat est refusé depuis l'app, et **une notification part après la réponse** (`waitUntil`) ; aucune réponse 500 |
+| `essai-coquille` | **les apps des stores**, dans un navigateur qui se présente comme elles (`ongletApp`) : **rien ne s'y vend** — accueil, tri, fiche, fête d'un accord, mur du quota, classement, réglages, « Rejoindre », `/offrir` ; Android dit où cela se débloque, d'une phrase sans lien, iOS ne dit rien ; **le serveur refuse** achat, cadeau et code venus d'une app, sans appeler Stripe ; débloquée sur le site, la liste l'est dans l'app au retour ; le pont (« prête », thème, partage, « Télécharger mes données », « Retour » d'Android, vibreur, lien reçu) ; **les notifications** (jamais demandées à l'ouverture, rien d'enregistré sans un geste même sur un téléphone qui les permet d'office, un accord prévient l'autre **sans le prénom**, une arrivée aussi ; refusées, coupées, déconnecté, jeton périmé, autre compte sur le même téléphone : plus rien) ; **les liens** (`/rejoindre/…`, et le lien de connexion qui revient là où on l'a demandé) ; le compte de démonstration |
 | `essai-enregistrement` | **un nom tapé est enregistré, quelle que soit la façon de partir** : pause dans la frappe, bouton retour, app en arrière-plan, onglet ; nom de la liste, nom de famille, nom affiché ; une requête par mot, pas par lettre |
 | `essai-supprimer-liste` | **quitter une liste, ou la supprimer pour tous** : le propriétaire (le créateur) est nommé, lui seul supprime (ni bouton ni route pour les autres, parent compris), rien sans le mot `SUPPRIMER` ; tout le monde peut quitter : ce qu'on a donné part, la liste reste aux autres, ses « déjà pris » y restent sans nom ni note, l'export n'en garde rien ; seul à décider, le propriétaire ne peut que supprimer ; s'il part, la liste passe au plus ancien qui décide, qui peut la renommer et la supprimer ; l'appareil oublie la liste, l'ancienne adresse ramène à l'accueil |
 | `essai-accessibilite` | axe-core (WCAG 2.0/2.1 A et AA) sur chaque écran et chaque dialogue (la feuille des textes légaux comprise), clair et sombre ; lien d'évitement, focus piégé dans les dialogues, Échap, focus rendu, tri aux flèches, onglets au clavier, mouvement réduit, aucun tiers contacté |

@@ -12,6 +12,16 @@ export default defineEventHandler(async (e) => {
   const email = emailValide(brut)
   await limiter(e, 'code-email', email, 10, 900)
 
+  // Le compte de démonstration des stores : pas d'e-mail, un code fixe
+  // (utils/demo.ts). Les deux freins ci-dessus valent pour lui aussi.
+  if (but !== 'verification' && estAdresseDemo(email)) {
+    if (!codeDemoJuste(email, code)) throw createError({ statusCode: 400, statusMessage: 'code_faux' })
+    const u = await ouvrirCompteInscrit(email, 'Démo')
+    await oublierEssais('code-email', email)
+    poserSession(e, u.id, u.gen)
+    return { but: 'connexion', utilisateur: { id: u.id, pseudo: u.pseudo } }
+  }
+
   if (but === 'verification') {
     const moi = await exigerCompte(e)
     const r = await consommerCode(email, 'verification', String(code ?? ''))

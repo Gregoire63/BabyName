@@ -71,6 +71,8 @@ const prix = (config.public.prixListe as string) || '6 €'
   </p>
   <h3>Commande et paiement</h3>
   <p>
+    L’achat se fait sur le site babynamed.fr. Les applications iPhone et Android donnent accès au même
+    service, listes débloquées comprises, mais rien ne s’y achète.
     Depuis la liste, <em>Débloquer</em> présente l’offre et son prix. Vous cochez la case d’acceptation,
     puis réglez sur la page de paiement sécurisée de Stripe (carte bancaire, Apple Pay, Google Pay et
     autres moyens proposés). Le bouton de paiement vaut commande avec obligation de payer. Vos données de
@@ -130,6 +132,8 @@ const prix = (config.public.prixListe as string) || '6 €'
     dont il est membre et qui n’est pas encore débloquée, ou une nouvelle liste, créée débloquée. Il est
     valable <strong>{{ CONSERVATION.cadeauMois / 12 }} ans</strong> à compter de l’achat ; passé ce délai,
     il n’ouvre plus rien et n’est pas remboursé. Il n’est pas échangeable contre de l’argent.
+    Il s’utilise sur le site babynamed.fr, pas dans les applications iPhone et Android ; la liste qu’il
+    débloque l’est ensuite partout.
   </p>
   <div class="encadre">
     <p>

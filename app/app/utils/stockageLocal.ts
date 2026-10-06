@@ -1,4 +1,5 @@
 import { CLE_THEME } from '~/composables/useTheme'
+import { CLE_PUSH_COUPE, CLE_PUSH_POUR } from '~/composables/usePush'
 import { oublierListeCourante } from '~/composables/useListeCourante'
 
 /**
@@ -10,13 +11,23 @@ import { oublierListeCourante } from '~/composables/useListeCourante'
  *
  * Le cache hors ligne (service worker) n'est pas touche : il ne contient que
  * l'application et le catalogue, rien de personnel. Le theme (clair, sombre)
- * non plus : c'est un reglage de l'APPAREIL, pas une donnee du compte.
+ * non plus : c'est un reglage de l'APPAREIL, pas une donnee du compte. De
+ * meme, dans l'app des stores, le choix d'etre prevenu ou non sur ce
+ * telephone (usePush) : se reconnecter ne doit ni rallumer des notifications
+ * qu'on avait coupees, ni obliger a les redemander.
  */
+const GARDES = [CLE_THEME, CLE_PUSH_COUPE, CLE_PUSH_POUR]
+
 export function viderStockageLocal() {
-  let theme: string | null = null
-  try { theme = localStorage.getItem(CLE_THEME) } catch { /* stockage bloque */ }
+  const gardes = new Map<string, string>()
+  try {
+    for (const cle of GARDES) {
+      const v = localStorage.getItem(cle)
+      if (v !== null) gardes.set(cle, v)
+    }
+  } catch { /* stockage bloque */ }
   try { localStorage.clear() } catch { /* navigation privee, stockage bloque */ }
-  try { if (theme) localStorage.setItem(CLE_THEME, theme) } catch { /* idem */ }
+  try { for (const [cle, v] of gardes) localStorage.setItem(cle, v) } catch { /* idem */ }
   try { sessionStorage.clear() } catch { /* idem */ }
 }
 

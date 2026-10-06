@@ -33,7 +33,7 @@ function parTete(lignes: any[]) {
 export default defineEventHandler(async (e) => {
   const uid = await exigerUtilisateur(e)
 
-  const [compte, passkeys, listes, bulletins, vetos, dejaPris, favoris, duels, elo, classement, commentaires, cadeaux] =
+  const [compte, passkeys, listes, bulletins, vetos, dejaPris, favoris, duels, elo, classement, commentaires, cadeaux, appareils] =
     await Promise.all([
       // Le lot de depart consomme : l'archive du compte, plus ses bulletins
       // (migration 0005).
@@ -89,7 +89,11 @@ export default defineEventHandler(async (e) => {
       // sont liés à aucun compte (on offre sans compte) : c'est chez Stripe,
       // sous l'e-mail du paiement, qu'ils se retrouvent.
       q(`select groupe_id, de_la_part, message, utilise_le from cadeaux
-          where utilise_par = ?1 order by utilise_le`, [uid])
+          where utilise_par = ?1 order by utilise_le`, [uid]),
+      // Les téléphones à prévenir (apps des stores) : lequel, depuis quand.
+      // Pas le jeton lui-même — une adresse d'acheminement, qui ne dit rien de vous.
+      q(`select plateforme, cree_le as enregistre_le, vu_le from appareils
+          where user_id = ?1 order by cree_le`, [uid])
     ])
 
   // Une ligne par vote, comme avant les bulletins : liste par liste, dans
@@ -118,7 +122,8 @@ export default defineEventHandler(async (e) => {
       absent: [
         'Les votes, commentaires et pseudos des autres membres de vos listes : ce sont leurs données.',
         'La clé publique de vos passkeys : elle ne sert qu’à vérifier une signature, et ne dit rien de vous. Rien de biométrique n’a jamais quitté votre appareil.',
-        'Vos données de paiement : babyNamed ne connaît que la date du déblocage. Le reste (carte, e-mail, facture) est chez Stripe.'
+        'Vos données de paiement : babyNamed ne connaît que la date du déblocage. Le reste (carte, e-mail, facture) est chez Stripe.',
+        'Le jeton de notification de vos téléphones (apps iOS et Android) : une adresse d’acheminement fournie par Apple ou Google, qui ne dit rien de vous.'
       ],
       valeurs_de_vote: 'non, neutre ou oui. « balayage » indique un « non » donné à toute une famille de prénoms d’un seul geste.',
       vetos: 'Vos vetos : les prénoms que vous avez écartés, avec leurs graphies (même prononciation) et votre motif. Les autres membres ne voient pas qui les a posés.',
@@ -138,6 +143,7 @@ export default defineEventHandler(async (e) => {
     classement_manuel: classement,
     commentaires,
     quotas,
-    cadeaux_recus: cadeaux
+    cadeaux_recus: cadeaux,
+    appareils_prevenus: appareils
   }
 })

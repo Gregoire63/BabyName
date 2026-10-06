@@ -40,6 +40,13 @@ const invitation = computed(() => normaliserCodeInvitation(route.query.code))
 /** Un code cadeau venu d'un lien : il attend de l'autre côté de la connexion. */
 const cadeau = computed(() => normaliserCodeCadeau(route.query.cadeau))
 const cadeauDe = ref('')
+/**
+ * Dans une app des stores : un cadeau ne s'y utilise pas (l'accueil dira où),
+ * on ne l'annonce donc pas ici ; et pas de lien vers les pages publiques, qui
+ * vendent (useVente).
+ */
+const coquille = useCoquille()
+const vente = useVente()
 
 /**
  * Le prénom venu d'une fiche publique (`?prenom=louise`). On le nomme ici,
@@ -69,7 +76,7 @@ function suite() {
   if (invitation.value) query.code = invitation.value
   if (prenomDemande.value) query.prenom = prenomDemande.value
   if (cadeau.value) query.cadeau = cadeau.value
-  return navigateTo({ path: '/', query }, { replace: true })
+  return entrerApresConnexion(query)
 }
 
 /**
@@ -149,7 +156,7 @@ onMounted(async () => {
   if (await rafraichirMoi()) return suite()
   passkeyPossible.value = passkeysPossibles()
   if (onglet.value === 'connexion') choisirOnglet('connexion')
-  if (cadeau.value) {
+  if (cadeau.value && vente.ouverte) {
     // Le lien de connexion par e-mail s'ouvre ailleurs, sans ce paramètre :
     // l'appareil le garde (utils/cadeauEnAttente).
     retenirCadeauEnAttente(cadeau.value)
@@ -186,7 +193,7 @@ onBeforeUnmount(() => abandonnerPasskey())
     <!-- inscription ou connexion -->
     <template v-else>
       <!-- vers les pages publiques : un vrai lien, ce ne sont pas des pages de l'app -->
-      <a :href="retour.href" class="retour">
+      <a v-if="!coquille.dansApp" :href="retour.href" class="retour">
         <span aria-hidden="true">←</span> {{ retour.texte }}
       </a>
       <div class="haut">
@@ -201,7 +208,7 @@ onBeforeUnmount(() => abandonnerPasskey())
       <p v-if="invitation" class="attend">
         Une liste vous a été partagée : vous y entrez juste après.
       </p>
-      <p v-if="cadeau" class="attend">
+      <p v-if="cadeau && vente.ouverte" class="attend">
         <strong>{{ cadeauDe ? `${cadeauDe} vous offre babyNamed` : 'Un cadeau vous attend' }}</strong> :
         une liste débloquée.
       </p>

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 /**
- * Le lien reçu par e-mail arrive ici : /connexion/lien#t=<jeton>.
+ * Le lien reçu par e-mail arrive ici : /connexion/lien#t=<jeton> — ou
+ * /connexion/app#t=<jeton> quand il a été demandé depuis l'app des stores :
+ * la même page, sous l'adresse que l'app installée ouvre elle-même (voir
+ * lienDe, server/utils/liens.ts).
  *
  * Le jeton voyage après le « # » : il n'est envoyé à aucun serveur (ni le
  * nôtre, ni un tiers via l'en-tête Referer) et on l'efface de l'adresse dès
@@ -14,8 +17,18 @@
  *
  * Inscription ou connexion, on repart là où on allait : la liste partagée ou
  * le prénom qu'on suivait, que l'appareil a gardés (utils/entreeEnAttente).
+ *
+ * HORS DE L'APP. /connexion/app ouvert par un navigateur : le lien a été
+ * demandé depuis l'app des stores, mais ce n'est pas elle qui l'a reçu — la
+ * messagerie l'a ouvert dans son propre navigateur, ou l'e-mail est lu sur un
+ * autre appareil. « Continuer » connecterait CE navigateur et userait le
+ * lien, pendant que l'app attend toujours. On dit donc où l'on est, et
+ * comment entrer dans l'app : par le code du même e-mail.
  */
+definePageMeta({ alias: ['/connexion/app'] })
 useHead({ title: 'Connexion par lien' })
+
+const horsDeLApp = useRoute().path === '/connexion/app' && !useCoquille().dansApp
 
 const jeton = ref('')
 const etat = ref<'lecture' | 'pret' | 'envoi' | 'verifie' | 'invalide' | 'incomplet' | 'passkey'>('lecture')
@@ -49,12 +62,12 @@ async function valider() {
 }
 
 function continuer() {
-  return navigateTo({ path: '/', query: { ...reprendreEntree() } }, { replace: true })
+  return entrerApresConnexion({ ...reprendreEntree() })
 }
 
 onMounted(async () => {
   jeton.value = lireJeton()
-  history.replaceState(history.state, '', '/connexion/lien')
+  history.replaceState(history.state, '', location.pathname)
   etat.value = jeton.value ? 'pret' : 'incomplet'
 })
 </script>
@@ -72,7 +85,10 @@ onMounted(async () => {
 
     <div class="carte pile">
       <template v-if="etat === 'pret' || etat === 'envoi' || etat === 'lecture'">
-        <h2>Continuer sur cet appareil ?</h2>
+        <h2>{{ horsDeLApp ? 'Continuer dans ce navigateur ?' : 'Continuer sur cet appareil ?' }}</h2>
+        <p v-if="horsDeLApp" class="mini" style="margin:0">
+          Pour entrer dans l’app, tapez-y le code reçu par e-mail.
+        </p>
         <button type="button" class="btn btn-1" :disabled="etat !== 'pret'" @click="valider">
           {{ etat === 'envoi' ? 'Un instant…' : 'Continuer' }}
         </button>

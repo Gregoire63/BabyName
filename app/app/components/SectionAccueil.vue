@@ -16,6 +16,22 @@ const rejoindreOuvert = ref(false)
 const offrirOuvert = ref(false)
 /** Le code cadeau qu'on regarde (feuille « Un cadeau pour vous »). */
 const cadeauOuvert = ref('')
+
+/**
+ * Dans une app des stores : pas d'« Offrir », pas de bouton « Installer »
+ * (c'est fait), pas de lien vers les pages publiques, qui vendent. Et un code
+ * cadeau ne s'y utilise pas : un code qui débloque est, pour Apple, une clé
+ * de licence. On dit seulement où il s'utilise — la liste débloquée sur le
+ * site l'est aussi ici (useVente, server/utils/vente.ts).
+ */
+const coquille = useCoquille()
+const vente = useVente()
+const cadeauSurLeSite = ref(false)
+function voirCadeau(code: string) {
+  rejoindreOuvert.value = false
+  if (vente.ouverte) cadeauOuvert.value = code
+  else cadeauSurLeSite.value = true
+}
 /** Le code cadeau qui créera la liste en cours de création (AssistantFiltres). */
 const cadeauPourNouvelle = ref('')
 
@@ -117,19 +133,21 @@ onMounted(async () => {
   // Un code cadeau (`/?cadeau=…`, le lien que l'acheteur a transmis) : gardé
   // sur l'appareil le temps de la connexion (voir utils/cadeauEnAttente).
   const cadeauLien = normaliserCodeCadeau(q.cadeau)
-  if (cadeauLien) retenirCadeauEnAttente(cadeauLien)
+  // Dans une app des stores, le cadeau ne se garde ni ne s'ouvre : il
+  // s'utilise sur le site (voirCadeau).
+  if (cadeauLien && vente.ouverte) retenirCadeauEnAttente(cadeauLien)
 
   if (!(await rafraichirMoi())) {
     return navigateTo({ path: '/connexion', query: {
       ...(code ? { code } : {}), ...avecPrenom, ...(cadeauLien ? { cadeau: cadeauLien } : {}) } },
       { replace: true })
   }
-  const cadeau = cadeauLien || lireCadeauEnAttente()
+  const cadeau = cadeauLien || (vente.ouverte ? lireCadeauEnAttente() : '')
   if (cadeau) {
     // L'adresse redevient celle de l'accueil : recharger ne rouvre pas la feuille
     // d'un cadeau déjà utilisé.
     if (cadeauLien) history.replaceState(history.state, '', '/')
-    cadeauOuvert.value = cadeau
+    voirCadeau(cadeau)
   }
   // Lien d'invitation : on entre directement, sans faire retaper le code.
   if (code) {
@@ -361,11 +379,16 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           <span class="mini doux">Avec le code de quelqu’un</span>
         </button>
 
-        <BoutonInstaller class="large" />
+        <BoutonInstaller v-if="!coquille.dansApp" class="large" />
+
+        <p v-if="cadeauSurLeSite" class="carte large mini" role="status" style="margin:0">
+          Un code cadeau s’utilise sur le site babynamed.fr, pas dans l’app.
+          La liste y sera débloquée, et ici aussi.
+        </p>
 
         <!-- Offrir : les futurs parents autour de soi sont le meilleur endroit
              où trouver les suivants. Une feuille, ici même (FeuilleOffrir). -->
-        <button type="button" class="carte large offrir" @click="offrirOuvert = true">
+        <button v-if="vente.ouverte" type="button" class="carte large offrir" @click="offrirOuvert = true">
           <Etincelles :taille="18" couleur="var(--peche)" une />
           <span style="flex:1;min-width:0">
             <strong>Offrir babyNamed</strong>
@@ -448,7 +471,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
         <p class="mini doux credit">
           {{ stats?.total.toLocaleString('fr-FR') ?? '…' }} prénoms · fichier INSEE des prénoms,
-          millésime 2025 · <a href="/prenoms/" class="lien">toutes les fiches prénoms</a><br>
+          millésime 2025<template v-if="!coquille.dansApp"> · <a href="/prenoms/" class="lien">toutes les fiches prénoms</a></template><br>
           <button type="button" class="version" @click="vider">
             version {{ version }}{{ purge ? ' · rechargement…' : ' · toucher pour recharger à neuf' }}
           </button>
@@ -468,7 +491,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
     <AssistantFiltres v-if="assistant" :premier="premierNom"
                       @fermer="assistant = false; cadeauPourNouvelle = ''" @valider="creer" />
     <FeuilleRejoindre v-if="rejoindreOuvert" @fermer="rejoindreOuvert = false"
-                      @cadeau="c => { rejoindreOuvert = false; cadeauOuvert = c }" />
+                      @cadeau="voirCadeau" />
     <FeuilleCadeau v-if="cadeauOuvert" :code="cadeauOuvert"
                    @fermer="fermerCadeau" @nouvelle="nouvelleOfferte" />
     <FeuilleCompte v-if="compteOuvert" @fermer="compteOuvert = false" />

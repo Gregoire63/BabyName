@@ -363,6 +363,9 @@ const quotaAtteint = computed(() => murAnticipe.value
  */
 const jObserve = computed(() => g.etat.value?.moi?.role === 'observateur')
 const bloqueGratuit = computed(() => quotaAtteint.value && !paye.value && !jObserve.value)
+// Dans une app des stores, rien ne se vend : pas d'offre qui s'ouvre, et le
+// mur ne dit que « à demain » (useVente).
+const vente = useVente()
 const OFFRE_MAX_JOUR = 2
 const jourLocal = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}` }
 const cleOffre = () => `pr_offre_${g.gid}_${jourLocal()}`
@@ -374,7 +377,7 @@ let minuteurOffre: any = null
 function proposerOffre(delai = 0) {
   clearTimeout(minuteurOffre)
   minuteurOffre = setTimeout(() => {
-    if (!bloqueGratuit.value || !props.actif) return
+    if (!vente.ouverte || !bloqueGratuit.value || !props.actif) return
     if (document.querySelector('[aria-modal="true"]')) return
     const vues = Math.max(offresVues(), offresSession)
     if (vues >= OFFRE_MAX_JOUR) return
@@ -893,18 +896,25 @@ async function confirmerFamille() {
           {{ quotaServeur?.limite_jour }} du jour aussi.
         </p>
         <p style="margin:0">
-          {{ quotaServeur?.limite_jour }} de plus demain matin : la version gratuite ne
-          s’arrête jamais.
+          {{ quotaServeur?.limite_jour }} de plus demain matin<template v-if="vente.ouverte"> : la version gratuite ne
+          s’arrête jamais</template>.
         </p>
         <p v-if="nbAccords" class="bilan">
           <strong>{{ nbAccords }}</strong> accord{{ nbAccords > 1 ? 's' : '' }} déjà dans
           cette liste.
         </p>
-        <p class="mini doux" style="margin:0">
-          Débloquer cette liste pour la vie ({{ prixListe }}) : swipes illimités chaque
-          jour, pour tous ses membres.
+        <template v-if="vente.ouverte">
+          <p class="mini doux" style="margin:0">
+            Débloquer cette liste pour la vie ({{ prixListe }}) : swipes illimités chaque
+            jour, pour tous ses membres.
+          </p>
+          <button v-if="!jObserve" class="btn btn-1" @click="g.ouvrirDebloquer()">Swipes illimités ({{ prixListe }})</button>
+        </template>
+        <!-- App Android : Google laisse DIRE où cela se débloque, sans lien
+             ni bouton. App iOS : rien du tout (voir useVente). -->
+        <p v-else-if="vente.mention" class="mini doux mention-site" style="margin:0">
+          Swipes illimités : sur le site babynamed.fr.
         </p>
-        <button v-if="!jObserve" class="btn btn-1" @click="g.ouvrirDebloquer()">Swipes illimités ({{ prixListe }})</button>
       </div>
 
       <div v-else-if="!carte" class="vide">
@@ -970,8 +980,8 @@ async function confirmerFamille() {
     <Transition name="fondu">
       <div v-if="bascule" class="retour carte" role="status">
         <span class="mini">
-          Départ terminé : {{ quotaServeur?.limite_jour }} prénoms par jour désormais,
-          ou sans limite en débloquant la liste.
+          Départ terminé : {{ quotaServeur?.limite_jour }} prénoms par jour désormais<template v-if="vente.ouverte">,
+          ou sans limite en débloquant la liste</template>.
         </span>
       </div>
     </Transition>

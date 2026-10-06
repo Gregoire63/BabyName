@@ -8,6 +8,7 @@ import { liberer } from '../../../utils/reservation'
  * `?paye=1` n'a rien prouvé.
  */
 export default defineEventHandler(async (e) => {
+  refuserDansUneApp(e)   // rien ne se vend dans une app des stores (utils/vente.ts)
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
 

@@ -10,6 +10,9 @@ export default defineEventHandler(async (e) => {
   const { email: brut } = await readBody<{ email?: string }>(e) ?? {}
   const email = emailValide(brut)
   await limiter(e, 'lien-email', email, 5, 900)
+  // Le compte de démonstration des stores n'a pas de boîte à lire : rien ne
+  // part, son code est fixe (utils/demo.ts).
+  if (estAdresseDemo(email)) return { ok: true }
   if (!courrielPret()) throw createError({ statusCode: 503, statusMessage: 'courriel_non_configure' })
 
   const u = await q1<{ id: string; pseudo: string }>(

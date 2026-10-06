@@ -48,7 +48,7 @@ const idNom = useId()
 useDialogue(boite, () => emit('fermer'))
 onMounted(() => {
   // Un match se sent avant de se lire. Deux coups brefs, pas une sonnerie.
-  try { navigator.vibrate?.([18, 60, 26]) } catch { /* pas de vibreur */ }
+  vibrer('succes')
   requestAnimationFrame(() => { entre.value = true })
 })
 
@@ -69,6 +69,18 @@ const { aRevoir } = useVerdicts()
 const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
 // Un observateur donne son avis ; il ne décide pas, et n'achète pas pour les autres.
 const decideur = computed(() => g.etat.value?.moi?.role !== 'observateur')
+// Dans une app des stores, rien ne se vend (useVente) : sur une liste
+// gratuite, la fête n'y propose pas ce qui se débloque.
+const vente = useVente()
+const suite = computed(() => decideur.value && (paye.value || vente.ouverte))
+
+/**
+ * Dans l'app des stores : c'est ICI qu'on a envie d'être prévenu du prochain
+ * accord — pas à l'ouverture de l'app, où la question du téléphone tombe à
+ * froid et se refuse par réflexe (usePush). Une fois, tant qu'on n'a pas
+ * répondu ; ailleurs que dans l'app, rien.
+ */
+const push = usePush()
 const nomFamille = computed(() => {
   const n = (g.etat.value?.groupe as any)?.nom_famille
   return paye.value && typeof n === 'string' ? n.trim() : ''
@@ -126,9 +138,13 @@ const qui = computed(() => {
       <div class="actions">
         <button class="btn btn-1" @click="emit('fermer')">Continuer à trier</button>
         <button class="btn btn-0" @click="emit('communs')">Voir nos accords</button>
+        <button v-if="push.etat.value === 'a-demander'" type="button" class="btn btn-0 mini"
+                @click="push.activer()">
+          Me prévenir du prochain accord
+        </button>
       </div>
 
-      <div v-if="decideur" class="plus">
+      <div v-if="suite" class="plus">
         <!-- Débloquée, avec le nom : la réponse tout de suite, comme sur les cartes. -->
         <div v-if="essai" class="essai-nom" :class="niveau">
           <p class="complet"><strong>{{ prenom }} {{ nomFamille }}</strong><span>{{ essai.initiales }}</span></p>

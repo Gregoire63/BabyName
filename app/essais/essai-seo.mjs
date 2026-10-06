@@ -72,6 +72,7 @@ dit(llms.includes(`${depart} prénoms pour commencer`) && /\d+ € TTC par liste
 const robots = lire('robots.txt')
 dit(/^Disallow: \/\?$/m.test(robots) && /^Allow: \/$/m.test(robots),
   'robots.txt ferme /?… (les liens vers l’app) et laisse le reste')
+dit(/^Disallow: \/rejoindre\/$/m.test(robots), 'robots.txt ferme aussi les liens d’invitation (/rejoindre/…)')
 dit(robots.includes(`Sitemap: ${SITE}/sitemap.xml`), 'et donne le sitemap')
 dit(!/GPTBot|ClaudeBot|PerplexityBot|Google-Extended/.test(robots),
   'aucun robot d’IA n’est écarté')

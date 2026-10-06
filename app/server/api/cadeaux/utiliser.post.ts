@@ -13,6 +13,9 @@
  * (reprendrePaiement).
  */
 export default defineEventHandler(async (e) => {
+  // Un code cadeau ne se saisit pas dans une app des stores : il s'utilise
+  // sur le site, et la liste est débloquée partout (utils/vente.ts).
+  refuserDansUneApp(e)
   const uid = await exigerUtilisateur(e)
   await limiter(e, 'cadeau-utiliser', uid, 20, 3600)
   const corps = await readBody<{ code?: unknown; groupe?: unknown; nouvelle?: unknown;

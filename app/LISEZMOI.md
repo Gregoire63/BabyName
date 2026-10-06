@@ -863,12 +863,18 @@ parents n'ont pas de bouton : ils ont déjà dit oui, c'est un accord.
 
 ### Les liens entrants
 
-Deux paramètres d'adresse ouvrent l'app ailleurs que sur l'accueil :
+Deux liens ouvrent l'app ailleurs que sur l'accueil :
 
 | Lien | Fabriqué par | Effet |
 |---|---|---|
-| `/?code=xxxxxxxx` | le partage d'une liste (réglages) | rejoint la liste et y entre |
+| `/rejoindre/<code>` | le partage d'une liste (réglages) | rejoint la liste et y entre |
 | `/?prenom=louise` | le bouton des fiches publiques (`scripts/seo.mjs`) | ce prénom devient la première carte de la liste où l'on entre (celle en cours, ou celle qu'on crée) |
+
+`/rejoindre/<code>` (`pages/rejoindre/[code].vue`) repart aussitôt vers
+`/?code=…`, l'ancienne forme, qui marche toujours : des liens sont déjà
+partagés. L'invitation a son adresse à elle parce que c'est l'une des deux
+seules que l'app des stores ouvre elle-même (voir « Les apps des stores ») ;
+un robot n'y entre pas (`robots.txt`).
 
 Les deux traversent la connexion (`/connexion?code=…&prenom=…`) : c'est
 justement quelqu'un qui n'a pas encore de compte qui les suit. Le slug se
@@ -882,6 +888,126 @@ nouvelle carte. `ref=seo` n'est lu par rien : l'app ne mesure pas d'audience.
 
 Les redirections **remplacent** l'entrée d'historique : sinon le bouton retour
 ramène sur le lien, qui renvoie aussitôt dans la liste.
+
+## Les apps des stores (iOS, Android)
+
+Le dossier `mobile/` du dépôt est une coquille : une app qui affiche CE site
+dans une vue web et lui prête le téléphone. Elle n'a pas d'écran à elle —
+tout ce qui suit est donc ici, dans le site. Ce que la coquille fait, comment
+la construire et ce qu'il faut regarder sur un vrai téléphone :
+`mobile/LISEZMOI.md`.
+
+Le site reconnaît l'app à ce qu'elle ajoute à son agent utilisateur,
+`… babyNamedApp/1.0.0 (ios)` (`shared/utils/coquille.ts`, lu par l'app et par
+le serveur). Ce n'est pas une sécurité : n'importe quel navigateur peut
+s'annoncer ainsi, et n'y gagne que des écrans d'achat en moins.
+
+### Rien ne s'y vend
+
+Apple et Google prennent une commission sur ce qui s'achète dans une app **et
+sur ce vers quoi elle envoie**, ventes à déclarer une par une. Dans l'app, on
+ne vend donc rien et rien n'y mène ; l'achat se fait sur le site, et une liste
+débloquée là l'est aussi dans l'app (c'est la même).
+
+| Où | Quoi |
+|---|---|
+| `useVente()` (`composables/useCoquille.ts`) | `ouverte` : faux dans l'app. Chaque écran qui vend le lit : l'offre des réglages, le volet « Portrait » d'une liste gratuite, ce que la fête d'un accord propose de débloquer, « Offrir », le code cadeau de « Rejoindre », le mur du quota |
+| `middleware/vente.global.ts` | `/offrir` n'existe pas dans l'app |
+| `server/utils/vente.ts` | le serveur refuse (403) l'achat d'une liste, l'achat d'un cadeau et l'usage d'un code venus d'une app — un bouton oublié dans un écran ne vendrait rien |
+| le mur du quota | **Android** : « Swipes illimités : sur le site babynamed.fr. », sans lien ni bouton — ce que Google permet à une app où rien ne s'achète. **iOS** : rien du tout — Apple ne laisse une app gratuite accompagner un service payant du web qu'à ce prix |
+| un code cadeau tapé quand même | « Un code cadeau s'utilise sur le site babynamed.fr, pas dans l'app. » |
+| `components/legal/Conditions.vue` | l'achat se fait sur le site ; un code cadeau aussi |
+
+Ne jamais rouvrir la vente dans l'app par une mise en ligne du site : une app
+qui change de comportement après sa validation, c'est le compte développeur
+qu'on risque. Le jour où l'on veut vendre dans les apps, ce sera par l'achat
+intégré des stores, dans une nouvelle version des apps.
+
+### Le pont
+
+La page et le natif se parlent par messages (`composables/useCoquille.ts`
+tient la liste des verbes ; la même est dans `mobile/src/pont.ts`). Le natif
+ne sait rien du produit : c'est la page qui décide.
+
+| | |
+|---|---|
+| `plugins/coquille.client.ts` | « prête » (le natif retire son écran de démarrage et prend les couleurs du thème), un lien reçu pendant que l'app tourne, le retour au premier plan, le bouton « Retour » d'Android (la feuille ouverte, puis l'écran d'avant, puis la sortie) |
+| `partagerLien()` | la feuille de partage du téléphone |
+| `vibrer()` | le vibreur (une page n'en a pas sur iPhone) |
+| `FeuilleCompte.vue` | « Télécharger mes données » : le fichier est lu puis confié au natif — suivi tel quel, le lien remplaçait l'app par du texte brut |
+| `entrerApresConnexion()` | Android : la page se recharge pour de bon après la connexion, sinon le cookie de session n'atteint pas le disque à temps |
+| `usePasskey.ts` | pas de passkey dans l'app Android (sa vue web ne sait pas) ; l'e-mail y suffit |
+
+Le natif ne voit pas la page : chacun de ses messages lui revient avec un
+accusé de réception, que poste le script même qui le remet. Le site n'a rien à
+faire pour cela — mais `window.__babyNamedNatif` doit exister dès que le site
+tourne, puisque c'est à sa présence que le natif reconnaît une page qui écoute
+(`mobile/LISEZMOI.md`, « La page écoute-t-elle ? »).
+
+### Les notifications
+
+« Nouvel accord », « Alice a rejoint votre liste » : ce que le site ne sait
+pas faire quand l'app est fermée.
+
+- **Sur un geste, jamais à l'ouverture** : la carte « Notifications » des
+  réglages, et le bouton de la fête d'un accord. Et rien ne s'enregistre sans
+  ce geste, même sur un téléphone qui permet les notifications d'office
+  (`usePush.ts` — cinq états, dont « refusé dans le téléphone », qui mène à
+  ses réglages).
+- **Jamais le prénom** : il s'afficherait sur un écran verrouillé.
+- Le téléphone donne un jeton, gardé dans `appareils` (migration 0011,
+  `api/appareils`) : un jeton, un compte. Il part quand on coupe, à la
+  déconnexion, avec « Déconnecter mes autres appareils », avec le compte, et
+  quand le service le dit périmé.
+- L'envoi (`server/utils/push.ts`) part **après** la réponse (`enFond`,
+  `waitUntil`) : un vote n'attend jamais une notification. Il passe par le
+  service d'Expo, qui remet à Apple ou à Google. Le vote sait s'il vient de
+  faire un accord sans lecture de plus (`vientDeFaireUnAccord`).
+
+### Les liens
+
+L'app installée n'ouvre elle-même que **deux** adresses :
+`/rejoindre/<code>` (une invitation) et `/connexion/app` (le lien de
+connexion, quand il a été demandé depuis l'app). Tout le reste s'ouvre dans le
+navigateur, app installée ou non : les pages publiques, un lien de connexion
+demandé depuis le site, un lien cadeau, le retour d'un paiement. C'est voulu —
+qui veut débloquer une liste depuis son téléphone doit pouvoir arriver sur le
+site sans que l'app lui prenne le lien des mains.
+
+Deux fichiers le disent aux téléphones, servis par
+`server/routes/.well-known/` (404 tant que leurs variables manquent), et
+`mobile/app.json` déclare les mêmes adresses : les trois doivent s'accorder.
+
+`/connexion/app` ouvert par un navigateur (la messagerie a gardé le lien pour
+elle, ou l'e-mail est lu sur un autre appareil) : la page le dit —
+« Continuer dans ce navigateur ? » — et renvoie au code du même e-mail, à
+taper dans l'app. Sans cela, on userait le lien dans le navigateur pendant que
+l'app attend toujours (`pages/connexion/lien.vue`).
+
+### Le compte de démonstration
+
+Apple et Google valident l'app en y entrant, et on y entre par un e-mail
+qu'ils ne peuvent pas lire. `server/utils/demo.ts` : une adresse
+(`NUXT_DEMO_EMAIL`) et un code fixe à six chiffres (`NUXT_DEMO_CODE`, un
+secret) qui tient lieu de code reçu. L'adresse doit être **impossible** — un
+domaine réservé, `demo@babynamed.test` : personne ne peut la posséder, donc
+aucun vrai compte ne peut s'ouvrir par mégarde avec ce code. Sans ces deux
+valeurs, rien de ceci n'existe.
+
+### Réglages
+
+| Variable | Où | Pour quoi |
+|---|---|---|
+| `NUXT_APPLE_APP_ID` | `wrangler.jsonc` | `<équipe Apple>.fr.babynamed.app` : les liens ouvrent l'app iOS |
+| `NUXT_ANDROID_EMPREINTES` | `wrangler.jsonc` | les empreintes SHA-256 du certificat (Google Play, clé d'envoi) : les liens ouvrent l'app Android |
+| `NUXT_DEMO_EMAIL` | `wrangler.jsonc` | l'adresse du compte de démonstration |
+| `NUXT_DEMO_CODE` | secret | son code |
+| `NUXT_PUSH_JETON` | secret, facultatif | seulement si la « sécurité renforcée » des notifications est allumée dans le compte Expo |
+| `NUXT_PUSH_URL` | essais | un faux service d'envoi ; jamais en production |
+
+`essai-coquille` éprouve tout cela dans un navigateur qui se présente comme
+l'app (son agent utilisateur, un faux pont natif) ; `essai-worker` le refait,
+pour ce qui en dépend, dans le Worker de production.
 
 ## Les prénoms qui ont déjà été des tempêtes
 
@@ -979,6 +1105,7 @@ Tout ce que la loi demande, fait dans l'app plutôt que promis dans un texte :
 | Quitter une liste | *Réglages de la liste → Quitter cette liste* : `POST /api/groupes/:id/quitter` ; efface ce qu'on y a donné, laisse ses « déjà pris » sans auteur ; la liste part s'il n'y reste personne pour décider |
 | Conservation limitée (art. 5.1.e) | purge chaque nuit : tâche `server/tasks/purge.ts`, lancée par le *Cron Trigger* du Worker ; à la main : `GET /api/admin/purger` avec `CRON_SECRET` |
 | Minimisation | e-mail facultatif, enregistré seulement une fois prouvé, et qui ne sert qu'à la connexion ; liens et codes gardés en empreintes ; compteurs d'essais sur des empreintes chiffrées (jamais une IP en clair) ; police servie par l'app (plus d'IP envoyée à Google) |
+| Consentement (art. 6.1.a, 7) | les notifications des apps iOS et Android : rien n'est enregistré sans un geste (« Me prévenir »), retiré d'un geste (`usePush`, `api/appareils`) |
 | Registre (art. 30) | `docs/registre-des-traitements.md` |
 | Traceurs (art. 82 loi I&L) | un cookie de session et du stockage local strictement nécessaires : **pas de bandeau**, et il ne doit jamais en falloir un. Ajouter une mesure d'audience ou un pixel changerait ça — et le registre. |
 
@@ -1045,7 +1172,7 @@ retenu trente jours sur l'appareil ; la passkey reste à un geste dans
 | `server/api/auth/passkey/*` | options et vérification (inscription, connexion) ; défi dans un cookie signé de 5 min |
 | `server/utils/liens.ts`, `courriel.ts` | création/consommation des liens, naissance du compte (`ouvrirCompteInscrit`) ; envoi (OVH en SMTP, ou Brevo/Resend par API) |
 | `app/components/FormulaireEmail.vue`, `ProposerPasskey.vue`, `MoyensConnexion.vue` | adresse → code (inscription, connexion, vérification) ; la passkey proposée ; *Mon compte → Se connecter* |
-| `app/pages/connexion/lien.vue` | le lien de l'e-mail : jeton après le `#`, effacé de l'adresse, **un bouton** avant de le consommer (les robots des messageries ouvrent les liens) ; l'invitation ou le prénom qu'on suivait sont repris (`utils/entreeEnAttente`) |
+| `app/pages/connexion/lien.vue` | le lien de l'e-mail : jeton après le `#`, effacé de l'adresse, **un bouton** avant de le consommer (les robots des messageries ouvrent les liens) ; l'invitation ou le prénom qu'on suivait sont repris (`utils/entreeEnAttente`). La même page sous `/connexion/app`, quand le lien a été demandé depuis l'app des stores (`lienDe`, `server/utils/liens.ts`) |
 
 **Le domaine, avant tout.** Une passkey est liée au domaine où elle est
 créée : `babynamed.fr`. En changer plus tard rend les passkeys existantes

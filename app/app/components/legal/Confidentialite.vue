@@ -119,6 +119,24 @@ const c = CONSERVATION
       (art. 6.1.f) pour les compteurs.</dd>
   </dl>
 
+  <h3>Les notifications de l’app (iPhone, Android)</h3>
+  <dl>
+    <dt>Données</dt>
+    <dd>
+      Seulement dans l’app installée depuis l’App Store ou Google Play, et seulement si vous activez les
+      notifications : le jeton de notification de votre téléphone (une adresse d’acheminement, attribuée
+      par Apple ou Google), son système (iOS ou Android), la date de son enregistrement et celle de la
+      dernière ouverture de l’app sur ce téléphone. Le message lui-même dit « Nouvel accord », jamais le
+      prénom ; ou bien qu’une personne a rejoint votre liste, avec son nom affiché et le nom de la liste.
+    </dd>
+    <dt>Pourquoi</dt>
+    <dd>Vous prévenir d’un nouvel accord sur une de vos listes, ou de l’arrivée d’une personne dans l’une d’elles.</dd>
+    <dt>Base légale</dt>
+    <dd>Votre consentement (art. 6.1.a) : rien n’est enregistré tant que vous n’avez pas touché « Me
+      prévenir » dans l’app. Vous le retirez quand vous voulez : « Ne plus me prévenir » dans les réglages
+      d’une liste, ou les réglages du téléphone.</dd>
+  </dl>
+
   <h3>Les journaux techniques</h3>
   <dl>
     <dt>Données</dt>
@@ -165,6 +183,8 @@ const c = CONSERVATION
     aux États-Unis, sous les mêmes garanties. La sauvegarde nocturne passe par GitHub, société américaine
     elle aussi : la base y est chiffrée le temps de la tâche, sous les mêmes garanties, et la copie
     chiffrée est conservée en France, chez OVH.
+    Si vous activez les notifications de l’app iPhone ou Android, chaque message passe par Expo, société
+    américaine, puis par Apple ou Google, qui le remettent à votre téléphone : sous les mêmes garanties.
     <template v-if="COURRIEL.fournisseur === 'resend'">
       Resend, qui envoie les e-mails de connexion, est aussi une société américaine (clauses contractuelles
       types).
@@ -188,6 +208,7 @@ const c = CONSERVATION
     <li><strong>Compteurs de la version gratuite</strong> : le total, avec le compte ; celui du jour, jusqu’au jour de tri suivant, et {{ c.quotaJours }} jours au plus.</li>
     <li><strong>Cookie de connexion</strong> : {{ c.sessionJours }} jours, renouvelés à chaque connexion. <em>Mon compte → Déconnecter mes autres appareils</em> les annule tous d’un coup, sauf celui de l’appareil en main.</li>
     <li><strong>Adresse e-mail et passkeys</strong> : tant que votre compte existe, ou jusqu’à ce que vous les retiriez dans <em>Mon compte</em>.</li>
+    <li><strong>Jeton de notification</strong> (app iPhone ou Android) : tant que les notifications sont activées sur ce téléphone. Effacé dès que vous les coupez, à la déconnexion, quand vous déconnectez vos autres appareils, avec le compte, et dès qu’Apple ou Google le disent périmé (app désinstallée).</li>
     <li><strong>Liens et codes par e-mail</strong> (connexion, inscription) : valables {{ c.lienMinutes }} minutes, une seule fois ; effacés le lendemain de leur expiration, avec l’adresse et le prénom d’une inscription jamais confirmée.</li>
     <li><strong>Compteurs d’essais</strong> : deux jours au plus.</li>
     <li><strong>Pièces liées à un paiement</strong> (facture, paiement) : {{ c.comptabiliteAns }} ans, durée imposée par le Code de commerce (art. L123-22). Elles sont conservées par Stripe et dans notre comptabilité, pas dans l’app.</li>
@@ -220,7 +241,7 @@ const c = CONSERVATION
   <ul>
     <li><strong>pr_session</strong> (cookie) : vous garde connecté(e) {{ c.sessionJours }} jours. Illisible par les scripts de la page, envoyé uniquement en HTTPS.</li>
     <li><strong>pr_defi</strong> (cookie) : le temps de créer ou d’utiliser une passkey, cinq minutes au plus ; il est effacé dès qu’il a servi.</li>
-    <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour, le prénom choisi depuis une fiche tant qu’il n’est pas jugé, un code cadeau reçu par lien le temps de vous connecter (un mois au plus), et un mot qui dit par où vous êtes arrivé la première fois (une fiche du site, un moteur de recherche, TikTok, un lien cadeau…). Ces informations restent sur votre appareil et sont effacées à la déconnexion, sauf le thème choisi (clair, sombre), réglage de l’appareil et non du compte.</li>
+    <li><strong>Stockage local du navigateur</strong> : la liste sur laquelle vous triez, le nombre d’accords déjà vus, le rappel de pause du jour, le prénom choisi depuis une fiche tant qu’il n’est pas jugé, un code cadeau reçu par lien le temps de vous connecter (un mois au plus), et un mot qui dit par où vous êtes arrivé la première fois (une fiche du site, un moteur de recherche, TikTok, un lien cadeau…). Ces informations restent sur votre appareil et sont effacées à la déconnexion, sauf le thème choisi (clair, sombre) et, dans l’app iPhone ou Android, le choix d’être prévenu ou non sur ce téléphone : des réglages de l’appareil et non du compte.</li>
     <li><strong>Cache hors ligne</strong> : les fichiers de l’application et le catalogue des prénoms, pour que l’app s’ouvre vite. Aucune donnée personnelle.</li>
   </ul>
   <p>La police de caractères est servie par babyNamed lui-même : ouvrir l’app n’envoie rien à Google.</p>

@@ -30,10 +30,13 @@ export default defineEventHandler(async (e) => {
   const graphies = prenomsValides(variantes, 40).filter(v => v !== prenom)
 
   const jour = jourParis()
-  const [, vote, autres, refus] = await lot([
+  const chemin = cheminPrenom(prenom!) + '[0]'
+  const [, avant, vote, autres, refus] = await lot([
     [SQL_BULLETIN, [gid, moi.user_id]],
+    // ma voix d'avant : pour savoir si ce vote FAIT un accord (plus bas)
+    [SQL_MA_VOIX, [gid, moi.user_id, chemin]],
     [SQL_VOTER, [gid, moi.user_id, prenom, entreesDuVote(prenom!, valeur, racine, graphies), racine, jour]],
-    [SQL_VOTES_DU_PRENOM, [gid, cheminPrenom(prenom!) + '[0]']],
+    [SQL_VOTES_DU_PRENOM, [gid, chemin]],
     [SQL_QUOTA_SI_REFUS, [gid, moi.user_id, jour, 0]]
   ])
 
@@ -42,6 +45,14 @@ export default defineEventHandler(async (e) => {
   if (!ecrit) {
     throw createError({ statusCode: 402, statusMessage: 'quota_atteint',
       data: { quota: etatQuota(refus!.rows[0]) } })
+  }
+
+  // Un accord vient de se faire : l'autre parent a peut-être fermé l'app.
+  // On prévient son téléphone APRÈS avoir répondu, sans le prénom, et
+  // seulement s'il a l'app des stores (server/utils/push.ts). Le lot ci-dessus
+  // a déjà tout lu : aucune lecture de plus pour un vote ordinaire.
+  if (valeur > 0 && vientDeFaireUnAccord(moi.user_id, (avant!.rows[0] as any)?.valeur, autres!.rows)) {
+    enFond(e, prevenirAccord(gid, moi.user_id, prenom!))
   }
 
   // Les votes des autres sur CE prénom : légitime, on vient de voter.

@@ -1220,6 +1220,8 @@ Allow: /
 Disallow: /g/
 Disallow: /api/
 Disallow: /connexion
+# Les liens d'invitation : chacun porte le code d'une liste.
+Disallow: /rejoindre/
 # Les liens des fiches vers l'app (/?ref=seo&prenom=…) : 7 000 variantes de
 # la meme coquille JavaScript, rien a indexer.
 Disallow: /?

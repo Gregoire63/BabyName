@@ -28,7 +28,7 @@ const texte = computed(() => {
   const qui = c.value?.de_la_part ? `${c.value.de_la_part} vous offre` : 'Je vous offre'
   const mot = c.value?.message ? `« ${c.value.message} »\n` : ''
   return `${mot}${qui} babyNamed : une liste débloquée pour choisir le prénom de votre bébé à deux, ` +
-    `sans vous influencer. Ouvrez le lien, ou tapez le code ${c.value?.code} dans l’app.`
+    `sans vous influencer. Ouvrez le lien, ou tapez le code ${c.value?.code} sur babynamed.fr.`
 })
 
 onMounted(async () => {
@@ -122,7 +122,7 @@ async function copier(quoi: 'lien' | 'code') {
           {{ copie === 'code' ? 'Copié' : 'Copier le code seul' }}
         </button>
         <p class="mini doux" style="margin:0">
-          Le code seul se tape dans l’app, sous « Rejoindre une liste ».
+          Le code seul se tape sur babynamed.fr, sous « Rejoindre une liste ».
         </p>
       </div>
 

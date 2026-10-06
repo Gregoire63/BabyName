@@ -26,13 +26,25 @@
   // Ce qui n'est pas secret. Les secrets (NUXT_SESSION_SECRET, NUXT_EMAIL_CLE
   // — le mot de passe de la boîte OVH —,
   // NUXT_STRIPE_SECRET_KEY, NUXT_STRIPE_WEBHOOK_SECRET, NUXT_STRIPE_PRICE_ID,
-  // CRON_SECRET éventuel) se posent par `npx wrangler secret put NOM` ou dans
+  // CRON_SECRET éventuel, NUXT_DEMO_CODE pour les stores) se posent par `npx wrangler secret put NOM` ou dans
   // le tableau de bord (Worker → Settings → Variables and Secrets).
   "vars": {
     "NUXT_PUBLIC_SITE_URL": "https://babynamed.fr",
     "NUXT_PUBLIC_PRIX_LISTE": "6 €",
     // la boîte OVH qui envoie (son mot de passe : secret NUXT_EMAIL_CLE)
     "NUXT_EMAIL_EXPEDITEUR": "babyNamed <contact@babynamed.fr>"
+
+    // Les apps des stores (dossier mobile/ du dépôt ; LISEZMOI, « Les apps des
+    // stores »). À décommenter et remplir une fois les apps créées — sans
+    // oublier la virgule de la ligne du dessus. Tant qu'elles manquent, une
+    // invitation s'ouvre dans le navigateur, comme avant.
+    //   l'équipe Apple (dix caractères) + l'identifiant de l'app :
+    // "NUXT_APPLE_APP_ID": "ABCDE12345.fr.babynamed.app",
+    //   les empreintes SHA-256 du certificat Android : Google Play, puis la clé d'envoi
+    // "NUXT_ANDROID_EMPREINTES": "AA:BB:…,CC:DD:…",
+    //   le compte de démonstration des stores : une adresse en .test, que
+    //   personne ne peut posséder (son code à six chiffres : secret NUXT_DEMO_CODE)
+    // "NUXT_DEMO_EMAIL": "demo@babynamed.test"
   },
 
   // La purge RGPD, chaque nuit : la MÊME expression que scheduledTasks dans

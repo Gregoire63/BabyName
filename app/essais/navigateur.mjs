@@ -56,6 +56,59 @@ export async function onglet(nav) {
 }
 
 /**
+ * Un onglet qui se présente comme l'app des stores (dossier mobile/ du dépôt) :
+ * son agent utilisateur — « … babyNamedApp/1.0.0 (android) », ce à quoi le
+ * site et le serveur la reconnaissent — et le pont natif
+ * (window.ReactNativeWebView), tenu ici à la place du téléphone.
+ *
+ * `natif` est ce faux téléphone : `recus` (tout ce que la page lui a dit),
+ * `permission` des notifications (« indeterminee » tant qu'on n'a rien
+ * demandé), `reponse` (ce que la personne répondra à la question du
+ * téléphone), `jeton`, `muet` (une vieille app qui ne répond à rien). Il vit
+ * côté Node : il survit aux rechargements de page. `dire(message)` envoie à
+ * la page ce que le natif lui dirait (un lien reçu, le retour au premier plan).
+ */
+const AGENTS_APP = {
+  android: v => 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/UQ1A.240205.004; wv) AppleWebKit/537.36 '
+    + `(KHTML, like Gecko) Version/4.0 Chrome/126.0.0.0 Mobile Safari/537.36 babyNamedApp/${v} (android)`,
+  ios: v => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 '
+    + `(KHTML, like Gecko) Mobile/15E148 babyNamedApp/${v} (ios)`
+}
+export async function ongletApp(nav, plateforme, { version = '1.0.0', jeton } = {}) {
+  const ctx = await nav.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true,
+    userAgent: AGENTS_APP[plateforme](version) })
+  const natif = {
+    recus: [], permission: 'indeterminee', reponse: 'accordee', muet: false,
+    jeton: jeton ?? `ExponentPushToken[essai-${plateforme}-${Math.random().toString(36).slice(2, 12)}]`
+  }
+  await ctx.exposeBinding('__natif', async (_source, texte) => {
+    const m = JSON.parse(texte)
+    natif.recus.push(m)
+    if (natif.muet) return null
+    const push = () => ({ type: m.type, id: m.id, ok: true, permission: natif.permission,
+      ...(natif.permission === 'accordee' ? { jeton: natif.jeton } : {}) })
+    if (m.type === 'push.etat') return push()
+    if (m.type === 'push.demander') { natif.permission = natif.reponse; return push() }
+    if (m.type === 'partager' || m.type === 'fichier') return { type: m.type, id: m.id, ok: true }
+    return null
+  })
+  await ctx.addInitScript(() => {
+    window.ReactNativeWebView = { postMessage(texte) {
+      window.__natif(texte).then(r => { if (r) window.__babyNamedNatif?.(JSON.stringify(r)) })
+    } }
+    const c = () => {
+      const s = document.createElement('style')
+      s.textContent = '#nuxt-devtools-container{display:none!important;pointer-events:none!important}'
+      document.head?.appendChild(s)
+    }
+    if (document.head) c(); else document.addEventListener('DOMContentLoaded', c)
+  })
+  const page = await ctx.newPage()
+  natif.dire = message => page.evaluate(m => window.__babyNamedNatif?.(JSON.stringify(m)), message)
+  return { ctx, page, natif }
+}
+
+/**
  * La boîte aux lettres du développement (/api/dev/courriels) : le dernier
  * e-mail reçu par `a` depuis `apres` (ms), qu'on attend un peu.
  */

@@ -19,6 +19,8 @@ useHead({
 
 /** Vers l'app : clearError efface l'erreur avant de naviguer. */
 const versApp = () => clearError({ redirect: '/' })
+// Dans une app des stores, pas de lien vers les pages publiques (useCoquille).
+const { dansApp } = useCoquille()
 </script>
 
 <template>
@@ -41,7 +43,7 @@ const versApp = () => clearError({ redirect: '/' })
 
     <div class="carte pile">
       <!-- les pages publiques sont statiques : un vrai lien, pas le routeur -->
-      <a href="/prenoms/" class="btn btn-1">Parcourir les prénoms</a>
+      <a v-if="!dansApp" href="/prenoms/" class="btn btn-1">Parcourir les prénoms</a>
       <button type="button" class="btn" @click="versApp">Ouvrir l’app</button>
     </div>
   </main>

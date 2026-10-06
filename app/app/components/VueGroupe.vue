@@ -209,7 +209,13 @@ function ouvrirFiltres() { filtresOuverts.value = true }
  * feuilles ne laisse plus rien fermer au doigt.
  */
 const debloquerOuvert = ref(false)
-function ouvrirDebloquer() { fiche.value = null; debloquerOuvert.value = true }
+// Dans une app des stores, l'offre n'existe pas (useVente) : les écrans ne
+// la proposent plus, et ce verrou vaut pour celui qu'on aurait oublié.
+const vente = useVente()
+function ouvrirDebloquer() {
+  if (!vente.ouverte) return
+  fiche.value = null; debloquerOuvert.value = true
+}
 
 /**
  * LA FÊTE D'UN ACCORD EST TENUE PAR LA LISTE, pas par l'écran qui l'a faite.

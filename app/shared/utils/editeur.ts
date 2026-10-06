@@ -64,8 +64,8 @@ export const EDITEUR = {
  * Stripe), c'est ce qui permet de savoir quel texte un acheteur a accepte.
  */
 export const VERSIONS_TEXTES = {
-  conditions: '2026-09-28',
-  confidentialite: '2026-09-28',
+  conditions: '2026-10-06',
+  confidentialite: '2026-10-06',
   accessibilite: '2026-09-25'
 } as const
 
@@ -146,6 +146,31 @@ export const DESTINATAIRES = [
     pays: 'États-Unis',
     garantie: 'Certifié Data Privacy Framework entre l’UE et les États-Unis ; clauses contractuelles types de la Commission européenne',
     lien: 'https://docs.github.com/fr/site-policy/privacy-policies/github-general-privacy-statement'
+  },
+  {
+    // Les apps des stores (dossier mobile/ du dépôt) : le serveur confie le
+    // message au service d'acheminement d'Expo, qui le remet au service de
+    // notification d'Apple ou de Google (server/utils/push.ts). Rien n'y part
+    // pour qui n'a pas activé les notifications dans l'app.
+    nom: 'Expo (650 Industries, Inc.)',
+    role: 'Notifications de l’app iPhone et Android (uniquement si vous les activez) : acheminement du message jusqu’au service de notification d’Apple ou de Google. Expo garde le jeton de notification du téléphone, pas le contenu des messages',
+    pays: 'États-Unis',
+    garantie: 'Data Privacy Framework entre l’UE et les États-Unis ; clauses contractuelles types de la Commission européenne',
+    lien: 'https://expo.dev/privacy'
+  },
+  {
+    nom: 'Apple Distribution International Ltd.',
+    role: 'Remise des notifications sur iPhone et iPad (uniquement si vous les activez dans l’app)',
+    pays: 'Irlande (Union européenne) ; certaines données peuvent être traitées par Apple Inc. aux États-Unis',
+    garantie: 'Clauses contractuelles types de la Commission européenne',
+    lien: 'https://www.apple.com/legal/privacy/fr-ww/'
+  },
+  {
+    nom: 'Google Ireland Ltd.',
+    role: 'Remise des notifications sur Android, par Firebase Cloud Messaging (uniquement si vous les activez dans l’app)',
+    pays: 'Irlande (Union européenne) ; certaines données peuvent être traitées par Google LLC aux États-Unis',
+    garantie: 'Data Privacy Framework ; clauses contractuelles types de la Commission européenne',
+    lien: 'https://policies.google.com/privacy?hl=fr'
   },
   {
     nom: 'Stripe Payments Europe, Ltd.',

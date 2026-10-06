@@ -45,8 +45,10 @@ watch(g.etat, e => {
   if (e && !nouveauNom.value && document.activeElement !== champNom.value) nouveauNom.value = e.groupe.nom
 }, { immediate: true })
 
+// /rejoindre/<code> : l'adresse que l'app des stores ouvre elle-même quand
+// elle est installée (pages/rejoindre/[code].vue) ; sinon, le navigateur.
 const lien = computed(() => g.etat.value
-  ? `${location.origin}/?code=${g.etat.value.groupe.code_invitation}` : '')
+  ? `${location.origin}/rejoindre/${g.etat.value.groupe.code_invitation}` : '')
 
 /**
  * Les noms s'enregistrent seuls, sans bouton : pendant la frappe, en quittant
@@ -70,9 +72,10 @@ const nomListe = useEnregistrementDiffere(renommer)
 const quitter = (e: KeyboardEvent) => (e.target as HTMLInputElement).blur()
 
 async function partager() {
-  const donnees = { title: 'babyNamed', text: 'Aide-moi à choisir un prénom', url: lien.value }
-  if (navigator.share) { try { await navigator.share(donnees); return } catch { /* annulé */ } }
-  await navigator.clipboard.writeText(lien.value)
+  // La feuille de partage du téléphone — dans l'app des stores, c'est le
+  // natif qui l'ouvre (partagerLien, useCoquille) ; à défaut, le lien copié.
+  const r = await partagerLien({ titre: 'babyNamed', texte: 'Aide-moi à choisir un prénom', url: lien.value })
+  if (!r.copie) return
   copie.value = true; setTimeout(() => copie.value = false, 1800)
 }
 
@@ -123,6 +126,14 @@ const retardataire = computed(() => {
  * une liste de verdicts ici faisait doublon, et arrivait apres coup.
  */
 const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
+
+/**
+ * Dans une app des stores, rien ne se vend (useVente) : une liste gratuite
+ * n'y montre ni l'offre, ni ce qu'elle ouvrirait — le lien en lecture seule,
+ * l'essai avec le nom de famille. Débloquée (sur le site), elle a tout.
+ */
+const vente = useVente()
+const montrerPayant = computed(() => paye.value || vente.ouverte)
 
 /**
  * La carte « Débloquer cette liste ».
@@ -204,13 +215,12 @@ async function creerCodeObs() {
 
 async function partagerObs() {
   if (!codeObs.value) return
-  const url = `${location.origin}/?code=${codeObs.value}`
+  const url = `${location.origin}/rejoindre/${codeObs.value}`
   const texte = `Viens donner ton avis sur nos prénoms, et mettre un cœur sur ceux qu’on a en commun (tu n’as pas de veto) : ${url}`
-  try {
-    if (navigator.share) await navigator.share({ text: texte, url })
-    else { await navigator.clipboard.writeText(url); copieObs.value = true
-           setTimeout(() => { copieObs.value = false }, 1600) }
-  } catch { /* partage annule : rien a dire */ }
+  const r = await partagerLien({ texte, url })
+  if (!r.copie) return
+  copieObs.value = true
+  setTimeout(() => { copieObs.value = false }, 1600)
 }
 
 const filtresActifs = computed(() => {
@@ -340,7 +350,7 @@ async function quitterListe() {
         <p v-else style="margin:0;font-weight:700">{{ g.etat.value.groupe.nom }}</p>
       </section>
 
-      <section class="carte pile achat" :class="{ debloquee: paye }" aria-labelledby="titre-achat">
+      <section v-if="montrerPayant" class="carte pile achat" :class="{ debloquee: paye }" aria-labelledby="titre-achat">
         <template v-if="!paye">
           <div class="ligne" style="align-items:baseline">
             <h2 id="titre-achat" style="flex:1">Débloquer cette liste</h2>
@@ -375,7 +385,7 @@ async function quitterListe() {
           </p>
           <!-- Le moment où l'on est content de ce qu'on a payé est celui où
                l'on pense aux amis qui attendent un bébé. -->
-          <button type="button" class="lien mini lien-bouton" style="align-self:flex-start"
+          <button v-if="vente.ouverte" type="button" class="lien mini lien-bouton" style="align-self:flex-start"
                   @click="offrirOuvert = true">
             Offrir babyNamed à d’autres futurs parents
           </button>
@@ -384,7 +394,7 @@ async function quitterListe() {
 
       <section v-if="!jObserve" class="carte pile invit" aria-labelledby="titre-invit">
         <h2 id="titre-invit">Inviter quelqu’un</h2>
-        <div class="deux-facons" role="group" aria-label="Type d’invitation">
+        <div v-if="montrerPayant" class="deux-facons" role="group" aria-label="Type d’invitation">
           <button type="button" class="facon" :aria-pressed="typeInvit === 'membre'"
                   @click="typeInvit = 'membre'">
             <strong>Pour choisir avec vous</strong>
@@ -412,7 +422,7 @@ async function quitterListe() {
               vos {{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }} attendraient
               son avis, et un « non » de sa part suffirait à défaire chacun d’eux.
             </p>
-            <button type="button" class="btn btn-0 mini" style="align-self:flex-start;padding-left:0"
+            <button v-if="montrerPayant" type="button" class="btn btn-0 mini" style="align-self:flex-start;padding-left:0"
                     @click="typeInvit = 'lecture'">
               Pour un simple avis : l’inviter en lecture seule
             </button>
@@ -450,7 +460,7 @@ async function quitterListe() {
 
       <CarteDejaPris />
 
-      <section class="carte pile">
+      <section v-if="montrerPayant" class="carte pile">
         <h2>Avec votre nom de famille</h2>
 
         <template v-if="paye">
@@ -574,6 +584,9 @@ async function quitterListe() {
           Passkeys, e-mail, mes données
         </button>
       </section>
+
+      <!-- dans l'app des stores seulement (elle ne rend rien ailleurs) -->
+      <CartePush />
 
       <section class="carte pile" aria-labelledby="titre-theme">
         <h2 id="titre-theme">Apparence</h2>

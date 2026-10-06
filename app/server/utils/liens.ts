@@ -101,10 +101,22 @@ export function adresseSite(e: Parameters<typeof partieConfiante>[0]): string {
   return partieConfiante(e).origine
 }
 
-/** Le lien lui-même. Le jeton voyage après le « # » : il n'apparaît dans
- *  aucun journal de serveur ni aucun en-tête Referer. */
+/**
+ * Le lien lui-même. Le jeton voyage après le « # » : il n'apparaît dans
+ * aucun journal de serveur ni aucun en-tête Referer.
+ *
+ * IL RAMÈNE LÀ OÙ ON L'A DEMANDÉ. Demandé depuis l'app des stores
+ * (shared/utils/coquille.ts) : /connexion/app, l'une des deux seules adresses
+ * que l'app installée ouvre elle-même (server/routes/.well-known). Demandé
+ * depuis un navigateur : /connexion/lien, que l'app ne réclame pas — il
+ * s'ouvre donc dans le navigateur, même sur un téléphone où l'app est
+ * installée. Sans cette distinction, qui voulait entrer sur le site depuis
+ * son téléphone voyait son lien ouvrir l'app, et son code ne valait plus rien.
+ * Les deux adresses montrent la même page (pages/connexion/lien.vue).
+ */
 export function lienDe(e: Parameters<typeof partieConfiante>[0], jeton: string): string {
-  return `${adresseSite(e)}/connexion/lien#t=${jeton}`
+  const page = coquilleDepuis(getHeader(e, 'user-agent')) ? 'app' : 'lien'
+  return `${adresseSite(e)}/connexion/${page}#t=${jeton}`
 }
 
 /**

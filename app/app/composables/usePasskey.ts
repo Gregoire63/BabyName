@@ -12,9 +12,19 @@ import {
  * serveur, et on traduit les échecs en phrases.
  */
 
-/** Le navigateur sait-il faire ? (Tous les navigateurs récents : oui.) */
+/**
+ * Le navigateur sait-il faire ? (Tous les navigateurs récents : oui.)
+ *
+ * Sauf la vue web de l'app Android : WebAuthn y est coupé tant que l'app ne
+ * le demande pas au système, ce que la coquille ne fait pas (mobile/). Le
+ * navigateur y annonce pourtant qu'il sait — on proposerait une passkey qui
+ * échoue. On y entre par le lien ou le code reçus par e-mail. L'app iOS, elle,
+ * sait (domaine associé `webcredentials`).
+ */
 export function passkeysPossibles(): boolean {
-  return import.meta.client && browserSupportsWebAuthn()
+  if (!import.meta.client) return false
+  if (coquilleDepuis(navigator.userAgent)?.plateforme === 'android') return false
+  return browserSupportsWebAuthn()
 }
 
 /**

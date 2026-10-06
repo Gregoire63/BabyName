@@ -145,12 +145,24 @@ export function entreesDuVote(prenom: string, valeur: number, racine: string | n
  *  écrit (vote.post.ts) : c'est ce qui les rend visibles. ?1 la liste, ?2 le
  *  chemin de la valeur : cheminPrenom(prenom) + '[0]'. Un bulletin est un
  *  membre (clé étrangère) : pas besoin de relire membres. */
+/**
+ * La voix de CHAQUE membre sur un prénom — y compris ceux qui ne l'ont pas
+ * jugé (valeur nulle), avec leur rôle : de quoi dire, sans autre lecture, si
+ * le vote qu'on vient d'écrire a fait un accord (server/utils/push.ts).
+ * `votesDuPrenom` n'en rend que les voix données.
+ */
 export const SQL_VOTES_DU_PRENOM = `
-select b.user_id, u.pseudo,
+select m.user_id, u.pseudo, m.role,
        coalesce(json_extract(b.positifs, ?2), json_extract(b.negatifs, ?2)) as valeur
-  from bulletins b
-  join utilisateurs u on u.id = b.user_id
- where b.groupe_id = ?1`
+  from membres m
+  join utilisateurs u on u.id = m.user_id
+  left join bulletins b on b.groupe_id = m.groupe_id and b.user_id = m.user_id
+ where m.groupe_id = ?1`
+
+/** Ma voix sur ce prénom AVANT le vote du même lot (nulle : jamais jugé). */
+export const SQL_MA_VOIX = `
+select coalesce(json_extract(positifs, ?3), json_extract(negatifs, ?3)) as valeur
+  from bulletins where groupe_id = ?1 and user_id = ?2`
 
 export function votesDuPrenom(prenom: string, lignes: { user_id: string; pseudo: string; valeur: number | null }[]): VoteVisible[] {
   return lignes.filter(l => l.valeur !== null && l.valeur !== undefined)

@@ -104,6 +104,27 @@ export default defineNuxtConfig({
     // declencher a la main, et le detail de /api/sante.
     cronSecret: '',               // CRON_SECRET (lu aussi tel quel)
 
+    // Les notifications des apps des stores (server/utils/push.ts) partent
+    // par le service d'acheminement d'Expo. Rien à poser pour que ça marche.
+    // NUXT_PUSH_URL : pour les essais (un faux service local), jamais en
+    // production. NUXT_PUSH_JETON : le jeton d'accès d'Expo, seulement si
+    // l'« enhanced push security » est allumée dans le compte Expo (secret).
+    pushUrl: '',                  // NUXT_PUSH_URL
+    pushJeton: '',                // NUXT_PUSH_JETON
+    // Les apps des stores, reconnues par le site (server/routes/.well-known) :
+    // c'est ce qui fait qu'un lien babynamed.fr ouvre l'app installée. Rien de
+    // secret ; à poser dans wrangler.jsonc (vars) une fois les apps créées.
+    appleAppId: '',               // NUXT_APPLE_APP_ID        (ABCDE12345.fr.babynamed.app)
+    androidPaquet: 'fr.babynamed.app', // NUXT_ANDROID_PAQUET
+    androidEmpreintes: '',        // NUXT_ANDROID_EMPREINTES  (SHA-256 du certificat ; plusieurs : virgule)
+    // Le compte de démonstration demandé par Apple et Google pour valider les
+    // apps (server/utils/demo.ts) : une adresse en domaine réservé
+    // (« demo@babynamed.test » : personne ne peut la posséder), et un code
+    // fixe à 6 chiffres qui tient lieu de code reçu par e-mail. Le code est un
+    // SECRET du Worker.
+    demoEmail: '',                // NUXT_DEMO_EMAIL
+    demoCode: '',                 // NUXT_DEMO_CODE
+
     public: { siteUrl: '', prixListe: '6 €' }   // NUXT_PUBLIC_SITE_URL / NUXT_PUBLIC_PRIX_LISTE
   },
   /**

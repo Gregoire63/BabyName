@@ -86,6 +86,7 @@ async function deconnecterPartout() {
   occupe.value = 'partout'; effacer()
   try {
     await $fetch('/api/auth/deconnecter-partout', { method: 'POST' })
+    redonnerPush()   // app des stores : ce téléphone-ci reste à prévenir
     partoutDemande.value = false
     dire('partout', 'Tous vos autres appareils sont déconnectés. Celui-ci reste connecté.', true)
   } catch { dire('partout', 'Ça n’a pas marché. Réessayez dans un instant.') }

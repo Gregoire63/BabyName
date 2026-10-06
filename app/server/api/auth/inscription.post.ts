@@ -23,6 +23,8 @@ export default defineEventHandler(async (e) => {
   const pseudo = pseudoValide(corps.pseudo)
   const email = emailValide(corps.email)
   await limiter(e, 'lien-email', email, 5, 900)
+  // Le compte de démonstration des stores : rien ne part (utils/demo.ts).
+  if (estAdresseDemo(email)) return { ok: true }
   if (!courrielPret()) throw createError({ statusCode: 503, statusMessage: 'courriel_non_configure' })
 
   const compte = await q1<{ id: string; pseudo: string }>(

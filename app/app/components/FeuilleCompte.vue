@@ -49,6 +49,9 @@ async function renommer(o: OptionsEnvoi = {}) {
 const nomAuto = useEnregistrementDiffere(renommer)
 
 async function sortir() {
+  // Dans l'app des stores : ce téléphone ne doit plus être prévenu pour ce
+  // compte (avant de perdre la session, qui autorise à le retirer).
+  await oublierPush()
   await $fetch('/api/auth/sortir', { method: 'POST' }).catch(() => null)
   viderStockageLocal()
   moi.value = null
@@ -64,6 +67,34 @@ async function sortir() {
  * sur ? » se valide par reflexe ; un mot a ecrire, non — et c'est
  * irreversible, pour soi comme pour les listes ou l'on est seul.
  */
+/**
+ * « Télécharger mes données », dans l'app des stores. Une page n'y télécharge
+ * rien : suivi tel quel, le lien remplaçait l'app par le fichier affiché en
+ * clair, sans retour possible. On lit donc le fichier ici et on le confie au
+ * natif, qui ouvre la feuille du téléphone — enregistrer dans Fichiers,
+ * l'envoyer. Dans un navigateur, le lien fait son travail.
+ */
+const coquille = useCoquille()
+const exportEnCours = ref(false)
+const exportRate = ref(false)
+async function exporter(e: Event) {
+  if (!coquille.dansApp) return
+  e.preventDefault()
+  if (exportEnCours.value) return
+  exportEnCours.value = true
+  exportRate.value = false
+  try {
+    const r = await fetch('/api/moi/donnees')
+    if (!r.ok) throw new Error(String(r.status))
+    const nom = /filename="?([^";]+)/.exec(r.headers.get('content-disposition') ?? '')?.[1]
+      ?? 'babynamed-mes-donnees.json'
+    // Deux minutes : la feuille du téléphone attend qu'on choisisse.
+    const fait = await coquille.demander('fichier',
+      { nom, mime: 'application/json', texte: await r.text() }, 120000)
+    exportRate.value = !fait?.ok
+  } catch { exportRate.value = true } finally { exportEnCours.value = false }
+}
+
 const demandeSuppression = ref(false)
 const confirmation = ref('')
 const suppressionEnCours = ref(false)
@@ -135,7 +166,11 @@ async function supprimerCompte() {
       <p class="mini doux" style="margin:0">
         <a href="/confidentialite" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/confidentialite')">Ce qu’on garde, et pourquoi</a>.
       </p>
-      <a class="btn mini telecharger" href="/api/moi/donnees" download>Télécharger mes données</a>
+      <a class="btn mini telecharger" href="/api/moi/donnees" download :aria-busy="exportEnCours || undefined"
+         @click="exporter">Télécharger mes données</a>
+      <p v-if="exportRate" class="mini" role="alert" style="color:var(--non);margin:0">
+        Le fichier n’a pas pu être préparé. Réessayez dans un instant.
+      </p>
 
       <button v-if="!demandeSuppression" type="button" class="btn btn-0 mini danger"
               style="align-self:flex-start" @click="demandeSuppression = true">

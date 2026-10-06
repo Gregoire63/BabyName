@@ -11,7 +11,7 @@ Tenu par : Grégoire Raturat, entrepreneur individuel, éditeur de babyNamed
 (non obligatoire : ni organisme public, ni suivi à grande échelle, ni données
 sensibles à grande échelle).
 
-Dernière mise à jour : 28 septembre 2026.
+Dernière mise à jour : 6 octobre 2026.
 
 Les durées ci-dessous sont celles de `shared/utils/editeur.ts` (`CONSERVATION`),
 appliquées chaque nuit par `server/utils/conservation.ts`. Si l'une change,
@@ -54,6 +54,19 @@ lit la même constante.
 | **Base légale** | Exécution du contrat — art. 6.1.b. |
 | **Données** | Par personne et par liste : le nombre de gestes du lot de départ (un total), et celui du dernier jour de tri (un jour, un nombre). |
 | **Conservation** | Totaux : avec le compte ou la liste. Compteur du jour : un seul par liste et par personne, remplacé au jour de tri suivant, effacé au bout de 62 jours (le quota ne lit que le jour en cours). |
+
+## 3 bis. Notifications de l'app (iOS, Android)
+
+| | |
+|---|---|
+| **Finalité** | Prévenir l'utilisateur, sur son téléphone, d'un nouvel accord dans une de ses listes ou de l'arrivée d'une personne. |
+| **Base légale** | Consentement — art. 6.1.a : un geste dans l'app (« Me prévenir »), puis l'autorisation du téléphone. Rien n'est enregistré sans ce geste, même sur un téléphone qui autorise les notifications d'office. Retirable à tout moment : « Ne plus me prévenir », ou les réglages du téléphone. |
+| **Personnes** | Utilisateurs de l'app iOS ou Android qui activent les notifications. Le site (navigateur) n'est pas concerné. |
+| **Données** | Table `appareils` (migration 0011) : jeton de notification (une adresse d'acheminement), système (iOS ou Android), dates d'enregistrement et de dernière ouverture, compte. Contenu des messages : « Nouvel accord » — **jamais le prénom** ; ou le nom affiché de la personne arrivée et le nom de la liste. |
+| **Destinataires** | Expo (650 Industries, Inc.) : acheminement. Apple (iOS) ou Google (Android, Firebase Cloud Messaging) : remise au téléphone. |
+| **Transferts hors UE** | Expo : États-Unis — Data Privacy Framework + clauses contractuelles types. Apple Distribution International et Google Ireland : Irlande, traitements possibles aux États-Unis (clauses contractuelles types ; Data Privacy Framework pour Google). |
+| **Conservation** | Tant que les notifications sont actives sur ce téléphone. Effacé quand on les coupe, à la déconnexion, par « Déconnecter mes autres appareils », avec le compte, et dès que le service le dit périmé (app désinstallée). Expo dit ne pas conserver le contenu des messages. |
+| **Sécurité** | Le jeton ne sort pas du serveur (l'export de l'utilisateur ne donne que le système et les dates) ; un jeton, un compte : le dernier connecté le reprend ; le message ne porte jamais le prénom, qui s'afficherait sur un écran verrouillé. |
 
 ## 4. Vente : déblocage d'une liste
 
@@ -114,6 +127,9 @@ lit la même constante.
   publicité, de mesure d'audience tierce ou de partage commercial : toute
   évolution dans ce sens appellerait une nouvelle analyse, et sans doute le
   consentement.
+- **Notifications** (apps iOS et Android) : elles s'affichent sur un écran
+  verrouillé, au nom de l'app. Elles sont facultatives (un geste), se coupent
+  d'un geste, et ne portent jamais le prénom.
 - **Minimisation déjà faite** : e-mails de l'époque du lien magique effacés
   (colonne remise à NULL, table des jetons vidée) ; police de caractères
   servie par l'app (plus de transfert d'IP à Google) ; clé d'accès des
@@ -138,4 +154,7 @@ risque élevé.
 | OVH SAS | Messagerie de babynamed.fr (e-mails d'inscription, de connexion, d'alerte) ; hébergement des sauvegardes chiffrées | Annexe sur la protection des données des conditions de service OVHcloud, acceptée avec le contrat. **À joindre** au registre. |
 | GitHub, Inc. | Sauvegarde nocturne (GitHub Actions) : la base y passe le temps d'être exportée et chiffrée | **À vérifier** : le GitHub Data Protection Agreement couvre-t-il un compte gratuit ? Sinon, faire tourner la sauvegarde ailleurs. |
 | Stripe Payments Europe, Ltd. | Paiement | Stripe Data Processing Agreement (stripe.com/legal/dpa) |
+| Expo (650 Industries, Inc.) | Acheminement des notifications des apps iOS et Android | **À vérifier** : conditions et politique d'Expo (expo.dev/terms, expo.dev/privacy ; sous-traitants : expo.dev/privacy/subprocessors). Demander l'accord de sous-traitance s'il n'est pas intégré aux conditions. |
+| Apple Distribution International Ltd. | Remise des notifications sur iOS (APNs) | Apple Developer Program License Agreement |
+| Google Ireland Ltd. | Remise des notifications sur Android (Firebase Cloud Messaging) | Firebase Data Processing and Security Terms (firebase.google.com/terms/data-processing-terms) |
 | Google (Gmail) | Messagerie de contact | **À régulariser** : une adresse Gmail grand public n'a pas de contrat de sous-traitance. Une adresse Google Workspace (ou tout hébergeur de messagerie professionnel avec DPA) règle le point. |

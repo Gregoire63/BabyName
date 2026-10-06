@@ -6,6 +6,9 @@
  *  « code » de l'accueil, celui qu'on cherche quand quelqu'un vous en a dicte
  *  un. Il ouvre alors la feuille du cadeau (`cadeau`). */
 const emit = defineEmits<{ fermer: []; cadeau: [code: string] }>()
+// Dans une app des stores, on n'annonce pas le code cadeau : il s'utilise sur
+// le site (l'accueil le dit à qui en tape un quand même — voirCadeau).
+const vente = useVente()
 
 // On nettoie DANS le champ, pas seulement dans la variable : sinon on voit
 // s'inscrire des caracteres que le serveur refusera (I, L, O, U, espaces,
@@ -39,7 +42,7 @@ async function entrer() {
     erreur.value = m === 'trop_d_essais'
       ? 'Trop d’essais : réessayez dans une heure, ou demandez le lien de la liste.'
       : m === 'code_invalide'
-        ? 'Ce code n’a pas le bon format : 10 caractères (8 pour les listes plus anciennes, 12 pour un code cadeau).'
+        ? `Ce code n’a pas le bon format : 10 caractères (8 pour les listes plus anciennes${vente.ouverte ? ', 12 pour un code cadeau' : ''}).`
         : 'Code inconnu. Vérifiez-le, ou demandez le lien de la liste.'
     envoi.value = false
   }
@@ -49,17 +52,17 @@ async function entrer() {
 <template>
   <Feuille titre="Rejoindre une liste" @fermer="emit('fermer')">
     <p class="mini doux" style="margin:0 0 12px">
-      Le code d’une liste, ou un code cadeau.
+      {{ vente.ouverte ? 'Le code d’une liste, ou un code cadeau.' : 'Le code d’une liste.' }}
     </p>
     <input ref="champ" :value="code" class="champ code" placeholder="Le code"
-           aria-label="Code d’invitation ou code cadeau"
+           :aria-label="vente.ouverte ? 'Code d’invitation ou code cadeau' : 'Code d’invitation'"
            autocapitalize="characters" autocorrect="off" spellcheck="false"
            inputmode="latin" @input="saisir" @keyup.enter="entrer">
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:10px 0 0">{{ erreur }}</p>
 
     <template #pied>
       <button class="btn btn-1" :disabled="!pret || envoi" @click="entrer">
-        {{ envoi ? 'Un instant…' : cadeau ? 'Voir le cadeau' : 'Entrer' }}
+        {{ envoi ? 'Un instant…' : cadeau && vente.ouverte ? 'Voir le cadeau' : 'Entrer' }}
       </button>
     </template>
   </Feuille>

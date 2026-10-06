@@ -10,9 +10,18 @@
  *    polyfill », alors que `nuxt dev` n'en disait rien) ;
  *  - l'échec d'une action s'affiche sous elle, pas en bas de l'écran ;
  *  - /api/sante ne dit que { ok } sans le secret d'administration, tout avec ;
+ *  - les apps des stores (essai-coquille les éprouve en entier, sous
+ *    `nuxt dev`) : ici, ce qui dépend du Worker — les deux fichiers
+ *    .well-known et les adresses que l'app ouvre sont bien servis, le compte
+ *    de démonstration entre sans e-mail, et une notification part APRÈS la
+ *    réponse (`waitUntil` : sous Node la promesse court toute seule, dans le
+ *    Worker elle serait coupée net) ;
  *  - aucune réponse 500 de tout le parcours.
+ *
+ * Le Worker est lancé avec essai-worker.env (faux Expo sur 3198).
  */
-import { lancer, onglet, compteur, BASE } from './navigateur.mjs'
+import { createServer } from 'node:http'
+import { lancer, onglet, ongletApp, compteur, BASE } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
 const SECRET = process.env.CRON_SECRET
@@ -80,6 +89,74 @@ await page.waitForURL(u => !u.pathname.startsWith('/connexion'), { timeout: 1500
 const moi = (await api('/api/auth/moi')).j
 dit(moi?.utilisateur?.pseudo === 'Essai' && moi.utilisateur.passkeys === 1,
   'déconnecté, on revient avec la passkey, dans le Worker aussi')
+
+// ---------- les apps des stores, dans le Worker --------------------------------
+{
+  const recus = []
+  const expo = createServer(async (req, res) => {
+    let corps = ''
+    for await (const c of req) corps += c
+    const messages = JSON.parse(corps || '[]')
+    recus.push(...messages)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ data: messages.map(() => ({ status: 'ok', id: 'essai' })) }))
+  })
+  await new Promise(r => expo.listen(3198, '127.0.0.1', r))
+
+  const aasa = await fetch(`${BASE}/.well-known/apple-app-site-association`)
+  const j = await aasa.json().catch(() => null)
+  const liens = await fetch(`${BASE}/.well-known/assetlinks.json`)
+  const a = await liens.json().catch(() => null)
+  dit(aasa.status === 200 && /json/.test(aasa.headers.get('content-type') ?? '')
+      && j?.applinks?.details?.[0]?.appIDs?.[0] === 'ABCDE12345.fr.babynamed.app'
+      && liens.status === 200 && a?.[0]?.target?.package_name === 'fr.babynamed.app',
+    `le Worker sert les deux fichiers qui lient le site aux apps (${aasa.status}, ${liens.status})`)
+  const adresses = await Promise.all(['/rejoindre/dec0de00', '/connexion/app', '/rejoindre/a/b']
+    .map(c => fetch(`${BASE}${c}`).then(r => r.status)))
+  dit(JSON.stringify(adresses) === '[200,200,404]',
+    `les deux adresses que l’app ouvre répondent, pas leurs voisines (${adresses.join(', ')})`)
+
+  // Le compte de démonstration, dans l'app Android : pas d'e-mail, un code fixe.
+  const app = await ongletApp(nav, 'android')
+  app.page.on('response', r => { if (r.status() >= 500) pannes.push(`${r.status()} ${r.url().replace(BASE, '')}`) })
+  const dansApp = (chemin, init) => app.page.evaluate(async ([c, i]) => {
+    const r = await fetch(c, i ? { ...i, headers: { 'content-type': 'application/json' } } : undefined)
+    return { status: r.status, j: await r.json().catch(() => null) }
+  }, [chemin, init])
+  // Par l'API : ce Worker d'essai n'a pas d'envoi d'e-mails réglé, et l'écran
+  // ne montre alors pas le champ de l'adresse (essai-coquille passe par l'écran).
+  await app.page.goto(`${BASE}/connexion?mode=connexion`, { waitUntil: 'networkidle' })
+  const demande = await dansApp('/api/auth/lien', { method: 'POST', body: JSON.stringify({ email: 'demo@exemple.test' }) })
+  const faux = await dansApp('/api/auth/code', { method: 'POST', body: JSON.stringify({ email: 'demo@exemple.test', code: '000000', but: 'connexion' }) })
+  const juste = await dansApp('/api/auth/code', { method: 'POST', body: JSON.stringify({ email: 'demo@exemple.test', code: '424242', but: 'connexion' }) })
+  await app.page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
+  await app.page.waitForSelector('.bento', { timeout: 20000 })
+  dit(demande.status === 200 && faux.status === 400 && juste.status === 200
+      && (await dansApp('/api/auth/moi')).j?.utilisateur?.pseudo === 'Démo',
+    `le compte de démonstration des stores entre avec son code fixe, sans e-mail (${demande.status}, ${faux.status}, ${juste.status})`)
+
+  const liste = (await dansApp('/api/groupes', { method: 'POST', body: JSON.stringify({ nom: 'Démonstration' }) })).j
+  const code = (await dansApp(`/api/groupes/${liste?.id}`)).j?.groupe?.code_invitation
+  const achat = await dansApp(`/api/groupes/${liste?.id}/paiement`, { method: 'POST', body: JSON.stringify({ consentement: true }) })
+  dit(achat.status === 403 && achat.j?.statusMessage === 'vente_fermee_dans_l_app',
+    `depuis l’app, le Worker refuse l’achat (HTTP ${achat.status})`)
+  await app.page.goto(`${BASE}/g/${liste?.id}/reglages`, { waitUntil: 'networkidle' })
+  await app.page.getByRole('button', { name: 'Me prévenir d’un nouvel accord' }).click({ timeout: 20000 })
+  await app.page.getByRole('button', { name: 'Ne plus me prévenir' }).waitFor({ timeout: 10000 })
+
+  // « Essai » suit le lien d'invitation dans son navigateur : le téléphone de
+  // la démonstration doit l'apprendre, par un envoi parti après la réponse.
+  await page.goto(`${BASE}/rejoindre/${code}`, { waitUntil: 'networkidle' })
+  await page.waitForURL(new RegExp(`/g/${liste?.id}/swipe`), { timeout: 20000 })
+  let m = null
+  for (let i = 0; i < 50 && !m; i++) {
+    m = recus.find(x => x.to === app.natif.jeton)
+    if (!m) await new Promise(r => setTimeout(r, 120))
+  }
+  dit(m?.title === 'Démonstration' && m.body === 'Essai a rejoint votre liste.' && m.data?.chemin === `/g/${liste?.id}/reglages`,
+    `dans le Worker, la notification part après la réponse (« ${m?.title} — ${m?.body} »)`)
+  expo.close()
+}
 
 dit(pannes.length === 0, `aucune réponse 500 (${pannes.join(', ') || 'aucune'})`)
 await nav.close()

@@ -17,12 +17,18 @@ const emit = defineEmits<{ segment: [string] }>()
 const g = useGroupeCourant()
 const { aRevoir } = useVerdicts()
 
-const VOLETS = [
+const TOUS_LES_VOLETS = [
   { id: 'communs', t: 'Communs' },
   { id: 'revoir', t: 'À revoir' },
   { id: 'choix', t: 'Mes choix' },
   { id: 'portrait', t: 'Portrait' }
 ]
+// Le portrait vient avec la liste débloquée. Sur une liste gratuite, son
+// volet le présente et mène à l'offre — sauf dans une app des stores, où
+// rien ne se vend (useVente) : le volet n'y existe pas.
+const vente = useVente()
+const VOLETS = computed(() => TOUS_LES_VOLETS.filter(v =>
+  v.id !== 'portrait' || vente.ouverte || !!(g.etat.value?.groupe as any)?.paye))
 
 // Chaque volet ne se monte qu'une fois ouvert, et reste monte ensuite : on ne
 // rejoue pas un chargement a chaque aller-retour. Monte ne veut pas dire au
@@ -39,17 +45,18 @@ const ici = (id: string) => props.actif && props.segment === id
  */
 const rangee = ref<HTMLElement>()
 function auClavierOnglets(e: KeyboardEvent) {
-  const i = VOLETS.findIndex(v => v.id === props.segment)
+  const volets = VOLETS.value
+  const i = volets.findIndex(v => v.id === props.segment)
   let j = -1
-  if (e.key === 'ArrowRight') j = (i + 1) % VOLETS.length
-  else if (e.key === 'ArrowLeft') j = (i - 1 + VOLETS.length) % VOLETS.length
+  if (e.key === 'ArrowRight') j = (i + 1) % volets.length
+  else if (e.key === 'ArrowLeft') j = (i - 1 + volets.length) % volets.length
   else if (e.key === 'Home') j = 0
-  else if (e.key === 'End') j = VOLETS.length - 1
+  else if (e.key === 'End') j = volets.length - 1
   if (j < 0) return
   e.preventDefault()
   e.stopPropagation()
-  emit('segment', VOLETS[j]!.id)
-  nextTick(() => rangee.value?.querySelector<HTMLElement>(`#onglet-${VOLETS[j]!.id}`)?.focus())
+  emit('segment', volets[j]!.id)
+  nextTick(() => rangee.value?.querySelector<HTMLElement>(`#onglet-${volets[j]!.id}`)?.focus())
 }
 
 const resume = computed(() => {

@@ -13,6 +13,9 @@ import { portraits, divergence, MIN_OUI } from '~/composables/usePortrait'
 const g = useGroupeCourant()
 
 const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
+// Dans une app des stores, rien ne se vend : le volet n'y est pas proposé sur
+// une liste gratuite (SectionClassement), et ne présenterait rien.
+const vente = useVente()
 const moiId = computed(() => g.etat.value?.moi?.user_id ?? '')
 
 const tous = computed(() => portraits(g.votes.value as any, g.parNom.value))
@@ -27,7 +30,7 @@ const manquants = computed(() => Math.max(0, MIN_OUI - (moi.value?.nOui ?? 0)))
 <template>
   <div class="pile">
     <template v-if="!paye">
-      <section class="carte pile">
+      <section v-if="vente.ouverte" class="carte pile">
         <h2>Ce que vos oui disent de vous</h2>
         <p class="mini" style="margin:0">
           Une époque, une longueur, des origines qui reviennent, et

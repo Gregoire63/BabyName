@@ -19,6 +19,7 @@ const g = useGroupeCourant()
 const { aRevoir } = useVerdicts()
 
 const occupe = ref('')
+const vente = useVente()
 
 /**
  * « Ce n'est peut-etre pas Marius, c'est trois syllabes. »
@@ -160,7 +161,8 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
     </div>
 
     <template v-else>
-      <button v-if="!paye" class="btn btn-0 mini" style="align-self:flex-start"
+      <!-- pas dans une app des stores : rien ne s'y vend (useVente) -->
+      <button v-if="!paye && vente.ouverte" class="btn btn-0 mini" style="align-self:flex-start"
               @click="g.ouvrirDebloquer()">
         Savoir ce qui vous sépare sur chacun
       </button>

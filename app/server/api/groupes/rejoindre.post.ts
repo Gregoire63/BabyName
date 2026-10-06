@@ -22,7 +22,10 @@ export default defineEventHandler(async (e) => {
   const role = g.observateur ? 'observateur' : 'invite'
   // `do nothing` : un membre deja parent ne se fait pas retrograder parce
   // qu'on lui a repasse le lien « observateur ».
-  await ecrire(`insert into membres (groupe_id, user_id, role, poids) values (?1, ?2, ?3, 1.0)
+  const entree = await ecrire(`insert into membres (groupe_id, user_id, role, poids) values (?1, ?2, ?3, 1.0)
                 on conflict do nothing`, [Number(g.id), uid, role])
+  // Une arrivée, pas un retour par le même lien : ceux qui y étaient déjà
+  // l'apprennent sur leur téléphone, s'ils ont l'app des stores (push.ts).
+  if (entree.changes > 0) enFond(e, prevenirArrivee(Number(g.id), uid, role === 'observateur'))
   return { id: g.id, nom: g.nom, role }
 })
