@@ -1,8 +1,8 @@
 import * as Device from 'expo-device'
-import * as Notifications from 'expo-notifications'
+import type { NotificationResponse } from 'expo-notifications'
 import { Platform } from 'react-native'
 
-import { PROJET_EAS } from './site'
+import { EXPO_GO, PROJET_EAS } from './site'
 
 /**
  * Les notifications : « Nouvel accord », « Alice a rejoint votre liste ».
@@ -17,9 +17,19 @@ import { PROJET_EAS } from './site'
 /** Le canal Android. Le même nom que dans app.json et que côté serveur. */
 const CANAL = 'accords'
 
+/**
+ * Le module des notifications, ou rien dans Expo Go. Il ne s'importe pas en
+ * tête de fichier, exprès : dans Expo Go sur Android, le seul fait de le
+ * charger arrête l'app avant son premier écran (« Runtime not ready » — les
+ * notifications à distance en ont été retirées). On le charge donc à la
+ * main, et jamais là-bas : dans Expo Go, l'app marche sans prévenir.
+ */
+const Notifications: typeof import('expo-notifications') | null =
+  EXPO_GO ? null : require('expo-notifications')
+
 // L'app ouverte : la bannière s'affiche quand même. La page ne se met pas à
 // jour toute seule quand l'autre vote ; sans elle, on n'en saurait rien.
-Notifications.setNotificationHandler({
+Notifications?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false
   })
@@ -31,12 +41,12 @@ export type EtatPush =
 
 /**
  * `demander` : pose la question du téléphone si elle peut encore l'être.
- * `ok: false` : ce téléphone ne peut pas (un simulateur, un projet Expo pas
- * encore relié) — la page ne montre alors rien.
+ * `ok: false` : ce téléphone ne peut pas (un simulateur, Expo Go, un projet
+ * Expo pas encore relié) — la page ne montre alors rien.
  */
 export async function etatPush(demander: boolean): Promise<EtatPush> {
   try {
-    if (!Device.isDevice || !PROJET_EAS) return { ok: false }
+    if (!Notifications || !Device.isDevice || !PROJET_EAS) return { ok: false }
     // Android 13 et après ne pose sa question que s'il existe un canal.
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(CANAL, {
@@ -60,7 +70,7 @@ export async function etatPush(demander: boolean): Promise<EtatPush> {
 }
 
 /** Le chemin de l'app porté par une notification touchée (« /g/12/communs »). */
-const cheminDe = (r: Notifications.NotificationResponse): unknown =>
+const cheminDe = (r: NotificationResponse): unknown =>
   r.notification.request.content.data?.chemin
 
 /**
@@ -70,6 +80,7 @@ const cheminDe = (r: Notifications.NotificationResponse): unknown =>
  */
 let dejaRemise = ''
 export function auToucher(suite: (chemin: unknown) => void): () => void {
+  if (!Notifications) return () => {}
   const abonnement = Notifications.addNotificationResponseReceivedListener((r) => {
     const id = r.notification.request.identifier
     if (id === dejaRemise) return
@@ -81,6 +92,7 @@ export function auToucher(suite: (chemin: unknown) => void): () => void {
 
 /** La notification qui a ouvert l'app, s'il y en a une : son chemin, une fois. */
 export function ouverture(): unknown {
+  if (!Notifications) return null
   try {
     const r = Notifications.getLastNotificationResponse()
     if (!r) return null

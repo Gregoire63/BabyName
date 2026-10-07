@@ -1,3 +1,4 @@
+import { isRunningInExpoGo } from 'expo'
 import Constants from 'expo-constants'
 import { Platform } from 'react-native'
 
@@ -24,3 +25,21 @@ export const AGENT = `babyNamedApp/${VERSION} (${Platform.OS === 'ios' ? 'ios' :
  */
 export const PROJET_EAS: string | undefined =
   Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId ?? undefined
+
+/**
+ * Expo Go : l'app d'essai d'Expo, qui fait tourner la coquille sans rien
+ * construire (`npx expo start`). Tout n'y est pas : ni notifications (leur
+ * module y arrête même l'app, voir notifications.ts), ni liens qui ouvrent
+ * l'app, ni écran de démarrage réglable. Assez pour voir le site dans la vue
+ * web ; le reste demande une vraie construction (LISEZMOI).
+ */
+export const EXPO_GO = isRunningInExpoGo()
+
+/**
+ * Une construction à inspecter : la vue web s'ouvre aux outils du navigateur
+ * (chrome://inspect sur Android, Safari sur un Mac). Toujours en
+ * développement ; ailleurs seulement si la construction le demande
+ * (EXPO_PUBLIC_DEBOGAGE=1, le profil « preview » d'eas.json). Jamais en
+ * production : n'importe qui, un câble branché, lirait la session.
+ */
+export const INSPECTABLE = __DEV__ || process.env.EXPO_PUBLIC_DEBOGAGE === '1'

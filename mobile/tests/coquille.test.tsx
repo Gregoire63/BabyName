@@ -70,6 +70,8 @@ jest.mock('react-native-webview', () => {
   })
   return { WebView }
 })
+// Une vraie construction, pas Expo Go (qui a son essai à lui : expo-go.test.tsx).
+jest.mock('expo', () => ({ isRunningInExpoGo: () => false }))
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 })
 }))

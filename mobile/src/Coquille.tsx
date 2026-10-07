@@ -17,7 +17,7 @@ import { adresseDuChemin, adresseDuLien, destination } from './navigation'
 import { auToucher, etatPush, ouverture } from './notifications'
 import { Panne } from './Panne'
 import { FOND_CLAIR, FOND_SOMBRE, lireMessage, scriptPour, type MessageNatif, type MessagePage } from './pont'
-import { AGENT, ORIGINE } from './site'
+import { AGENT, EXPO_GO, INSPECTABLE, ORIGINE } from './site'
 
 /**
  * La coquille : le site, plein écran, et le pont qui lui prête le téléphone.
@@ -46,7 +46,8 @@ import { AGENT, ORIGINE } from './site'
 // L'écran de démarrage reste jusqu'à ce que la page dise « prête » : on ne
 // montre ni page blanche, ni site à moitié dessiné.
 SplashScreen.preventAutoHideAsync().catch(() => {})
-SplashScreen.setOptions({ duration: 250, fade: true })
+// (Expo Go ne laisse pas régler le sien, et le fait savoir à chaque lancement.)
+if (!EXPO_GO) SplashScreen.setOptions({ duration: 250, fade: true })
 
 /** … mais jamais plus longtemps que cela : une page qui ne dit rien se montre quand même. */
 const ATTENTE_MAX = 8000
@@ -438,7 +439,7 @@ export function Coquille() {
           // La taille du texte est celle du site, essayée telle quelle, et non
           // multipliée par le réglage du téléphone (la mise en page casserait).
           textZoom={100}
-          webviewDebuggingEnabled={__DEV__}
+          webviewDebuggingEnabled={INSPECTABLE}
         />
       </KeyboardAvoidingView>
 

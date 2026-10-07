@@ -21,7 +21,7 @@ Le détail des règles des stores : `claude/apps-mobiles.md` (doc du projet).
 | Vérifié ici | Comment |
 |---|---|
 | Les types | `npm run typer` |
-| La logique : navigation, pont, liens, notifications, panne, « Retour », page tuée par le téléphone | `npm run essais` (61 essais ; la vue web est une doublure qui exécute pour de bon les scripts qu'on lui injecte) |
+| La logique : navigation, pont, liens, notifications, panne, « Retour », page tuée par le téléphone | `npm run essais` (62 essais ; la vue web est une doublure qui exécute pour de bon les scripts qu'on lui injecte) |
 | Que ces essais voient quelque chose | chaque garde de `Coquille.tsx` sabotée tour à tour (28) : toutes repérées |
 | La configuration : `app.json`, les greffons, les deux projets natifs fabriqués | `npx expo prebuild --no-install` |
 | Le JavaScript s'empaquette pour les deux plateformes | `npx expo export` |
@@ -56,8 +56,24 @@ assets/           icônes et écran de démarrage (tirés de app/public/icone-ma
 npm install
 npm run verifier        # types + essais : à lancer avant toute construction
 npx expo-doctor         # la santé du projet (deux de ses contrôles demandent le réseau)
-npx expo start          # Expo Go, pour un premier coup d'œil (pas essayé ; ni notifications ni liens là-dedans)
+npx expo start          # Expo Go : un premier coup d'œil, sans rien construire
 ```
+
+**Expo Go** (l'app d'essai d'Expo, celle qu'ouvre `npx expo start`) montre le
+site dans la vue web, le pont, le bouton « Retour ». Il n'a **ni
+notifications, ni liens qui ouvrent l'app** : la carte « Notifications » des
+réglages n'y apparaît donc pas, et c'est normal. Pour le reste, une vraie
+construction (plus bas) — le profil `preview` suffit, et sa vue web s'inspecte
+depuis un ordinateur (`chrome://inspect` pour Android).
+
+**Les alertes de `npm install`** (« 60 vulnerabilities ») : quatre avis, que
+npm compte une fois par paquet qui en dépend de près ou de loin — `braces`
+et `sprintf-js` (sous jest, les essais), `uuid` (sous l'outil qui fabrique le
+projet Xcode), `node-forge` (sous la ligne de commande d'Expo). Des outils de
+la machine de développement : **aucun n'est dans l'app** (vérifié sur la
+liste des fichiers des deux bundles), et trois des quatre n'ont pas de
+version corrigée publiée. Ne **pas** lancer `npm audit fix --force` : la
+« correction » qu'il propose ramène Expo à la version 44.
 
 ## Première mise en route
 
