@@ -369,7 +369,9 @@ export async function lireSession(id: string): Promise<any | null> {
  * La règle de Stripe est l'inverse d'une liste blanche : tout ce qui n'est
  * pas `unpaid` se livre. Idempotent — Stripe rejoue, le navigateur recharge.
  */
-export async function livrer(session: any): Promise<{ livre: boolean; raison?: string; groupe?: number; offert?: boolean }> {
+export async function livrer(session: any): Promise<{ livre: boolean; raison?: string; groupe?: number; offert?: boolean
+  /** Cet appel-ci a débloqué la liste (pas un rejeu) — et qui a payé : de quoi prévenir les autres. */
+  nouveau?: boolean; par?: string | null }> {
   if (!session || session.object !== 'checkout.session') return { livre: false, raison: 'pas_une_session' }
   // Un cadeau ne débloque aucune liste à l'achat (voir livrerCadeau).
   if (session.metadata?.type === 'cadeau') return { livre: false, raison: 'cadeau' }
@@ -413,7 +415,7 @@ export async function livrer(session: any): Promise<{ livre: boolean; raison?: s
       return { livre: false, raison: 'deja_payee_rembourse', groupe: gid }
     }
   }
-  return { livre: true, groupe: gid, offert }
+  return { livre: true, groupe: gid, offert, nouveau: r.changes > 0, par: uid }
 }
 
 /** Rembourse en entier un paiement qui n'a rien achete (liste deja debloquee). */

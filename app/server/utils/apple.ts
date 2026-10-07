@@ -326,6 +326,10 @@ export interface EtatAchatApple {
    *  autre. `rembourse` : Apple a rendu l'argent. */
   etat: 'applique' | 'avance' | 'rembourse'
   groupe: number | null
+  /** Ce passage-ci a débloqué la liste (pas un rejeu), et qui a acheté : de
+   *  quoi prévenir les autres membres, une fois (server/utils/push.ts). */
+  nouveau?: boolean
+  par?: string | null
 }
 
 /** Les deux instructions qui appliquent un achat à la liste qu'il vise. */
@@ -342,7 +346,8 @@ function appliquer(transaction: string, bac: boolean): Instruction[] {
                          paiement_en_cours_jusqu = null
        where paye_le is null
          and id = (select a.groupe_id from achats_apple a
-                    where a.transaction_id = ?1 and a.applique_le is null and a.rembourse_le is null)`,
+                    where a.transaction_id = ?1 and a.applique_le is null and a.rembourse_le is null)
+      returning id`,
       [transaction, bac, REF(transaction)]],
     [`update achats_apple set applique_le = ${MAINTENANT}
        where transaction_id = ?1 and applique_le is null
@@ -379,7 +384,7 @@ export async function synchroniserApple(t: TransactionApple, appelant: string | 
   const jeton = typeof t.appAccountToken === 'string' && t.appAccountToken ? t.appAccountToken.toLowerCase() : null
   const bac = t.environment === 'Sandbox'
   const acheteLe = new Date(Number(t.purchaseDate) || Date.now()).toISOString()
-  await lot([
+  const r = await lot([
     // L'intention devient un achat : c'est le jeton rendu par Apple qui
     // désigne la ligne, donc la liste et l'acheteur.
     [`update achats_apple set transaction_id = ?1, environnement = ?3, produit = ?4, achete_le = ?5
@@ -397,9 +402,16 @@ export async function synchroniserApple(t: TransactionApple, appelant: string | 
        where transaction_id = ?1 and rembourse_le is not null`, [tx]],
     ...appliquer(tx, bac)
   ])
-  const a = await q1<{ groupe_id: number | null; applique_le: string | null }>(
-    `select groupe_id, applique_le from achats_apple where transaction_id = ?1`, [tx])
-  if (a?.applique_le) return { etat: 'applique', groupe: a.groupe_id === null ? null : Number(a.groupe_id) }
+  const a = await q1<{ groupe_id: number | null; applique_le: string | null; user_id: string | null }>(
+    `select groupe_id, applique_le, user_id from achats_apple where transaction_id = ?1`, [tx])
+  if (a?.applique_le) {
+    return {
+      etat: 'applique', groupe: a.groupe_id === null ? null : Number(a.groupe_id),
+      // `appliquer` : sa première écriture rend la liste qu'elle vient de
+      // débloquer — rien, si ce passage n'est qu'un rejeu.
+      nouveau: r[r.length - 2]!.rows.length > 0, par: a.user_id
+    }
+  }
   return { etat: 'avance', groupe: null }
 }
 

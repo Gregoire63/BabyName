@@ -42,6 +42,8 @@ export default defineEventHandler(async (e) => {
          where id = ?2 and paye_le is null and changes() = 1`, [h, gid]]
     ])
     if (!pris!.rows.length) await refusCadeau(h, gid)
+    // Les autres membres apprennent que leur limite est tombée (server/utils/push.ts).
+    enFond(e, prevenirDeblocage(gid, uid))
     return { ok: true, groupe: gid }
   }
 

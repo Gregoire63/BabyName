@@ -24,12 +24,30 @@ export interface Coquille {
   plateforme: 'ios' | 'android'
   /** La version de l'app installée (pas celle du site), « 1.0.0 ». */
   version: string
+  /**
+   * Le téléphone est-il en sombre ? L'app le dit, à la suite de sa marque :
+   *
+   *     … babyNamedApp/1.0.0 (android) apparence/sombre
+   *
+   * LA PAGE NE PEUT PAS LE SAVOIR SEULE. Dans une vue web, la question
+   * `prefers-color-scheme` ne suit pas toujours le téléphone : celle d'Android
+   * répond d'après le thème de l'app qui l'héberge, et disait « clair » sur un
+   * téléphone en sombre (vu le 07/10/2026). Le natif, lui, le sait ; il le
+   * glisse ici parce que c'est le seul endroit lisible AVANT le premier
+   * affichage, sur les deux systèmes. Absent : une app d'avant, on s'en remet
+   * à la vue web. Le réglage « Système » de l'app s'en sert (useTheme).
+   */
+  apparence?: 'sombre' | 'claire'
 }
 
-const MOTIF = /\bbabyNamedApp\/(\d+(?:\.\d+){0,3}) \((ios|android)\)/
+const MOTIF = /\bbabyNamedApp\/(\d+(?:\.\d+){0,3}) \((ios|android)\)(?: apparence\/(sombre|claire)\b)?/
 
 /** La coquille qui a envoyé cet agent utilisateur, ou null : un navigateur. */
 export function coquilleDepuis(agent: string | null | undefined): Coquille | null {
   const m = MOTIF.exec(agent ?? '')
-  return m ? { version: m[1]!, plateforme: m[2] as Coquille['plateforme'] } : null
+  if (!m) return null
+  return {
+    version: m[1]!, plateforme: m[2] as Coquille['plateforme'],
+    ...(m[3] ? { apparence: m[3] as 'sombre' | 'claire' } : {})
+  }
 }

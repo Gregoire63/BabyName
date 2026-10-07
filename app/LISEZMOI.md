@@ -1022,6 +1022,7 @@ ne sait rien du produit : c'est la page qui décide.
 | `FeuilleCompte.vue` | « Télécharger mes données » : le fichier est lu puis confié au natif — suivi tel quel, le lien remplaçait l'app par du texte brut |
 | `entrerApresConnexion()` | Android : la page se recharge pour de bon après la connexion, sinon le cookie de session n'atteint pas le disque à temps |
 | `usePasskey.ts` | pas de passkey dans l'app Android (sa vue web ne sait pas) ; l'e-mail y suffit |
+| `useTheme.ts` | **« Système » suit le téléphone, pas la vue web.** Celle d'Android répond à `prefers-color-scheme` d'après le thème de l'app qui l'héberge : sur un téléphone en sombre, elle disait « clair » (vu le 07/10/2026). Le natif, lui, le sait : il l'écrit dans son agent utilisateur (`… (android) apparence/sombre`), lu par le petit script de `<head>` **avant** le premier affichage, et le redit quand il change (`apparence`, puis `actif` au retour d'une veille). Un choix fait dans l'app (Clair, Sombre) passe toujours avant |
 
 Le natif ne voit pas la page : chacun de ses messages lui revient avec un
 accusé de réception, que poste le script même qui le remet. Le site n'a rien à
@@ -1031,15 +1032,37 @@ tourne, puisque c'est à sa présence que le natif reconnaît une page qui écou
 
 ### Les notifications
 
-« Nouvel accord », « Alice a rejoint votre liste » : ce que le site ne sait
-pas faire quand l'app est fermée.
+Ce qui se passe dans une de ses listes quand on n'y est pas : ce que le site
+ne sait pas faire quand l'app est fermée. Cinq messages, pas un de plus
+(`server/utils/push.ts`) :
 
-- **Sur un geste, jamais à l'ouverture** : la carte « Notifications » des
-  réglages, et le bouton de la fête d'un accord. Et rien ne s'enregistre sans
-  ce geste, même sur un téléphone qui permet les notifications d'office
-  (`usePush.ts` — cinq états, dont « refusé dans le téléphone », qui mène à
-  ses réglages).
-- **Jamais le prénom** : il s'afficherait sur un écran verrouillé.
+| | Quand | Canal Android |
+|---|---|---|
+| « Nouvel accord » | un vote vient de faire un accord | `accords` : il sonne |
+| « Alice a rejoint votre liste » | une arrivée (ou « suit maintenant », en lecture seule) | `accords` |
+| « Alice a débloqué la liste : swipes illimités, pour vous aussi. » | la liste débloquée par quelqu'un d'autre — Stripe (retour ou webhook), l'App Store (l'app, le courrier d'Apple, un achat d'avance), un cadeau. Une fois : un rejeu ne redit rien | `activite` : sans bruit |
+| « Alice a laissé un commentaire. » | un commentaire ; d'affilée, un seul message par demi-heure et par personne | `activite` |
+| « Alice a jugé 25 prénoms de plus que vous. Les accords vous attendent. » | l'un **franchit un palier** d'avance (25, 50, 100…) sur quelqu'un qui décide et n'a pas trié aujourd'hui ; une fois par jour et par liste au plus | `activite` |
+
+- **Pas chaque vote, pas les vetos (ils sont secrets), pas de rappel
+  quotidien, pas de réclame.** Une notification qui ne dit rien de neuf
+  apprend à les couper toutes, accords compris. Et pas « Alice a aimé un
+  prénom que vous n'avez pas vu » : la pile de l'autre ne le lui montrerait
+  pas plus tôt (chacun trie à l'aveugle), la promesse ne serait pas tenue.
+- **Deux canaux** sur Android (`mobile/src/notifications.ts`) : on coupe
+  l'activité dans les réglages du téléphone sans perdre les accords.
+- **Sur un geste, jamais à l'ouverture** : « Me prévenir », dans « Mon
+  compte » (sur l'accueil — ce n'est pas un réglage de liste), et le bouton de
+  la fête d'un accord. Et rien ne s'enregistre sans ce geste, même sur un
+  téléphone qui permet les notifications d'office (`usePush.ts` — cinq états,
+  dont « refusé dans le téléphone », qui mène à ses réglages).
+- **Jamais le prénom** : il s'afficherait sur un écran verrouillé. Ni le
+  texte d'un commentaire.
+- **Rien de plus à lire pour un vote ordinaire** : l'accord et l'avance se
+  déduisent des lignes que le vote lit déjà (`SQL_VOTES_DU_PRENOM` : la voix,
+  le nombre de prénoms jugés et le dernier vote de chaque membre). Les
+  rythmes (commentaires, avance) tiennent dans la table `limites`
+  (`premierDeLaFenetre`), qui ne s'écrit qu'au moment d'envoyer.
 - Le téléphone donne un jeton, gardé dans `appareils` (migration 0011,
   `api/appareils`) : un jeton, un compte. Il part quand on coupe, à la
   déconnexion, avec « Déconnecter mes autres appareils », avec le compte, et
@@ -1238,8 +1261,22 @@ n'a que deux onglets, et ce sont deux **liens magiques** :
 Après l'un ou l'autre, à la **première connexion** d'un compte sans passkey,
 l'app la propose (`ProposerPasskey.vue`) : Face ID, empreinte ou code du
 téléphone, et plus d'e-mail à attendre la fois suivante. « Plus tard » est
-retenu trente jours sur l'appareil ; la passkey reste à un geste dans
-*Réglages → Mon compte* et sur l'accueil (*Mon compte*).
+retenu trente jours sur l'appareil ; la passkey reste à un geste sur
+l'accueil (*Mon compte*) — plus dans les réglages d'une liste : le compte,
+les passkeys, l'apparence et les notifications n'y sont plus, on les y
+prenait pour des réglages de cette liste-là.
+
+- **Le code se copie d'un geste.** Un e-mail ne sait rien faire quand on le
+  touche (aucun script n'y tourne) : le code y est donc un **lien** vers
+  `/connexion/code#c=123456` (`pages/connexion/code.vue`), qui le copie et
+  le dit — à l'arrivée quand le navigateur le permet (Chrome), sinon d'un
+  bouton (Safari, Firefox veulent un geste). La page ne valide rien et ne
+  parle à aucun serveur : le code voyage après le « # », quitte l'adresse
+  dès la lecture, et ne vaut rien sans l'adresse qui l'a reçu. Dans
+  l'e-mail, il s'écrit d'un seul tenant (« 123456 ») : c'est ce que lisent
+  les messageries qui proposent elles-mêmes de le copier (Gmail) et les
+  claviers qui le proposent dans le champ (iPhone, `one-time-code`). Le
+  champ, lui, accepte un code collé avec ses blancs.
 
 - **La passkey** (WebAuthn) se range dans le trousseau (iCloud, Google,
   1Password…) et suit sur les autres appareils. La base ne garde que la clé
@@ -1448,6 +1485,29 @@ et ne reconnaît le corps d'un déclencheur qu'ainsi : en minuscules, elle
 coupe au premier `;` du corps (« incomplete input »), alors que SQLite, le
 local et l'app acceptent le fichier. `scripts/verifier-migrations.mjs`, lancé
 par `npm run build`, refuse un fichier qui l'oublie.
+
+## Ce qu'un bord d'écran change
+
+Sur Android, avec la navigation par gestes, **un glissé parti du bord de
+l'écran est le « retour » du système** : la page ne le reçoit jamais. La
+tirette de l'accueil (le bord droit, pour retourner dans la liste en cours)
+ne se tirait donc pas — elle faisait reculer, ou sortir de l'app (vu dans
+Expo Go le 07/10/2026). Une page n'y peut rien ; elle peut ne pas exiger le
+bord. On entre maintenant dans la liste par **un glissé vers la gauche parti
+de n'importe où** sur l'accueil (`SectionAccueil.vue`), la tirette suit le
+doigt et dit quand lâcher ouvrira ; elle reste, et se touche.
+
+Trois gardes pour que faire défiler l'accueil n'ouvre jamais rien : le geste
+se décide dans ses dix premiers pixels (vers la gauche, nettement plus couché
+que debout) ; `touch-action: pan-y` laisse le défilement au navigateur, qui
+annule alors le pointeur ; au lâcher, il faut être allé assez loin. Le doigt
+seulement — à la souris, on sélectionne du texte. `essai-geste` le joue avec
+de vrais points de contact (`glisserDuDoigt`), pas avec la souris.
+
+Ce qui reste au système : un glissé parti du bord lui-même, sur Android. Pour
+que la tirette s'y tire aussi, il faudrait que l'app native retire cette zone
+aux gestes du système (`setSystemGestureExclusionRects`) — du code natif, à
+compiler, pas dans Expo Go. Pas fait.
 
 ## Ce qu'un clavier de téléphone change
 

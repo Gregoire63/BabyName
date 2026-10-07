@@ -1,4 +1,4 @@
-import { lancer, entrerComme } from './navigateur.mjs'
+import { lancer, entrerComme, glisserDuDoigt } from './navigateur.mjs'
 const BASE = 'http://127.0.0.1:3100'
 const ok = [], ko = []
 const dit = (c, m) => { (c ? ok : ko).push(m); console.log((c ? '  OK   ' : '  ECHEC') + '  ' + m) }
@@ -44,6 +44,111 @@ const doublon = autresNoms.filter(t => t.trim() === nomMis).length
 dit(doublon === 0, doublon === 0
   ? `« ${nomMis} » est mise en avant et ne réapparaît pas dans les autres (${autresNoms.length} autres)`
   : `« ${nomMis} » est à la fois en avant et dans les autres listes`)
+
+// ---------- 2 bis. le glissé parti d'ailleurs que du bord ------------------
+// Sur Android, un glissé parti du bord de l'écran est le « retour » du
+// système : la tirette n'en reçoit rien. On entre donc aussi dans la liste
+// par un glissé vers la gauche parti de n'importe où — sans que faire défiler
+// l'accueil, ou y sélectionner du texte, ouvre jamais rien.
+{
+  const aLAccueil = async () => { await page.waitForTimeout(700); return new URL(page.url()).pathname === '/' }
+  const haut = () => page.evaluate(() => document.querySelector('main').scrollTop)
+  const tiree = () => page.evaluate(() => {
+    const t = document.querySelector('.tirette')
+    return { x: Math.round(new DOMMatrix(getComputedStyle(t).transform).m41), armee: t.classList.contains('armee') }
+  })
+
+  // Faire défiler : le navigateur s'en charge, et rien ne s'ouvre.
+  await glisserDuDoigt(page, { x: 200, y: 620 }, { x: 204, y: 320 })
+  const defile = await haut()
+  dit(defile > 100 && await aLAccueil(), `faire défiler l’accueil le fait défiler (${Math.round(defile)} px), sans rien ouvrir`)
+  await page.evaluate(() => document.querySelector('main').scrollTo(0, 0))
+
+  // En biais, plus debout que couché : un défilement, pas notre geste.
+  await glisserDuDoigt(page, { x: 300, y: 620 }, { x: 180, y: 380 })
+  dit(await aLAccueil(), 'un glissé en biais, plus vertical qu’horizontal, n’ouvre rien')
+  await page.evaluate(() => document.querySelector('main').scrollTo(0, 0))
+
+  // … et la tirette ne bouge pas pour autant. Sur un accueil trop court pour
+  // défiler, le navigateur ne se saisit de rien : c'est le geste lui-même qui
+  // doit dire, dès ses premiers pixels, qu'il n'est pas pour nous.
+  await page.evaluate(() => { document.querySelector('main').style.overflowY = 'hidden' })
+  {
+    const cdp = await ctx.newCDPSession(page)
+    const pt = (x, y) => [{ x, y, id: 1, radiusX: 4, radiusY: 4, force: 1 }]
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(300, 300) })
+    for (let i = 1; i <= 10; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(300 - i * 8, 300 + i * 22) }); await page.waitForTimeout(18) }
+    await page.waitForTimeout(350)
+    const enBiais = await tiree()
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await cdp.detach()
+    dit(enBiais.x === 0 && !enBiais.armee && await aLAccueil(),
+      `un glissé en biais ne fait pas bouger la tirette, même là où rien ne défile (${enBiais.x} px)`)
+  }
+  // Parti couché, puis franchement descendu : le doigt a changé d'avis.
+  await glisserDuDoigt(page, { x: 300, y: 300 }, { x: 205, y: 560 }, { par: [{ x: 262, y: 302 }] })
+  dit(await aLAccueil() && (await tiree()).x === 0, 'parti à l’horizontale puis franchement descendu : rien ne s’ouvre')
+  await page.evaluate(() => { document.querySelector('main').style.overflowY = '' })
+
+  // Vers la droite : il n'y a rien à gauche de l'accueil.
+  await glisserDuDoigt(page, { x: 120, y: 400 }, { x: 300, y: 404 })
+  dit(await aLAccueil() && (await tiree()).x === 0, 'un glissé vers la droite n’ouvre rien')
+
+  // Trop court.
+  await glisserDuDoigt(page, { x: 300, y: 400 }, { x: 250, y: 402 })
+  dit(await aLAccueil() && (await tiree()).x === 0, 'un glissé trop court n’ouvre rien, et la tirette revient à sa place')
+
+  // Le doigt encore posé : la tirette suit, et dit quand lâcher ouvrira.
+  const cdp = await ctx.newCDPSession(page)
+  const pt = (x, y) => [{ x, y, id: 1, radiusX: 4, radiusY: 4, force: 1 }]
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(300, 400) })
+  for (let x = 290; x >= 262; x -= 7) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(x, 401) }); await page.waitForTimeout(20) }
+  await page.waitForTimeout(350)
+  const peu = await tiree()
+  for (let x = 250; x >= 180; x -= 10) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(x, 402) }); await page.waitForTimeout(20) }
+  await page.waitForTimeout(350)
+  const loin = await tiree()
+  dit(peu.x < -20 && !peu.armee && loin.x <= -50 && loin.armee,
+    `le doigt posé, la tirette suit (${peu.x} px puis ${loin.x} px) et dit quand lâcher ouvrira`)
+  // … il se ravise, revient d'où il vient, et lâche : rien.
+  for (let x = 200; x <= 290; x += 10) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(x, 402) }); await page.waitForTimeout(20) }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+  const pasParti = await aLAccueil()
+  const ravise = await tiree()
+  dit(pasParti && ravise.x === 0 && !ravise.armee, 'il se ravise et revient avant de lâcher : rien ne s’ouvre')
+
+  // Le système prend le geste pour lui (le « retour » d'Android) : annulé, rien.
+  await glisserDuDoigt(page, { x: 300, y: 400 }, { x: 150, y: 404 }, { fin: 'annuler' })
+  const resteLa = await aLAccueil()      // … le temps que la tirette revienne
+  const annule = await tiree()
+  dit(resteLa && annule.x === 0 && !annule.armee,
+    `un geste que le système annule en route n’ouvre rien (tirette à ${annule.x} px${annule.armee ? ', encore armée' : ''}, ${new URL(page.url()).pathname})`)
+
+  // À la souris, on sélectionne du texte en glissant : ce n'est pas le geste.
+  await page.mouse.move(300, 400); await page.mouse.down()
+  for (let i = 1; i <= 8; i++) { await page.mouse.move(300 - i * 20, 402); await page.waitForTimeout(12) }
+  await page.mouse.up()
+  dit(await aLAccueil(), 'glisser à la souris sur l’accueil n’ouvre rien')
+
+  // Une feuille ouverte par-dessus : le geste est pour elle, pas pour l'accueil.
+  await page.getByRole('button', { name: /^Mon compte/ }).click()
+  await page.waitForSelector('.feuille-corps', { timeout: 8000 })
+  await page.waitForTimeout(500)
+  const corps = await page.locator('.feuille-corps').boundingBox()
+  await glisserDuDoigt(page, { x: 300, y: corps.y + 60 }, { x: 150, y: corps.y + 64 })
+  dit(await aLAccueil() && await page.locator('.feuille-corps').count() === 1,
+    'glisser dans une feuille ouverte n’ouvre pas la liste derrière elle')
+  await page.keyboard.press('Escape')
+  await page.locator('.feuille-corps').waitFor({ state: 'detached', timeout: 8000 }).catch(() => {})
+
+  // Et le geste lui-même, parti du milieu de l'écran — loin du bord que le système garde.
+  await glisserDuDoigt(page, { x: 300, y: 400 }, { x: 160, y: 410 })
+  await page.waitForSelector('.onglets button', { timeout: 20000 }).catch(() => {})
+  dit(/\/g\/\d+\/swipe/.test(page.url()), 'un glissé vers la gauche, parti du milieu de l’écran, ouvre la liste en cours')
+  await page.locator('.sortie').first().click()
+  await page.waitForSelector('.bento', { timeout: 20000 })
+}
 
 // ---------- 3. le seuil : ce qui s'affiche est ce qui se fait ------------
 await page.locator('.bento .grande').first().click()

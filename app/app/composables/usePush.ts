@@ -4,7 +4,7 @@
  * « Vous avez un nouvel accord » arrive quand l'autre trie de son côté : la
  * seule chose que le site ne sait pas faire. Le téléphone demande la
  * permission UNE fois (iOS ne la redemande jamais) : on ne la demande donc
- * que sur un geste — le bouton des réglages, ou celui de la fête d'un accord —
+ * que sur un geste — le bouton de « Mon compte », ou celui de la fête d'un accord —
  * jamais à l'ouverture.
  *
  * ET RIEN NE S'ENREGISTRE SANS CE GESTE. Certains téléphones (Android avant

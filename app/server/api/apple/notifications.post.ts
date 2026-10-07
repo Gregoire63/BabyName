@@ -63,6 +63,9 @@ export default defineEventHandler(async (e) => {
     }
   }
   const r = await synchroniserApple(t, null)
+  // L'achat annoncé par Apple vient de débloquer la liste : les autres
+  // membres l'apprennent (celui qui a payé le sait).
+  if (r.nouveau && r.groupe) enFond(e, prevenirDeblocage(r.groupe, r.par ?? null))
   if (r.etat === 'rembourse') console.info('[apple] achat remboursé', { liste: r.groupe })
   else if (!connue) console.info('[apple] achat annoncé par Apple', r.etat, { liste: r.groupe, bac: t.environment === 'Sandbox' })
   return { ok: true, etat: r.etat }

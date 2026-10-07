@@ -29,7 +29,8 @@
  *                    achat.acheter  { produit, jeton }    → { ok, etat, transaction? }
  *                    achat.attente                        → { ok, transactions: [{ id, produit, le }] }
  *                    achat.finir    { transaction }       → { ok }   (composables/useAchatApple)
- *   le natif dit     lien          { url }   un lien ouvert, une notification touchée
+ *   le natif dit     apparence     { sombre }   le téléphone change d'apparence (useTheme)
+ *                    lien          { url }   un lien ouvert, une notification touchée
  *                    actif         l'app revient au premier plan
  *                    retour        le bouton « Retour » d'Android
  *                    achat.arrivee  iOS : une transaction vient d'arriver d'elle-même

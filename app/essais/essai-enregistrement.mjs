@@ -28,7 +28,7 @@ const lire = (chemin) => page.evaluate(async c => (await fetch(c)).json(), chemi
 const nomListe = async gid => (await lire(`/api/groupes/${gid}`))?.groupe?.nom
 const reglages = async gid => {
   await page.goto(`${BASE}/g/${gid}/reglages`, { waitUntil: 'networkidle' })
-  await page.locator('#titre-compte').waitFor({ timeout: 20000 })
+  await page.locator('section[aria-label="Quitter ou supprimer cette liste"]').waitFor({ timeout: 20000 })
 }
 const champNom = () => page.getByRole('textbox', { name: 'Nom de la liste' })
 

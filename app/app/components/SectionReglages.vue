@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
-import { passkeysPossibles, creerPasskey } from '~/composables/usePasskey'
 import { useEnregistrementDiffere, type OptionsEnvoi } from '~/composables/useEnregistrementDiffere'
 
 /**
- * Tout ce qui se regle : la liste d'abord, le compte ensuite. C'etait
- * l'onglet « Liste », qui melangeait les deux sans le dire.
+ * Les réglages DE LA LISTE, et rien d'autre : son nom, son déblocage, qui en
+ * est, ses filtres, la quitter. Ce qui ne dépend d'aucune liste — le compte,
+ * les passkeys, l'apparence, les notifications du téléphone — vit dans la
+ * feuille du compte, qu'on ouvre depuis l'accueil (FeuilleCompte) : ici, on
+ * les prenait pour des réglages de cette liste-ci.
  */
 const props = defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
@@ -17,25 +19,6 @@ const quota = computed(() => g.etat.value?.quota)
 const copie = ref(false)
 const offrirOuvert = ref(false)
 
-/**
- * Mon compte, depuis les réglages : la passkey d'abord (se connecter d'un
- * geste), le reste dans la feuille du compte — la même que sur l'accueil,
- * parce que le compte ne dépend d'aucune liste.
- */
-const moi = useMoi()
-const compteOuvert = ref(false)
-const passkeyPossible = ref(false)
-onMounted(() => { passkeyPossible.value = passkeysPossibles() })
-const passkeyEnCours = ref(false)
-const passkeyMessage = ref('')
-async function creerPasskeyIci() {
-  if (passkeyEnCours.value) return
-  passkeyEnCours.value = true
-  passkeyMessage.value = ''
-  const r = await creerPasskey()
-  passkeyEnCours.value = false
-  passkeyMessage.value = r.ok ? 'Passkey créée : vous entrerez d’un geste.' : r.message
-}
 const renomme = ref(false)
 const nouveauNom = ref('')
 const champNom = ref<HTMLInputElement | null>(null)
@@ -570,33 +553,8 @@ async function quitterListe() {
         </div>
         </template>
       </section>
-
-      <section class="carte pile" aria-labelledby="titre-compte">
-        <h2 id="titre-compte">Mon compte</h2>
-        <p class="mini doux" style="margin:0">
-          {{ moi?.pseudo }}<template v-if="moi?.email"> · {{ moi.email }}</template>
-          · {{ moi?.passkeys ? `${moi.passkeys} passkey${moi.passkeys > 1 ? 's' : ''}` : 'aucune passkey' }}
-        </p>
-        <button v-if="passkeyPossible && !moi?.passkeys" type="button" class="btn btn-1"
-                :disabled="passkeyEnCours" @click="creerPasskeyIci">
-          {{ passkeyEnCours ? 'Un instant…' : 'Créer une passkey' }}
-        </button>
-        <p v-if="passkeyMessage" class="mini" role="status" style="margin:0">{{ passkeyMessage }}</p>
-        <button type="button" class="btn" @click="compteOuvert = true">
-          Passkeys, e-mail, mes données
-        </button>
-      </section>
-
-      <!-- dans l'app des stores seulement (elle ne rend rien ailleurs) -->
-      <CartePush />
-
-      <section class="carte pile" aria-labelledby="titre-theme">
-        <h2 id="titre-theme">Apparence</h2>
-        <ChoixTheme />
-      </section>
     </template>
     <FeuilleOffrir v-if="offrirOuvert" @fermer="offrirOuvert = false" />
-    <FeuilleCompte v-if="compteOuvert" @fermer="compteOuvert = false" />
   </div>
 </template>
 

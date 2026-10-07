@@ -8,6 +8,9 @@
  *    téléphone). Le natif tient la page ENTRE la barre d'état et le bas de
  *    l'écran ; le jour où la page saura passer dessous elle-même, elle le
  *    dira ici (`bords: 'page'`), sans nouvelle version des apps ;
+ *  - l'apparence du téléphone, que la vue web ne connaît pas toujours : le
+ *    natif la dit à l'ouverture (dans son agent utilisateur) et à chaque
+ *    bascule (`apparence`). Le réglage « Système » la suit (useTheme) ;
  *  - un lien ouvert pendant que l'app tourne (une invitation, le lien de
  *    connexion de l'e-mail, une notification touchée) : on y va par le
  *    routeur, sans recharger la page ;
@@ -52,6 +55,14 @@ export default defineNuxtPlugin((nuxtApp) => {
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', direTheme)
   })
 
+  // Le téléphone passe en sombre (ou en revient) : « Système » suit, et le
+  // natif reprend nos couleurs. Dit par `apparence` pendant que l'app est
+  // ouverte, et par `actif` au retour d'une veille.
+  const suivreLeTelephone = (m: { sombre?: unknown }) => {
+    if (typeof m.sombre === 'boolean' && apparenceDuTelephone(m.sombre)) nextTick(direTheme)
+  }
+  ecouter('apparence', suivreLeTelephone)
+
   ecouter('lien', (m) => {
     let u: URL
     try { u = new URL(String(m.url ?? ''), location.origin) } catch { return }
@@ -90,7 +101,8 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (moi.value) synchroniserPush()
     achats()
   })
-  ecouter('actif', () => {
+  ecouter('actif', (m) => {
+    suivreLeTelephone(m)
     // La vue web vient de le dire elle-même : une fois suffit.
     if (document.visibilityState !== 'visible' || Date.now() - vuLe < 1500) return
     document.dispatchEvent(new Event('visibilitychange'))

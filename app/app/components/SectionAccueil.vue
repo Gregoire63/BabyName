@@ -229,6 +229,54 @@ function bordFin(e: PointerEvent) {
   if (ax > SEUIL_BORD && dy < ax) entrerListe()
 }
 
+/**
+ * … et par un glissé vers la gauche parti de n'importe où sur l'accueil.
+ *
+ * La tirette seule ne suffisait pas. Sur Android (navigation par gestes), un
+ * glissé parti du BORD de l'écran est le geste « retour » du système : la page
+ * ne le reçoit jamais. Tirer la tirette y faisait donc reculer — ou sortir de
+ * l'app — au lieu d'ouvrir la liste. Une page n'y peut rien ; elle peut, en
+ * revanche, ne pas exiger le bord. Le doigt part d'où il veut, la tirette
+ * suit, et l'on entre dans la liste comme on tourne une page. La tirette
+ * reste : elle dit qu'il y a quelque chose à droite, et se touche.
+ *
+ * Trois gardes, pour que faire défiler l'accueil n'ouvre jamais rien :
+ *  - le geste se décide dans ses dix premiers pixels — vers la gauche, et
+ *    nettement plus couché que debout ; sinon il n'est pas pour nous ;
+ *  - `touch-action: pan-y` (style) laisse le défilement vertical au
+ *    navigateur : s'il s'en saisit, il annule le pointeur, et l'on abandonne ;
+ *  - au lâcher, il faut être allé assez loin, et être resté couché.
+ * Le doigt seulement : à la souris, on sélectionne du texte en glissant, et
+ * la tirette se tire ou se clique.
+ */
+const SEUIL_PAGE = 72    // de combien il faut glisser, parti d'ailleurs que du bord
+let gx = 0, gy = 0, doigt: number | null = null, couche = false
+const arme = ref(false)
+
+function glisseDebut(e: PointerEvent) {
+  doigt = null
+  if (!principale.value || e.pointerType === 'mouse' || !e.isPrimary) return
+  doigt = e.pointerId; gx = e.clientX; gy = e.clientY; couche = false
+}
+function glisseBouge(e: PointerEvent) {
+  if (e.pointerId !== doigt) return
+  const ax = gx - e.clientX
+  const dy = Math.abs(e.clientY - gy)
+  if (!couche) {
+    if (Math.max(Math.abs(ax), dy) < 10) return
+    if (ax <= 0 || dy > ax * 0.6) { doigt = null; return }
+    couche = true
+  }
+  tire.value = Math.max(0, Math.min(SEUIL_BORD, ax))
+  arme.value = ax > SEUIL_PAGE && dy < ax
+}
+function glisseFin(e: PointerEvent) {
+  if (e.pointerId !== doigt) return
+  const entrer = couche && e.type === 'pointerup' && arme.value
+  doigt = null; couche = false; tire.value = 0; arme.value = false
+  if (entrer) entrerListe()
+}
+
 const quandDernier = (d: string | null) => {
   if (!d) return 'pas encore commencée'
   const j = Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
@@ -282,7 +330,9 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 <template>
   <div class="ecran page">
     <Ambiance />
-    <main id="contenu" class="defile page" tabindex="-1">
+    <main id="contenu" class="defile page" tabindex="-1"
+          @pointerdown="glisseDebut" @pointermove="glisseBouge"
+          @pointerup="glisseFin" @pointercancel="glisseFin">
       <header class="tete">
         <img src="/logo.png" alt="" width="34" height="34">
         <h1 style="flex:1">babyNamed</h1>
@@ -483,7 +533,8 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
       </div>
     </main>
 
-    <button v-if="principale" class="tirette" :style="{ transform: `translateX(${-tire}px)` }"
+    <button v-if="principale" class="tirette" :class="{ armee: arme }"
+            :style="{ transform: `translateX(${-tire}px)` }"
             :aria-label="`Revenir dans ${principale.nom}`"
             @pointerdown="bordDebut" @pointermove="bordBouge"
             @pointerup="bordFin" @pointercancel="bordFin" @click="entrerListe">
@@ -522,13 +573,18 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
   border-radius: 14px 0 0 14px; background: var(--carte); color: var(--doux);
   font: inherit; font-size: .68rem; font-weight: 700; cursor: pointer;
   box-shadow: -4px 0 14px rgba(26,35,78,.07); touch-action: pan-y;
-  transition: transform .18s cubic-bezier(.32,.72,0,1); }
+  transition: transform .18s cubic-bezier(.32,.72,0,1), background .12s, color .12s; }
+/* Assez glissé : lâcher ouvre la liste. */
+.tirette.armee { background: var(--encre); border-color: var(--encre); color: var(--fond); }
 .tirette svg { width: 15px; height: 15px; fill: none; stroke: currentColor;
   stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
 .tirette span { writing-mode: vertical-rl; max-height: 128px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; letter-spacing: .02em; }
 .defile.page:focus { outline: none; }
 .defile.page { height: 100%; overflow-y: auto; overscroll-behavior-y: contain;
+  /* Le défilement vertical (et le zoom) au navigateur ; les glissés
+     horizontaux à la page : c'est par eux qu'on entre dans la liste. */
+  touch-action: pan-y pinch-zoom;
   padding: max(16px, env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom)); }
 .tete { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 .tete img { border-radius: 9px; }

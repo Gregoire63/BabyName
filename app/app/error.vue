@@ -44,7 +44,11 @@ const { dansApp } = useCoquille()
     <div class="carte pile">
       <!-- les pages publiques sont statiques : un vrai lien, pas le routeur -->
       <a v-if="!dansApp" href="/prenoms/" class="btn btn-1">Parcourir les prénoms</a>
-      <button type="button" class="btn" @click="versApp">Ouvrir l’app</button>
+      <!-- Dans l'app des stores, on y est déjà : « Ouvrir l'app » n'y voudrait
+           rien dire, et c'est le seul chemin pour repartir. -->
+      <button type="button" class="btn" :class="{ 'btn-1': dansApp }" @click="versApp">
+        {{ dansApp ? 'Revenir à l’accueil' : 'Ouvrir l’app' }}
+      </button>
     </div>
   </main>
 </template>

@@ -38,7 +38,7 @@ const quitter = (X, id, confirmation) => poster(X, `/api/groupes/${id}/quitter`,
 const idDe = async (X, nom) => (await X.api('/api/groupes')).j?.find(l => l.nom === nom)?.id
 const reglages = async (X, id) => {
   await X.page.goto(`${BASE}/g/${id}/reglages`, { waitUntil: 'networkidle' })
-  await X.page.locator('#titre-compte').waitFor({ timeout: 20000 })
+  await X.page.locator('section[aria-label="Quitter ou supprimer cette liste"]').waitFor({ timeout: 20000 })
 }
 const bouton = (X, nom) => X.page.getByRole('button', { name: nom, exact: true })
 const aLAccueil = async X => {

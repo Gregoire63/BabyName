@@ -111,6 +111,24 @@ const ceQuiVend = (t, plateforme) => {
 
 /** Une feuille ouverte (Feuille.vue). La fiche d'un prénom a la sienne : « .feuille ». */
 const FEUILLE = '.feuille-corps'
+/**
+ * « Mon compte », depuis l'accueil : c'est là, et là seulement, que se règlent
+ * l'apparence et les notifications du téléphone. Les réglages d'une liste les
+ * ont montrés un temps — on les y prenait pour des réglages de cette liste.
+ */
+async function compte(page) {
+  if (await page.locator(FEUILLE).count()) return
+  if (new URL(page.url()).pathname !== '/' || !(await page.locator('.bento').count())) {
+    await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
+  }
+  await page.waitForSelector('.bento', { timeout: 20000 })
+  await page.getByRole('button', { name: /^Mon compte/ }).click()
+  await page.waitForSelector(FEUILLE, { timeout: 8000 })
+}
+async function fermerFeuille(page) {
+  await page.keyboard.press('Escape')
+  await page.locator(FEUILLE).waitFor({ state: 'detached', timeout: 8000 }).catch(() => {})
+}
 const GRATUITE = 2      // « Essai gratuit » : 3 de départ puis 2 par jour (semence)
 const PAYEE = 1         // « Notre liste » : Paul, Alice, Mamie qui observe
 const CADEAU = 'BEBE2345CADE'
@@ -135,6 +153,39 @@ await paulWeb.page.waitForSelector(FEUILLE, { timeout: 20000 })
 dit(/Un cadeau pour vous/.test(await paulWeb.page.locator(FEUILLE).innerText()),
   'témoin, navigateur : un lien cadeau ouvre la feuille du cadeau')
 await paulWeb.page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
+
+// =================== AVANT D'ENTRER : NI LA PORTE, NI L'ERREUR NE MÈNENT DEHORS
+// Vu sur un vrai téléphone (07/10/2026) : « Parcourir les prénoms », en haut
+// de la connexion, sortait de l'app vers le site — où elle ne sert à rien.
+{
+  const lien = 'a[href^="/prenoms"], a[href^="/prenom/"], a[href^="/choisir"], a[href^="/offrir"]'
+  const temoin = await onglet(nav)
+  await temoin.page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+  await temoin.page.getByRole('tab', { name: 'Connexion' }).waitFor({ timeout: 20000 })
+  const porteWeb = await temoin.page.locator('a.retour').innerText().catch(() => '')
+  await temoin.page.goto(`${BASE}/une-adresse-qui-n-existe-pas`, { waitUntil: 'networkidle' })
+  await temoin.page.getByRole('heading', { name: 'Cette page n’existe pas' }).waitFor({ timeout: 20000 })
+  dit(/Parcourir les prénoms/.test(porteWeb) && await temoin.page.locator(lien).count() === 1
+      && await temoin.page.getByRole('button', { name: 'Ouvrir l’app' }).count() === 1,
+    'témoin, navigateur : la connexion et la page d’erreur mènent aux prénoms du site')
+  await temoin.ctx.close()
+
+  const porte = await ongletApp(nav, 'android')
+  suivre(porte.page, 'personne (app Android)')
+  await porte.page.goto(`${BASE}/connexion`, { waitUntil: 'networkidle' })
+  await porte.page.getByRole('tab', { name: 'Connexion' }).waitFor({ timeout: 20000 })
+  dit(await porte.page.locator(lien).count() === 0 && await porte.page.locator('a.retour').count() === 0,
+    'app : la page de connexion ne mène pas aux pages publiques')
+  await porte.page.goto(`${BASE}/une-adresse-qui-n-existe-pas`, { waitUntil: 'networkidle' })
+  await porte.page.getByRole('heading', { name: 'Cette page n’existe pas' }).waitFor({ timeout: 20000 })
+  const boutons = await porte.page.getByRole('button').allInnerTexts()
+  dit(await porte.page.locator(lien).count() === 0 && boutons.map(b => b.trim()).join('|') === 'Revenir à l’accueil',
+    `app : la page d’erreur non plus — un seul chemin, « ${boutons.map(b => b.trim()).join(' », « ')} »`)
+  await porte.page.getByRole('button', { name: 'Revenir à l’accueil' }).click()
+  await porte.page.waitForURL(u => /^\/(connexion)?$/.test(new URL(u).pathname), { timeout: 15000 }).catch(() => {})
+  dit(/^\/(connexion)?$/.test(new URL(porte.page.url()).pathname), `et il ramène dans l’app (${new URL(porte.page.url()).pathname})`)
+  await porte.ctx.close()
+}
 
 // =================== L'APP ANDROID, PAUL ===================================
 const android = await ongletApp(nav, 'android')
@@ -172,8 +223,8 @@ await pause(1200)
   suivre(vieux.page, 'Paul (vieil Android)')
   vieux.natif.permission = 'accordee'
   await entrer(vieux.page, 'Paul')
-  await vieux.page.goto(`${BASE}/g/${GRATUITE}/reglages`, { waitUntil: 'networkidle' })
-  const bouton = vieux.page.getByRole('button', { name: 'Me prévenir d’un nouvel accord' })
+  await compte(vieux.page)
+  const bouton = vieux.page.getByRole('button', { name: 'Me prévenir', exact: true })
   await bouton.waitFor({ timeout: 20000 })
   await pause(700)
   dit((await appareils(vieux.page))?.length === 0,
@@ -182,29 +233,24 @@ await pause(1200)
   await vieux.page.getByRole('button', { name: 'Ne plus me prévenir' }).waitFor({ timeout: 8000 })
   dit((await appareils(vieux.page))?.length === 1, 'le geste l’enregistre')
   await vieux.page.getByRole('button', { name: 'Ne plus me prévenir' }).click()
-  await vieux.page.getByRole('button', { name: 'Me prévenir d’un nouvel accord' }).waitFor({ timeout: 8000 })
+  await vieux.page.getByRole('button', { name: 'Me prévenir', exact: true }).waitFor({ timeout: 8000 })
   await vieux.ctx.close()
 }
 
-// --- 1 et 5. les réglages d'une liste gratuite ; les notifications, sur un geste
+// --- 1. les réglages d'une liste gratuite
 await android.page.goto(`${BASE}/g/${GRATUITE}/reglages`, { waitUntil: 'networkidle' })
-await android.page.getByRole('heading', { name: 'Notifications' }).waitFor({ timeout: 20000 })
+await android.page.getByRole('heading', { name: 'Qui en est' }).waitFor({ timeout: 20000 })
 {
   const t = await texte(android.page)
   dit(!ceQuiVend(t, 'android') && await android.page.locator('.carte.achat').count() === 0
       && await android.page.getByRole('heading', { name: 'Avec votre nom de famille' }).count() === 0
       && await android.page.locator('.deux-facons').count() === 0,
     `app : les réglages d’une liste gratuite n’ont ni offre, ni fonctions à débloquer (${ceQuiVend(t, 'android') ?? 'rien'})`)
-  const bouton = android.page.getByRole('button', { name: 'Me prévenir d’un nouvel accord' })
-  dit(await bouton.count() === 1 && (await appareils(android.page))?.length === 0,
-    'les notifications se proposent dans les réglages ; tant qu’on n’a rien demandé, le serveur ne connaît aucun téléphone')
-  await bouton.click()
-  await android.page.getByRole('button', { name: 'Ne plus me prévenir' }).waitFor({ timeout: 8000 })
-  const a = await appareils(android.page)
-  dit(android.natif.recus.some(m => m.type === 'push.demander') && a?.length === 1 && a[0].plateforme === 'android',
-    `le geste pose la question du téléphone, puis l’enregistre (${JSON.stringify(a)})`)
-  dit(!JSON.stringify(a).includes('ExponentPushToken'),
-    'l’export de mes données dit quels téléphones sont prévenus, sans le jeton')
+  // Ce qui ne dépend d'aucune liste n'y est pas : on le prenait pour un réglage de celle-ci.
+  dit(await android.page.getByRole('heading', { name: /Notifications|Apparence|Mon compte/ }).count() === 0
+      && await android.page.getByRole('button', { name: /prévenir|passkey/i }).count() === 0
+      && await android.page.getByRole('radio').count() === 0,
+    'les réglages d’une liste ne règlent que la liste : ni notifications, ni apparence, ni compte')
 }
 
 // --- 4. le partage passe par la feuille du téléphone
@@ -218,12 +264,24 @@ await android.page.getByRole('heading', { name: 'Notifications' }).waitFor({ tim
     'la feuille du téléphone a répondu : rien n’est copié à la place')
 }
 
+// --- 5. les notifications, dans « Mon compte », sur un geste
+await compte(android.page)
+{
+  const bouton = android.page.getByRole('button', { name: 'Me prévenir', exact: true })
+  dit(await bouton.count() === 1 && (await appareils(android.page))?.length === 0,
+    'les notifications se proposent dans « Mon compte » ; tant qu’on n’a rien demandé, le serveur ne connaît aucun téléphone')
+  await bouton.click()
+  await android.page.getByRole('button', { name: 'Ne plus me prévenir' }).waitFor({ timeout: 8000 })
+  const a = await appareils(android.page)
+  dit(android.natif.recus.some(m => m.type === 'push.demander') && a?.length === 1 && a[0].plateforme === 'android',
+    `le geste pose la question du téléphone, puis l’enregistre (${JSON.stringify(a)})`)
+  dit(!JSON.stringify(a).includes('ExponentPushToken'),
+    'l’export de mes données dit quels téléphones sont prévenus, sans le jeton')
+}
+
 // --- 4. « Télécharger mes données » : une page n'y télécharge rien, le natif s'en charge
 {
-  await android.page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
-  await android.page.waitForSelector('.bento', { timeout: 20000 })
-  await android.page.getByRole('button', { name: /^Mon compte/ }).click()
-  await android.page.waitForSelector(FEUILLE, { timeout: 8000 })
+  await compte(android.page)
   await android.page.getByRole('link', { name: 'Télécharger mes données' }).click()
   const m = await jusqua(() => android.natif.recus.find(x => x.type === 'fichier'))
   let contenu = null
@@ -408,14 +466,15 @@ await pause(1000)
 dit(ios.natif.recus.filter(m => m.type === 'pret').length === 1,
   'iOS : entrer ne recharge pas la page (une seule « prête »)')
 await ios.page.goto(`${BASE}/g/${GRATUITE}/reglages`, { waitUntil: 'networkidle' })
-await ios.page.getByRole('heading', { name: 'Notifications' }).waitFor({ timeout: 20000 })
+await ios.page.getByRole('heading', { name: 'Qui en est' }).waitFor({ timeout: 20000 })
 {
   const t = await texte(ios.page)
   dit(!ceQuiVend(t, 'ios') && await ios.page.locator('.carte.achat').count() === 0,
     `app iOS : les réglages d’une liste gratuite ne vendent rien (${ceQuiVend(t, 'ios') ?? 'rien'})`)
   dit(!ios.natif.recus.some(m => String(m.type).startsWith('achat.')),
     'app iOS : tant que le serveur ne sait pas vérifier un achat chez Apple, la page ne demande même pas son prix au téléphone')
-  // --- 4. le thème choisi dans l'app part au natif (la barre d'état suit)
+  // --- 4. le thème choisi dans l'app (« Mon compte ») part au natif (la barre d'état suit)
+  await compte(ios.page)
   const avant = ios.natif.recus.filter(m => m.type === 'theme').length
   await ios.page.locator('label.option', { hasText: 'Sombre' }).click()
   const sombre = await jusqua(() => ios.natif.recus.filter(m => m.type === 'theme')[avant])
@@ -424,6 +483,7 @@ await ios.page.getByRole('heading', { name: 'Notifications' }).waitFor({ timeout
   dit(sombre?.sombre === true && /^#[0-9a-f]{6}$/i.test(sombre.fond ?? '') && clair?.sombre === false
       && sombre.fond !== clair.fond,
     `le thème choisi dans l’app est dit au natif, avec sa couleur de fond (${sombre?.fond} puis ${clair?.fond})`)
+  await fermerFeuille(ios.page)
 }
 await ficheEtFete(ios, 'Jeanne', 'ios')
 {
@@ -474,10 +534,10 @@ const aliceApp = await ongletApp(nav, 'ios')
 suivre(aliceApp.page, 'Alice (app iOS)')
 aliceApp.natif.reponse = 'refusee'
 await entrer(aliceApp.page, 'Alice')
-await aliceApp.page.goto(`${BASE}/g/${PAYEE}/reglages`, { waitUntil: 'networkidle' })
+await compte(aliceApp.page)
 await aliceApp.page.getByRole('heading', { name: 'Notifications' }).waitFor({ timeout: 20000 })
 {
-  await aliceApp.page.getByRole('button', { name: 'Me prévenir d’un nouvel accord' }).click()
+  await aliceApp.page.getByRole('button', { name: 'Me prévenir', exact: true }).click()
   const reglages = aliceApp.page.getByRole('button', { name: 'Autoriser dans les réglages du téléphone' })
   await reglages.waitFor({ timeout: 8000 })
   dit((await appareils(aliceApp.page))?.length === 0,
@@ -533,21 +593,20 @@ const jetonsDePaul = [android.natif.jeton, ios.natif.jeton]
 }
 {
   // Couper dans l'app : le serveur oublie ce téléphone ; se reconnecter ne le rallume pas.
-  await aliceApp.page.goto(`${BASE}/g/${PAYEE}/reglages`, { waitUntil: 'networkidle' })
+  await compte(aliceApp.page)
   await aliceApp.page.getByRole('button', { name: 'Ne plus me prévenir' }).click()
-  await aliceApp.page.getByRole('button', { name: 'Me prévenir d’un nouvel accord' }).waitFor({ timeout: 8000 })
+  await aliceApp.page.getByRole('button', { name: 'Me prévenir', exact: true }).waitFor({ timeout: 8000 })
   const n = messages().length
   await voter(paulWeb.page, PAYEE, 'Margot', 2)      // de non à oui : un accord
   await pause(1300)
   dit((await appareils(aliceApp.page))?.length === 0 && messages().length === n,
     '« Ne plus me prévenir » : le serveur oublie ce téléphone, un accord ne le prévient plus')
-  await aliceApp.page.getByRole('button', { name: 'Passkeys, e-mail, mes données' }).click()
   await aliceApp.page.getByRole('button', { name: 'Se déconnecter' }).click()
   await aliceApp.page.waitForURL(/\/connexion/, { timeout: 15000 })
   await entrerComme(aliceApp.page, 'Alice')
   await aliceApp.page.waitForSelector('.bento', { timeout: 20000 })
-  await aliceApp.page.goto(`${BASE}/g/${PAYEE}/reglages`, { waitUntil: 'networkidle' })
-  const bouton = aliceApp.page.getByRole('button', { name: 'Me prévenir d’un nouvel accord' })
+  await compte(aliceApp.page)
+  const bouton = aliceApp.page.getByRole('button', { name: 'Me prévenir', exact: true })
   await bouton.waitFor({ timeout: 20000 })
   await pause(600)
   dit((await appareils(aliceApp.page))?.length === 0,
@@ -590,7 +649,7 @@ const jetonsDePaul = [android.natif.jeton, ios.natif.jeton]
 }
 {
   // Déconnecté : ce téléphone n'est plus prévenu pour ce compte.
-  await aliceApp.page.getByRole('button', { name: 'Passkeys, e-mail, mes données' }).click()
+  await compte(aliceApp.page)
   await aliceApp.page.getByRole('button', { name: 'Se déconnecter' }).click()
   await aliceApp.page.waitForURL(/\/connexion/, { timeout: 15000 })
   const n = envois.length
@@ -658,14 +717,13 @@ const jetonsDePaul = [android.natif.jeton, ios.natif.jeton]
   dit(a?.length === 1 && aliceApp.natif.recus.filter(x => x.type === 'push.demander').length === demandes,
     'se reconnecter sur son téléphone y retrouve ses notifications, sans que rien soit redemandé')
   // … mais quelqu'un d'autre sur ce téléphone n'hérite pas de son geste.
-  await aliceApp.page.goto(`${BASE}/g/${PAYEE}/reglages`, { waitUntil: 'networkidle' })
-  await aliceApp.page.getByRole('button', { name: 'Passkeys, e-mail, mes données' }).click()
+  await compte(aliceApp.page)
   await aliceApp.page.getByRole('button', { name: 'Se déconnecter' }).click()
   await aliceApp.page.waitForURL(/\/connexion/, { timeout: 15000 })
   await entrerComme(aliceApp.page, 'Mamie')
   await aliceApp.page.waitForSelector('.bento', { timeout: 20000 })
-  await aliceApp.page.goto(`${BASE}/g/${PAYEE}/reglages`, { waitUntil: 'networkidle' })
-  await aliceApp.page.getByRole('button', { name: 'Me prévenir d’un nouvel accord' }).waitFor({ timeout: 20000 })
+  await compte(aliceApp.page)
+  await aliceApp.page.getByRole('button', { name: 'Me prévenir', exact: true }).waitFor({ timeout: 20000 })
   await pause(700)
   dit((await appareils(aliceApp.page))?.length === 0,
     'un autre compte sur le même téléphone n’hérite pas de ce geste : rien n’est enregistré pour lui')
@@ -741,6 +799,90 @@ const jetonsDePaul = [android.natif.jeton, ios.natif.jeton]
   const ailleurs = await poster(paulWeb.page, '/api/auth/code', { email: 'alice@exemple.test', code: '424242', but: 'connexion' })
   dit(ailleurs.status === 400, `ce code ne vaut pour aucune autre adresse (HTTP ${ailleurs.status})`)
   await store.ctx.close()
+}
+
+// =================== 8. LE THÈME SUIT LE TÉLÉPHONE ==========================
+// Tant qu'on n'a choisi ni « Clair » ni « Sombre », l'app prend l'apparence du
+// téléphone. Dans une vue web, la page ne peut pas la lui demander : celle
+// d'Android répond « clair » sur un téléphone en sombre (c'est ce que fait
+// aussi la vue web de cet essai). C'est le natif qui le dit — dans son agent
+// utilisateur à l'ouverture, par le pont ensuite.
+{
+  const etat = page => page.evaluate(() => ({
+    attribut: document.documentElement.getAttribute('data-theme'),
+    fond: getComputedStyle(document.documentElement).getPropertyValue('--fond').trim(),
+    vueWeb: matchMedia('(prefers-color-scheme: dark)').matches,
+    choix: localStorage.getItem('pr_theme'),
+    amorce: !!document.querySelector('.amorce')
+  }))
+  const nuit = await ongletApp(nav, 'android', { apparence: 'sombre' })
+  suivre(nuit.page, 'Paul (téléphone en sombre)')
+  // Avant que l'app ait démarré : l'écran d'attente est déjà sombre.
+  await nuit.page.goto(`${BASE}/connexion`, { waitUntil: 'domcontentloaded' })
+  const tot = await etat(nuit.page)
+  dit(tot.attribut === 'dark' && tot.vueWeb === false,
+    `téléphone en sombre, vue web qui dit « clair » : sombre dès avant le premier affichage (écran d’attente ${tot.amorce ? 'encore là' : 'déjà parti'})`)
+  await entrer(nuit.page, 'Paul')
+  await pause(800)
+  let t = await etat(nuit.page)
+  const pret = nuit.natif.recus.filter(m => m.type === 'pret').at(-1)
+  dit(t.attribut === 'dark' && t.fond === '#101321' && pret?.sombre === true && pret?.fond === '#101321' && t.choix === null,
+    `l’app s’ouvre en sombre et le dit au natif (${pret?.fond}), sans que ce soit un choix enregistré`)
+
+  // Le téléphone repasse en clair pendant que l'app est ouverte.
+  let avant = nuit.natif.recus.filter(m => m.type === 'theme').length
+  await nuit.natif.dire({ type: 'apparence', sombre: false })
+  const jour = await jusqua(() => nuit.natif.recus.filter(m => m.type === 'theme')[avant])
+  t = await etat(nuit.page)
+  dit(t.attribut === 'light' && t.fond !== '#101321' && jour?.sombre === false,
+    'le téléphone repasse en clair : l’app suit aussitôt, et le natif reprend ses couleurs')
+  // … et redit la même chose : rien ne repart (pas un message par rendu).
+  avant = nuit.natif.recus.filter(m => m.type === 'theme').length
+  await nuit.natif.dire({ type: 'apparence', sombre: false })
+  await pause(500)
+  dit(nuit.natif.recus.filter(m => m.type === 'theme').length === avant, 'la même apparence redite : rien ne bouge')
+  // Il a basculé pendant que l'app dormait : le retour au premier plan le dit.
+  await nuit.natif.dire({ type: 'actif', sombre: true })
+  await jusqua(async () => (await etat(nuit.page)).attribut === 'dark')
+  dit((await etat(nuit.page)).attribut === 'dark', 'il a basculé pendant la veille : au retour au premier plan, l’app suit')
+
+  // Un choix fait dans l'app passe avant le téléphone, et lui survit.
+  await compte(nuit.page)
+  await nuit.page.locator('label.option', { hasText: 'Clair' }).click()
+  await pause(300)
+  await nuit.natif.dire({ type: 'apparence', sombre: false })
+  await nuit.natif.dire({ type: 'apparence', sombre: true })
+  await pause(500)
+  t = await etat(nuit.page)
+  dit(t.attribut === 'light' && t.choix === 'clair', '« Clair » choisi dans l’app : le téléphone a beau passer en sombre, l’app reste claire')
+  // « Système » de nouveau : c'est le téléphone, pas la vue web, qui décide.
+  await nuit.page.locator('label.option', { hasText: 'Système' }).click()
+  await pause(300)
+  t = await etat(nuit.page)
+  dit(t.attribut === 'dark' && t.choix === null && t.vueWeb === false,
+    '« Système » rechoisi : l’app reprend l’apparence du téléphone, pas celle que dit la vue web')
+  await nuit.ctx.close()
+
+  // Le téléphone n'a rien dit depuis l'ouverture — tout ce que la page en sait
+  // vient de l'agent de l'app. On y choisit « Clair », puis « Système » de
+  // nouveau : c'est encore le téléphone qui décide, pas la vue web.
+  const soir = await ongletApp(nav, 'android', { apparence: 'sombre' })
+  suivre(soir.page, 'Paul (téléphone en sombre, sans bascule)')
+  await entrer(soir.page, 'Paul')
+  await compte(soir.page)
+  await soir.page.locator('label.option', { hasText: 'Clair' }).click()
+  await pause(300)
+  const clair = await etat(soir.page)
+  await soir.page.locator('label.option', { hasText: 'Système' }).click()
+  await pause(300)
+  t = await etat(soir.page)
+  dit(clair.attribut === 'light' && t.attribut === 'dark' && t.choix === null && t.vueWeb === false,
+    '« Clair » puis « Système », sans que le téléphone ait rien redit : l’app retrouve le sombre du téléphone, lu dans l’agent de l’app')
+  await soir.ctx.close()
+
+  // Une app d'avant, qui ne dit rien de son téléphone : la vue web décide, comme toujours.
+  t = await etat(android.page)
+  dit(t.attribut === null, 'une app qui ne dit rien de son téléphone : rien n’est posé, la vue web décide comme avant')
 }
 
 console.log('\n' + ok.length + ' OK, ' + ko.length + ' échec(s)')

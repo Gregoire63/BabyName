@@ -57,6 +57,27 @@ export async function limiter(e: H3Event, action: string, qui: string, max: numb
   }
 }
 
+/**
+ * Le premier de sa fenêtre ? Pour ce qu'on ne veut faire qu'une fois de temps
+ * en temps — une notification par demi-heure et par personne —, sans rien
+ * refuser à personne : vrai la première fois, faux ensuite, jusqu'à ce que la
+ * fenêtre soit passée. Même table, mêmes clés signées que `limiter` ; pas de
+ * facteur de développement : ce n'est pas un plafond, c'est un rythme.
+ * Atomique : de deux appels au même instant, un seul répond vrai.
+ */
+export async function premierDeLaFenetre(action: string, qui: string, fenetreSec: number): Promise<boolean> {
+  const cle = `${action}:${empreinteSignee(qui, 'limite').slice(0, 24)}`
+  const maintenant = Date.now()
+  const r = await q1<{ n: number }>(
+    `insert into limites (cle, debut, n) values (?1, ?2, 1)
+     on conflict (cle) do update set
+       n     = case when limites.debut < ?3 then 1 else limites.n + 1 end,
+       debut = case when limites.debut < ?3 then ?2 else limites.debut end
+     returning n`,
+    [cle, new Date(maintenant).toISOString(), new Date(maintenant - fenetreSec * 1000).toISOString()])
+  return r?.n === 1
+}
+
 /** Remet un compteur à zéro — après un succès, pour ne pas punir quelqu'un
  *  qui s'est trompé deux fois puis a réussi. */
 export async function oublierEssais(action: string, qui: string) {

@@ -77,7 +77,13 @@ async function envoyer() {
   } finally { envoi.value = false }
 }
 
-/** Le code : six chiffres, qu'on le tape avec ou sans espace. */
+/**
+ * Le code : six chiffres, qu'on le tape ou qu'on le colle — avec un espace au
+ * milieu, un blanc devant, un retour à la ligne derrière (ce que donne une
+ * sélection faite à la main dans un e-mail). Le champ accepte donc plus long
+ * que six caractères : c'est ici qu'on garde les chiffres, pas dans une
+ * longueur maximale qui couperait le collage avant qu'on l'ait lu.
+ */
 function saisir(e: Event) {
   const c = e.target as HTMLInputElement
   code.value = c.value.replace(/\D/g, '').slice(0, 6)
@@ -140,7 +146,7 @@ function changer() { envoye.value = ''; code.value = ''; erreur.value = '' }
       </p>
       <label :for="idCode" class="sr-only">Code à 6 chiffres reçu par e-mail</label>
       <input :id="idCode" ref="champCode" :value="code" class="champ code" inputmode="numeric"
-             autocomplete="one-time-code" placeholder="123456" maxlength="7"
+             autocomplete="one-time-code" placeholder="123456" maxlength="24"
              @input="saisir">
       <button type="submit" class="btn btn-1" :disabled="envoi || code.length !== 6">
         {{ envoi ? 'Vérification…' : 'Valider le code' }}

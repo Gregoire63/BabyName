@@ -145,8 +145,25 @@ export function boiteDev() {
 const esc = (s: string) => s.replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
+/**
+ * Le code se copie d'un geste — autant qu'un e-mail le permet.
+ *
+ * Un e-mail ne sait rien faire quand on le touche : aucun script n'y tourne.
+ * Le code y est donc un LIEN vers une page du site qui, elle, le copie et le
+ * dit (pages/connexion/code.vue). Il voyage après le « # » : il n'est envoyé
+ * à aucun serveur, et il ne vaut rien sans l'adresse qui l'a reçu.
+ *
+ * Et il s'écrit D'UN SEUL TENANT (« 123456 », pas « 123 456 » — l'écart n'est
+ * que de la mise en forme) : c'est ce que savent lire les messageries qui
+ * proposent elles-mêmes de copier un code (Gmail), et les claviers qui le
+ * proposent dans le champ (iOS), et c'est ce qu'on colle sans rien corriger.
+ */
+export function lienCopieDuCode(lien: string, code: string): string {
+  return `${new URL(lien).origin}/connexion/code#c=${code}`
+}
+
 function gabarit(titre: string, corps: string, bouton: { texte: string; lien: string }, code: string, apres: string) {
-  const codeEspace = `${code.slice(0, 3)} ${code.slice(3)}`
+  const copie = esc(lienCopieDuCode(bouton.lien, code))
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"></head>
 <body style="margin:0;padding:24px 12px;background:#fbfaf9;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a234e">
 <div style="max-width:460px;margin:0 auto;background:#ffffff;border:1px solid #ece7e3;border-radius:18px;padding:26px 24px">
@@ -155,7 +172,8 @@ function gabarit(titre: string, corps: string, bouton: { texte: string; lien: st
 <p style="margin:0 0 20px;font-size:15px;line-height:1.5">${corps}</p>
 <p style="margin:0 0 22px"><a href="${esc(bouton.lien)}" style="display:inline-block;background:#1a234e;color:#ffffff;text-decoration:none;font-weight:700;padding:13px 22px;border-radius:999px">${esc(bouton.texte)}</a></p>
 <p style="margin:0 0 6px;font-size:14px;color:#5f6480">Ou tapez ce code dans l’app :</p>
-<p style="margin:0 0 22px;font-size:30px;font-weight:800;letter-spacing:6px">${esc(codeEspace)}</p>
+<p style="margin:0 0 6px"><a href="${copie}" style="display:inline-block;padding:6px 12px 6px 18px;border:1px solid #ece7e3;border-radius:14px;background:#fbfaf9;color:#1a234e;text-decoration:none;font-size:30px;font-weight:800;letter-spacing:6px">${esc(code)}</a></p>
+<p style="margin:0 0 22px;font-size:13px"><a href="${copie}" style="color:#5f6480">Copier le code</a></p>
 <p style="margin:0;font-size:13px;line-height:1.5;color:#5f6480">${apres}</p>
 </div></body></html>`
 }

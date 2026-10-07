@@ -9,5 +9,8 @@ export default defineEventHandler(async (e) => {
   if (t.length > 500) throw createError({ statusCode: 400, statusMessage: 'texte_trop_long' })
   await ecrire(`insert into commentaires (groupe_id, user_id, prenom, texte) values (?1, ?2, ?3, ?4)`,
     [gid, moi.user_id, prenom, t])
+  // Les autres membres l'apprennent sur leur téléphone — qui et dans quelle
+  // liste, jamais le prénom ni le texte — après la réponse (server/utils/push.ts).
+  enFond(e, prevenirCommentaire(gid, moi.user_id))
   return { ok: true }
 })

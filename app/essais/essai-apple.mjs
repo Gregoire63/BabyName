@@ -134,6 +134,31 @@ const annulerRemboursement = (id) => {
   for (const k of ['revocationDate', 'revocationType', 'revocationPercentage', 'revocationReason']) delete transactions.get(id).t[k]
 }
 
+// -------------------------------------------------------------- faux Expo --
+// Le service d'acheminement des notifications : la liste débloquée dans l'app
+// de l'un, l'autre l'apprend sur son téléphone (server/utils/push.ts).
+const notifications = []
+const expo = createServer(async (req, res) => {
+  let corps = ''
+  for await (const c of req) corps += c
+  const lot = JSON.parse(corps || '[]')
+  notifications.push(...lot)
+  res.writeHead(200, { 'content-type': 'application/json' })
+  res.end(JSON.stringify({ data: lot.map(() => ({ status: 'ok', id: 'essai' })) }))
+})
+await new Promise(r => expo.listen(3198, '127.0.0.1', r))
+const JETON_PAUL = 'ExponentPushToken[essai-apple-paul]', JETON_ALICE = 'ExponentPushToken[essai-apple-alice]'
+const DEBLOQUEE = qui => `${qui} a débloqué la liste : swipes illimités, pour vous aussi.`
+/** Ce qu'a reçu ce téléphone depuis `depuis` — après avoir laissé aux envois le temps de partir. */
+async function recu(jeton, depuis, attendu = 1) {
+  const fin = Date.now() + (attendu ? 6000 : 1200)
+  for (;;) {
+    const m = notifications.slice(depuis).filter(x => x.to === jeton)
+    if ((attendu && m.length >= attendu) || Date.now() > fin) return m
+    await new Promise(r => setTimeout(r, 100))
+  }
+}
+
 // ------------------------------------------------------------ faux Stripe --
 // Juste de quoi ouvrir une page de paiement sur le site, pour l'autre parent.
 const sessions = new Map()
@@ -194,6 +219,9 @@ const alice = (await onglet(nav)).page
 await entrer(alice, 'Alice')
 const mamie = (await ongletApp(nav, 'android')).page
 await entrer(mamie, 'Mamie')
+// Les téléphones de Paul et d'Alice sont prévenus de ce qui se passe dans leurs listes.
+await poster(paul, '/api/appareils', { jeton: JETON_PAUL, plateforme: 'ios' })
+await poster(alice, '/api/appareils', { jeton: JETON_ALICE, plateforme: 'ios' })
 
 const nouvelleListe = async (nom, page = paul) => (await poster(page, '/api/groupes', { nom })).j
 const etat = async (gid, page = paul) => (await api(page, `/api/groupes/${gid}`)).j?.groupe
@@ -266,8 +294,13 @@ dit(pA.status === 200 && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3
 const tA = acheter({ jeton: pA.j.jeton })
 {
   const avant = appels.length
+  const nAvant = notifications.length
   const v = await valider(tA)
   const eA = await etat(A.id)
+  const n = await recu(JETON_ALICE, nAvant)
+  dit(n.length === 1 && n[0].title === 'Pomme A' && n[0].body === DEBLOQUEE('Paul') && n[0].channelId === 'activite'
+      && (await recu(JETON_PAUL, nAvant, 0)).length === 0,
+    `l’autre parent l’apprend sur son téléphone, pas celui qui vient de payer (« ${n[0]?.body} »)`)
   dit(v.status === 200 && v.j?.etat === 'applique' && v.j?.groupe === A.id && eA?.paye === true,
     `l’achat relu chez Apple débloque la liste (${v.j?.etat})`)
   dit(eA?.offert === false, 'elle est comptée comme vendue, pas offerte')
@@ -289,9 +322,12 @@ const tA = acheter({ jeton: pA.j.jeton })
 // ============ 3. Une transaction ne sert qu'une fois ======================
 const B = await nouvelleListe('Pomme B')
 {
+  const nAvant = notifications.length
   let v = await valider(tA)
   dit(v.status === 200 && v.j?.etat === 'applique' && v.j?.groupe === A.id, 'la même transaction, présentée de nouveau : même réponse, rien de plus')
   v = await valider(tA, alice)
+  dit((await recu(JETON_ALICE, nAvant, 0)).length === 0 && (await recu(JETON_PAUL, nAvant, 0)).length === 0,
+    'et le déblocage n’est pas annoncé une seconde fois')
   dit(v.status === 200 && v.j?.groupe === A.id && (await etat(B.id))?.paye === false,
     'présentée par quelqu’un d’autre : toujours la liste d’origine, aucune autre')
   // L'app ne choisit pas la liste : ce qu'elle ajoute au corps n'est pas lu.
@@ -467,10 +503,13 @@ const D = await nouvelleListe('Pomme D')
   dit(v.status === 200 && v.j?.etat === 'avance' && (await etat(G.id))?.paye === true,
     `l’achat arrivé après celui de l’autre parent n’est pas perdu : il reste d’avance (${v.j?.etat})`)
   const H = await nouvelleListe('Pomme H'), I = await nouvelleListe('Pomme I')
+  await rejoindre(H, alice)
   const avant = transactions.size
+  let nAvant = notifications.length
   p = await preparer(H.id)
   dit(p.status === 200 && p.j?.deja === true && p.j?.avance === true && !p.j?.jeton && (await etat(H.id))?.paye === true,
     'il sert à la liste suivante, sans nouvel achat')
+  dit((await recu(JETON_ALICE, nAvant))[0]?.body === DEBLOQUEE('Paul'), 'et l’autre parent de cette liste-là l’apprend')
   p = await preparer(I.id)
   dit(p.j?.jeton && !p.j?.deja && (await etat(I.id))?.paye === false && transactions.size === avant,
     'et à elle seule : la suivante se paie normalement')
@@ -492,7 +531,11 @@ const D = await nouvelleListe('Pomme D')
   // une autre de ses listes » : le site s'en sert donc AVANT sa caisse — ni
   // page de paiement, ni case d'accord — au lieu de la faire payer deux fois.
   const pagesAvant = nStripe
+  await rejoindre(J, paul)
+  nAvant = notifications.length
   const parLeSite = await poster(alice, `/api/groupes/${J.id}/paiement`, {})
+  dit((await recu(JETON_PAUL, nAvant))[0]?.body === DEBLOQUEE('Alice'),
+    'débloquée par un achat d’avance, sur le site : l’autre parent l’apprend aussi')
   dit(parLeSite.status === 200 && parLeSite.j?.avance === true && !parLeSite.j?.url && nStripe === pagesAvant
       && (await etat(J.id, alice))?.paye === true,
     'sur le site, l’achat d’avance débloque la liste sans ouvrir de page de paiement')
@@ -554,13 +597,19 @@ const D = await nouvelleListe('Pomme D')
   const tV = acheter({ jeton: pV.j.jeton })
   // (L'app ne présente rien : elle a été fermée.)
   let avant = appels.length
+  const nAvant = notifications.length
   let c = await courrier('ONE_TIME_CHARGE', tV)
   const s = await statut(V.id, alice)
+  const n = await recu(JETON_ALICE, nAvant)
+  dit(n.length === 1 && n[0].title === 'Pomme V' && n[0].body === DEBLOQUEE('Paul')
+      && (await recu(JETON_PAUL, nAvant, 0)).length === 0,
+    'débloquée par le courrier d’Apple : l’autre parent l’apprend, au nom de celui qui a payé')
   dit(c.status === 200 && c.j?.etat === 'applique' && s?.paye === true && s?.par === 'Paul' && !s?.en_cours,
     `l’app fermée entre le paiement et le déblocage : l’achat annoncé par Apple débloque la liste sans elle (${c.j?.etat ?? c.j?.ignore})`)
   dit(appels.length === avant + 1 && appels.at(-1)?.id === tV, 'après l’avoir relu chez Apple, lui aussi')
   const v = await valider(tV)
   dit(v.j?.etat === 'applique' && v.j?.groupe === V.id, 'l’app rouverte présente la transaction : même réponse, elle peut la clore')
+  dit((await recu(JETON_ALICE, nAvant, 0)).length === 1, 'sans que le déblocage soit annoncé une seconde fois')
 
   // Un faux courrier. Il affiche le jeton d'une feuille d'achat ouverte, pour
   // une transaction qui existe bien chez Apple — mais qui, chez Apple, ne
@@ -1050,5 +1099,5 @@ if (PARTIE !== 'serveur') await partieEcran()
 
 console.log(`\n${ok.length} OK, ${ko.length} échecs`)
 dit(erreurs.length === 0, `aucune erreur JS (${erreurs.length})`)
-await nav.close(); apple.close(); stripe.close()
+await nav.close(); apple.close(); stripe.close(); expo.close()
 process.exit(ko.length ? 1 : 0)

@@ -26,6 +26,8 @@ export default defineEventHandler(async (e) => {
   if (pour !== gid) throw createError({ statusCode: 403, statusMessage: 'session_autre_liste' })
 
   const r = await livrer(s)
+  // Les autres membres apprennent que leur limite est tombée (server/utils/push.ts).
+  if (r.nouveau) enFond(e, prevenirDeblocage(gid, r.par ?? null))
   const g = await q1<{ paye: boolean }>(
     `select (paye_le is not null) as paye from groupes where id = ?1`, [gid])
   const par = r.livre ? undefined : (await q1<{ pseudo: string | null }>(

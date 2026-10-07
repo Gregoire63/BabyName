@@ -18,6 +18,8 @@ export const ROUTES_APP: RegExp[] = [
   // /connexion/app : la même page, sous l'adresse que l'app des stores ouvre
   // elle-même (alias dans pages/connexion/lien.vue).
   /^\/connexion\/(lien|app)$/,
+  // Le code de l'e-mail, copié d'un geste (pages/connexion/code.vue).
+  /^\/connexion\/code$/,
   /^\/rejoindre\/[^/]+$/,
   /^\/offrir$/,
   /^\/offrir\/merci$/,

@@ -133,15 +133,21 @@ const c = CONSERVATION
       Seulement dans l’app installée depuis l’App Store ou Google Play, et seulement si vous activez les
       notifications : le jeton de notification de votre téléphone (une adresse d’acheminement, attribuée
       par Apple ou Google), son système (iOS ou Android), la date de son enregistrement et celle de la
-      dernière ouverture de l’app sur ce téléphone. Le message lui-même dit « Nouvel accord », jamais le
-      prénom ; ou bien qu’une personne a rejoint votre liste, avec son nom affiché et le nom de la liste.
+      dernière ouverture de l’app sur ce téléphone. Le message lui-même ne porte jamais un prénom. Il dit
+      « Nouvel accord » ; ou bien, avec le nom affiché d’un membre et le nom de la liste, qu’il l’a
+      rejointe, qu’il l’a débloquée, qu’il y a laissé un commentaire (sans son texte), ou qu’il y a jugé
+      plus de prénoms que vous (avec l’écart). Pour ne pas vous prévenir trop souvent, un compteur retient
+      deux jours au plus l’heure du dernier message de ce genre, sous une clé qui ne porte ni votre nom
+      ni votre adresse.
     </dd>
     <dt>Pourquoi</dt>
-    <dd>Vous prévenir d’un nouvel accord sur une de vos listes, ou de l’arrivée d’une personne dans l’une d’elles.</dd>
+    <dd>Vous prévenir de ce qui se passe dans vos listes quand vous n’y êtes pas : un accord, une arrivée,
+      un déblocage, un commentaire, l’avance prise par un autre membre. Rien d’autre : ni rappel, ni réclame.</dd>
     <dt>Base légale</dt>
     <dd>Votre consentement (art. 6.1.a) : rien n’est enregistré tant que vous n’avez pas touché « Me
-      prévenir » dans l’app. Vous le retirez quand vous voulez : « Ne plus me prévenir » dans les réglages
-      d’une liste, ou les réglages du téléphone.</dd>
+      prévenir » dans l’app. Vous le retirez quand vous voulez : « Ne plus me prévenir » dans « Mon
+      compte », ou les réglages du téléphone (sur Android, ils permettent aussi de ne garder que les
+      accords).</dd>
   </dl>
 
   <h3>Les journaux techniques</h3>

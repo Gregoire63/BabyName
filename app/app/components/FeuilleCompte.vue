@@ -6,10 +6,11 @@ import { useEnregistrementDiffere, type OptionsEnvoi } from '~/composables/useEn
 /**
  * Le compte, au meme endroit que le nom sur lequel on a tape.
  *
- * Le nom et les facons de se connecter ne dependent d'aucune liste : on
- * touche son nom sur l'accueil, on tombe sur ce qui le concerne. Les Reglages
- * d'une liste y menent aussi (« Mon compte ») : c'est la qu'on cherche la
- * passkey.
+ * Le nom, les facons de se connecter, l'apparence et les notifications du
+ * téléphone ne dépendent d'aucune liste : on touche son nom sur l'accueil, on
+ * tombe sur ce qui le concerne. C'est le SEUL endroit où ils se règlent — les
+ * réglages d'une liste les ont montrés un temps, et on les y prenait pour des
+ * réglages de cette liste-là (SectionReglages).
  */
 const emit = defineEmits<{ fermer: [] }>()
 const { ouvrir: ouvrirLegal } = useFeuilleLegale()
@@ -95,6 +96,27 @@ async function exporter(e: Event) {
   } catch { exportRate.value = true } finally { exportEnCours.value = false }
 }
 
+// --- les notifications du téléphone ----------------------------------------
+/**
+ * Dans l'app des stores seulement (usePush) : ailleurs, ou sur un téléphone
+ * qui ne peut pas, la section n'existe pas.
+ *
+ * Un bouton, pas un interrupteur trompeur : iOS ne pose sa question qu'UNE
+ * fois, et un refus ne se rattrape que dans les réglages du téléphone. La
+ * section dit donc où on en est, et propose le geste qui reste possible.
+ *
+ * Ce qui arrive : ce qui se passe dans ses listes quand on n'y est pas
+ * (server/utils/push.ts). Jamais le prénom — il s'afficherait sur un écran
+ * verrouillé.
+ */
+const push = usePush()
+const pushOccupe = ref(false)
+async function reglerPush(f: () => Promise<void>) {
+  if (pushOccupe.value) return
+  pushOccupe.value = true
+  try { await f() } finally { pushOccupe.value = false }
+}
+
 const demandeSuppression = ref(false)
 const confirmation = ref('')
 const suppressionEnCours = ref(false)
@@ -159,6 +181,20 @@ async function supprimerCompte() {
       <h3 id="compte-theme" class="etiquette">Apparence</h3>
       <ChoixTheme />
       <p class="mini doux" style="margin:0">Sur cet appareil.</p>
+    </section>
+
+    <section v-if="push.etat.value !== 'absent'" class="pile" aria-labelledby="compte-push">
+      <div class="ligne">
+        <h3 id="compte-push" class="etiquette" style="flex:1">Notifications</h3>
+        <span class="mini doux" role="status">{{ push.etat.value === 'actif' ? 'Activées' : '' }}</span>
+      </div>
+      <button v-if="push.etat.value === 'actif'" type="button" class="btn btn-0 mini" style="align-self:flex-start"
+              :disabled="pushOccupe" @click="reglerPush(push.couper)">
+        Ne plus me prévenir
+      </button>
+      <button v-else type="button" class="btn" :disabled="pushOccupe" @click="reglerPush(push.activer)">
+        {{ push.etat.value === 'refuse' ? 'Autoriser dans les réglages du téléphone' : 'Me prévenir' }}
+      </button>
     </section>
 
     <section class="pile" aria-labelledby="compte-donnees">

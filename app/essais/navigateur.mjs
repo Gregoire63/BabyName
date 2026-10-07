@@ -30,6 +30,8 @@ export function compteur() {
   const dit = (c, m) => {
     ;(c ? ok : ko).push(m)
     console.log((c ? '  OK   ' : '  ECHEC') + '  ' + m)
+    // Les campagnes de sabotage n'ont besoin que du premier échec.
+    if (!c && process.env.ESSAI_ARRET_AU_PREMIER_ECHEC) process.exit(1)
   }
   return { ok, ko, dit }
 }
@@ -114,6 +116,11 @@ export async function onglet(nav) {
  * téléphone), `jeton`, `muet` (une vieille app qui ne répond à rien). Il vit
  * côté Node : il survit aux rechargements de page. `dire(message)` envoie à
  * la page ce que le natif lui dirait (un lien reçu, le retour au premier plan).
+ *
+ * `apparence` (« sombre » ou « claire ») : ce que l'app dit de son téléphone
+ * à la suite de sa marque — « … (android) apparence/sombre ». Sans elle : une
+ * app d'avant, qui n'en dit rien. La vue web de l'essai, elle, répond toujours
+ * « clair » à `prefers-color-scheme` : comme celle d'Android, à tort.
  */
 const AGENTS_APP = {
   android: v => 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/UQ1A.240205.004; wv) AppleWebKit/537.36 '
@@ -121,9 +128,9 @@ const AGENTS_APP = {
   ios: v => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 '
     + `(KHTML, like Gecko) Mobile/15E148 babyNamedApp/${v} (ios)`
 }
-export async function ongletApp(nav, plateforme, { version = '1.0.0', jeton } = {}) {
-  const ctx = await nav.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true,
-    userAgent: AGENTS_APP[plateforme](version) })
+export async function ongletApp(nav, plateforme, { version = '1.0.0', jeton, apparence } = {}) {
+  const ctx = await nav.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, colorScheme: 'light',
+    userAgent: AGENTS_APP[plateforme](version) + (apparence ? ` apparence/${apparence}` : '') })
   const natif = {
     recus: [], permission: 'indeterminee', reponse: 'accordee', muet: false,
     jeton: jeton ?? `ExponentPushToken[essai-${plateforme}-${Math.random().toString(36).slice(2, 12)}]`,
@@ -275,6 +282,37 @@ export async function glisser(page, selecteur, dy, pas = 6) {
     for (let i = 1; i <= pas; i++) envoyer('touchmove', y + dy * i / pas)
     envoyer('touchend', y + dy, true)
   }, [selecteur, dy, pas])
+}
+
+/**
+ * Un VRAI glissé du doigt, de `de` à `vers` ({ x, y } dans la fenêtre), remis
+ * au navigateur par son protocole : il en fait ce qu'il fait d'un écran — il
+ * défile, il applique `touch-action`, il annule le pointeur quand il se saisit
+ * du geste. `glisser` (ci-dessus) fabrique ses événements dans la page et ne
+ * dit rien de tout cela ; la souris non plus.
+ *
+ * `par` : des points de passage avant l'arrivée (un aller, puis un retour).
+ * `fin` : « lever » le doigt, ou « annuler » — ce que reçoit la page quand le
+ * système prend le geste pour lui (le « retour » d'Android, parti du bord).
+ * Le contexte doit avoir été ouvert avec `hasTouch`.
+ */
+export async function glisserDuDoigt(page, de, vers, { par = [], pas = 10, pause = 16, fin = 'lever' } = {}) {
+  const cdp = await page.context().newCDPSession(page)
+  const point = (x, y) => [{ x: Math.round(x), y: Math.round(y), id: 1, radiusX: 4, radiusY: 4, force: 1 }]
+  try {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: point(de.x, de.y) })
+    let d = de
+    for (const a of [...par, vers]) {
+      for (let i = 1; i <= pas; i++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove',
+          touchPoints: point(d.x + (a.x - d.x) * i / pas, d.y + (a.y - d.y) * i / pas) })
+        await page.waitForTimeout(pause)
+      }
+      d = a
+    }
+    await cdp.send('Input.dispatchTouchEvent',
+      { type: fin === 'annuler' ? 'touchCancel' : 'touchEnd', touchPoints: [] })
+  } finally { await cdp.detach().catch(() => {}) }
 }
 
 /**

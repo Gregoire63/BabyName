@@ -36,6 +36,8 @@ export default defineEventHandler(async (e) => {
   }
 
   const r = await synchroniserApple(t, moi)
+  // Les autres membres apprennent que leur limite est tombée.
+  if (r.nouveau && r.groupe) enFond(e, prevenirDeblocage(r.groupe, r.par ?? moi))
   if (r.etat !== 'rembourse') console.info('[apple] achat', r.etat, { liste: r.groupe, bac: t.environment === 'Sandbox' })
   return { ok: true, etat: r.etat, groupe: r.groupe }
 })

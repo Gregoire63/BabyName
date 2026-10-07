@@ -185,8 +185,11 @@ dit(moi?.utilisateur?.pseudo === 'Essai' && moi.utilisateur.passkeys === 1,
   const achat = await dansApp(`/api/groupes/${liste?.id}/paiement`, { method: 'POST', body: JSON.stringify({ consentement: true }) })
   dit(achat.status === 403 && achat.j?.statusMessage === 'vente_fermee_dans_l_app',
     `depuis l’app, le Worker refuse l’achat (HTTP ${achat.status})`)
-  await app.page.goto(`${BASE}/g/${liste?.id}/reglages`, { waitUntil: 'networkidle' })
-  await app.page.getByRole('button', { name: 'Me prévenir d’un nouvel accord' }).click({ timeout: 20000 })
+  // Les notifications se règlent dans « Mon compte », sur l'accueil.
+  await app.page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
+  await app.page.waitForSelector('.bento', { timeout: 20000 })
+  await app.page.getByRole('button', { name: /^Mon compte/ }).click()
+  await app.page.getByRole('button', { name: 'Me prévenir', exact: true }).click({ timeout: 20000 })
   await app.page.getByRole('button', { name: 'Ne plus me prévenir' }).waitFor({ timeout: 10000 })
 
   // « Essai » suit le lien d'invitation dans son navigateur : le téléphone de

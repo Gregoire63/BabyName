@@ -29,6 +29,7 @@ export default defineEventHandler(async (e) => {
    * d'accord, ni Stripe.
    */
   if (applePret() && await utiliserAvanceApple(moi.user_id, gid)) {
+    enFond(e, prevenirDeblocage(gid, moi.user_id))
     return { ok: true, deja: true, avance: true }
   }
 

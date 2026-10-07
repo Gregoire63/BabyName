@@ -112,9 +112,12 @@ dit((await sec.locator('.tete p').first().innerText()).includes('Réglages de ce
 dit(await sec.getByRole('button', { name: /Se déconnecter|générer une nouvelle|Changer/i }).count() === 0
     && await sec.locator('.cle').count() === 0,
     'plus aucune commande de compte dans les réglages de la liste')
-const texte = await sec.innerText()
-dit(await sec.getByRole('button', { name: 'Passkeys, e-mail, mes données' }).count() === 1,
-    'le compte y a son entrée, « Mon compte », qui ouvre la feuille du compte')
+// Ni compte, ni passkey, ni apparence : rien de cela n'est un réglage de CETTE
+// liste. Tout est dans « Mon compte », sur l'accueil (essai-reglages).
+dit(await sec.getByRole('heading', { name: /Mon compte|Apparence|Notifications/ }).count() === 0
+    && await sec.getByRole('button', { name: /passkey|e-mail|mes données/i }).count() === 0
+    && await sec.getByRole('radio').count() === 0,
+    'ni « Mon compte », ni passkey, ni apparence dans les réglages de la liste')
 await page.waitForTimeout(700); await page.screenshot({ path: '/tmp/f4-laliste.png' })
 
 // ---------- 7. la sortie ---------------------------------------------------

@@ -38,6 +38,8 @@ export default defineEventHandler(async (e) => {
       return c.livre ? { ok: true, cadeau: true } : { ok: true, ignore: c.raison }
     }
     const r = await livrer(ev.data?.object)
+    // Les autres membres apprennent que leur limite est tombée (server/utils/push.ts).
+    if (r.nouveau && r.groupe) enFond(e, prevenirDeblocage(r.groupe, r.par ?? null))
     return r.livre ? { ok: true, groupe: r.groupe, offert: r.offert } : { ok: true, ignore: r.raison }
   }
 

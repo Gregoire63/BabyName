@@ -1,5 +1,6 @@
 /**
- * Les réglages : la carte « Débloquer cette liste », et le thème.
+ * Les réglages : la carte « Débloquer cette liste » (réglages de la liste),
+ * et le thème (« Mon compte », sur l'accueil : ce n'est pas un réglage de liste).
  *
  *  - liste gratuite : la carte dit le prix et sa PORTÉE — cette liste
  *    seulement, pour tous ses membres, pas toute l'application ;
@@ -7,7 +8,8 @@
  *  - thème Clair / Système / Sombre : appliqué tout de suite, retenu, posé
  *    AVANT le démarrage de l'app au rechargement (pas de flash), gardé à la
  *    déconnexion (c'est un réglage de l'appareil) ;
- *  - aucune violation WCAG A/AA sur les réglages en sombre forcé.
+ *  - aucune violation WCAG A/AA en sombre forcé, sur « Mon compte » comme sur
+ *    les réglages d'une liste.
  */
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -76,44 +78,66 @@ await page.waitForTimeout(700)
 const apresSwipe = await juges()
 dit(apresSwipe === avantSwipe + 1, `un swipe, et « Qui en est » compte un prénom de plus, sans recharger (${avantSwipe} → ${apresSwipe})`)
 
-// ---------- 2. le thème ---------------------------------------------------
+// ---------- 2. le thème : dans « Mon compte », plus dans les réglages d'une liste
+// Ni l'apparence, ni le compte, ni les passkeys ne sont des réglages de CETTE
+// liste : on les y prenait pour tels. Ils se règlent sur l'accueil.
+dit(await page.getByRole('radio').count() === 0
+    && await page.getByRole('heading', { name: /Apparence|Mon compte|Notifications/ }).count() === 0
+    && await page.getByRole('button', { name: /passkey|mes données/i }).count() === 0,
+  'les réglages d’une liste ne proposent ni thème, ni compte, ni passkey')
+
 const fond = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor)
 const theme = () => page.evaluate(() => document.documentElement.dataset.theme ?? null)
-dit(await page.getByRole('radio', { name: /Système/ }).isChecked(), 'par défaut : comme le téléphone')
+const feuille = page.locator('.feuille-corps')
+async function compte() {
+  await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
+  await page.waitForSelector('.bento', { timeout: 20000 })
+  await page.getByRole('button', { name: /^Mon compte/ }).click()
+  await feuille.waitFor({ timeout: 8000 })
+  await page.waitForTimeout(500)
+}
+const violations = () => page.evaluate(async () => (await window.axe.run(document,
+  { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] }, resultTypes: ['violations'] }))
+  .violations.map(x => `${x.id} (${x.nodes.slice(0, 2).map(n => n.target.join(' ')).join(' | ')})`))
 
-await page.getByRole('radio', { name: /Sombre/ }).check()
+await compte()
+dit(await feuille.getByRole('radio', { name: /Système/ }).isChecked(), 'par défaut : comme le téléphone')
+// Les notifications sont celles d'un téléphone, dans l'app des stores : un
+// navigateur n'a rien à en régler (essai-coquille les joue dans l'app).
+dit(await feuille.getByRole('heading', { name: 'Notifications' }).count() === 0
+    && await feuille.getByRole('button', { name: /prévenir/i }).count() === 0,
+  'dans un navigateur, « Mon compte » ne parle pas de notifications')
+
+await feuille.getByRole('radio', { name: /Sombre/ }).check()
 await page.waitForTimeout(200)
 dit(await theme() === 'dark' && await fond() === 'rgb(16, 19, 33)', `« Sombre » : appliqué tout de suite (${await fond()})`)
 await page.evaluate(AXE)
-const v = await page.evaluate(async () => (await window.axe.run(document,
-  { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] }, resultTypes: ['violations'] }))
-  .violations.map(x => `${x.id} (${x.nodes.slice(0, 2).map(n => n.target.join(' ')).join(' | ')})`))
+let v = await violations()
+dit(v.length === 0, `« Mon compte » en sombre forcé : aucune violation WCAG A/AA${v.length ? ` — ${v.join(' ; ')}` : ''}`)
+
+await reglages(payee.id)
+await page.evaluate(AXE)
+v = await violations()
 dit(v.length === 0, `réglages en sombre forcé : aucune violation WCAG A/AA${v.length ? ` — ${v.join(' ; ')}` : ''}`)
 
 await page.reload({ waitUntil: 'networkidle' })
 dit(await page.evaluate(() => window.__themeAvantApp) === 'dark',
   'au rechargement, le sombre est posé avant que l’app démarre (pas de flash clair)')
-await page.waitForSelector('.achat', { timeout: 20000 })
-dit(await page.getByRole('radio', { name: /Sombre/ }).isChecked(), 'et le choix est retenu')
+await compte()
+dit(await feuille.getByRole('radio', { name: /Sombre/ }).isChecked(), 'et le choix est retenu')
 
 await page.emulateMedia({ colorScheme: 'dark' })
-await page.getByRole('radio', { name: /Clair/ }).check()
+await feuille.getByRole('radio', { name: /Clair/ }).check()
 await page.waitForTimeout(200)
 dit(await theme() === 'light' && await fond() === 'rgb(251, 250, 249)',
   '« Clair » l’emporte sur un téléphone réglé en sombre')
-await page.getByRole('radio', { name: /Système/ }).check()
+await feuille.getByRole('radio', { name: /Système/ }).check()
 await page.waitForTimeout(200)
 dit(await theme() === null && await fond() === 'rgb(16, 19, 33)', '« Système » suit le téléphone (ici, sombre)')
 await page.emulateMedia({ colorScheme: 'light' })
 
 // Le choix vit dans l'appareil : la déconnexion ne l'efface pas.
-await page.getByRole('radio', { name: /Sombre/ }).check()
-await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
-await page.waitForSelector('.bento', { timeout: 20000 })
-await page.getByRole('button', { name: /^Mon compte/ }).click()
-await page.waitForSelector('.feuille-corps', { timeout: 8000 })
-dit(await page.locator('.feuille-corps').getByRole('radio', { name: /Sombre/ }).isChecked(),
-  '« Mon compte » propose le même choix')
+await feuille.getByRole('radio', { name: /Sombre/ }).check()
 await page.getByRole('button', { name: 'Se déconnecter' }).click()
 await page.waitForURL(/\/connexion/, { timeout: 15000 })
 dit(await page.evaluate(() => localStorage.getItem('pr_theme')) === 'sombre' && await theme() === 'dark',

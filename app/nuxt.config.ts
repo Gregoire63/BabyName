@@ -45,11 +45,16 @@ export default defineNuxtConfig({
       }],
       // Le theme choisi dans les reglages (voir useTheme), pose AVANT le premier
       // affichage : sans lui, « Sombre » sur un telephone en clair clignotait
-      // en clair a chaque ouverture, le temps que Vue demarre. Rien d'autre.
+      // en clair a chaque ouverture, le temps que Vue demarre. Et, dans l'app
+      // des stores, quand rien n'est choisi : l'apparence du telephone, que
+      // l'app dit dans son agent utilisateur (shared/utils/coquille.ts) — sa
+      // vue web, elle, ne la connait pas toujours. Rien d'autre.
       script: [{
         tagPosition: 'head',
-        innerHTML: "try{var t=localStorage.getItem('pr_theme');if(t==='sombre'||t==='clair')"
-          + "document.documentElement.setAttribute('data-theme',t==='sombre'?'dark':'light')}catch(e){}"
+        innerHTML: "(function(){var t=null;try{t=localStorage.getItem('pr_theme')}catch(e){}"
+          + "var a=/\\bbabyNamedApp\\/[\\d.]+ \\((?:ios|android)\\) apparence\\/(sombre|claire)\\b/.exec(navigator.userAgent);"
+          + "var d=t==='sombre'?'dark':t==='clair'?'light':a?(a[1]==='sombre'?'dark':'light'):'';"
+          + "if(d)document.documentElement.setAttribute('data-theme',d)})()"
       }],
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },

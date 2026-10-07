@@ -29,7 +29,10 @@ export default defineEventHandler(async (e) => {
   if (!applePret()) throw createError({ statusCode: 503, statusMessage: 'paiement_non_configure' })
   if (!venteOuverte()) throw createError({ statusCode: 503, statusMessage: 'vente_fermee' })
 
-  if (await utiliserAvanceApple(moi.user_id, gid)) return { ok: true, deja: true, avance: true }
+  if (await utiliserAvanceApple(moi.user_id, gid)) {
+    enFond(e, prevenirDeblocage(gid, moi.user_id))
+    return { ok: true, deja: true, avance: true }
+  }
 
   // Apple encaisse sans nous demander notre avis : si l'on ne peut pas, à cet
   // instant, vérifier un achat chez lui (son API en panne, notre clé refusée),

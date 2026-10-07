@@ -55,6 +55,12 @@ export default defineEventHandler(async (e) => {
     enFond(e, prevenirAccord(gid, moi.user_id, prenom!))
   }
 
+  // Ce vote me fait franchir un palier d'avance sur quelqu'un qui n'a pas
+  // trié aujourd'hui : il l'apprend, une fois par jour au plus. Des mêmes
+  // lignes, là encore — un vote ordinaire ne lit ni n'écrit rien de plus.
+  const retards = quiPrendDuRetard(moi.user_id, Number((avant!.rows[0] as any)?.nb ?? 0), jour, autres!.rows)
+  if (retards.length) enFond(e, prevenirAvance(gid, moi.user_id, retards))
+
   // Les votes des autres sur CE prénom : légitime, on vient de voter.
   return { ok: true, quota: etatApresVote(ecrit.quota), votes: votesDuPrenom(prenom!, autres!.rows) }
 })
