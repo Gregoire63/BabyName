@@ -128,9 +128,10 @@ const retardataire = computed(() => {
 const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
 
 /**
- * Dans une app des stores, rien ne se vend (useVente) : une liste gratuite
- * n'y montre ni l'offre, ni ce qu'elle ouvrirait — le lien en lecture seule,
- * l'essai avec le nom de famille. Débloquée (sur le site), elle a tout.
+ * Là où rien ne se vend (useVente : l'app Android, l'app iOS sans l'achat
+ * de l'App Store), une liste gratuite ne montre ni l'offre, ni ce qu'elle
+ * ouvrirait — le lien en lecture seule, l'essai avec le nom de famille.
+ * Débloquée, où que ce soit, elle a tout.
  */
 const vente = useVente()
 const montrerPayant = computed(() => paye.value || vente.ouverte)
@@ -143,7 +144,8 @@ const montrerPayant = computed(() => paye.value || vente.ouverte)
  * l'application entière. Débloquée, la carte dit depuis quand, et que les
  * autres listes restent gratuites.
  */
-const prix = (useRuntimeConfig().public.prixListe as string) || '6 €'
+// Le prix du site, ou celui qu'annonce l'App Store dans l'app iOS (useVente).
+const prix = computed(() => vente.prix)
 const INCLUS = INCLUS_DEBLOCAGE
 const offerte = computed(() => !!(g.etat.value?.groupe as any)?.offert)
 const cadeau = computed(() => !!(g.etat.value?.groupe as any)?.cadeau)
@@ -385,7 +387,7 @@ async function quitterListe() {
           </p>
           <!-- Le moment où l'on est content de ce qu'on a payé est celui où
                l'on pense aux amis qui attendent un bébé. -->
-          <button v-if="vente.ouverte" type="button" class="lien mini lien-bouton" style="align-self:flex-start"
+          <button v-if="vente.cadeaux" type="button" class="lien mini lien-bouton" style="align-self:flex-start"
                   @click="offrirOuvert = true">
             Offrir babyNamed à d’autres futurs parents
           </button>

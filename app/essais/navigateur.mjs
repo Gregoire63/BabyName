@@ -34,12 +34,59 @@ export function compteur() {
   return { ok, ko, dit }
 }
 
+/**
+ * Les requêtes encore en vol, tous onglets confondus. Un essai qui s'arrête
+ * sur « délai dépassé » ne dit pas ce que la page attendait : ceci le dit
+ * (voir `lancer`).
+ */
+const enVol = new Map()
+
 export async function lancer() {
-  return chromium.launch({
+  const nav = await chromium.launch({
     executablePath: process.env.ESSAI_CHROME || undefined,
     args: ['--no-sandbox']
   })
+  // Chaque contexte ouvert par l'essai est suivi, d'où qu'il l'ouvre.
+  const ouvrir = nav.newContext.bind(nav)
+  nav.newContext = async (...options) => {
+    const ctx = await ouvrir(...options)
+    ctx.on('request', r => enVol.set(r, { le: Date.now(), quoi: `${r.method()} ${r.url().replace(BASE, '')}` }))
+    ctx.on('requestfinished', r => enVol.delete(r))
+    ctx.on('requestfailed', r => enVol.delete(r))
+    return ctx
+  }
+  return nav
 }
+/**
+ * Aller à une adresse et attendre que le réseau se calme — sans en mourir.
+ * Playwright tient parfois pour « en vol », à jamais, une requête que la page
+ * précédente a lancée à l'instant où on la quittait : le calme ne vient pas,
+ * et l'essai s'arrêtait sur « délai dépassé », une fois sur cent. Passé quinze
+ * secondes on le dit, avec ces requêtes, et l'on continue : la page a eu tout
+ * son temps, et ce que l'essai attend ensuite (un sélecteur) dira si elle est
+ * là. Pour les essais dont les pages travaillent en fond au moment où on les
+ * quitte (essai-apple : un achat repris, représenté, rappelé).
+ */
+export async function aller(page, adresse, attente = 15000) {
+  try {
+    await page.goto(adresse, { waitUntil: 'networkidle', timeout: attente })
+  } catch (e) {
+    if (e?.name !== 'TimeoutError') throw e
+    const reste = [...enVol.values()].filter(r => Date.now() - r.le > 3000).map(r => r.quoi)
+    console.log('   [réseau jamais calme]', adresse.replace(BASE, ''), reste.slice(0, 6))
+  }
+}
+
+// Un essai qui plante (un sélecteur attendu en vain, une page qui ne se calme
+// pas) : avant de mourir, dire quelles requêtes n'avaient pas répondu.
+process.on('uncaughtException', (e) => {
+  const attendues = [...enVol.values()].filter(r => Date.now() - r.le > 3000)
+  if (attendues.length) {
+    console.log('   [en vol depuis plus de 3 s]', attendues.slice(0, 12).map(r => `${r.quoi} (${Math.round((Date.now() - r.le) / 1000)} s)`))
+  }
+  console.error(e)
+  process.exit(1)
+})
 
 /** Un onglet de telephone, sans le panneau devtools de Nuxt dans le chemin. */
 export async function onglet(nav) {
@@ -79,7 +126,19 @@ export async function ongletApp(nav, plateforme, { version = '1.0.0', jeton } = 
     userAgent: AGENTS_APP[plateforme](version) })
   const natif = {
     recus: [], permission: 'indeterminee', reponse: 'accordee', muet: false,
-    jeton: jeton ?? `ExponentPushToken[essai-${plateforme}-${Math.random().toString(36).slice(2, 12)}]`
+    jeton: jeton ?? `ExponentPushToken[essai-${plateforme}-${Math.random().toString(36).slice(2, 12)}]`,
+    /**
+     * L'achat intégré (iOS). `produits` : ce que le faux App Store sait
+     * vendre, { produit: prix } — null : une app d'avant l'achat intégré, qui
+     * ne répond à rien de tout cela. `issue` : comment finit la feuille
+     * d'achat — 'achete', 'annule', 'attente' (un accord à donner), 'erreur',
+     * 'muet', ou 'ferme' (payé, puis l'app fermée avant d'avoir pu le dire).
+     * `encaisser({ produit, jeton })` : ce que l'essai fait de l'achat (il
+     * l'inscrit chez son faux Apple) ; rend le numéro de transaction.
+     * `auRetour()` : ce qui se passe entre le paiement et la réponse du
+     * téléphone — la feuille d'Apple se referme, l'app revient au premier plan.
+     */
+    achat: { produits: null, issue: 'achete', encaisser: null, auRetour: null, enSuspens: [], finies: [], demandes: [] }
   }
   await ctx.exposeBinding('__natif', async (_source, texte) => {
     const m = JSON.parse(texte)
@@ -90,6 +149,31 @@ export async function ongletApp(nav, plateforme, { version = '1.0.0', jeton } = 
     if (m.type === 'push.etat') return push()
     if (m.type === 'push.demander') { natif.permission = natif.reponse; return push() }
     if (m.type === 'partager' || m.type === 'fichier') return { type: m.type, id: m.id, ok: true }
+    if (m.type.startsWith('achat.')) {
+      const a = natif.achat
+      if (!a.produits) return null
+      const rep = plus => ({ type: m.type, id: m.id, ok: true, ...plus })
+      if (m.type === 'achat.produit') {
+        const prix = a.produits[m.produit]
+        return prix ? rep({ prix }) : { type: m.type, id: m.id, ok: false }
+      }
+      if (m.type === 'achat.attente') return rep({ transactions: a.enSuspens.map(t => ({ ...t })) })
+      if (m.type === 'achat.finir') {
+        a.finies.push(m.transaction)
+        a.enSuspens = a.enSuspens.filter(t => t.id !== m.transaction)
+        return rep({})
+      }
+      if (m.type === 'achat.acheter') {
+        a.demandes.push({ produit: m.produit, jeton: m.jeton })
+        if (a.issue === 'muet') return null
+        if (a.issue !== 'achete' && a.issue !== 'ferme') return rep({ etat: a.issue })
+        const transaction = await a.encaisser({ produit: m.produit, jeton: m.jeton })
+        a.enSuspens.push({ id: transaction, produit: m.produit })
+        if (a.issue === 'ferme') return null
+        await a.auRetour?.()
+        return rep({ etat: 'achete', transaction })
+      }
+    }
     return null
   })
   await ctx.addInitScript(() => {

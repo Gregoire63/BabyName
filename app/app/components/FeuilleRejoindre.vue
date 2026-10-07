@@ -42,7 +42,7 @@ async function entrer() {
     erreur.value = m === 'trop_d_essais'
       ? 'Trop d’essais : réessayez dans une heure, ou demandez le lien de la liste.'
       : m === 'code_invalide'
-        ? `Ce code n’a pas le bon format : 10 caractères (8 pour les listes plus anciennes${vente.ouverte ? ', 12 pour un code cadeau' : ''}).`
+        ? `Ce code n’a pas le bon format : 10 caractères (8 pour les listes plus anciennes${vente.cadeaux ? ', 12 pour un code cadeau' : ''}).`
         : 'Code inconnu. Vérifiez-le, ou demandez le lien de la liste.'
     envoi.value = false
   }
@@ -52,17 +52,17 @@ async function entrer() {
 <template>
   <Feuille titre="Rejoindre une liste" @fermer="emit('fermer')">
     <p class="mini doux" style="margin:0 0 12px">
-      {{ vente.ouverte ? 'Le code d’une liste, ou un code cadeau.' : 'Le code d’une liste.' }}
+      {{ vente.cadeaux ? 'Le code d’une liste, ou un code cadeau.' : 'Le code d’une liste.' }}
     </p>
     <input ref="champ" :value="code" class="champ code" placeholder="Le code"
-           :aria-label="vente.ouverte ? 'Code d’invitation ou code cadeau' : 'Code d’invitation'"
+           :aria-label="vente.cadeaux ? 'Code d’invitation ou code cadeau' : 'Code d’invitation'"
            autocapitalize="characters" autocorrect="off" spellcheck="false"
            inputmode="latin" @input="saisir" @keyup.enter="entrer">
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:10px 0 0">{{ erreur }}</p>
 
     <template #pied>
       <button class="btn btn-1" :disabled="!pret || envoi" @click="entrer">
-        {{ envoi ? 'Un instant…' : cadeau && vente.ouverte ? 'Voir le cadeau' : 'Entrer' }}
+        {{ envoi ? 'Un instant…' : cadeau && vente.cadeaux ? 'Voir le cadeau' : 'Entrer' }}
       </button>
     </template>
   </Feuille>

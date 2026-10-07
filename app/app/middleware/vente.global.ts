@@ -3,9 +3,9 @@
  *
  * /offrir (acheter un cadeau) et /offrir/merci ne s'y atteignent par aucun
  * bouton ; un lien suivi depuis un message y mènerait quand même. On ramène à
- * l'accueil — rien ne se vend dans l'app (useVente), tout se vend sur le site.
+ * l'accueil — les cadeaux ne se vendent que sur le site (useVente).
  */
 export default defineNuxtRouteMiddleware((vers) => {
-  if (!import.meta.client || useVente().ouverte) return
+  if (!import.meta.client || useVente().cadeaux) return
   if (vers.path === '/offrir' || vers.path.startsWith('/offrir/')) return navigateTo('/', { replace: true })
 })

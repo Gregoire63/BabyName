@@ -31,7 +31,10 @@ const ouvrir = async nom => {
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
   const c = page.locator('.carte', { hasText: nom }).first()
   await c.waitFor({ state: 'visible', timeout: 25000 })
-  await c.click(); await page.waitForTimeout(2500)
+  // L'adresse de la liste, et non un délai : sur une machine chargée, la
+  // page pouvait mettre plus de 2,5 s à venir, et l'essai partait alors vers
+  // /g/undefined/…
+  await c.click(); await page.waitForURL(/\/g\/\d+\//, { timeout: 25000 }); await page.waitForTimeout(1200)
   return page.url().split('/')[4]
 }
 

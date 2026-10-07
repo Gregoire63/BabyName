@@ -33,7 +33,7 @@ function parTete(lignes: any[]) {
 export default defineEventHandler(async (e) => {
   const uid = await exigerUtilisateur(e)
 
-  const [compte, passkeys, listes, bulletins, vetos, dejaPris, favoris, duels, elo, classement, commentaires, cadeaux, appareils] =
+  const [compte, passkeys, listes, bulletins, vetos, dejaPris, favoris, duels, elo, classement, commentaires, cadeaux, appareils, achatsApple] =
     await Promise.all([
       // Le lot de depart consomme : l'archive du compte, plus ses bulletins
       // (migration 0005).
@@ -93,7 +93,13 @@ export default defineEventHandler(async (e) => {
       // Les téléphones à prévenir (apps des stores) : lequel, depuis quand.
       // Pas le jeton lui-même — une adresse d'acheminement, qui ne dit rien de vous.
       q(`select plateforme, cree_le as enregistre_le, vu_le from appareils
-          where user_id = ?1 order by cree_le`, [uid])
+          where user_id = ?1 order by cree_le`, [uid]),
+      // Les achats faits dans l'app iOS : le numéro que leur donne Apple (celui
+      // du reçu), la liste débloquée, les dates. Pas les intentions restées
+      // sans achat : une feuille d'achat refermée ne dit rien de vous.
+      q(`select transaction_id as transaction_apple, cast(groupe_id as text) as liste, achete_le, applique_le as debloquee_le,
+                rembourse_le from achats_apple
+          where user_id = ?1 and transaction_id is not null order by achete_le`, [uid])
     ])
 
   // Une ligne par vote, comme avant les bulletins : liste par liste, dans
@@ -122,13 +128,14 @@ export default defineEventHandler(async (e) => {
       absent: [
         'Les votes, commentaires et pseudos des autres membres de vos listes : ce sont leurs données.',
         'La clé publique de vos passkeys : elle ne sert qu’à vérifier une signature, et ne dit rien de vous. Rien de biométrique n’a jamais quitté votre appareil.',
-        'Vos données de paiement : babyNamed ne connaît que la date du déblocage. Le reste (carte, e-mail, facture) est chez Stripe.',
+        'Vos données de paiement : babyNamed ne connaît que la date du déblocage. Le reste (carte, e-mail, facture) est chez Stripe — ou chez Apple pour un achat fait dans l’app iPhone, dont babyNamed ne garde que le numéro de transaction.',
         'Le jeton de notification de vos téléphones (apps iOS et Android) : une adresse d’acheminement fournie par Apple ou Google, qui ne dit rien de vous.'
       ],
       valeurs_de_vote: 'non, neutre ou oui. « balayage » indique un « non » donné à toute une famille de prénoms d’un seul geste.',
       vetos: 'Vos vetos : les prénoms que vous avez écartés, avec leurs graphies (même prononciation) et votre motif. Les autres membres ne voient pas qui les a posés.',
       deja_pris: 'Les prénoms que vous avez marqués « déjà pris » : ils appartiennent à la liste. Si vous effacez votre compte, ils y restent, sans votre nom ni votre note.',
       cadeaux_recus: 'Les codes cadeaux dont vous vous êtes servi : de la part de qui, et le mot qui les accompagnait.',
+      achats_app_store: 'Vos achats faits dans l’app iPhone : le numéro de transaction d’Apple (celui de votre reçu), la liste débloquée, les dates. Un achat sans liste est un déblocage payé d’avance : il servira à la prochaine liste que vous débloquerez.',
       quotas: `Le nombre de prénoms jugés le dernier jour de tri, sur chaque liste gratuite, une fois le lot de départ épuisé : le jour suivant le remplace. Effacé automatiquement au bout de ${CONSERVATION.quotaJours} jours.`
     },
     compte,
@@ -144,6 +151,7 @@ export default defineEventHandler(async (e) => {
     commentaires,
     quotas,
     cadeaux_recus: cadeaux,
-    appareils_prevenus: appareils
+    appareils_prevenus: appareils,
+    achats_app_store: achatsApple
   }
 })

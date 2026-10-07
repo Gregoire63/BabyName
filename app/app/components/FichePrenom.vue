@@ -45,8 +45,8 @@ const sommet = computed(() => {
 // sans bouton, plutot qu'une offre qui ne saurait pas quoi debloquer.
 const dansListe = computed(() => !!g)
 const paye = computed(() => !!(g?.etat.value?.groupe as any)?.paye)
-// Dans une app des stores, rien ne se vend (useVente) : l'écart se dit, le
-// bouton qui mène à l'offre n'y est pas.
+// Là où rien ne se vend (useVente) : l'écart se dit, le bouton qui mène à
+// l'offre n'y est pas.
 const vente = useVente()
 const classe = computed(() => projeter(props.p, paye.value))
 const manque = computed(() => paye.value ? null : ecart(props.p))

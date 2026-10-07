@@ -16,11 +16,18 @@
  *    de démonstration entre sans e-mail, et une notification part APRÈS la
  *    réponse (`waitUntil` : sous Node la promesse court toute seule, dans le
  *    Worker elle serait coupée net) ;
+ *  - l'achat de l'app iPhone (essai-apple l'éprouve en entier, sous
+ *    `nuxt dev`) : ici, que le Worker sait signer sa demande à Apple — ES256,
+ *    par le WebCrypto de workerd et non celui de Node — et débloquer, dans
+ *    l'état où Apple validera l'app : JAMAIS SORTIE, sa production refuse
+ *    tout (401) et seul son bac à sable répond ;
  *  - aucune réponse 500 de tout le parcours.
  *
- * Le Worker est lancé avec essai-worker.env (faux Expo sur 3198).
+ * Le Worker est lancé avec essai-worker.env (faux Expo sur 3198, faux Apple
+ * sur 3197).
  */
 import { createServer } from 'node:http'
+import { createPrivateKey, createPublicKey, verify } from 'node:crypto'
 import { lancer, onglet, ongletApp, compteur, BASE } from './navigateur.mjs'
 
 const { ok, ko, dit } = compteur()
@@ -36,6 +43,41 @@ const api = (chemin, init) => page.evaluate(async ([c, i]) => {
   return { status: r.status, j: await r.json().catch(() => null) }
 }, [chemin, init])
 
+// ---------- un faux Apple (3197) ---------------------------------------------
+// Dès le départ : /api/sante, plus bas, lui fait essayer la clé du Worker, et
+// un Apple absent à ce moment-là fermerait la vente pour la minute qui suit.
+// Un faux Apple, qui vérifie la signature de la demande avec la clé d'essai.
+// Il commence dans l'état d'une app JAMAIS SORTIE sur l'App Store : sa
+// production refuse tout (401), même une bonne clé, et seul son bac à sable
+// répond. C'est dans cet état que le Worker en ligne servira TestFlight, puis
+// la validation d'Apple.
+const clePublique = createPublicKey(createPrivateKey(
+  { key: Buffer.from(process.env.NUXT_APPLE_IAP_CLE ?? '', 'base64'), format: 'der', type: 'pkcs8' }))
+/** numéro → { env: 'prod' | 'bac', t: le contenu de la transaction } */
+const transactions = new Map()
+const demandes = []
+let sortie = false
+const apple = createServer((req, res) => {
+  const repondre = (code, j) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(j)) }
+  const [, env, id] = req.url.match(/^\/(prod|bac)\/inApps\/v1\/transactions\/(\d+)$/) ?? []
+  const [e, c, s] = String(req.headers.authorization ?? '').replace(/^Bearer /, '').split('.')
+  let entete = null, signe = false
+  try {
+    entete = JSON.parse(Buffer.from(e, 'base64url').toString())
+    signe = verify('sha256', Buffer.from(`${e}.${c}`), { key: clePublique, dsaEncoding: 'ieee-p1363' }, Buffer.from(s, 'base64url'))
+  } catch { /* illisible : refusé */ }
+  // (« 0 » : la sonde par laquelle le serveur essaie sa clé avant d'ouvrir la vente.)
+  if (id !== '0') demandes.push({ env, id, alg: entete?.alg, signe })
+  if (!signe || !env) return repondre(401, {})
+  if (env === 'prod' && !sortie) return repondre(401, {})
+  const t = transactions.get(id)
+  if (!t || t.env !== env) return repondre(404, { errorCode: 4040010 })
+  const b64 = x => Buffer.from(JSON.stringify(x)).toString('base64url')
+  repondre(200, { signedTransactionInfo: `${b64({ alg: 'ES256' })}.${b64(t.t)}.${Buffer.from('signature').toString('base64url')}` })
+})
+await new Promise(r => apple.listen(3197, '127.0.0.1', r))
+
+
 // ---------- /api/sante -------------------------------------------------------
 const pub = await fetch(`${BASE}/api/sante`).then(async r => ({ s: r.status, j: await r.json() }))
 dit(pub.s === 200 && JSON.stringify(pub.j) === '{"ok":true}',
@@ -45,6 +87,9 @@ dit(!faux?.presence, 'un mauvais secret ne montre rien de plus')
 const adm = await fetch(`${BASE}/api/sante`, { headers: { authorization: `Bearer ${SECRET}` } }).then(r => r.json())
 dit(adm?.base?.joignable === true && (adm?.base?.migrations?.appliquees?.length ?? 0) > 0 && 'vente_ouverte' in (adm?.legal ?? {}),
   'avec le secret, le détail : base, migrations, mentions légales')
+dit(adm?.presence?.achat_apple === true && adm?.presence?.achat_apple_cle_acceptee === true
+    && adm?.presence?.achat_apple_production === false,
+  'et si Apple accepte la clé des achats de l’app iPhone : oui, par son bac à sable — pas encore par sa production, l’app n’est jamais sortie')
 
 // ---------- une passkey, créée puis utilisée ------------------------------------
 const cdp = await ctx.newCDPSession(page)
@@ -156,6 +201,38 @@ dit(moi?.utilisateur?.pseudo === 'Essai' && moi.utilisateur.passkeys === 1,
   dit(m?.title === 'Démonstration' && m.body === 'Essai a rejoint votre liste.' && m.data?.chemin === `/g/${liste?.id}/reglages`,
     `dans le Worker, la notification part après la réponse (« ${m?.title} — ${m?.body} »)`)
   expo.close()
+
+  // ---------- l'achat de l'app iPhone ---------------------------------------
+  const iphone = await ongletApp(nav, 'ios')
+  iphone.page.on('response', r => { if (r.status() >= 500) pannes.push(`${r.status()} ${r.url().replace(BASE, '')}`) })
+  const surIphone = (chemin, init) => iphone.page.evaluate(async ([c, i]) => {
+    const r = await fetch(c, i ? { ...i, headers: { 'content-type': 'application/json' } } : undefined)
+    return { status: r.status, j: await r.json().catch(() => null) }
+  }, [chemin, init])
+  await iphone.page.goto(`${BASE}/connexion?mode=connexion`, { waitUntil: 'networkidle' })
+  await surIphone('/api/auth/lien', { method: 'POST', body: JSON.stringify({ email: 'demo@exemple.test' }) })
+  await surIphone('/api/auth/code', { method: 'POST', body: JSON.stringify({ email: 'demo@exemple.test', code: '424242', but: 'connexion' }) })
+  const etatVente = (await surIphone('/api/achats-apple/etat')).j
+  const aDebloquer = (await surIphone('/api/groupes', { method: 'POST', body: JSON.stringify({ nom: 'Pomme' }) })).j
+  const prep = await surIphone(`/api/groupes/${aDebloquer?.id}/achat-apple`, { method: 'POST', body: '{}' })
+  // Un achat du bac à sable : celui d'un testeur TestFlight, ou d'Apple qui valide l'app.
+  transactions.set('2000000100000001', { env: 'bac', t: { transactionId: '2000000100000001', bundleId: 'fr.babynamed.app',
+    productId: etatVente?.produit, environment: 'Sandbox', purchaseDate: Date.now(), appAccountToken: prep.j?.jeton } })
+  const valide = await surIphone('/api/achats-apple', { method: 'POST', body: JSON.stringify({ transaction: '2000000100000001' }) })
+  const debloquee = (await surIphone(`/api/groupes/${aDebloquer?.id}`)).j?.groupe
+  dit(etatVente?.ouvert === true && prep.status === 200 && !!prep.j?.jeton,
+    'app jamais sortie : le Worker ouvre la vente quand même, sur la foi du bac à sable d’Apple')
+  dit(demandes.map(d => d.env).join() === 'prod,bac' && demandes.every(d => d.alg === 'ES256' && d.signe === true),
+    `dans le Worker, la demande à Apple est signée par le WebCrypto de workerd (${demandes[0]?.alg}, signature ${demandes[0]?.signe ? 'valide' : 'refusée'}) — à la production, qui refuse, puis au bac à sable`)
+  dit(valide.status === 200 && valide.j?.etat === 'applique' && debloquee?.paye === true && debloquee?.offert === true,
+    `et l’achat du bac à sable débloque la liste, notée offerte (${valide.j?.etat ?? valide.status})`)
+  // Le jour de la sortie, la production se met à répondre : /api/sante le voit
+  // tout de suite, sans attendre l'heure pendant laquelle le Worker garde sa réponse.
+  sortie = true
+  const apres = await fetch(`${BASE}/api/sante`, { headers: { authorization: `Bearer ${SECRET}` } }).then(r => r.json())
+  dit(apres?.presence?.achat_apple_cle_acceptee === true && apres?.presence?.achat_apple_production === true,
+    'l’app sortie, /api/sante dit aussitôt que la production d’Apple accepte la clé')
+  apple.close()
 }
 
 dit(pannes.length === 0, `aucune réponse 500 (${pannes.join(', ') || 'aucune'})`)

@@ -13,8 +13,8 @@ import { portraits, divergence, MIN_OUI } from '~/composables/usePortrait'
 const g = useGroupeCourant()
 
 const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
-// Dans une app des stores, rien ne se vend : le volet n'y est pas proposé sur
-// une liste gratuite (SectionClassement), et ne présenterait rien.
+// Là où rien ne se vend (useVente) : le volet n'est pas proposé sur une
+// liste gratuite (SectionClassement), et ne présenterait rien.
 const vente = useVente()
 const moiId = computed(() => g.etat.value?.moi?.user_id ?? '')
 

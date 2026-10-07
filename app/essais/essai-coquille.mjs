@@ -10,7 +10,10 @@
  *  1. Dans l'app, rien ne se vend et rien n'y mène : accueil, tri, fiche,
  *     fête d'un accord, mur du quota, classement, réglages, « Rejoindre »,
  *     /offrir. Android dit OÙ cela se débloque, d'une phrase sans lien ; iOS
- *     ne dit rien.
+ *     ne dit rien. (L'app iOS sait vendre par l'App Store — essai-apple —
+ *     mais seulement si le serveur sait vérifier l'achat chez Apple. Celui de
+ *     cet essai ne le sait pas : même avec un téléphone prêt à vendre, elle
+ *     ne propose rien, ni ne mène ailleurs.)
  *  2. Le serveur le tient aussi : achat, cadeau, code cadeau — refusés depuis
  *     une app avant même de parler à Stripe.
  *  3. Une liste débloquée sur le site l'est dans l'app, au retour sur elle.
@@ -395,6 +398,11 @@ await classement(android, 'android')
 await dev(paulWeb.page, { action: 'nouvelle-journee' })
 const ios = await ongletApp(nav, 'ios')
 suivre(ios.page, 'Paul (app iOS)')
+// Ce téléphone sait vendre : une app à jour, un produit connu de l'App Store.
+// Le serveur, lui, n'a pas de quoi vérifier un achat chez Apple — l'app ne
+// doit donc RIEN proposer : mieux vaut pas d'offre qu'une offre qui encaisse
+// sans pouvoir débloquer.
+ios.natif.achat.produits = { 'fr.babynamed.app.deblocage': '7,99 €' }
 await entrer(ios.page, 'Paul')
 await pause(1000)
 dit(ios.natif.recus.filter(m => m.type === 'pret').length === 1,
@@ -405,6 +413,8 @@ await ios.page.getByRole('heading', { name: 'Notifications' }).waitFor({ timeout
   const t = await texte(ios.page)
   dit(!ceQuiVend(t, 'ios') && await ios.page.locator('.carte.achat').count() === 0,
     `app iOS : les réglages d’une liste gratuite ne vendent rien (${ceQuiVend(t, 'ios') ?? 'rien'})`)
+  dit(!ios.natif.recus.some(m => String(m.type).startsWith('achat.')),
+    'app iOS : tant que le serveur ne sait pas vérifier un achat chez Apple, la page ne demande même pas son prix au téléphone')
   // --- 4. le thème choisi dans l'app part au natif (la barre d'état suit)
   const avant = ios.natif.recus.filter(m => m.type === 'theme').length
   await ios.page.locator('label.option', { hasText: 'Sombre' }).click()

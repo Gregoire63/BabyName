@@ -209,11 +209,14 @@ function ouvrirFiltres() { filtresOuverts.value = true }
  * feuilles ne laisse plus rien fermer au doigt.
  */
 const debloquerOuvert = ref(false)
-// Dans une app des stores, l'offre n'existe pas (useVente) : les écrans ne
-// la proposent plus, et ce verrou vaut pour celui qu'on aurait oublié.
+// Là où l'offre n'existe pas (useVente) : les écrans ne la proposent pas,
+// et ce verrou vaut pour celui qu'on aurait oublié.
 const vente = useVente()
 function ouvrirDebloquer() {
   if (!vente.ouverte) return
+  // Le bandeau d'un achat précédent (« la confirmation tarde ») flotte
+  // au-dessus du pied de la feuille : resté là, il couvrirait son bouton.
+  confirmation.value = null
   fiche.value = null; debloquerOuvert.value = true
 }
 
@@ -311,7 +314,9 @@ async function verifierPaiement(): Promise<StatutPaiement | null> {
     await recharger().catch(() => null)
     payeParAutre.value = s.par
     // Pas de bandeau « c'est debloque » par-dessus mon propre retour de Stripe.
-    if (!confirmation.value) confirmation.value = 'partenaire'
+    // Et mon propre achat, appris par ici (payé sur un autre appareil, validé
+    // après coup dans l'app iOS), ne s'annonce pas comme celui d'un autre.
+    if (!confirmation.value) confirmation.value = s.par_moi ? 'ok' : 'partenaire'
   }
   return s
 }
@@ -321,12 +326,29 @@ function auRetourSurApp() {
 onMounted(() => document.addEventListener('visibilitychange', auRetourSurApp))
 onUnmounted(() => document.removeEventListener('visibilitychange', auRetourSurApp))
 
+/**
+ * L'achat de l'app iOS (useAchatApple) ne passe par aucun retour de page :
+ * la feuille « Débloquer » dit ici comment il s'est fini, et un achat resté
+ * en suspens puis repris au lancement s'annonce de lui-même.
+ */
+function annoncerPaiement(issue: 'ok' | 'avance' | 'lent-app', par?: string | null) {
+  if (par !== undefined) payeParAutre.value = par
+  confirmation.value = issue
+}
+function auDeblocage(e: Event) {
+  if (Number((e as CustomEvent).detail?.groupe) !== Number(gid)) return
+  recharger().then(() => { if (etat.value?.groupe?.paye) confirmation.value = 'ok' }).catch(() => null)
+}
+onMounted(() => window.addEventListener('babynamed:debloquee', auDeblocage))
+onUnmounted(() => window.removeEventListener('babynamed:debloquee', auDeblocage))
+
 const partage: EtatGroupe = {
   gid, etat, catalogue, parNom, origines, filtres, dejaVotes, aimes, vetos,
   mesVetos, poserVeto, retirerVeto, dejaPris, parDejaPris, ajouterDejaPris,
   retirerDejaPris, graphiesDe, favoris, basculerFavori,
   communs, rechargerCommuns, votes, rechargerVotes, voter, feter,
-  pret, recharger, ouvrirFiche, ouvrirFiltres, allerA, ouvrirDebloquer, verifierPaiement
+  pret, recharger, ouvrirFiche, ouvrirFiltres, allerA, ouvrirDebloquer, verifierPaiement,
+  annoncerPaiement
 }
 provide(CLE_GROUPE, partage)
 
@@ -420,7 +442,7 @@ onMounted(async () => {
  * d'adresse. On se contente de recharger jusqu'a ce que le serveur, lui, dise
  * que c'est paye.
  */
-const confirmation = ref<'attente' | 'ok' | 'lent' | 'cadeau' | 'partenaire' | 'doublon' | null>(null)
+const confirmation = ref<'attente' | 'ok' | 'lent' | 'cadeau' | 'partenaire' | 'doublon' | 'avance' | 'lent-app' | null>(null)
 const cadeauDe = computed(() => etat.value?.groupe?.cadeau_de as string | null)
 
 async function attendrePaiement() {
@@ -560,6 +582,14 @@ async function attendrePaiement() {
         {{ payeParAutre ?? 'Quelqu’un' }} avait débloqué la liste juste avant vous. Votre paiement
         est remboursé automatiquement, en entier (quelques jours sur votre relevé).
       </template>
+      <template v-else-if="confirmation === 'avance'">
+        {{ payeParAutre ?? 'Quelqu’un' }} avait débloqué la liste juste avant vous. Votre achat
+        n’est pas perdu : il débloquera une autre de vos listes.
+      </template>
+      <template v-else-if="confirmation === 'lent-app'">
+        L’achat est passé, mais la confirmation tarde. Elle se fera d’elle-même à la prochaine
+        ouverture de l’app : rien n’est perdu.
+      </template>
       <template v-else-if="confirmation === 'cadeau'">
         C’est débloqué{{ cadeauDe ? `, un cadeau de ${cadeauDe}` : ', un beau cadeau' }}, pour vous
         et pour tout le monde sur cette liste.
@@ -581,7 +611,7 @@ async function attendrePaiement() {
   animation: monte-paiement .22s cubic-bezier(.2,.8,.3,1); }
 .paiement.ok, .paiement.cadeau { background: color-mix(in srgb, var(--menthe) 45%, var(--carte));
   color: var(--encre); }
-.paiement.lent { background: color-mix(in srgb, var(--peche) 45%, var(--carte));
+.paiement.lent, .paiement.lent-app { background: color-mix(in srgb, var(--peche) 45%, var(--carte));
   color: var(--encre); }
 @keyframes monte-paiement { from { transform: translateY(10px); opacity: 0 } }
 .picto { position: relative; display: block; line-height: 0; }

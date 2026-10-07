@@ -62,10 +62,12 @@ export const EDITEUR = {
  * Les versions des textes. On les change quand le texte change : la version
  * des conditions acceptees est gravee dans chaque paiement (metadonnees
  * Stripe), c'est ce qui permet de savoir quel texte un acheteur a accepte.
+ * Un achat de l'app iPhone ne grave rien : il n'a pas de case d'accord, et
+ * c'est sa date (achats_apple.achete_le) qui dit quelle version valait.
  */
 export const VERSIONS_TEXTES = {
-  conditions: '2026-10-06',
-  confidentialite: '2026-10-06',
+  conditions: '2026-10-07',
+  confidentialite: '2026-10-07',
   accessibilite: '2026-09-25'
 } as const
 
@@ -159,10 +161,13 @@ export const DESTINATAIRES = [
     lien: 'https://expo.dev/privacy'
   },
   {
+    // Deux rôles. Les notifications : Apple achemine pour notre compte. L'achat
+    // intégré (app iOS, server/utils/apple.ts) : Apple encaisse, facture sa
+    // TVA et rembourse en son nom — responsable de ses propres traitements.
     nom: 'Apple Distribution International Ltd.',
-    role: 'Remise des notifications sur iPhone et iPad (uniquement si vous les activez dans l’app)',
+    role: 'Remise des notifications sur iPhone et iPad (uniquement si vous les activez dans l’app) ; encaissement, reçu et remboursement des achats faits dans l’app iPhone (achat intégré de l’App Store)',
     pays: 'Irlande (Union européenne) ; certaines données peuvent être traitées par Apple Inc. aux États-Unis',
-    garantie: 'Clauses contractuelles types de la Commission européenne',
+    garantie: 'Clauses contractuelles types de la Commission européenne. Pour les achats, Apple est responsable de ses propres traitements.',
     lien: 'https://www.apple.com/legal/privacy/fr-ww/'
   },
   {
@@ -199,6 +204,12 @@ export const CONSERVATION = {
   /** Un code cadeau : valable ce nombre de mois apres l'achat ; inutilise,
    *  il est efface a l'echeance (avec le nom et le mot de l'offrant). */
   cadeauMois: 24,
+  /** App iPhone : une feuille d'achat ouverte sans achat laisse une intention
+   *  (un jeton tiré au hasard, la liste, le compte), effacée après ce nombre
+   *  de mois. Pas plus tôt : un achat « en attente d'accord » (partage
+   *  familial) peut être validé bien après, et c'est le jeton qui dit alors
+   *  quelle liste débloquer. */
+  intentionAchatMois: 3,
   /** L'historique de restauration de D1 (Time Travel, offre gratuite). */
   historiqueJours: 7,
   /** Les copies chiffrées chez OVH (scripts/sauvegarde-ovh.sh) : les nuits

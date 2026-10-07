@@ -26,7 +26,8 @@
   // Ce qui n'est pas secret. Les secrets (NUXT_SESSION_SECRET, NUXT_EMAIL_CLE
   // — le mot de passe de la boîte OVH —,
   // NUXT_STRIPE_SECRET_KEY, NUXT_STRIPE_WEBHOOK_SECRET, NUXT_STRIPE_PRICE_ID,
-  // CRON_SECRET éventuel, NUXT_DEMO_CODE pour les stores) se posent par `npx wrangler secret put NOM` ou dans
+  // CRON_SECRET éventuel, NUXT_DEMO_CODE pour les stores, NUXT_APPLE_IAP_CLE
+  // pour l'achat dans l'app iPhone) se posent par `npx wrangler secret put NOM` ou dans
   // le tableau de bord (Worker → Settings → Variables and Secrets).
   "vars": {
     "NUXT_PUBLIC_SITE_URL": "https://babynamed.fr",
@@ -44,7 +45,16 @@
     // "NUXT_ANDROID_EMPREINTES": "AA:BB:…,CC:DD:…",
     //   le compte de démonstration des stores : une adresse en .test, que
     //   personne ne peut posséder (son code à six chiffres : secret NUXT_DEMO_CODE)
-    // "NUXT_DEMO_EMAIL": "demo@babynamed.test"
+    // "NUXT_DEMO_EMAIL": "demo@babynamed.test",
+    //   l'achat dans l'app iPhone (LISEZMOI, « L'achat dans l'app iPhone ») : la
+    //   clé « Achats intégrés » d'App Store Connect. Son identifiant et celui de
+    //   l'émetteur ici ; le contenu du fichier .p8 en secret (NUXT_APPLE_IAP_CLE),
+    //   donné par un tube et non collé — la question de wrangler ne garde que la
+    //   première ligne de ce qu'on y colle :
+    //     Get-Content AuthKey_XXXXXXXXXX.p8 -Raw | npx wrangler secret put NUXT_APPLE_IAP_CLE
+    //   Tant qu'il manque l'un des trois, l'app iPhone ne propose aucun achat.
+    // "NUXT_APPLE_IAP_CLE_ID": "ABC123DEFG",
+    // "NUXT_APPLE_IAP_EMETTEUR": "00000000-0000-0000-0000-000000000000"
   },
 
   // La purge RGPD, chaque nuit : la MÊME expression que scheduledTasks dans

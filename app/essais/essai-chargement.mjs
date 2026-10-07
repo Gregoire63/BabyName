@@ -49,8 +49,8 @@ await page.route('**/api/groupes**', async r => {
 
 // accueil
 await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' })
-await page.waitForSelector('.bento .fantome', { timeout: 10000 })
-dit(await page.locator('.bento .fantome').count() >= 4, 'accueil : squelette bento à la place du mot « Chargement… »')
+await page.waitForSelector('.bento-attente .fantome', { timeout: 10000 })
+dit(await page.locator('.bento-attente .fantome').count() >= 4, 'accueil : squelette bento à la place du mot « Chargement… »')
 dit(await page.locator('.squelette').first().isVisible(), 'les barres balaient')
 await page.screenshot({ path: '/tmp/c1-accueil.png' })
 await page.waitForSelector('.bento .grande:not(.fantome)', { timeout: 20000 })

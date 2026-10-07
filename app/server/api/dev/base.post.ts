@@ -26,8 +26,12 @@ export default defineEventHandler(async (e) => {
     // compteurs d'identifiants repartent de 1, comme un `truncate … restart
     // identity` : les essais comptent sur « Notre liste » = liste 1.
     const { semerSiVide, etatSemence, MARQUEUR } = await import('../../utils/semence')
+    // (Les achats de l'app iOS ne partent pas avec les comptes ni les listes :
+    // leur clé passe à NULL, exprès — un achat survit à son acheteur. Ici on
+    // les vide à la main, sinon la semence bute sur ses propres jetons.)
     await b.lot([
       [MARQUEUR],
+      ['delete from achats_apple'],
       ['delete from cadeaux'], ['delete from groupes'], ['delete from utilisateurs'], ['delete from limites'],
       ['delete from _semence'], ['delete from sqlite_sequence']
     ])

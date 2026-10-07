@@ -10,6 +10,26 @@
 const e = EDITEUR
 const config = useRuntimeConfig()
 const prix = (config.public.prixListe as string) || '6 €'
+
+/**
+ * DEUX CAISSES, ET CE QUE CHAQUE ENDROIT EN LIT.
+ *
+ * Sur le site, Stripe encaisse, au prix du site. Dans l'app iPhone, Apple
+ * encaisse, par l'achat intégré de l'App Store, au prix de l'App Store
+ * (useVente). Le contrat est le même — une liste, débloquée pour la vie —,
+ * la caisse, le prix, le reçu et le chemin d'un remboursement ne le sont pas.
+ *
+ * DANS L'APP iPHONE, la page ne présente que SA caisse : ni le prix du site,
+ * ni l'idée qu'on achète ailleurs, ni les codes cadeaux. Apple ne l'admet pas
+ * dans une app — et celui qui s'apprête à acheter là n'a à lire que les
+ * règles de l'achat qu'il va faire. Partout ailleurs (le site, l'app Android
+ * où rien ne se vend), le texte dit tout, l'achat de l'app iPhone compris.
+ *
+ * `ios` et non `vente.moyen` : le texte ne doit pas changer sous les yeux
+ * selon que le téléphone a déjà répondu, ou non, avec le prix d'Apple.
+ */
+const ios = useCoquille().app?.plateforme === 'ios'
+const vente = useVente()
 </script>
 
 <template>
@@ -19,7 +39,8 @@ const prix = (config.public.prixListe as string) || '6 €'
     plusieurs, et l’achat de son option payante. Elles sont conclues entre vous et l’éditeur,
     {{ e.nom }}, {{ e.forme.toLowerCase() }} (voir les <NuxtLink to="/mentions-legales">mentions légales</NuxtLink>).
     Créer un compte vaut acceptation des conditions d’utilisation ; un achat suppose en plus d’accepter
-    les conditions de vente, en cochant la case prévue avant le paiement.
+    les conditions de vente<template v-if="ios">, présentées avant la feuille d’achat de l’App Store</template><template v-else>,
+    en cochant la case prévue avant le paiement</template>.
   </p>
 
   <h2>2. Le service</h2>
@@ -64,46 +85,109 @@ const prix = (config.public.prixListe as string) || '6 €'
     compte</strong> : chaque liste se débloque séparément. Le détail est présenté dans l’app avant tout
     paiement.
   </p>
-  <h3>Prix</h3>
-  <p>
-    <strong>{{ prix }} TTC par liste</strong>, payés une seule fois : la liste est débloquée pour la vie, c’est-à-dire
-    pour toute sa durée d’existence, et rien n’est prélevé ensuite. {{ mentionTva() }}.
-  </p>
-  <h3>Commande et paiement</h3>
-  <p>
-    L’achat se fait sur le site babynamed.fr. Les applications iPhone et Android donnent accès au même
-    service, listes débloquées comprises, mais rien ne s’y achète.
-    Depuis la liste, <em>Débloquer</em> présente l’offre et son prix. Vous cochez la case d’acceptation,
-    puis réglez sur la page de paiement sécurisée de Stripe (carte bancaire, Apple Pay, Google Pay et
-    autres moyens proposés). Le bouton de paiement vaut commande avec obligation de payer. Vos données de
-    paiement sont saisies chez Stripe et ne sont jamais transmises à l’éditeur.
-  </p>
-  <h3>Livraison</h3>
-  <p>
-    Immédiate : la liste est débloquée dès la confirmation du paiement, pour toute sa durée d’existence.
-    Une facture vous est adressée par e-mail. Si une liste est effacée (supprimée par son propriétaire,
-    quittée par tous ceux qui y décident, ou après {{ CONSERVATION.inactiviteMois }} mois sans que
-    personne ne l’ouvre), son déblocage disparaît avec elle.
-  </p>
+  <!-- Dans l'app iPhone : la caisse d'Apple, et elle seule (voir le script). -->
+  <template v-if="ios">
+    <h3>Prix</h3>
+    <p>
+      Le prix est celui que l’App Store affiche avant l’achat<template v-if="vente.prix"> :
+      <strong>{{ vente.prix }}</strong> aujourd’hui</template>. En France et dans l’Union européenne, il
+      comprend la TVA, qu’Apple facture. Il est payé une seule fois : la liste est débloquée pour la
+      vie, c’est-à-dire pour toute sa durée d’existence, et rien n’est prélevé ensuite.
+    </p>
+    <h3>Commande et paiement</h3>
+    <p>
+      Dans l’app, l’achat se fait par l’achat intégré de l’App Store. Depuis la liste,
+      <em>Débloquer</em> présente l’offre et son prix ; la feuille d’achat d’Apple vous demande ensuite
+      de confirmer, avec le moyen de paiement de votre compte Apple. La confirmer vaut commande avec
+      obligation de payer. C’est Apple qui encaisse, selon les conditions de ses services, et qui vous
+      adresse le reçu. Vos données de paiement restent chez Apple et ne sont jamais transmises à
+      l’éditeur.
+    </p>
+    <h3>Livraison</h3>
+    <p>
+      Immédiate : la liste est débloquée dès qu’Apple confirme l’achat, pour toute sa durée
+      d’existence. Un achat qui attend l’accord d’un tiers (partage familial, banque) débloque la liste
+      dès que cet accord est donné. Si une liste est effacée (supprimée par son propriétaire, quittée
+      par tous ceux qui y décident, ou après {{ CONSERVATION.inactiviteMois }} mois sans que personne
+      ne l’ouvre), son déblocage disparaît avec elle.
+    </p>
+    <p>
+      Si un autre membre débloque la liste pendant que vous l’achetez, votre achat n’est pas perdu :
+      il débloque, sans rien payer de plus, la prochaine liste que vous choisirez de débloquer. Vous
+      pouvez aussi en demander le remboursement à Apple.
+    </p>
 
-  <h3>Droit de rétractation</h3>
-  <div class="encadre">
+    <h3>Rétractation et remboursement</h3>
+    <div class="encadre">
+      <p>
+        Pour un achat en ligne, vous disposez en principe de quatorze jours pour vous rétracter
+        (art. L221-18 du Code de la consommation), sauf pour un contenu numérique fourni immédiatement
+        à votre demande (art. L221-28, 13°). L’achat passant par l’App Store, c’est auprès d’Apple, qui
+        a encaissé, que se demandent l’annulation et le remboursement, selon les conditions de ses
+        services : depuis <a href="https://reportaproblem.apple.com" rel="noopener">reportaproblem.apple.com</a>
+        ou l’historique des achats de votre compte Apple.
+      </p>
+    </div>
     <p>
-      Pour un achat en ligne, vous disposez en principe de quatorze jours pour vous rétracter
-      (art. L221-18 du Code de la consommation). Ce droit ne s’applique pas à un contenu numérique fourni
-      immédiatement, lorsque vous avez expressément demandé cette exécution immédiate et reconnu perdre
-      votre droit de rétractation (art. L221-28, 13°).
+      Un remboursement total accordé par Apple annule la vente : la liste revient alors à la version
+      gratuite, sans perte de votes ni de données.
     </p>
+  </template>
+
+  <template v-else>
+    <h3>Prix</h3>
     <p>
-      C’est l’objet de la case à cocher qui précède le paiement : sans elle, le paiement ne peut pas
-      commencer. Cet accord, daté, figure sur la facture que vous recevez par e-mail.
+      <strong>{{ prix }} TTC par liste</strong>, payés une seule fois : la liste est débloquée pour la vie, c’est-à-dire
+      pour toute sa durée d’existence, et rien n’est prélevé ensuite. {{ mentionTva() }}.
     </p>
-  </div>
-  <p>
-    Un remboursement accordé en tout ou partie reste possible à la discrétion de l’éditeur. Un
-    remboursement total annule la vente : la liste revient alors à la version gratuite, sans perte de
-    votes ni de données.
-  </p>
+    <h3>Commande et paiement</h3>
+    <p>
+      L’achat se fait sur le site babynamed.fr.
+      Depuis la liste, <em>Débloquer</em> présente l’offre et son prix. Vous cochez la case d’acceptation,
+      puis réglez sur la page de paiement sécurisée de Stripe (carte bancaire, Apple Pay, Google Pay et
+      autres moyens proposés). Le bouton de paiement vaut commande avec obligation de payer. Vos données de
+      paiement sont saisies chez Stripe et ne sont jamais transmises à l’éditeur.
+    </p>
+    <h3>Livraison</h3>
+    <p>
+      Immédiate : la liste est débloquée dès la confirmation du paiement, pour toute sa durée d’existence.
+      Une facture vous est adressée par e-mail. Si une liste est effacée (supprimée par son propriétaire,
+      quittée par tous ceux qui y décident, ou après {{ CONSERVATION.inactiviteMois }} mois sans que
+      personne ne l’ouvre), son déblocage disparaît avec elle.
+    </p>
+
+    <h3>Droit de rétractation</h3>
+    <div class="encadre">
+      <p>
+        Pour un achat en ligne, vous disposez en principe de quatorze jours pour vous rétracter
+        (art. L221-18 du Code de la consommation). Ce droit ne s’applique pas à un contenu numérique fourni
+        immédiatement, lorsque vous avez expressément demandé cette exécution immédiate et reconnu perdre
+        votre droit de rétractation (art. L221-28, 13°).
+      </p>
+      <p>
+        C’est l’objet de la case à cocher qui précède le paiement : sans elle, le paiement ne peut pas
+        commencer. Cet accord, daté, figure sur la facture que vous recevez par e-mail.
+      </p>
+    </div>
+    <p>
+      Un remboursement accordé en tout ou partie reste possible à la discrétion de l’éditeur. Un
+      remboursement total annule la vente : la liste revient alors à la version gratuite, sans perte de
+      votes ni de données.
+    </p>
+
+    <h3>Dans les applications iPhone et Android</h3>
+    <p>
+      Les applications donnent accès au même service, et une liste débloquée l’est partout, où qu’elle
+      ait été achetée. Dans l’application Android, rien ne s’achète. Dans l’application iPhone, une
+      liste se débloque par l’achat intégré de l’App Store : Apple encaisse, au prix que l’App Store
+      affiche avant l’achat (il peut différer de celui du site), selon les conditions de ses services,
+      et vous adresse le reçu. La liste est débloquée dès qu’Apple confirme l’achat. L’annulation et le
+      remboursement d’un tel achat se demandent à Apple ; un remboursement total fait revenir la liste
+      à la version gratuite, sans perte de votes ni de données. Si un autre membre débloque la liste
+      pendant cet achat, celui-ci n’est pas perdu : il débloque, sans rien payer de plus, la prochaine
+      liste que l’acheteur choisira de débloquer.
+    </p>
+  </template>
 
   <h3>Garantie légale de conformité</h3>
   <p>
@@ -114,6 +198,9 @@ const prix = (config.public.prixListe as string) || '6 €'
     <a :href="`mailto:${e.email}`">{{ e.email }}</a>.
   </p>
 
+  <!-- Les codes cadeaux s'achètent et s'utilisent sur le site : l'app iPhone
+       n'en dit rien (une clé de licence vendue ailleurs, pour Apple). -->
+  <template v-if="!ios">
   <h3 id="cadeau">Offrir une liste : le code cadeau</h3>
   <p>
     Depuis la page <em>Offrir babyNamed</em>, sans compte, vous pouvez acheter pour quelqu’un d’autre le
@@ -149,6 +236,7 @@ const prix = (config.public.prixListe as string) || '6 €'
     Un remboursement total ou un paiement contesté avec succès annule le code ; s’il a déjà servi, la
     liste qu’il a débloquée revient à la version gratuite, sans perte de votes ni de données.
   </p>
+  </template>
 
   <h2>5. Disponibilité et évolution</h2>
   <p>

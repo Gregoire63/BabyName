@@ -11,7 +11,7 @@ Tenu par : Grégoire Raturat, entrepreneur individuel, éditeur de babyNamed
 (non obligatoire : ni organisme public, ni suivi à grande échelle, ni données
 sensibles à grande échelle).
 
-Dernière mise à jour : 6 octobre 2026.
+Dernière mise à jour : 7 octobre 2026.
 
 Les durées ci-dessous sont celles de `shared/utils/editeur.ts` (`CONSERVATION`),
 appliquées chaque nuit par `server/utils/conservation.ts`. Si l'une change,
@@ -75,11 +75,11 @@ lit la même constante.
 | **Finalité** | Vendre le déblocage, facturer, prouver l'accord à l'exécution immédiate, traiter remboursements et contestations. |
 | **Base légale** | Exécution du contrat (6.1.b) ; obligations comptables et fiscales (6.1.c). |
 | **Personnes** | Acheteurs. |
-| **Données** | Dans l'app : date de déblocage, compte acheteur, référence du paiement Stripe (`pi_…`), liste offerte ou vendue. Chez Stripe : e-mail, moyen de paiement, pays, données antifraude, facture ; métadonnées d'accord (version des conditions, horodatage, renonciation à la rétractation). |
-| **Destinataires** | Stripe Payments Europe, Ltd. (Irlande) — sous-traitant pour le paiement, responsable de ses propres traitements (fraude, obligations financières). Éditeur (comptabilité). |
-| **Transferts hors UE** | Stripe, Inc. (États-Unis) pour certains traitements : Data Privacy Framework + clauses contractuelles types. |
-| **Conservation** | Pièces comptables : 10 ans (art. L123-22 du Code de commerce), chez Stripe et dans la comptabilité. Dans l'app : tant que la liste existe ; l'effacement de l'acheteur met la référence du compte à NULL, la liste reste débloquée pour ses autres membres. |
-| **Sécurité** | Aucune donnée de carte ne transite par l'app (page de paiement hébergée par Stripe, PCI-DSS) ; webhook signé (HMAC, 5 min, comparaison en temps constant) ; clé restreinte à *Checkout Sessions*. |
+| **Données** | **Sur le site (Stripe).** Dans l'app : date de déblocage, compte acheteur, référence du paiement Stripe (`pi_…`), liste offerte ou vendue. Chez Stripe : e-mail, moyen de paiement, pays, données antifraude, facture ; métadonnées d'accord (version des conditions, horodatage, renonciation à la rétractation). **Dans l'app iPhone (achat intégré de l'App Store).** Dans l'app (table `achats_apple`, et `groupes.paiement_ref = apple:<numéro>`) : jeton tiré au hasard avant l'achat, compte et liste visés, numéro de transaction de l'App Store, environnement (production ou bac à sable), produit, dates d'achat, d'application et de remboursement. Chez Apple : compte Apple, moyen de paiement, reçu. Apple ne transmet ni nom, ni e-mail, ni moyen de paiement ; la transaction relue chez Apple contient aussi le pays de la boutique et le prix, qui ne sont pas enregistrés. |
+| **Destinataires** | Stripe Payments Europe, Ltd. (Irlande) — sous-traitant pour le paiement, responsable de ses propres traitements (fraude, obligations financières). Apple Distribution International Ltd. (Irlande) — encaisse en son nom les achats de l'app iPhone (commissionnaire), responsable de ses propres traitements. Éditeur (comptabilité). |
+| **Transferts hors UE** | Stripe, Inc. (États-Unis) pour certains traitements : Data Privacy Framework + clauses contractuelles types. Apple Inc. (États-Unis) pour certains traitements : clauses contractuelles types. |
+| **Conservation** | Pièces comptables : 10 ans (art. L123-22 du Code de commerce), chez Stripe ou Apple (relevés de ventes d'App Store Connect) et dans la comptabilité. Dans l'app : tant que la liste existe ; l'effacement de l'acheteur met la référence du compte à NULL, la liste reste débloquée pour ses autres membres. Achat Apple : la ligne part quand il ne reste ni l'acheteur ni la liste ; une intention sans achat, après `CONSERVATION.intentionAchatMois` (3 mois), par la purge nocturne. |
+| **Sécurité** | Aucune donnée de carte ne transite par l'app (page de paiement hébergée par Stripe, PCI-DSS ; feuille d'achat d'Apple) ; webhook Stripe signé (HMAC, 5 min, comparaison en temps constant) ; clé restreinte à *Checkout Sessions*. Achat Apple : rien de ce que dit l'app n'est cru, chaque transaction est relue chez Apple (App Store Server API) avec une clé privée tenue dans les secrets du Worker ; les notifications d'Apple ne servent que de signal, l'état est relu chez Apple. |
 
 ## 4 bis. Cadeaux : codes qui débloquent une liste
 
@@ -155,6 +155,6 @@ risque élevé.
 | GitHub, Inc. | Sauvegarde nocturne (GitHub Actions) : la base y passe le temps d'être exportée et chiffrée | **À vérifier** : le GitHub Data Protection Agreement couvre-t-il un compte gratuit ? Sinon, faire tourner la sauvegarde ailleurs. |
 | Stripe Payments Europe, Ltd. | Paiement | Stripe Data Processing Agreement (stripe.com/legal/dpa) |
 | Expo (650 Industries, Inc.) | Acheminement des notifications des apps iOS et Android | **À vérifier** : conditions et politique d'Expo (expo.dev/terms, expo.dev/privacy ; sous-traitants : expo.dev/privacy/subprocessors). Demander l'accord de sous-traitance s'il n'est pas intégré aux conditions. |
-| Apple Distribution International Ltd. | Remise des notifications sur iOS (APNs) | Apple Developer Program License Agreement |
+| Apple Distribution International Ltd. | Remise des notifications sur iOS (APNs) ; encaissement des achats intégrés de l'app iPhone (commissionnaire, responsable de ses propres traitements) | Apple Developer Program License Agreement, et son annexe 2 (applications payantes) pour les achats |
 | Google Ireland Ltd. | Remise des notifications sur Android (Firebase Cloud Messaging) | Firebase Data Processing and Security Terms (firebase.google.com/terms/data-processing-terms) |
 | Google (Gmail) | Messagerie de contact | **À régulariser** : une adresse Gmail grand public n'a pas de contrat de sous-traitance. Une adresse Google Workspace (ou tout hébergeur de messagerie professionnel avec DPA) règle le point. |

@@ -902,26 +902,111 @@ Le site reconnaît l'app à ce qu'elle ajoute à son agent utilisateur,
 le serveur). Ce n'est pas une sécurité : n'importe quel navigateur peut
 s'annoncer ainsi, et n'y gagne que des écrans d'achat en moins.
 
-### Rien ne s'y vend
+### Ce qui s'y vend, et par qui
 
 Apple et Google prennent une commission sur ce qui s'achète dans une app **et
-sur ce vers quoi elle envoie**, ventes à déclarer une par une. Dans l'app, on
-ne vend donc rien et rien n'y mène ; l'achat se fait sur le site, et une liste
-débloquée là l'est aussi dans l'app (c'est la même).
+sur ce vers quoi elle envoie**. D'où une caisse par endroit, et une seule :
+
+| Où | Qui encaisse | À quel prix |
+|---|---|---|
+| le site (navigateur, PWA) | Stripe | celui du site (`NUXT_PUBLIC_PRIX_LISTE`) |
+| l'app iOS | Apple, par l'achat intégré de l'App Store | celui d'App Store Connect : la page le demande au téléphone |
+| l'app Android | personne : rien ne s'y vend | — |
+
+Une liste débloquée, où que ce soit, l'est partout (c'est la même).
 
 | Où | Quoi |
 |---|---|
-| `useVente()` (`composables/useCoquille.ts`) | `ouverte` : faux dans l'app. Chaque écran qui vend le lit : l'offre des réglages, le volet « Portrait » d'une liste gratuite, ce que la fête d'un accord propose de débloquer, « Offrir », le code cadeau de « Rejoindre », le mur du quota |
-| `middleware/vente.global.ts` | `/offrir` n'existe pas dans l'app |
-| `server/utils/vente.ts` | le serveur refuse (403) l'achat d'une liste, l'achat d'un cadeau et l'usage d'un code venus d'une app — un bouton oublié dans un écran ne vendrait rien |
-| le mur du quota | **Android** : « Swipes illimités : sur le site babynamed.fr. », sans lien ni bouton — ce que Google permet à une app où rien ne s'achète. **iOS** : rien du tout — Apple ne laisse une app gratuite accompagner un service payant du web qu'à ce prix |
+| `useVente()` (`composables/useCoquille.ts`) | `ouverte`, `moyen` (`stripe`, `apple`, ou rien), `prix`, `cadeaux`, `mention`. Chaque écran qui vend le lit : l'offre des réglages, le volet « Portrait » d'une liste gratuite, ce que la fête d'un accord propose de débloquer, « Offrir », le code cadeau de « Rejoindre », le mur du quota |
+| `middleware/vente.global.ts` | `/offrir` n'existe pas dans les apps |
+| `server/utils/vente.ts` | le serveur refuse (403) la caisse du site, l'achat d'un cadeau et l'usage d'un code venus d'une app — un bouton oublié dans un écran ne vendrait rien |
+| le mur du quota | **Android** : « Swipes illimités : sur le site babynamed.fr. », sans lien ni bouton — ce que Google permet à une app où rien ne s'achète. **iOS** : l'offre de l'App Store ; ni le site, ni son prix |
 | un code cadeau tapé quand même | « Un code cadeau s'utilise sur le site babynamed.fr, pas dans l'app. » |
-| `components/legal/Conditions.vue` | l'achat se fait sur le site ; un code cadeau aussi |
+| `components/legal/Conditions.vue` | **dans l'app iOS**, le texte ne présente que l'achat par l'App Store (son prix, le reçu et le remboursement chez Apple) : ni le prix du site, ni les codes cadeaux. Ailleurs, tout — l'achat de l'app iPhone compris |
 
-Ne jamais rouvrir la vente dans l'app par une mise en ligne du site : une app
-qui change de comportement après sa validation, c'est le compte développeur
-qu'on risque. Le jour où l'on veut vendre dans les apps, ce sera par l'achat
-intégré des stores, dans une nouvelle version des apps.
+Dans l'app iOS, **ne jamais montrer le prix du site ni dire qu'on achète
+ailleurs**. Depuis le 1er octobre 2026 Apple le permet dans l'Union européenne,
+mais sous un régime à part : une autorisation à demander, l'achat intégré
+proposé à côté, les ventes déclarées, et une commission quand même
+(`claude/apps-mobiles.md`, doc du projet). Sans lui, c'est le compte
+développeur qu'on risque. Et ne jamais ouvrir une vente dans une app par une
+simple mise en ligne du site : une app qui change de comportement après sa
+validation, c'est le même risque.
+
+### L'achat dans l'app iPhone
+
+Apple encaisse ; le site ne reçoit ni carte ni adresse, seulement un **numéro
+de transaction**. Trois acteurs, et aucun ne croit l'autre sur parole :
+
+| | |
+|---|---|
+| le serveur (`server/utils/apple.ts`) | tire un **jeton** (UUID) pour la liste, avant l'achat ; relit lui-même chez Apple chaque transaction qu'on lui présente (App Store Server API, avec une clé que lui seul détient). C'est le jeton rendu par Apple qui dit quelle liste débloquer, jamais l'app |
+| le natif (`mobile/src/achats.ts`) | ouvre la feuille d'achat d'Apple avec ce jeton ; garde la transaction « en suspens » tant qu'on ne lui a pas dit qu'elle est traitée |
+| la page (`composables/useAchatApple.ts`) | passe les plats : elle ne décide ni du prix, ni de la liste, ni de ce qui est payé |
+
+| Route | |
+|---|---|
+| `GET /api/achats-apple/etat` | l'app iOS peut-elle vendre, et quel produit ? Faux tant que la clé manque ou qu'Apple la refuse : l'app ne propose alors rien |
+| `POST /api/groupes/:id/achat-apple` | avant la feuille d'Apple : prend la place (un seul paiement à la fois par liste, Stripe ou Apple), rend le jeton |
+| `POST /api/achats-apple` | un numéro de transaction, relu chez Apple : `applique`, `avance`, `rembourse` ou `etrangere` |
+| `POST /api/apple/notifications` | le courrier d'Apple (un achat qu'il vient d'encaisser, un remboursement). Une sonnette : on relit chez Apple, on ne le croit pas |
+
+Ce que cela promet, et qu'`essai-apple` éprouve contre un faux Apple :
+
+- **L'app fermée entre le paiement et le déblocage** ne perd rien. Le natif ne
+  « finit » une transaction qu'après la réponse du serveur ; StoreKit la
+  représente à chaque lancement, et le jeton dit encore pour quelle liste.
+  Et sans attendre ce lancement : Apple annonce lui-même l'achat au serveur
+  (`ONE_TIME_CHARGE`), qui le relit et débloque — l'autre parent voit la liste
+  ouverte même si le téléphone de l'acheteur reste éteint. Ce courrier ne
+  désigne rien : seul compte le jeton que rend Apple à la relecture.
+- **Une transaction ne débloque qu'une liste, une fois**, qui que ce soit qui
+  la présente ; un jeton ne sert qu'à un achat.
+- **Deux parents, deux caisses** : un seul paie (la réservation de Stripe,
+  migration 0009, vaut pour les deux). Un achat arrivé trop tard — la liste
+  venait d'être débloquée par l'autre — n'est pas perdu : il reste
+  **d'avance**, et débloque la prochaine liste de l'acheteur, dans l'app comme
+  sur le site, avant toute caisse. On ne peut pas le rembourser nous-mêmes :
+  seul Apple rembourse.
+- **Un remboursement** accordé par Apple re-verrouille la liste (un
+  remboursement total seulement, comme pour Stripe) ; annulé, il la rend.
+- **Le bac à sable** (TestFlight, la validation d'Apple) débloque pour de bon,
+  mais la liste est notée « offerte » : ce n'est pas une vente. Conséquence :
+  quiconque installe l'app par TestFlight débloque gratuitement — pas de lien
+  TestFlight public.
+- **Tant que l'app n'est jamais sortie sur l'App Store, la production d'Apple
+  refuse tout** : son API répond 401 à toute demande, même signée d'une bonne
+  clé (ce n'est pas dans sa documentation ; ses ingénieurs le disent sur son
+  forum, fils 751045 et 806452). Or c'est l'état dans lequel l'app est essayée
+  puis validée. Un 401 de la production ne veut donc pas dire « clé fausse » :
+  le serveur demande au bac à sable, ouvre la vente s'il accepte la clé, et y
+  lit les achats. Une clé vraiment fausse est refusée des deux côtés. Et une
+  transaction absente du bac à sable, quand la production n'a pas pu être
+  interrogée, n'est pas dite « inconnue » mais « on ne sait pas » : l'app la
+  garde. `/api/sante` (avec le secret) le montre : `achat_apple_cle_acceptee`
+  ouvre la vente ; `achat_apple_production` est faux avant la sortie et **doit
+  passer à vrai après** — sinon les vrais achats ne peuvent pas être vérifiés.
+- **Apple en panne, clé refusée** : rien ne se débloque sur un doute, et la
+  transaction reste en suspens. La vente elle-même ne s'ouvre que si Apple
+  accepte la clé (le serveur la lui présente pour de bon, `appleRepond`), et
+  sa feuille d'achat ne s'ouvre pas tant qu'on ne peut rien vérifier : mieux
+  vaut pas d'offre qu'une offre qui encaisse sans débloquer.
+- **On ne paie pas deux fois** : tant qu'un achat payé attend sa confirmation
+  sur ce téléphone, la page n'en lance pas un second.
+- **Payé, et la confirmation tarde** (Apple en retard côté serveur, le réseau
+  coupé) : l'écran le dit, et la page y retourne d'elle-même — après 8 s,
+  20 s, puis 60 s — sans attendre que l'app soit rouverte. Ensuite, c'est le
+  prochain retour dans l'app qui reprend.
+- Une transaction payée que le serveur **ne reconnaît pas** (le nom du produit
+  a changé entre-temps) n'est pas close : elle reste présentable.
+
+Pas de case d'accord dans l'app : l'achat se fait sur la feuille d'Apple, à
+ses conditions, et c'est à Apple que se demandent annulation et remboursement.
+La version des conditions n'est donc pas gravée dans l'achat ; c'est sa date
+(`achats_apple.achete_le`, migration 0012) qui dit laquelle valait.
+
+**Changer le prix** : dans App Store Connect, sur le produit. La page le
+redemande au téléphone à chaque ouverture de l'app ; rien à changer ici.
 
 ### Le pont
 
@@ -1002,12 +1087,18 @@ valeurs, rien de ceci n'existe.
 | `NUXT_ANDROID_EMPREINTES` | `wrangler.jsonc` | les empreintes SHA-256 du certificat (Google Play, clé d'envoi) : les liens ouvrent l'app Android |
 | `NUXT_DEMO_EMAIL` | `wrangler.jsonc` | l'adresse du compte de démonstration |
 | `NUXT_DEMO_CODE` | secret | son code |
+| `NUXT_APPLE_IAP_CLE` | secret | l'achat dans l'app iPhone : la clé « Achats intégrés » d'App Store Connect (le contenu du fichier `.p8`), avec laquelle le serveur relit les achats chez Apple. À donner **par un tube**, pas en la collant (la question de `wrangler` ne garde que la première ligne) : `Get-Content AuthKey_….p8 -Raw \| npx wrangler secret put NUXT_APPLE_IAP_CLE` |
+| `NUXT_APPLE_IAP_CLE_ID`, `NUXT_APPLE_IAP_EMETTEUR` | `wrangler.jsonc` | l'identifiant de cette clé, et celui de l'émetteur. Tant qu'il manque l'un des trois, l'app iPhone ne propose aucun achat |
+| `NUXT_PUBLIC_APPLE_PRODUIT` | `wrangler.jsonc`, facultatif | le produit de l'App Store que l'app vend (défaut : `fr.babynamed.app.deblocage`) |
+| `NUXT_APPLE_IAP_API`, `NUXT_APPLE_IAP_API_BAC` | essais | un faux Apple ; jamais en production |
 | `NUXT_PUSH_JETON` | secret, facultatif | seulement si la « sécurité renforcée » des notifications est allumée dans le compte Expo |
 | `NUXT_PUSH_URL` | essais | un faux service d'envoi ; jamais en production |
 
 `essai-coquille` éprouve tout cela dans un navigateur qui se présente comme
-l'app (son agent utilisateur, un faux pont natif) ; `essai-worker` le refait,
-pour ce qui en dépend, dans le Worker de production.
+l'app (son agent utilisateur, un faux pont natif), `essai-apple` l'achat de
+l'app iPhone contre un faux Apple ; `essai-worker` le refait, pour ce qui en
+dépend, dans le Worker de production. La marche à suivre côté Apple (le
+produit, la clé, l'adresse du courrier) : `mobile/LISEZMOI.md`.
 
 ## Les prénoms qui ont déjà été des tempêtes
 

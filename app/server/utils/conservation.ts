@@ -21,6 +21,10 @@
  * - Les liens de connexion expires depuis un jour, et les compteurs de
  *   limites vieux de deux jours.
  * - Les codes cadeaux jamais utilises, a leur echeance (CONSERVATION.cadeauMois).
+ * - Les achats de l'app iOS : une intention restee sans achat (la feuille
+ *   d'Apple refermee) part apres CONSERVATION.intentionAchatMois — un achat « en attente d'accord »
+ *   peut etre valide longtemps apres ; un achat dont il ne reste ni l'acheteur
+ *   ni la liste ne dit plus rien de personne, il part aussi.
  */
 // Les durees elles-memes vivent dans shared/utils/editeur.ts (CONSERVATION) :
 // la page /confidentialite les lit au meme endroit que la purge.
@@ -32,6 +36,7 @@ export interface BilanPurge {
   jetons_morts: number
   limites_anciennes: number
   cadeaux_perimes: number
+  achats_apple_perimes: number
 }
 
 export async function purger(): Promise<BilanPurge> {
@@ -39,7 +44,7 @@ export async function purger(): Promise<BilanPurge> {
   // instruction, pas `changes` : D1 y ajoute les lignes emportees par les
   // cascades (bulletins, vetos, passkeys… d'un compte efface), et « 5 comptes
   // effaces » pour un seul serait faux.
-  const [comptes, listes, compteurs, liens, limites, cadeaux] = await lot([
+  const [comptes, listes, compteurs, liens, limites, cadeaux, achats] = await lot([
     [`delete from utilisateurs where vu_le < ${decale('?1')} returning 1`,
       [`-${CONSERVATION.inactiviteMois} months`]],
     // Une liste sans membre n'appartient plus a personne. On attend un jour,
@@ -64,7 +69,14 @@ export async function purger(): Promise<BilanPurge> {
        where (utilise_le is null and expire_le < ${MAINTENANT})
           or (annule_le is not null and annule_le < ${decale('-1 month')})
           or (utilise_le is not null and groupe_id is null)
-      returning 1`]
+      returning 1`],
+    // Les achats de l'app iOS : l'intention sans achat après quelques mois
+    // (CONSERVATION.intentionAchatMois) ; l'achat dont il ne reste ni
+    // l'acheteur ni la liste.
+    [`delete from achats_apple
+       where (transaction_id is null and cree_le < ${decale('?1')})
+          or (transaction_id is not null and user_id is null and groupe_id is null)
+      returning 1`, [`-${CONSERVATION.intentionAchatMois} months`]]
   ])
   return {
     comptes_inactifs: comptes!.rows.length,
@@ -72,6 +84,7 @@ export async function purger(): Promise<BilanPurge> {
     compteurs_anciens: compteurs!.rows.length,
     jetons_morts: liens!.rows.length,
     limites_anciennes: limites!.rows.length,
-    cadeaux_perimes: cadeaux!.rows.length
+    cadeaux_perimes: cadeaux!.rows.length,
+    achats_apple_perimes: achats!.rows.length
   }
 }

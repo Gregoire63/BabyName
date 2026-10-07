@@ -66,6 +66,11 @@ dit(p1.status === 200 && p1.j?.comptes_inactifs === 1,
 dit(p1.j?.listes_sans_membre >= 1, 'et la liste où il était seul')
 dit(p1.j?.compteurs_anciens >= 1, 'et les compteurs de quota de plus de deux mois')
 dit(p1.j?.jetons_morts >= 1, 'et les restes du lien magique (e-mails compris)')
+// L'app iOS : la feuille d'achat refermée il y a quatre mois, l'achat dont il
+// ne reste ni acheteur ni liste, et celui de Fantome, qui vient de le devenir.
+// Pas la feuille refermée le mois dernier (la rejouer, plus bas, ne trouve rien).
+dit(p1.j?.achats_apple_perimes === 3,
+    `et les achats de l’app iOS qui ne disent plus rien de personne, pas la feuille d’achat du mois dernier (${p1.j?.achats_apple_perimes})`)
 dit(JSON.stringify(p1.j).match(/[0-9a-f]{8}-[0-9a-f]{4}/) === null, 'son bilan ne contient que des nombres, aucun identifiant')
 dit((await existe('Fantome')) === 404, 'après la purge, le compte effacé n’existe plus')
 const p2 = await purger(`Bearer ${SECRET}`)

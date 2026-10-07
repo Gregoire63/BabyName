@@ -69,8 +69,9 @@ const { aRevoir } = useVerdicts()
 const paye = computed(() => !!(g.etat.value?.groupe as any)?.paye)
 // Un observateur donne son avis ; il ne décide pas, et n'achète pas pour les autres.
 const decideur = computed(() => g.etat.value?.moi?.role !== 'observateur')
-// Dans une app des stores, rien ne se vend (useVente) : sur une liste
-// gratuite, la fête n'y propose pas ce qui se débloque.
+// Là où rien ne se vend (useVente : l'app Android, l'app iOS sans l'achat
+// de l'App Store), sur une liste gratuite, la fête ne propose pas ce qui se
+// débloque.
 const vente = useVente()
 const suite = computed(() => decideur.value && (paye.value || vente.ouverte))
 

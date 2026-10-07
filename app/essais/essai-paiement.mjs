@@ -144,7 +144,8 @@ await page.waitForTimeout(400)
 await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
 await page.waitForSelector('.bento', { timeout: 20000 })
 await page.locator('.carte.large', { hasText: 'Notre liste' }).first().click()
-await page.waitForTimeout(2500)
+// (L'adresse de la liste, et non un délai : voir essai-portrait.)
+await page.waitForURL(/\/g\/\d+\//, { timeout: 25000 }); await page.waitForTimeout(1200)
 const gid = page.url().split('/')[4]
 
 const etat = await page.evaluate(g => fetch(`/api/groupes/${g}`).then(r => r.json()), gid)

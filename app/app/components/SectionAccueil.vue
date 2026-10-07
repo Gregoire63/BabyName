@@ -29,7 +29,7 @@ const vente = useVente()
 const cadeauSurLeSite = ref(false)
 function voirCadeau(code: string) {
   rejoindreOuvert.value = false
-  if (vente.ouverte) cadeauOuvert.value = code
+  if (vente.cadeaux) cadeauOuvert.value = code
   else cadeauSurLeSite.value = true
 }
 /** Le code cadeau qui créera la liste en cours de création (AssistantFiltres). */
@@ -135,14 +135,14 @@ onMounted(async () => {
   const cadeauLien = normaliserCodeCadeau(q.cadeau)
   // Dans une app des stores, le cadeau ne se garde ni ne s'ouvre : il
   // s'utilise sur le site (voirCadeau).
-  if (cadeauLien && vente.ouverte) retenirCadeauEnAttente(cadeauLien)
+  if (cadeauLien && vente.cadeaux) retenirCadeauEnAttente(cadeauLien)
 
   if (!(await rafraichirMoi())) {
     return navigateTo({ path: '/connexion', query: {
       ...(code ? { code } : {}), ...avecPrenom, ...(cadeauLien ? { cadeau: cadeauLien } : {}) } },
       { replace: true })
   }
-  const cadeau = cadeauLien || (vente.ouverte ? lireCadeauEnAttente() : '')
+  const cadeau = cadeauLien || (vente.cadeaux ? lireCadeauEnAttente() : '')
   if (cadeau) {
     // L'adresse redevient celle de l'accueil : recharger ne rouvre pas la feuille
     // d'un cadeau déjà utilisé.
@@ -306,7 +306,10 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <span class="mini">Ajoutez une passkey ou votre e-mail pour le retrouver ailleurs.</span>
       </button>
 
-      <div v-if="chargement" class="bento" aria-busy="true">
+      <!-- « bento-attente » et non « bento » : la même grille, mais un nom à
+           elle. Les essais attendent « .bento » pour savoir l'accueil ARRIVÉ ;
+           ils trouvaient parfois ce squelette, et cliquaient dans le vide. -->
+      <div v-if="chargement" class="bento-attente" aria-busy="true">
         <div class="carte grande fantome">
           <Squelette l="96px" :h="12" />
           <Squelette l="62%" :h="30" :r="10" :retard="0.06" />
@@ -388,7 +391,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
         <!-- Offrir : les futurs parents autour de soi sont le meilleur endroit
              où trouver les suivants. Une feuille, ici même (FeuilleOffrir). -->
-        <button v-if="vente.ouverte" type="button" class="carte large offrir" @click="offrirOuvert = true">
+        <button v-if="vente.cadeaux" type="button" class="carte large offrir" @click="offrirOuvert = true">
           <Etincelles :taille="18" couleur="var(--peche)" une />
           <span style="flex:1;min-width:0">
             <strong>Offrir babyNamed</strong>
@@ -540,8 +543,8 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
   stroke-width: 2.2; stroke-linecap: round; }
 .qui:active { background: var(--fond); }
 
-.bento { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.bento > * { min-width: 0; }
+.bento, .bento-attente { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bento > *, .bento-attente > * { min-width: 0; }
 .grande, .large, .section, .credit { grid-column: 1 / -1; }
 
 .grande { display: flex; flex-direction: column; gap: 7px; color: var(--encre); padding: 20px;

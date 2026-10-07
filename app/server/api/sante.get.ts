@@ -13,6 +13,8 @@ import type { H3Event } from 'h3'
 export default defineEventHandler(async (e) => {
   if (!import.meta.dev && !estAdmin(e)) return etatPublic(e)
   const c = useRuntimeConfig()
+  // Une vraie demande à Apple, refaite à chaque lecture de cette page.
+  const apple = await sonderApple(true)
   const presence = {
     // La base D1, liée au Worker sous le nom DB (wrangler.jsonc).
     base: !!(globalThis as any).__env__?.DB,
@@ -25,6 +27,17 @@ export default defineEventHandler(async (e) => {
     // navigateur debloque, ce qui rate ceux qui ferment l'onglet trop tot.
     paiement: !!(c.stripeSecretKey && c.stripePriceId),
     paiement_webhook: !!c.stripeWebhookSecret,
+    // L'achat dans l'app iOS : la clé d'App Store Connect, son identifiant
+    // et celui de l'émetteur (server/utils/apple.ts).
+    achat_apple: applePret(),
+    // … et Apple accepte-t-il cette clé ? C'est ce qui ouvre la vente dans
+    // l'app (apple.ts).
+    achat_apple_cle_acceptee: apple.ok,
+    // Sa PRODUCTION l'accepte-t-elle ? Faux tant que l'app n'est jamais sortie
+    // sur l'App Store : Apple y refuse alors tout, et seul son bac à sable
+    // répond (TestFlight, la validation). Doit passer à vrai après la sortie —
+    // sinon les vrais achats ne peuvent pas être vérifiés.
+    achat_apple_production: apple.production,
     // La purge RGPD : en ligne, la tache planifiee de Cloudflare la lance
     // chaque nuit (scheduledTasks, nuxt.config.ts) ; CRON_SECRET ouvre en plus
     // /api/admin/purger pour la declencher a la main. En developpement, il n'y
@@ -55,7 +68,7 @@ export default defineEventHandler(async (e) => {
          from sqlite_master m join pragma_table_info(m.name) p
         where m.type = 'table'
           and m.name in ('bulletins', 'utilisateurs', 'groupes', 'passkeys', 'liens_connexion', 'limites',
-                         'vetos', 'deja_pris', 'cadeaux')`)
+                         'vetos', 'deja_pris', 'cadeaux', 'achats_apple')`)
     // Effacer un compte ne doit pas effacer les listes qu'il a creees (donc
     // les votes de l'autre parent) : la cle vers le createur passe a NULL.
     const rgpd = await b.q1<{ regle: string }>(
@@ -79,7 +92,9 @@ export default defineEventHandler(async (e) => {
         // « Déjà pris » et les graphies bloquées d'un coup (migration 0002).
         'exclusions.deja_pris_et_graphies': a('vetos', 'tete') && a('deja_pris', 'tete'),
         // Les codes cadeaux (migration 0003).
-        'cadeaux': a('cadeaux', 'code_hash') && a('cadeaux', 'expire_le')
+        'cadeaux': a('cadeaux', 'code_hash') && a('cadeaux', 'expire_le'),
+        // L'achat dans l'app iOS (migration 0012).
+        'achats_apple': a('achats_apple', 'transaction_id') && a('achats_apple', 'jeton')
       }
       // Pas de compte des listes vendues ici : meme reservee, cette route n'a
       // pas a porter le nombre de clients. Il se lit dans la console D1.

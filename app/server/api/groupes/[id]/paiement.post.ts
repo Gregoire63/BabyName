@@ -20,6 +20,18 @@ export default defineEventHandler(async (e) => {
   if (!g) throw createError({ statusCode: 404, statusMessage: 'groupe_introuvable' })
   if (g.paye) return { ok: true, deja: true, par: await payeurDe(gid) }
 
+  /**
+   * Un déblocage déjà payé dans l'app iPhone et jamais appliqué — la liste
+   * visée venait d'être débloquée par quelqu'un d'autre — sert d'abord, ici
+   * aussi (server/utils/apple.ts). On a promis qu'il « débloquera une autre
+   * de vos listes » : le faire payer une seconde fois parce qu'il est passé
+   * par le site trahirait la promesse. Ce n'est pas une vente — ni case
+   * d'accord, ni Stripe.
+   */
+  if (applePret() && await utiliserAvanceApple(moi.user_id, gid)) {
+    return { ok: true, deja: true, avance: true }
+  }
+
   if (!paiementPret()) {
     throw createError({ statusCode: 503, statusMessage: 'paiement_non_configure' })
   }

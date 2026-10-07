@@ -124,8 +124,28 @@ export default defineNuxtConfig({
     // SECRET du Worker.
     demoEmail: '',                // NUXT_DEMO_EMAIL
     demoCode: '',                 // NUXT_DEMO_CODE
+    // L'achat dans l'app iOS (server/utils/apple.ts) : le serveur relit
+    // chaque transaction chez Apple, avec une clé d'App Store Connect
+    // (Utilisateurs et accès → Intégrations → Achats intégrés). La clé — le
+    // contenu du fichier .p8 — est un SECRET du Worker ; son identifiant et
+    // celui de l'émetteur ne le sont pas. Sans les trois, l'app iOS ne
+    // propose aucun achat.
+    appleIapCle: '',              // NUXT_APPLE_IAP_CLE       (secret : le fichier .p8)
+    appleIapCleId: '',            // NUXT_APPLE_IAP_CLE_ID    (dix caractères)
+    appleIapEmetteur: '',         // NUXT_APPLE_IAP_EMETTEUR  (Issuer ID, un UUID)
+    appleBundle: 'fr.babynamed.app', // NUXT_APPLE_BUNDLE     (l'identifiant de l'app iOS)
+    // Jamais en production : pour que les essais parlent à un faux Apple
+    // local (production, puis bac à sable), comme stripeApiBase.
+    appleIapApi: '',              // NUXT_APPLE_IAP_API
+    appleIapApiBac: '',           // NUXT_APPLE_IAP_API_BAC
 
-    public: { siteUrl: '', prixListe: '6 €' }   // NUXT_PUBLIC_SITE_URL / NUXT_PUBLIC_PRIX_LISTE
+    public: {
+      siteUrl: '',                // NUXT_PUBLIC_SITE_URL
+      prixListe: '6 €',           // NUXT_PUBLIC_PRIX_LISTE (le prix du site ; dans l'app iOS, c'est Apple qui dit le sien)
+      // Le produit de l'App Store qui débloque une liste (un « consommable » :
+      // il se rachète pour chaque liste). C'est la page qui le nomme à l'app.
+      appleProduit: 'fr.babynamed.app.deblocage'   // NUXT_PUBLIC_APPLE_PRODUIT
+    }
   },
   /**
    * Cloudflare Workers : l'API et la coquille dans le Worker, les fichiers

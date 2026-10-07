@@ -8,10 +8,12 @@
  *     … Mobile/15E148 babyNamedApp/1.0.0 (ios)
  *
  * Partagé entre l'app (ce qu'on montre) et le serveur (ce qu'on refuse) :
- * dans une app des stores, RIEN NE SE VEND, et rien n'y mène — ni bouton, ni
- * lien, ni code cadeau. Un lien vers un paiement web y est exactement ce
- * qu'Apple et Google taxent et font déclarer (voir LISEZMOI, « Les apps des
- * stores »). L'achat se fait sur le site ; la liste débloquée l'est partout.
+ * dans une app des stores, LA CAISSE DU SITE N'EXISTE PAS, et rien n'y mène —
+ * ni bouton, ni lien, ni code cadeau. Un lien vers un paiement web y est
+ * exactement ce qu'Apple et Google taxent et font déclarer (voir LISEZMOI,
+ * « Les apps des stores »). Sur iPhone, une liste se débloque par l'achat
+ * intégré de l'App Store ; sur Android, seulement depuis le site. Débloquée
+ * quelque part, elle l'est partout.
  *
  * Ce n'est pas une barrière de sécurité : n'importe quel navigateur peut
  * s'annoncer ainsi, et n'y gagne que des écrans d'achat en moins.

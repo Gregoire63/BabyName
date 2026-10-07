@@ -79,6 +79,14 @@ export interface EtatGroupe {
    * vient de debloquer la liste, recharge tout et le dit. Renvoie le statut.
    */
   verifierPaiement: () => Promise<StatutPaiement | null>
+  /**
+   * Dit, par le bandeau de la liste, comment un achat s'est fini — pour ceux
+   * qui n'encaissent pas par le retour de Stripe (l'achat de l'app iOS) :
+   * `ok` (débloquée), `avance` (payé, mais `par` l'avait débloquée juste
+   * avant : l'achat servira à une autre liste), `lent-app` (payé, pas encore
+   * confirmé : ce sera fait à la prochaine ouverture).
+   */
+  annoncerPaiement: (issue: 'ok' | 'avance' | 'lent-app', par?: string | null) => void
   /** allerA('classement', 'revoir') : onglet, et volet si le tiroir en a. */
   allerA: (onglet: string, segment?: string) => void
 }
@@ -87,8 +95,12 @@ export interface StatutPaiement {
   paye: boolean
   /** Qui a paye (pseudo), une fois payee. */
   par: string | null
+  /** … et si c'est moi (un achat fait ailleurs, ou confirmé après coup). */
+  par_moi?: boolean
   /** Une page de paiement ouverte, pas encore payee. */
   en_cours: { par: string | null; moi: boolean; jusqu: string | null } | null
+  /** J'ai un déblocage déjà payé (app iPhone) qui n'a servi à aucune liste : il servira ici. */
+  avance?: boolean
 }
 
 export const CLE_GROUPE = Symbol('groupe') as InjectionKey<EtatGroupe>
@@ -107,7 +119,7 @@ const CHAMPS = [
   'parDejaPris', 'ajouterDejaPris', 'retirerDejaPris', 'graphiesDe', 'favoris',
   'basculerFavori', 'communs', 'rechargerCommuns', 'votes', 'rechargerVotes',
   'voter', 'feter', 'pret', 'recharger', 'ouvrirFiche', 'ouvrirFiltres', 'allerA',
-  'ouvrirDebloquer'
+  'ouvrirDebloquer', 'annoncerPaiement'
 ] as const
 
 /**

@@ -20,7 +20,12 @@
  *    changer ailleurs (une liste débloquée sur le site, une nouvelle version).
  *    Elle le fait sur `visibilitychange`, que la vue web envoie d'elle-même
  *    sur la plupart des téléphones ; le natif le redit (`actif`) pour ceux où
- *    elle se tait.
+ *    elle se tait ;
+ *  - dans l'app iOS, l'achat par l'App Store (useAchatApple) : l'offre
+ *    s'ouvre quand le serveur et le téléphone sont prêts, et une transaction
+ *    restée en suspens — l'app fermée en plein achat — est reprise au
+ *    lancement, une fois connecté, à chaque retour au premier plan, et quand
+ *    le natif en annonce une nouvelle (`achat.arrivee`).
  *
  * Rien de tout cela hors de l'app.
  */
@@ -70,14 +75,20 @@ export default defineNuxtPlugin((nuxtApp) => {
   })
 
   const moi = useMoi()
+  /** L'achat de l'App Store : l'offre d'abord, puis ce qui restait à porter au serveur. */
+  const achats = () => ouvrirVenteApple().then(() => { if (moi.value) return reprendreAchatsApple() }).catch(() => null)
   // L'identifiant, pas l'objet : `moi` est remplacé à chaque relecture du compte.
-  watch(() => moi.value?.id, (id) => { if (id) synchroniserPush() }, { immediate: true })
+  watch(() => moi.value?.id, (id) => { if (id) synchroniserPush(); achats() }, { immediate: true })
+  // Une transaction arrivée pendant que l'app est ouverte, sans qu'on vienne de
+  // l'acheter : un achat qui attendait l'accord d'un tiers.
+  ecouter('achat.arrivee', () => { achats() })
 
   let vuLe = 0
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return
     vuLe = Date.now()
     if (moi.value) synchroniserPush()
+    achats()
   })
   ecouter('actif', () => {
     // La vue web vient de le dire elle-même : une fois suffit.

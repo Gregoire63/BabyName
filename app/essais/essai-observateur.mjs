@@ -37,6 +37,9 @@ async function ouvrirListe(p, nom) {
   const carte = p.locator('.carte', { hasText: nom }).first()
   await carte.waitFor({ state: 'visible', timeout: 25000 })
   await carte.click()
+  // L'adresse d'abord (c'est d'elle qu'on tire le numéro de la liste) : sur
+  // une machine chargée, deux secondes et demie n'y suffisaient pas toujours.
+  await p.waitForURL(/\/g\/\d+\//, { timeout: 25000 })
   await p.waitForTimeout(2500)
 }
 
@@ -102,7 +105,11 @@ const apresV = await mamie.evaluate(g =>
     e.avancement.find(m => m.pseudo === 'Mamie').votes), gid)
 dit(apresV === avantV + 1, `elle juge normalement (${avantV} → ${apresV})`)
 
-await mamie.goto(`${BASE}/g/${gid}/reglages`, { waitUntil: 'networkidle' })
+// (« load », puis la carte attendue : après un vote, la page relit ses accords
+// en fond ; quittée à cet instant, cette requête restait « en vol » pour
+// Playwright, et « networkidle » ne venait jamais.)
+await mamie.goto(`${BASE}/g/${gid}/reglages`, { waitUntil: 'load' })
+await mamie.waitForSelector('.pile', { timeout: 25000 })
 await mamie.waitForTimeout(1500)
 const sesReglages = await plat(mamie, '.pile')
 dit(!/Code d’invitation|Partager le lien/.test(sesReglages),

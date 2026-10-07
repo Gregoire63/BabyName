@@ -28,7 +28,7 @@ export const CADEAU_DEV = 'BEBE2345CADE'
  * gratuit » qu'un essai decrit. La version est gravee a la semaille ; le
  * demarrage et les outils de developpement disent quand elle est depassee.
  */
-export const VERSION_SEMENCE = 9
+export const VERSION_SEMENCE = 10
 
 /** Les comptes du jeu d'essai, tels que les outils de dev les montrent. */
 export const COMPTES_DEV = [
@@ -205,6 +205,27 @@ export async function semerSiVide(b: Outils): Promise<boolean> {
     // l'efface, et le quota du jour ne le voit pas.
     [`insert into bulletins (groupe_id, user_id, jour, n_jour) values (?1, ?2, date('now', '-70 days'), 3)`,
       [g3, paul]],
+    // Les achats de l'app iOS (migration 0012), pour la purge. Trois restes
+    // qu'elle doit effacer : une feuille d'achat refermée il y a quatre mois ;
+    // un achat dont il ne reste ni l'acheteur ni la liste ; celui de Fantome,
+    // qui devient pareil quand son compte et sa liste partent. Et un qu'elle
+    // doit garder : une feuille refermée le mois dernier (un achat « en
+    // attente d'accord » peut encore arriver, et c'est son jeton qui dira
+    // quelle liste débloquer), et un vieil achat d'Alice, remboursé depuis,
+    // qui tient encore à elle et à sa liste — c'est son historique.
+    [`insert into achats_apple (jeton, user_id, groupe_id, cree_le)
+      values ('5e3e0000-0000-4000-8000-000000000001', ?1, ?2, ${decale('-4 months')}),
+             ('5e3e0000-0000-4000-8000-000000000002', ?1, ?2, ${decale('-1 month')})`, [paul, g3]],
+    [`insert into achats_apple (jeton, user_id, groupe_id, transaction_id, environnement, produit, cree_le, achete_le, applique_le)
+      values ('5e3e0000-0000-4000-8000-000000000003', null, null, '2000000000000001', 'Production',
+              'fr.babynamed.app.deblocage', ${decale('-5 months')}, ${decale('-5 months')}, ${decale('-5 months')}),
+             ('5e3e0000-0000-4000-8000-000000000004', ?1, ?2, '2000000000000002', 'Production',
+              'fr.babynamed.app.deblocage', ${decale('-25 months')}, ${decale('-25 months')}, ${decale('-25 months')})`,
+      [fantome, gf]],
+    [`insert into achats_apple (jeton, user_id, groupe_id, transaction_id, environnement, produit, cree_le, achete_le, rembourse_le)
+      values ('5e3e0000-0000-4000-8000-000000000005', ?1, ?2, '2000000000000003', 'Production',
+              'fr.babynamed.app.deblocage', ${decale('-6 months')}, ${decale('-6 months')}, ${decale('-6 months')})`,
+      [alice, gid]],
     [MARQUEUR],
     [`delete from _semence`],
     [`insert into _semence (version) values (?1)`, [VERSION_SEMENCE]]

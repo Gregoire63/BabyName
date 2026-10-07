@@ -156,7 +156,7 @@ onMounted(async () => {
   if (await rafraichirMoi()) return suite()
   passkeyPossible.value = passkeysPossibles()
   if (onglet.value === 'connexion') choisirOnglet('connexion')
-  if (cadeau.value && vente.ouverte) {
+  if (cadeau.value && vente.cadeaux) {
     // Le lien de connexion par e-mail s'ouvre ailleurs, sans ce paramètre :
     // l'appareil le garde (utils/cadeauEnAttente).
     retenirCadeauEnAttente(cadeau.value)
@@ -208,7 +208,7 @@ onBeforeUnmount(() => abandonnerPasskey())
       <p v-if="invitation" class="attend">
         Une liste vous a été partagée : vous y entrez juste après.
       </p>
-      <p v-if="cadeau && vente.ouverte" class="attend">
+      <p v-if="cadeau && vente.cadeaux" class="attend">
         <strong>{{ cadeauDe ? `${cadeauDe} vous offre babyNamed` : 'Un cadeau vous attend' }}</strong> :
         une liste débloquée.
       </p>

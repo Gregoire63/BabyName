@@ -20,7 +20,8 @@ async function entrer(qui) {
   await page.waitForSelector('.bento', { timeout: 20000 })
   const c = page.locator('.carte', { hasText: 'Notre liste' }).first()
   await c.waitFor({ state: 'visible', timeout: 25000 })
-  await c.click(); await page.waitForTimeout(2500)
+  // (L'adresse de la liste, et non un délai : voir essai-portrait.)
+  await c.click(); await page.waitForURL(/\/g\/\d+\//, { timeout: 25000 }); await page.waitForTimeout(1200)
   return { page, gid: page.url().split('/')[4] }
 }
 
@@ -93,7 +94,7 @@ dit(textes.some(t => t.includes(verif.moyenneSyllabes.toFixed(1)))
 await paul.goto(`${BASE}/`, { waitUntil: 'networkidle' })
 const libre = paul.locator('.carte', { hasText: 'Essai gratuit' }).first()
 await libre.waitFor({ state: 'visible', timeout: 25000 })
-await libre.click(); await paul.waitForTimeout(2500)
+await libre.click(); await paul.waitForURL(/\/g\/\d+\//, { timeout: 25000 }); await paul.waitForTimeout(1200)
 const gidLibre = paul.url().split('/')[4]
 await aRevoir(paul, gidLibre)
 dit(await paul.locator('.pourquoi').count() === 0,

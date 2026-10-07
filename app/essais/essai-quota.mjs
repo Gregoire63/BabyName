@@ -96,7 +96,8 @@ dit(/tous ses membres/i.test(ecran), 'et que débloquer profite à tous les memb
 await page.goto(`${BASE}/`, { waitUntil: 'networkidle' })
 await page.waitForSelector('.bento', { timeout: 20000 })
 await page.locator('.carte.large.passee', { hasText: 'Autre essai' }).first().click()
-await page.waitForTimeout(2500)
+// (L'adresse de la liste, et non un délai : voir essai-portrait.)
+await page.waitForURL(/\/g\/\d+\//, { timeout: 25000 }); await page.waitForTimeout(1200)
 const gid2 = page.url().split('/')[4]
 const autre = (await etat(gid2)).quota
 dit(autre?.depart?.reste === 0 && autre?.reste_jour === 0 && autre?.reste === 0,

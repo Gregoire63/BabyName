@@ -61,7 +61,6 @@ const rechercheOuverte = ref(false)
 const graphiesDe = ref<Prenom | null>(null)
 /** La carte dont on lit la tempête (l'icône d'orage, voir utils/tempetes). */
 const tempeteDe = ref<Prenom | null>(null)
-const prixListe = (useRuntimeConfig().public.prixListe as string) || '6 €'
 /** Des filtres differents de ceux d'origine ? (La recherche n'en est plus un.) */
 const filtresActifs = computed(() => {
   const { recherche: _r, ...f } = g.filtres.value
@@ -363,9 +362,11 @@ const quotaAtteint = computed(() => murAnticipe.value
  */
 const jObserve = computed(() => g.etat.value?.moi?.role === 'observateur')
 const bloqueGratuit = computed(() => quotaAtteint.value && !paye.value && !jObserve.value)
-// Dans une app des stores, rien ne se vend : pas d'offre qui s'ouvre, et le
-// mur ne dit que « à demain » (useVente).
+// Là où rien ne se vend (l'app Android ; l'app iOS tant que l'App Store
+// n'a pas donné son prix), pas d'offre qui s'ouvre, et le mur ne dit que
+// « à demain » (useVente). Le prix est celui du site, ou celui d'Apple.
 const vente = useVente()
+const prixListe = computed(() => vente.prix)
 const OFFRE_MAX_JOUR = 2
 const jourLocal = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}` }
 const cleOffre = () => `pr_offre_${g.gid}_${jourLocal()}`
@@ -911,7 +912,8 @@ async function confirmerFamille() {
           <button v-if="!jObserve" class="btn btn-1" @click="g.ouvrirDebloquer()">Swipes illimités ({{ prixListe }})</button>
         </template>
         <!-- App Android : Google laisse DIRE où cela se débloque, sans lien
-             ni bouton. App iOS : rien du tout (voir useVente). -->
+             ni bouton. App iOS : l'offre ci-dessus, par l'App Store — et rien
+             du tout tant qu'elle n'est pas prête (voir useVente). -->
         <p v-else-if="vente.mention" class="mini doux mention-site" style="margin:0">
           Swipes illimités : sur le site babynamed.fr.
         </p>

@@ -76,15 +76,22 @@ const c = CONSERVATION
   <dl>
     <dt>Données</dt>
     <dd>
+      <strong>Sur le site.</strong>
       Chez babyNamed : la date du déblocage, le compte qui l’a payé, la référence du paiement chez
       Stripe, la version des conditions acceptées et l’heure de votre accord.
       Chez Stripe, qui encaisse : votre e-mail, votre moyen de paiement, votre pays et des informations
-      techniques utiles à la lutte contre la fraude. <strong>babyNamed ne voit jamais votre carte.</strong>
+      techniques utiles à la lutte contre la fraude.
+      <strong>Dans l’app iPhone</strong>, par l’achat intégré de l’App Store.
+      Chez babyNamed : le numéro de la transaction de l’App Store, sa date, le compte babyNamed qui a
+      acheté, la liste visée, et la date d’un éventuel remboursement.
+      Chez Apple, qui encaisse : votre compte Apple et votre moyen de paiement. Apple ne nous transmet
+      ni votre nom, ni votre adresse e-mail, ni votre moyen de paiement.
+      <strong>Dans les deux cas, babyNamed ne voit jamais votre carte.</strong>
     </dd>
     <dt>Pourquoi</dt>
-    <dd>Vendre, facturer, prouver votre accord à l’exécution immédiate, traiter un remboursement ou une contestation.</dd>
+    <dd>Vendre, facturer, prouver votre accord à l’exécution immédiate, débloquer la bonne liste, traiter un remboursement ou une contestation.</dd>
     <dt>Base légale</dt>
-    <dd>L’exécution du contrat (art. 6.1.b) et nos obligations comptables et fiscales (art. 6.1.c). Stripe traite aussi ces données pour son propre compte, notamment contre la fraude.</dd>
+    <dd>L’exécution du contrat (art. 6.1.b) et nos obligations comptables et fiscales (art. 6.1.c). Stripe et Apple traitent aussi ces données pour leur propre compte, notamment contre la fraude.</dd>
   </dl>
 
   <h3>Les cadeaux (code cadeau)</h3>
@@ -180,7 +187,9 @@ const c = CONSERVATION
     Ces transferts reposent sur la décision d’adéquation de la Commission européenne pour les entreprises
     certifiées Data Privacy Framework, et sur les clauses contractuelles types de la Commission.
     Stripe Payments Europe est établie en Irlande ; certaines données peuvent être traitées par Stripe, Inc.
-    aux États-Unis, sous les mêmes garanties. La sauvegarde nocturne passe par GitHub, société américaine
+    aux États-Unis, sous les mêmes garanties. Un achat fait dans l’app iPhone est encaissé par Apple
+    Distribution International, établie en Irlande elle aussi ; certaines données peuvent être traitées
+    par Apple Inc. aux États-Unis. La sauvegarde nocturne passe par GitHub, société américaine
     elle aussi : la base y est chiffrée le temps de la tâche, sous les mêmes garanties, et la copie
     chiffrée est conservée en France, chez OVH.
     Si vous activez les notifications de l’app iPhone ou Android, chaque message passe par Expo, société
@@ -211,7 +220,8 @@ const c = CONSERVATION
     <li><strong>Jeton de notification</strong> (app iPhone ou Android) : tant que les notifications sont activées sur ce téléphone. Effacé dès que vous les coupez, à la déconnexion, quand vous déconnectez vos autres appareils, avec le compte, et dès qu’Apple ou Google le disent périmé (app désinstallée).</li>
     <li><strong>Liens et codes par e-mail</strong> (connexion, inscription) : valables {{ c.lienMinutes }} minutes, une seule fois ; effacés le lendemain de leur expiration, avec l’adresse et le prénom d’une inscription jamais confirmée.</li>
     <li><strong>Compteurs d’essais</strong> : deux jours au plus.</li>
-    <li><strong>Pièces liées à un paiement</strong> (facture, paiement) : {{ c.comptabiliteAns }} ans, durée imposée par le Code de commerce (art. L123-22). Elles sont conservées par Stripe et dans notre comptabilité, pas dans l’app.</li>
+    <li><strong>Pièces liées à un paiement</strong> (facture, paiement) : {{ c.comptabiliteAns }} ans, durée imposée par le Code de commerce (art. L123-22). Elles sont conservées par Stripe ou par Apple, selon l’endroit de l’achat, et dans notre comptabilité, pas dans l’app.</li>
+    <li><strong>Achat dans l’app iPhone</strong> : le numéro de la transaction reste attaché à la liste débloquée et à votre compte, tant que l’un des deux existe. Une feuille d’achat ouverte puis refermée sans achat ne laisse qu’une trace technique (un identifiant tiré au hasard, la liste visée), effacée au bout de {{ c.intentionAchatMois }} mois.</li>
     <li><strong>Journaux techniques</strong> : quelques jours au plus, chez l’hébergeur.</li>
     <li><strong>Sauvegardes</strong> : la base garde {{ c.historiqueJours }} jours d’historique de restauration. Chaque nuit, une copie chiffrée part aussi chez OVH, en France : on garde les {{ c.sauvegardeNuits }} dernières nuits, puis une copie par mois pendant {{ c.sauvegardeMois }} mois. Elles ne servent qu’à réparer une panne ou une erreur. Une donnée effacée disparaît ainsi de toutes les copies au plus tard {{ c.sauvegardeMois }} mois après.</li>
   </ul>

@@ -25,9 +25,14 @@
  *                    reglages      ouvre les réglages du téléphone
  *                    vibrer        { genre: 'succes' | 'leger' }
  *                    quitter       sortir de l'app (Android, réponse à `retour`)
+ *                    achat.produit  { produit }           → { ok, prix }     iOS : le prix d'Apple
+ *                    achat.acheter  { produit, jeton }    → { ok, etat, transaction? }
+ *                    achat.attente                        → { ok, transactions: [{ id, produit, le }] }
+ *                    achat.finir    { transaction }       → { ok }   (composables/useAchatApple)
  *   le natif dit     lien          { url }   un lien ouvert, une notification touchée
  *                    actif         l'app revient au premier plan
  *                    retour        le bouton « Retour » d'Android
+ *                    achat.arrivee  iOS : une transaction vient d'arriver d'elle-même
  *
  * Un verbe que l'autre côté ne connaît pas est ignoré, des deux côtés : on
  * peut en ajouter sans casser les apps déjà installées.
@@ -96,28 +101,52 @@ export function useCoquille() {
 }
 
 /**
- * VENDRE, OU NON.
+ * VENDRE, OU NON — ET PAR QUI.
  *
- * Sur le web : oui. Dans une app des stores : jamais, et rien n'y mène — ni
- * l'offre, ni les fonctions montrées « à débloquer », ni « Offrir », ni un
- * code cadeau à saisir. Apple et Google prennent une commission sur tout
- * achat fait dans l'app OU vers lequel l'app envoie, ventes à déclarer une
- * par une ; ne rien y vendre est la seule façon de n'avoir rien à déclarer.
- * Une liste débloquée sur le site l'est aussi dans l'app : c'est la même.
+ * Sur le web : oui, par Stripe, au prix du site.
  *
- * Deux plateformes, une nuance. Apple interdit jusqu'à la mention d'un achat
- * ailleurs. Google permet, à une app où rien ne s'achète, de DIRE où cela
- * s'achète — une phrase, sans lien (`mention`).
+ * Dans l'app iOS : par l'achat intégré de l'App Store, et par lui seul. Apple
+ * encaisse, à SON prix (celui que StoreKit annonce, jamais celui du site : on
+ * n'y montre ni l'autre prix ni le chemin vers lui — Apple l'interdit hors de
+ * l'achat intégré). L'offre n'existe donc qu'une fois deux choses sues : le
+ * serveur peut vérifier un achat chez Apple, et le téléphone connaît le
+ * produit (useAchatApple). D'ici là, et dans une app d'avant l'achat intégré,
+ * elle est fermée comme sur Android.
  *
- * Le serveur refuse de son côté tout achat et tout code cadeau venus d'une
- * app (server/utils/vente.ts) : un bouton oublié ici ne vendrait rien.
+ * Dans l'app Android : jamais, et rien n'y mène. Google permet, à une app où
+ * rien ne s'achète, de DIRE où cela s'achète — une phrase, sans lien
+ * (`mention`).
+ *
+ * Les cadeaux (offrir une liste, saisir un code) : sur le web seulement. Un
+ * code qui débloque est, pour les deux stores, une clé de licence.
+ *
+ * Le serveur tient les mêmes règles de son côté (server/utils/vente.ts,
+ * server/utils/apple.ts) : un bouton oublié ici ne vendrait rien.
  */
+/**
+ * Ce que l'app iOS sait de son offre (rempli par useAchatApple.ouvrirVenteApple) :
+ * le produit de l'App Store, et son prix tel qu'Apple le formule (« 7,99 € »).
+ */
+export const offreApple = reactive({ prete: false, produit: '', prix: '' })
+
+/** Le prix du site (réglage public), lu au premier `useVente()`. */
+const prixDuSite = ref('')
+const vente = reactive({
+  /** L'offre « Débloquer cette liste » existe ici. */
+  ouverte: computed(() => !coquille || (coquille.plateforme === 'ios' && offreApple.prete)),
+  /** Qui encaisse : la page de Stripe, ou la feuille d'achat d'Apple. */
+  moyen: computed<'stripe' | 'apple' | null>(() =>
+    !coquille ? 'stripe' : coquille.plateforme === 'ios' && offreApple.prete ? 'apple' : null),
+  /** Le prix à afficher : celui du site, ou celui qu'Apple annonce. */
+  prix: computed(() => coquille ? offreApple.prix : prixDuSite.value),
+  /** Offrir une liste, saisir un code cadeau. */
+  cadeaux: !coquille,
+  /** Android seulement : on peut écrire où la liste se débloque, sans lien. */
+  mention: coquille?.plateforme === 'android'
+})
 export function useVente() {
-  return {
-    ouverte: !coquille,
-    /** Android seulement : on peut écrire où la liste se débloque, sans lien. */
-    mention: coquille?.plateforme === 'android'
-  }
+  if (!prixDuSite.value) prixDuSite.value = (useRuntimeConfig().public.prixListe as string) || '6 €'
+  return vente
 }
 
 /**
