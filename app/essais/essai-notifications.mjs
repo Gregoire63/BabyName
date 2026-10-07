@@ -281,19 +281,19 @@ const SANS_BRUIT = m => m.channelId === 'activite' && !('sound' in m) && m.prior
     `à trois : Mamie, qui n’a pas trié, l’apprend (« ${m?.body} ») ; Alice, qui a trié aujourd’hui, ne reçoit pas le message de Mamie`)
 }
 {
-  // Qui ne décide pas n'a rien à rattraper : Mamie observe « Notre liste ».
-  const etat = (await api(paul.page, `/api/groupes/${NOTRE}`)).j
-  const de = qui => Number(etat.avancement.find(a => a.pseudo === qui)?.votes ?? 0)
-  const ecart = de('Paul') - de('Mamie')
-  const palier = [25, 50, 100, 200, 400, 800].find(p => p > ecart)
+  // Qui ne décide pas n'a rien à rattraper. Mamie entre ici en lecture seule
+  // (le code des observateurs) : elle n'a jamais trié, et Paul prend 26
+  // prénoms d'avance sur elle comme sur Alice. Alice l'apprend ; pas Mamie.
+  const gid = await listeADeux('Avance observée')
+  const code = (await poster(paul.page, `/api/groupes/${gid}/observateurs`)).j?.code
+  const entree = await poster(mamie.page, '/api/groupes/rejoindre', { code })
+  await pause(800)
   const avant = messages.length
-  const deja = new Set((await api(paul.page, `/api/groupes/${NOTRE}/votes`)).j?.filter?.(v => v.pseudo === 'Paul').map(v => v.prenom) ?? [])
-  const neufs = PRENOMS.filter(p => !deja.has(p)).slice(0, palier - ecart + 1)
-  for (const p of neufs) await voter(paul.page, NOTRE, p)
+  for (const p of PRENOMS.slice(0, 26)) await voter(paul.page, gid, p)
+  const m = await jusqua(() => pour(alice, avant)[0])
   await silence()
-  const apres = Number((await api(paul.page, `/api/groupes/${NOTRE}`)).j.avancement.find(a => a.pseudo === 'Paul')?.votes ?? 0)
-  dit(apres - de('Mamie') >= palier && pour(mamie, avant).length === 0,
-    `Paul passe à ${apres - de('Mamie')} prénoms de plus que Mamie, qui observe : elle n’est pas prévenue (elle ne décide pas)`)
+  dit(entree.j?.role === 'observateur' && /a jugé 25 prénoms de plus que vous/.test(m?.body ?? '') && pour(mamie, avant).length === 0,
+    `Mamie observe (${entree.j?.role}) : l’avance de Paul est dite à Alice, qui décide — pas à elle`)
 }
 
 // =================== 5. JAMAIS UN PRÉNOM ====================================

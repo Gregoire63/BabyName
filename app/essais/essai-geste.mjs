@@ -53,8 +53,10 @@ dit(doublon === 0, doublon === 0
 {
   const aLAccueil = async () => { await page.waitForTimeout(700); return new URL(page.url()).pathname === '/' }
   const haut = () => page.evaluate(() => document.querySelector('main').scrollTop)
+  // (Plus de tirette : on n'est plus sur l'accueil — l'essai le dira, sans s'arrêter là.)
   const tiree = () => page.evaluate(() => {
     const t = document.querySelector('.tirette')
+    if (!t) return { x: null, armee: false }
     return { x: Math.round(new DOMMatrix(getComputedStyle(t).transform).m41), armee: t.classList.contains('armee') }
   })
 
@@ -69,21 +71,23 @@ dit(doublon === 0, doublon === 0
   dit(await aLAccueil(), 'un glissé en biais, plus vertical qu’horizontal, n’ouvre rien')
   await page.evaluate(() => document.querySelector('main').scrollTo(0, 0))
 
-  // … et la tirette ne bouge pas pour autant. Sur un accueil trop court pour
-  // défiler, le navigateur ne se saisit de rien : c'est le geste lui-même qui
-  // doit dire, dès ses premiers pixels, qu'il n'est pas pour nous.
+  // Entre les deux : un glissé penché (40° environ), plus couché que debout.
+  // Le navigateur le laisse à la page — il ne défile que pour un geste
+  // surtout vertical — et c'est à elle de dire, dès ses premiers pixels,
+  // qu'un geste aussi penché n'est pas celui qui ouvre la liste. Assez long
+  // pour ouvrir s'il était pris : 100 px vers la gauche, 80 vers le bas.
   await page.evaluate(() => { document.querySelector('main').style.overflowY = 'hidden' })
   {
     const cdp = await ctx.newCDPSession(page)
     const pt = (x, y) => [{ x, y, id: 1, radiusX: 4, radiusY: 4, force: 1 }]
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(300, 300) })
-    for (let i = 1; i <= 10; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(300 - i * 8, 300 + i * 22) }); await page.waitForTimeout(18) }
+    for (let i = 1; i <= 10; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(300 - i * 10, 300 + i * 8) }); await page.waitForTimeout(18) }
     await page.waitForTimeout(350)
-    const enBiais = await tiree()
+    const penche = await tiree()
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
     await cdp.detach()
-    dit(enBiais.x === 0 && !enBiais.armee && await aLAccueil(),
-      `un glissé en biais ne fait pas bouger la tirette, même là où rien ne défile (${enBiais.x} px)`)
+    dit(penche.x === 0 && !penche.armee && await aLAccueil(),
+      `un glissé penché, de quoi ouvrir s’il était pris : la tirette ne bouge pas (${penche.x} px), rien ne s’ouvre`)
   }
   // Parti couché, puis franchement descendu : le doigt a changé d'avis.
   await glisserDuDoigt(page, { x: 300, y: 300 }, { x: 205, y: 560 }, { par: [{ x: 262, y: 302 }] })

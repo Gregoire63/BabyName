@@ -128,6 +128,16 @@ les vraies notifications — se regarde sur un appareil (`mobile/LISEZMOI.md`).
 | `essai-communs` | **qui a dit quoi** (« Oui à deux » mis en avant, sinon ♥ Paul / ~ vous), **l'ordre rangé au doigt** par la poignée, partagé par les deux parents, tenu au rechargement, aussi au clavier ; un nouvel accord attend à la fin, « nouveau » ; l'observatrice voit l'ordre sans les noms et ne range pas |
 | `essai-veto` `essai-carte` `essai-nav` `essai-fond` `essai-glisse` `essai-chargement` `essai-sw` | vetos, carte, navigation, transitions, squelettes, service worker |
 
+**Ces essais voient-ils quelque chose ?** Une garde qu'aucun essai ne voit
+tomber n'est pas gardée. Celles des retours du premier vrai téléphone
+(07/10/2026 : le glissé de l'accueil, le code de l'e-mail, les notifications,
+le thème, les réglages) ont été sabotées une à une, comme celles de l'achat
+Apple : 58, toutes vues par une vérification qui échoue. Deux ne l'étaient
+pas au premier passage, et c'est l'essai qu'il a fallu durcir : un glissé
+*penché* (le navigateur le laisse à la page, à elle de le refuser), et un
+*vrai* observateur (celui du jeu d'essai avait « trié aujourd'hui », une
+autre garde le couvrait).
+
 ## Taper comme un téléphone
 
 `fill()` et `keyboard.type()` tapent comme un clavier d'ordinateur : chaque
