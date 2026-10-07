@@ -6,7 +6,7 @@ import * as Sharing from 'expo-sharing'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import * as SystemUI from 'expo-system-ui'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AppState, BackHandler, KeyboardAvoidingView, Platform, Share, StyleSheet, useColorScheme, View
 } from 'react-native'
@@ -17,7 +17,9 @@ import { acheter, enSuspens, finir, prixDuProduit, surArrivee } from './achats'
 import { adresseDuChemin, adresseDuLien, destination } from './navigation'
 import { auToucher, etatPush, ouverture } from './notifications'
 import { Panne } from './Panne'
-import { FOND_CLAIR, FOND_SOMBRE, lireMessage, scriptPour, type MessageNatif, type MessagePage } from './pont'
+import {
+  agentPour, FOND_CLAIR, FOND_SOMBRE, lireMessage, scriptPour, type MessageNatif, type MessagePage
+} from './pont'
 import { AGENT, EXPO_GO, INSPECTABLE, ORIGINE } from './site'
 
 /**
@@ -158,7 +160,12 @@ async function remettre(m: Extract<MessagePage, { type: 'fichier' }>): Promise<b
 
 export function Coquille() {
   const marges = useSafeAreaInsets()
-  const telephoneSombre = useColorScheme() === 'dark'
+  /** L'apparence du téléphone ; null s'il ne la dit pas. */
+  const apparence = useColorScheme()
+  const telephoneSombre = apparence === 'dark'
+  const sombreConnu = apparence === 'dark' ? true : apparence === 'light' ? false : null
+  const sombreDuTelephone = useRef(sombreConnu)
+  sombreDuTelephone.current = sombreConnu
   const vue = useRef<WebView>(null)
 
   /** La page à charger ; `generation` remonte la vue web (panne, processus mort). */
@@ -167,6 +174,19 @@ export function Coquille() {
   /** Ce que la page a dit de ses couleurs. Avant : celles du site, selon le téléphone. */
   const [couleurs, setCouleurs] = useState<Couleurs | null>(null)
   const [panne, setPanne] = useState(false)
+
+  /**
+   * L'agent utilisateur de CETTE vue web : la marque de l'app, et l'apparence
+   * du téléphone à sa création (pont.ts, `agentPour`). Il ne change pas tant
+   * que la vue vit — le changer en plein chargement la ferait recharger sur
+   * Android, et iOS ne le relit pas : la suite passe par le pont.
+   */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const creation = useMemo(() => ({ sombre: sombreDuTelephone.current,
+    agent: agentPour(AGENT, sombreDuTelephone.current) }), [generation])
+  /** Ce que l'agent de la vue web en cours dit du téléphone. */
+  const sombreDeLAgent = useRef(creation.sombre)
+  sombreDeLAgent.current = creation.sombre
 
   /** Le pari : la page écoute. Elle a parlé, ou accusé réception. */
   const prete = useRef(false)
@@ -278,6 +298,15 @@ export function Coquille() {
     return () => { liens.remove(); arreter() }
   }, [aller])
 
+  // Le téléphone bascule en sombre (ou en revient) pendant que l'app est
+  // ouverte : la page ne le sait pas toujours d'elle-même, on le lui dit.
+  const dejaDit = useRef(sombreConnu)
+  useEffect(() => {
+    if (sombreConnu === null || sombreConnu === dejaDit.current) return
+    dejaDit.current = sombreConnu
+    envoyer({ type: 'apparence', sombre: sombreConnu })
+  }, [envoyer, sombreConnu])
+
   // Une transaction arrivée d'elle-même (un achat validé plus tard par un
   // tiers) : la page ne le sait pas, on le lui dit ; elle viendra la chercher.
   useEffect(() => surArrivee(() => envoyer({ type: 'achat.arrivee' })), [envoyer])
@@ -292,7 +321,8 @@ export function Coquille() {
       devant.current = etat === 'active'
       if (!devant.current) { rassurer(); return }
       if (enPanne.current) recommencer()
-      else envoyer({ type: 'actif' })
+      // … avec l'apparence du téléphone : il a pu basculer pendant la veille.
+      else envoyer({ type: 'actif', ...(sombreDuTelephone.current === null ? {} : { sombre: sombreDuTelephone.current }) })
     })
     return () => abonnement.remove()
   }, [envoyer, rassurer, recommencer])
@@ -340,6 +370,12 @@ export function Coquille() {
         setPanne(false)
         setCouleurs({ sombre: m.sombre, fond: m.fond, bords: m.bords })
         SplashScreen.hide()
+        // La page a démarré avec l'apparence écrite dans son agent utilisateur,
+        // celle de la création de cette vue. Le téléphone a basculé depuis (la
+        // page s'est rechargée dans la même vue) : on le lui dit.
+        if (sombreDuTelephone.current !== null && sombreDuTelephone.current !== sombreDeLAgent.current) {
+          envoyer({ type: 'apparence', sombre: sombreDuTelephone.current })
+        }
         break
       case 'theme':
         setCouleurs({ sombre: m.sombre, fond: m.fond, bords: m.bords })
@@ -456,7 +492,7 @@ export function Coquille() {
           source={{ uri: adresse }}
           style={[styles.plein, { backgroundColor: fond }]}
           containerStyle={{ backgroundColor: fond }}
-          applicationNameForUserAgent={AGENT}
+          applicationNameForUserAgent={creation.agent}
           onMessage={ecouter}
           // Toutes les adresses passent par `laisserPasser`, mailto: comprise :
           // la liste par défaut les aurait triées avant nous, et moins bien.

@@ -138,7 +138,7 @@ describe.each(['android', 'ios'] as const)('le vrai code des bibliothèques, sur
     const recu = await monter(plateforme)
     expect(plaintes).toEqual([])
     expect(recu.newSource).toMatchObject({ uri: 'https://babynamed.fr/' })
-    expect(recu.applicationNameForUserAgent).toBe(`babyNamedApp/1.0.0 (${plateforme})`)
+    expect(recu.applicationNameForUserAgent).toBe(`babyNamedApp/1.0.0 (${plateforme}) apparence/claire`)
     expect(typeof recu.onMessage).toBe('function')
   })
 

@@ -4,7 +4,7 @@
  *     npm run essais
  */
 import assert from 'node:assert/strict'
-import { FOND_CLAIR, FOND_SOMBRE, lireMessage, nomDeFichier, scriptPour } from '../src/pont'
+import { agentPour, FOND_CLAIR, FOND_SOMBRE, lireMessage, nomDeFichier, scriptPour } from '../src/pont'
 
 const lire = (m: unknown) => lireMessage(JSON.stringify(m))
 
@@ -81,6 +81,18 @@ test('l’achat intégré : un produit, un jeton qui est un UUID, un numéro de 
   assert.equal(lire({ type: 'achat.finir', id: 'q4', transaction: 2000000100000001 }), null)
   assert.equal(lire({ type: 'achat.finir', id: 'q4', transaction: '2000000100000001; tout' }), null)
   assert.equal(lire({ type: 'achat.finir', id: 'q4' }), null)
+})
+
+test('l’agent d’une vue web : la marque de l’app, puis l’apparence du téléphone si on la connaît', () => {
+  const MARQUE = 'babyNamedApp/1.0.0 (android)'
+  assert.equal(agentPour(MARQUE, true), 'babyNamedApp/1.0.0 (android) apparence/sombre')
+  assert.equal(agentPour(MARQUE, false), 'babyNamedApp/1.0.0 (android) apparence/claire')
+  // Inconnue : rien d'affirmé, la page s'en remet à sa vue web.
+  assert.equal(agentPour(MARQUE, null), MARQUE)
+  // Le site reconnaît toujours l'app à sa marque, apparence ou non (app/shared/utils/coquille.ts).
+  const motifDuSite = /\bbabyNamedApp\/(\d+(?:\.\d+){0,3}) \((ios|android)\)(?: apparence\/(sombre|claire)\b)?/
+  assert.deepEqual(motifDuSite.exec(`Mozilla/5.0 Mobile ${agentPour(MARQUE, true)}`)?.slice(1), ['1.0.0', 'android', 'sombre'])
+  assert.deepEqual(motifDuSite.exec(`Mozilla/5.0 Mobile ${agentPour(MARQUE, null)}`)?.slice(1), ['1.0.0', 'android', undefined])
 })
 
 test('ce qu’on ne comprend pas ne fait rien', () => {

@@ -5,7 +5,9 @@ import { Platform } from 'react-native'
 import { EXPO_GO, PROJET_EAS } from './site'
 
 /**
- * Les notifications : « Nouvel accord », « Alice a rejoint votre liste ».
+ * Les notifications : « Nouvel accord », « Alice a rejoint votre liste », et
+ * le reste de ce qui se passe dans une liste quand on n'y est pas (elle est
+ * débloquée, quelqu'un commente, l'autre prend de l'avance).
  *
  * Le natif ne décide de rien. La page demande où en est le téléphone
  * (`push.etat`) ou pose la question du téléphone sur un geste de la personne
@@ -14,8 +16,18 @@ import { EXPO_GO, PROJET_EAS } from './site'
  * envoie par le service d'Expo (app/server/utils/push.ts).
  */
 
-/** Le canal Android. Le même nom que dans app.json et que côté serveur. */
-const CANAL = 'accords'
+/**
+ * Les canaux Android — les mêmes noms que côté serveur (app/server/utils/push.ts) ;
+ * « accords » est aussi le canal par défaut d'app.json.
+ *  - accords : un accord, quelqu'un qui rejoint la liste. Ils sonnent.
+ *  - activite : le reste. Sans bruit — et l'on peut le couper dans les
+ *    réglages du téléphone sans perdre les accords : c'est à cela que servent
+ *    deux canaux plutôt qu'un.
+ */
+const CANAUX = [
+  { id: 'accords', nom: 'Accords et invitations', sonne: true },
+  { id: 'activite', nom: 'Activité de vos listes', sonne: false }
+] as const
 
 /**
  * Le module des notifications, ou rien dans Expo Go. Il ne s'importe pas en
@@ -49,10 +61,11 @@ export async function etatPush(demander: boolean): Promise<EtatPush> {
     if (!Notifications || !Device.isDevice || !PROJET_EAS) return { ok: false }
     // Android 13 et après ne pose sa question que s'il existe un canal.
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync(CANAL, {
-        name: 'Accords et invitations',
-        importance: Notifications.AndroidImportance.HIGH
-      })
+      for (const c of CANAUX) {
+        await Notifications.setNotificationChannelAsync(c.id, c.sonne
+          ? { name: c.nom, importance: Notifications.AndroidImportance.HIGH }
+          : { name: c.nom, importance: Notifications.AndroidImportance.DEFAULT, sound: null })
+      }
     }
     let p = await Notifications.getPermissionsAsync()
     if (demander && !p.granted && p.canAskAgain) {

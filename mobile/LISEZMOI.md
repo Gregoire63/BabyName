@@ -29,9 +29,9 @@ débloquée, où que ce soit, l'est partout. Le détail des règles des stores :
 | Vérifié ici | Comment |
 |---|---|
 | Les types | `npm run typer` |
-| La logique : navigation, pont, liens, notifications, panne, « Retour », page tuée par le téléphone, achat intégré | `npm run essais` (88 essais ; la vue web est une doublure qui exécute pour de bon les scripts qu'on lui injecte, StoreKit une doublure qu'on règle essai par essai) |
+| La logique : navigation, pont, liens, notifications, panne, « Retour », page tuée par le téléphone, achat intégré | `npm run essais` (96 essais ; la vue web est une doublure qui exécute pour de bon les scripts qu'on lui injecte, StoreKit une doublure qu'on règle essai par essai) |
 | L'app démarre avec le VRAI code de ses bibliothèques, sur Android puis sur iOS, et ce qui arrive au code natif de la vue web a la forme qu'il attend | `tests/vrai-code.test.tsx` : la vue web et les modules d'Expo dans leur version installée, seul le natif doublé. Né du 07/10/2026 : l'app Android s'arrêtait à l'ouverture (un réglage d'iOS, d'un mot, là où le code natif d'Android attend une liste), et les doublures n'en disaient rien |
-| Que ces essais voient quelque chose | chaque garde sabotée tour à tour : 28 dans `Coquille.tsx`, 38 dans l'achat intégré (`achats.ts`, ses verbes dans `Coquille.tsx` et `pont.ts`), 9 pour le vrai code — toutes repérées |
+| Que ces essais voient quelque chose | chaque garde sabotée tour à tour : 28 dans `Coquille.tsx`, 38 dans l'achat intégré (`achats.ts`, ses verbes dans `Coquille.tsx` et `pont.ts`), 9 pour le vrai code, 13 pour l'apparence du téléphone et les canaux de notification — toutes repérées |
 | La configuration : `app.json`, les greffons, les deux projets natifs fabriqués | `npx expo prebuild --no-install` |
 | Le JavaScript s'empaquette pour les deux plateformes | `npx expo export` |
 | L'app Android n'embarque rien de l'achat | `npx expo-modules-autolinking resolve --platform android` ne liste pas `expo-iap` ; aucun de ses fichiers dans le bundle Android (lu dans sa carte des sources) |
@@ -251,9 +251,20 @@ Ce que les essais d'ici ne peuvent pas dire. Sur iPhone ET sur Android :
   invitation dans Notes, appui long — « Ouvrir dans babyNamed » doit être
   proposé. Sur Android : `adb shell pm get-app-links fr.babynamed.app` doit
   dire `verified` pour babynamed.fr.
-- **Notifications** : « Me prévenir d'un nouvel accord » pose la question du
-  téléphone ; un accord fait depuis un autre compte arrive, app ouverte et app
-  fermée ; la toucher mène aux accords.
+- **Notifications** : « Me prévenir » (accueil → « Mon compte ») pose la
+  question du téléphone ; un accord fait depuis un autre compte arrive, app
+  ouverte et app fermée, et sonne ; la toucher mène aux accords. Sur Android,
+  les réglages du téléphone montrent **deux canaux** : « Accords et
+  invitations », et « Activité de vos listes » (la liste débloquée par
+  l'autre, un commentaire, l'autre qui prend de l'avance — sans bruit), qui
+  se coupe à part.
+- **Apparence** : téléphone en sombre, « Système » dans l'app → l'app est
+  sombre dès l'écran de démarrage (sur Android aussi, où la vue web dit
+  « clair ») ; basculer le téléphone app ouverte : l'app suit.
+- **Accueil → liste** : un glissé vers la gauche, parti du milieu de l'écran,
+  ouvre la liste en cours. Sur Android, parti du bord, c'est le « retour » du
+  système : rien à y faire depuis une page (voir `app/LISEZMOI.md`, « Ce
+  qu'un bord d'écran change »).
 - **Android, « Retour »** : ferme la feuille ouverte, puis revient à l'accueil,
   puis sort de l'app.
 - **Partage** : « Partager le lien » ouvre la feuille du téléphone ;
@@ -316,7 +327,8 @@ Sur Android et dans Expo Go, les quatre verbes d'achat répondent `{ ok: false }
 | Le natif dit | Quand |
 |---|---|
 | `lien` `{ url }` | un lien a ouvert l'app, une notification a été touchée |
-| `actif` | l'app revient au premier plan |
+| `actif` `{ sombre? }` | l'app revient au premier plan (et l'apparence du téléphone, qui a pu basculer pendant la veille) |
+| `apparence` `{ sombre }` | le téléphone vient de passer en sombre ou en clair, app ouverte. À l'ouverture, elle est dans l'agent utilisateur : `babyNamedApp/1.0.0 (android) apparence/sombre` — la page la lit avant son premier affichage |
 | `retour` | le bouton « Retour » d'Android |
 | `achat.arrivee` | iPhone : une transaction vient d'arriver d'elle-même (un achat validé plus tard par un tiers) |
 

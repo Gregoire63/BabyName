@@ -14,7 +14,7 @@ import * as Linking from 'expo-linking'
 import * as Notifications from 'expo-notifications'
 import * as Sharing from 'expo-sharing'
 import * as SplashScreen from 'expo-splash-screen'
-import { AppState, BackHandler, Platform, Share } from 'react-native'
+import { AppState, BackHandler, Platform, Share, useColorScheme } from 'react-native'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 
 import { Coquille } from '../src/Coquille'
@@ -127,7 +127,7 @@ jest.mock('expo-iap', () => {
   }
 })
 jest.mock('expo-notifications', () => ({
-  AndroidImportance: { HIGH: 4 },
+  AndroidImportance: { HIGH: 4, DEFAULT: 3 },
   setNotificationHandler: jest.fn(),
   setNotificationChannelAsync: jest.fn(async () => null),
   getPermissionsAsync: jest.fn(async () => ({ granted: false, canAskAgain: true })),
@@ -142,8 +142,10 @@ jest.mock('expo-notifications', () => ({
 const SITE = 'https://babynamed.fr'
 let rendu: ReactTestRenderer
 
+let monte = false
 async function monter() {
   await act(async () => { rendu = create(<Coquille />) })
+  monte = true
 }
 /**
  * La page remet au natif ce qu'elle a posté : les accusés de réception. Dans
@@ -184,6 +186,18 @@ async function attendre(ms: number) {
   await laPageRepond()
 }
 
+/**
+ * Le téléphone passe en sombre, en clair, ou ne dit plus rien de son
+ * apparence — comme il le fait le soir, ou quand on change son réglage.
+ */
+async function telephone(apparence: 'dark' | 'light' | null) {
+  doublure(useColorScheme).mockReturnValue(apparence as any)
+  // La doublure que React Native donne de ce crochet ne prévient personne :
+  // on redessine, comme le vrai le ferait faire.
+  if (monte) await act(async () => { rendu.update(<Coquille />) })
+  await laPageRepond()
+}
+
 /** Les abonnements du téléphone : ce que la coquille y a branché. */
 let etatApp: jest.SpyInstance
 let retour: jest.SpyInstance
@@ -201,6 +215,7 @@ beforeEach(() => {
   Object.assign(mockVueWeb, { props: null, scripts: [], reculs: 0, arrets: 0, montages: 0,
     page: 'vide', envois: [], entendus: [], courrier: [], assignations: [] })
   mockFichiers.length = 0
+  doublure(useColorScheme).mockReturnValue('light')
   doublure(Linking.getLinkingURL).mockReturnValue(null)
   doublure(Notifications.getLastNotificationResponse).mockReturnValue(null)
   doublure(Notifications.getPermissionsAsync).mockResolvedValue({ granted: false, canAskAgain: true } as any)
@@ -208,6 +223,7 @@ beforeEach(() => {
 })
 afterEach(async () => {
   await act(async () => { rendu?.unmount() })
+  monte = false
   jest.useRealTimers()
 })
 
@@ -215,8 +231,77 @@ afterEach(async () => {
 test('à l’ouverture : l’accueil du site, et l’agent utilisateur auquel il reconnaît l’app', async () => {
   await monter()
   expect(mockVueWeb.props.source).toEqual({ uri: `${SITE}/` })
-  expect(mockVueWeb.props.applicationNameForUserAgent).toBe('babyNamedApp/1.2.3 (ios)')
+  expect(mockVueWeb.props.applicationNameForUserAgent).toBe('babyNamedApp/1.2.3 (ios) apparence/claire')
   expect(SplashScreen.hide).not.toHaveBeenCalled()
+})
+
+// ================================================== l'apparence du téléphone
+// La page ne sait pas toujours si le téléphone est en sombre (la vue web
+// d'Android répond « clair » à tort) : c'est le natif qui le lui dit.
+test('un téléphone en sombre : l’agent de la vue web le dit, pour que la page le sache avant son premier affichage', async () => {
+  await telephone('dark')
+  await monter()
+  expect(mockVueWeb.props.applicationNameForUserAgent).toBe('babyNamedApp/1.2.3 (ios) apparence/sombre')
+  // … et la page qui démarre n'a rien à apprendre de plus.
+  await laPageDemarre()
+  expect(remis().filter(m => m.type === 'apparence')).toEqual([])
+})
+
+test('le téléphone bascule pendant que l’app est ouverte : la page l’apprend, et la vue web n’est pas touchée', async () => {
+  await monter()
+  await laPageDemarre()
+  const agent = mockVueWeb.props.applicationNameForUserAgent
+  await telephone('dark')
+  expect(dernierRemis()).toEqual({ type: 'apparence', sombre: true })
+  await telephone('light')
+  expect(dernierRemis()).toEqual({ type: 'apparence', sombre: false })
+  // Dit une fois par bascule, pas à chaque rendu.
+  await laPageDit({ type: 'theme', sombre: false, fond: '#fbfaf9' })
+  expect(remis().filter(m => m.type === 'apparence')).toHaveLength(2)
+  // Changer l'agent d'une vue web en plein chargement la ferait recharger (Android).
+  expect(mockVueWeb.props.applicationNameForUserAgent).toBe(agent)
+  expect(mockVueWeb.montages).toBe(1)
+})
+
+test('la page se recharge dans la même vue après une bascule : son agent date, on lui redit l’apparence', async () => {
+  await monter()
+  await laPageDemarre()
+  await telephone('dark')
+  const avant = remis().length
+  // (Android recharge la page après la connexion : elle relit le vieil agent.)
+  await laPageDemarre()
+  expect(remis().slice(avant)).toEqual([{ type: 'apparence', sombre: true }])
+})
+
+test('une vue web neuve naît avec l’apparence du moment', async () => {
+  await monter()
+  await laPageDemarre()
+  await telephone('dark')
+  await act(async () => { mockVueWeb.props.onRenderProcessGone() })
+  expect(mockVueWeb.montages).toBe(2)
+  expect(mockVueWeb.props.applicationNameForUserAgent).toBe('babyNamedApp/1.2.3 (ios) apparence/sombre')
+})
+
+test('au retour au premier plan, « actif » porte l’apparence : elle a pu basculer pendant la veille', async () => {
+  await monter()
+  await laPageDemarre()
+  const changer = etatApp.mock.calls[0]![1] as (etat: string) => void
+  await agir(() => changer('background'))
+  await telephone('dark')
+  await agir(() => changer('active'))
+  expect(dernierRemis()).toEqual({ type: 'actif', sombre: true })
+})
+
+test('un téléphone qui ne dit pas son apparence : la marque seule, et rien n’est affirmé à la page', async () => {
+  await telephone(null)
+  await monter()
+  expect(mockVueWeb.props.applicationNameForUserAgent).toBe('babyNamedApp/1.2.3 (ios)')
+  await laPageDemarre()
+  const changer = etatApp.mock.calls[0]![1] as (etat: string) => void
+  await agir(() => changer('background'))
+  await agir(() => changer('active'))
+  expect(dernierRemis()).toEqual({ type: 'actif' })
+  expect(remis().filter(m => m.type === 'apparence')).toEqual([])
 })
 
 test('ouverte par un lien d’invitation : on y va directement', async () => {
@@ -295,6 +380,8 @@ test('les notifications : l’état se lit sans rien demander ; la question ne s
   expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledWith({ projectId: 'projet-d-essai' })
   expect(dernierRemis()).toEqual(
     { type: 'push.demander', id: 'q2', ok: true, permission: 'accordee', jeton: 'ExponentPushToken[essai]' })
+  // Les canaux sont une affaire d'Android.
+  expect(Notifications.setNotificationChannelAsync).not.toHaveBeenCalled()
 })
 
 test('les notifications refusées pour de bon : on le dit, sans reposer la question', async () => {
@@ -552,13 +639,13 @@ test('le retour au premier plan est toujours dit à la page ; son accusé remet 
   const changer = changerDEtat()
   // Elle charge encore : on le lui dit quand même, elle répond « personne n'écoute ».
   await agir(() => changer('active'))
-  expect(remis()).toEqual([{ type: 'actif' }])
+  expect(remis()).toEqual([{ type: 'actif', sombre: false }])
   expect(mockVueWeb.entendus).toEqual([])
 
   await laPageDemarre()
   await agir(() => changer('background'))
   await agir(() => changer('active'))
-  expect(mockVueWeb.entendus).toEqual([{ type: 'actif' }])
+  expect(mockVueWeb.entendus).toEqual([{ type: 'actif', sombre: false }])
 })
 
 test('au retour d’une longue veille, la page n’est plus là et personne ne l’a dit : on repart, où l’on était', async () => {
@@ -775,6 +862,26 @@ test('l’erreur d’une page du dehors n’est pas notre panne', async () => {
   await act(async () => { mockVueWeb.props.onError(erreur) })
   expect(texteAffiche()).not.toContain('Pas de connexion')
   expect(erreur.preventDefault).toHaveBeenCalled()
+})
+
+// ====================================================== Android : les canaux
+describe('les notifications d’Android', () => {
+  let android: { restore: () => void }
+  beforeEach(async () => {
+    android = jest.replaceProperty(Platform, 'OS', 'android')
+    await monter()
+  })
+  afterEach(() => { android.restore() })
+
+  test('deux canaux — les accords sonnent, l’activité se coupe à part, sans bruit', async () => {
+    await laPageDemarre()
+    await laPageDit({ type: 'push.etat', id: 'q1' })
+    const canaux = doublure(Notifications.setNotificationChannelAsync).mock.calls
+    // Les noms que le serveur écrit dans ses messages (app/server/utils/push.ts).
+    expect(canaux.map(c => c[0])).toEqual(['accords', 'activite'])
+    expect(canaux[0]![1]).toEqual({ name: 'Accords et invitations', importance: 4 })
+    expect(canaux[1]![1]).toEqual({ name: 'Activité de vos listes', importance: 3, sound: null })
+  })
 })
 
 // ============================================================ Android : « Retour »

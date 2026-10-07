@@ -56,8 +56,13 @@ export type MessagePage =
 export type MessageNatif =
   /** Un lien a ouvert l'app, ou une notification a été touchée. */
   | { type: 'lien'; url: string }
-  /** L'app revient au premier plan. */
-  | { type: 'actif' }
+  /** L'app revient au premier plan. `sombre` : l'apparence du téléphone à ce
+   *  moment-là — elle a pu basculer pendant que l'app dormait. */
+  | { type: 'actif'; sombre?: boolean }
+  /** Le téléphone est en sombre, ou en clair : la page ne le sait pas
+   *  toujours d'elle-même (`agentPour`). Dit quand elle se dit prête, et
+   *  chaque fois que le téléphone bascule. */
+  | { type: 'apparence'; sombre: boolean }
   /** Le bouton « Retour » d'Android : à la page de dire ce qu'il ferme. */
   | { type: 'retour' }
   | { type: 'push.etat' | 'push.demander'; id: string; ok: boolean;
@@ -84,6 +89,26 @@ export type Accuse = { type: 'accuse'; de: string; ecoute: boolean }
 /** Les couleurs de l'app avant que la page ait rien dit (celles du site). */
 export const FOND_CLAIR = '#fbfaf9'
 export const FOND_SOMBRE = '#101321'
+
+/**
+ * L'agent utilisateur d'une vue web : la marque de l'app (`AGENT`, site.ts),
+ * suivie de l'apparence du téléphone au moment où la vue est créée.
+ *
+ *     babyNamedApp/1.0.0 (android) apparence/sombre
+ *
+ * POURQUOI ICI. Le site suit le téléphone tant qu'on n'y a pas choisi « Clair »
+ * ou « Sombre » — mais dans une vue web il ne peut pas le lui demander : celle
+ * d'Android répond d'après le thème de l'app qui l'héberge, et disait « clair »
+ * sur un téléphone en sombre (premier essai sur un vrai téléphone, 07/10/2026).
+ * L'agent utilisateur est le seul endroit que la page lit AVANT son premier
+ * affichage, sur les deux systèmes : pas d'éclair clair à l'ouverture d'un
+ * téléphone en sombre. La suite passe par le pont (`apparence`, `actif`).
+ * `sombre` inconnu (le téléphone ne dit rien) : la marque seule, et la page
+ * s'en remet à sa vue web, comme avant.
+ */
+export function agentPour(marque: string, sombre: boolean | null): string {
+  return sombre === null ? marque : `${marque} apparence/${sombre ? 'sombre' : 'claire'}`
+}
 
 const texte = (x: unknown, max: number): string => typeof x === 'string' ? x.slice(0, max) : ''
 const identifiant = (x: unknown): string | null =>
