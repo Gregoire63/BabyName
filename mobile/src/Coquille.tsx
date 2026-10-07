@@ -11,7 +11,7 @@ import {
   AppState, BackHandler, KeyboardAvoidingView, Platform, Share, StyleSheet, useColorScheme, View
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview'
+import { WebView, type WebViewMessageEvent, type WebViewNavigation, type WebViewProps } from 'react-native-webview'
 
 import { acheter, enSuspens, finir, prixDuProduit, surArrivee } from './achats'
 import { adresseDuChemin, adresseDuLien, destination } from './navigation'
@@ -63,6 +63,44 @@ const SILENCE_MAX = 4000
 const LIEN_FRAIS = 60_000
 
 type Couleurs = { sombre: boolean; fond: string; bords: 'natif' | 'page' }
+
+/**
+ * Comme une app, pas comme une page. Ces réglages de la vue web n'existent
+ * que sur un des deux systèmes, et CHACUN NE REÇOIT QUE LES SIENS.
+ *
+ * Ce n'est pas du rangement. Sur Android, la vue web transmet à son code
+ * natif tout ce qu'on lui passe, réglages d'iOS compris, sans y toucher — et
+ * ce code les lit sous la forme que SON iOS attend. `dataDetectorTypes` s'écrit
+ * d'un mot (« none »), sa documentation le dit ; le code natif, lui, attend
+ * une liste. Sur iOS la vue web fait la conversion ; sur Android non, et le
+ * mot arrêtait l'app à l'ouverture, avant son premier écran (« String cannot
+ * be cast to ReadableArray »). Trouvé le 07/10/2026 au premier lancement sur
+ * un vrai téléphone ; les essais, où la vue web était une doublure, n'en
+ * disaient rien. tests/vrai-code.test.tsx le garde, avec le vrai code de la
+ * vue web : ce qui arrive à son code natif a la forme qu'il attend.
+ */
+const REGLAGES_IOS = {
+  // Pas d'élastique, pas de retour par glissement (le site a ses propres
+  // gestes de bord), pas d'aperçu de lien, pas de numéros changés en liens.
+  bounces: false,
+  allowsBackForwardNavigationGestures: false,
+  allowsLinkPreview: false,
+  dataDetectorTypes: ['none'],
+  // Un champ que la page met en avant ouvre le clavier, comme sur Android.
+  keyboardDisplayRequiresUserAction: false,
+  // La page gère elle-même ses marges : pas de retrait ajouté par iOS.
+  contentInsetAdjustmentBehavior: 'never',
+  automaticallyAdjustContentInsets: false
+} satisfies Partial<WebViewProps>
+const REGLAGES_ANDROID = {
+  // Pas d'élastique.
+  overScrollMode: 'never',
+  // Un lien fait pour un nouvel onglet se charge ici : il n'y a pas d'onglet.
+  setSupportMultipleWindows: false,
+  // La taille du texte est celle du site, essayée telle quelle, et non
+  // multipliée par le réglage du téléphone (la mise en page casserait).
+  textZoom: 100
+} satisfies Partial<WebViewProps>
 
 /**
  * La première page. L'app a pu être ouverte par une notification touchée ou
@@ -432,7 +470,6 @@ export function Coquille() {
             if (ou === 'dehors') ouvrirDehors(cible)
             else if (ou === 'app') vue.current?.injectJavaScript(`location.assign(${JSON.stringify(cible)});true;`)
           }}
-          setSupportMultipleWindows={false}
           onError={(e) => {
             // On garde la main : sans cela la vue web affiche son propre écran
             // d'erreur, et le garde.
@@ -454,22 +491,9 @@ export function Coquille() {
           // peut plus rien afficher.
           onContentProcessDidTerminate={() => recommencer()}
           onRenderProcessGone={() => recommencer()}
-          // Comme une app, pas comme une page : pas d'élastique, pas de
-          // retour par glissement (le site a ses propres gestes de bord), pas
-          // d'aperçu de lien, pas de numéros changés en liens.
-          bounces={false}
-          overScrollMode="never"
-          allowsBackForwardNavigationGestures={false}
-          allowsLinkPreview={false}
-          dataDetectorTypes="none"
-          // Un champ que la page met en avant ouvre le clavier, comme sur Android.
-          keyboardDisplayRequiresUserAction={false}
-          // La page gère elle-même ses marges : pas de retrait ajouté par iOS.
-          contentInsetAdjustmentBehavior="never"
-          automaticallyAdjustContentInsets={false}
-          // La taille du texte est celle du site, essayée telle quelle, et non
-          // multipliée par le réglage du téléphone (la mise en page casserait).
-          textZoom={100}
+          // Comme une app, pas comme une page — chaque système ses réglages,
+          // et seulement les siens (voir REGLAGES_IOS).
+          {...(Platform.OS === 'ios' ? REGLAGES_IOS : REGLAGES_ANDROID)}
           webviewDebuggingEnabled={INSPECTABLE}
         />
       </KeyboardAvoidingView>

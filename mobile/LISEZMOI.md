@@ -29,18 +29,22 @@ débloquée, où que ce soit, l'est partout. Le détail des règles des stores :
 | Vérifié ici | Comment |
 |---|---|
 | Les types | `npm run typer` |
-| La logique : navigation, pont, liens, notifications, panne, « Retour », page tuée par le téléphone, achat intégré | `npm run essais` (83 essais ; la vue web est une doublure qui exécute pour de bon les scripts qu'on lui injecte, StoreKit une doublure qu'on règle essai par essai) |
-| Que ces essais voient quelque chose | chaque garde sabotée tour à tour : 28 dans `Coquille.tsx`, 38 dans l'achat intégré (`achats.ts`, ses verbes dans `Coquille.tsx` et `pont.ts`) — toutes repérées |
+| La logique : navigation, pont, liens, notifications, panne, « Retour », page tuée par le téléphone, achat intégré | `npm run essais` (88 essais ; la vue web est une doublure qui exécute pour de bon les scripts qu'on lui injecte, StoreKit une doublure qu'on règle essai par essai) |
+| L'app démarre avec le VRAI code de ses bibliothèques, sur Android puis sur iOS, et ce qui arrive au code natif de la vue web a la forme qu'il attend | `tests/vrai-code.test.tsx` : la vue web et les modules d'Expo dans leur version installée, seul le natif doublé. Né du 07/10/2026 : l'app Android s'arrêtait à l'ouverture (un réglage d'iOS, d'un mot, là où le code natif d'Android attend une liste), et les doublures n'en disaient rien |
+| Que ces essais voient quelque chose | chaque garde sabotée tour à tour : 28 dans `Coquille.tsx`, 38 dans l'achat intégré (`achats.ts`, ses verbes dans `Coquille.tsx` et `pont.ts`), 9 pour le vrai code — toutes repérées |
 | La configuration : `app.json`, les greffons, les deux projets natifs fabriqués | `npx expo prebuild --no-install` |
 | Le JavaScript s'empaquette pour les deux plateformes | `npx expo export` |
 | L'app Android n'embarque rien de l'achat | `npx expo-modules-autolinking resolve --platform android` ne liste pas `expo-iap` ; aucun de ses fichiers dans le bundle Android (lu dans sa carte des sources) |
 | `eas.json` | lu par l'analyseur d'EAS |
 
-**Jamais compilé, jamais lancé sur un téléphone.** La machine qui a écrit ce
-dossier n'a ni Xcode, ni le SDK Android. La première construction (EAS) et le
-premier essai sur appareil sont à faire — la liste de ce qu'il faut regarder
-est plus bas, et c'est là que se verront les vrais défauts. **L'achat intégré
-surtout** : la feuille d'Apple, StoreKit et le bac à sable n'existent que sur
+**Jamais compilé, et lancé une seule fois sur un vrai téléphone.** La machine
+qui a écrit ce dossier n'a ni Xcode, ni le SDK Android. Le 07/10/2026, le
+premier lancement (Expo Go, Android) a montré que l'app s'arrêtait à
+l'ouverture : un défaut que les doublures cachaient, corrigé depuis et gardé
+par `tests/vrai-code.test.tsx`. Il y en a sans doute d'autres. La première
+construction (EAS) et l'essai sur appareil sont à faire — la liste de ce
+qu'il faut regarder est plus bas, et c'est là que se verront les vrais
+défauts. **L'achat intégré surtout** : la feuille d'Apple, StoreKit et le bac à sable n'existent que sur
 un iPhone. Ici, seul le chemin autour d'eux est éprouvé — ce que le natif
 demande à StoreKit et ce qu'il fait de ses réponses, la page, le serveur
 contre un faux Apple (`essai-apple`).
@@ -165,8 +169,13 @@ Dans l'ordre. Les comptes développeur Apple et Google existent déjà.
    - **La clé du serveur.** App Store Connect → Utilisateurs et accès →
      Intégrations → Achats intégrés → générer une clé. Le fichier `.p8` ne se
      télécharge qu'une fois ; ne pas le committer (`.gitignore` le refuse).
-     `npx wrangler secret put NUXT_APPLE_IAP_CLE` (y coller le contenu du
-     fichier), puis dans `app/wrangler.jsonc` : `NUXT_APPLE_IAP_CLE_ID`
+     Le donner au Worker **par un tube, sans le coller** — la question de
+     `wrangler` ne garde que la première ligne de ce qu'on y colle, et les
+     lignes suivantes de la clé partiraient dans le terminal et son
+     historique. Dans `app/`, sous PowerShell :
+     `Get-Content "$HOME\Downloads\AuthKey_XXXXXXXXXX.p8" -Raw | npx wrangler secret put NUXT_APPLE_IAP_CLE`
+     (sous `cmd` : `type … | npx wrangler secret put NUXT_APPLE_IAP_CLE`).
+     Puis dans `app/wrangler.jsonc` : `NUXT_APPLE_IAP_CLE_ID`
      (l'identifiant de la clé) et `NUXT_APPLE_IAP_EMETTEUR` (« Issuer ID »,
      affiché avec les clés — sur l'onglet « App Store Connect API » s'il
      manque sur celui des achats intégrés). Vérifier :
@@ -174,20 +183,44 @@ Dans l'ordre. Les comptes développeur Apple et Google existent déjà.
      serveur vient alors de présenter la clé à Apple, qui l'a acceptée. S'il
      répond `false` : `npx wrangler tail` (dans `app/`), recharger l'adresse,
      et lire la ligne « [apple] » — une clé mal collée, un identifiant faux,
-     un 401 d'Apple.
+     une app qui n'existe pas encore sous cet identifiant dans App Store
+     Connect.
+   - **Avant la sortie, la production d'Apple refuse tout.** Tant que l'app
+     n'a jamais été publiée sur l'App Store, l'API de production d'Apple
+     répond 401 à toute demande, même avec la bonne clé ; seul son bac à sable
+     répond (ce n'est pas dans sa documentation : ses ingénieurs le disent sur
+     son forum, fils 751045 et 806452). Le serveur le sait : il ouvre la vente
+     sur la foi du bac à sable, et y lit les achats de TestFlight et de la
+     validation. `"ouvert": true` s'obtient donc AVANT la sortie, et le
+     journal dit alors « la production refuse la clé, le bac à sable
+     l'accepte : normal tant que l'app n'est jamais sortie ».
+   - **Le jour de la sortie.** Choisir la publication manuelle de la version
+     (et non automatique après validation), pour être là. Puis, avant
+     d'annoncer l'app : `/api/sante`, avec le secret d'administration
+     (`app/LISEZMOI.md`), doit dire `"achat_apple_production": true` — la
+     production d'Apple accepte enfin la clé. Tant qu'il dit `false`, un vrai
+     achat est payé mais ne peut pas être vérifié : il attend, et se débloque
+     de lui-même quand Apple ouvre. Faire soi-même le premier vrai achat.
    - **Le courrier d'Apple.** App Store Connect → l'app → Informations sur
      l'app → Notifications du serveur App Store : la même adresse pour la
      production et pour le bac à sable,
      `https://babynamed.fr/api/apple/notifications`, version 2. C'est par là
-     qu'un remboursement accordé par Apple re-verrouille la liste.
+     qu'un remboursement accordé par Apple re-verrouille la liste, et qu'un
+     achat se débloque même si l'app a été fermée avant de l'avoir dit au
+     serveur (Apple l'annonce de son côté).
    - **Essayer** : TestFlight (les achats y sont gratuits, et vont au bac à
      sable), ou un testeur « Sandbox » (Utilisateurs et accès → Sandbox). Une
-     liste débloquée ainsi est notée « offerte », pas vendue.
+     liste débloquée ainsi est notée « offerte », pas vendue. Conséquence :
+     quiconque installe l'app par TestFlight débloque gratuitement, pour de
+     bon — des testeurs invités, pas de lien TestFlight public.
    - **Pour la validation**, dans les notes à l'équipe d'Apple : où est
-     l'achat (une liste → Réglages → « Débloquer cette liste »), et pourquoi
-     il n'y a pas de bouton « Restaurer les achats » — l'achat est consommable,
-     et ce qu'il débloque est rattaché au compte babyNamed : il se retrouve en
-     se connectant, sur n'importe quel appareil.
+     l'achat (une liste → Réglages → « Débloquer cette liste » ; si la liste
+     du compte de démonstration est déjà débloquée — elle le reste après le
+     premier achat d'essai —, en créer une autre depuis l'accueil), et
+     pourquoi il n'y a pas de bouton « Restaurer les achats » — l'achat est
+     consommable, et ce qu'il débloque est rattaché au compte babyNamed (une
+     liste se partage entre deux comptes) : il se retrouve en se connectant,
+     sur n'importe quel appareil.
 
 ## À regarder sur un vrai téléphone
 
@@ -236,8 +269,8 @@ Ce que les essais d'ici ne peuvent pas dire. Sur iPhone ET sur Android :
   - refermer la feuille d'Apple : rien, le bouton est de nouveau là ;
   - **le cas qui compte** : payer, et passer en mode avion AVANT « C'est
     débloqué » (ou tuer l'app). L'écran dit que la confirmation tarde.
-    Remettre le réseau, rouvrir l'app : la liste se débloque seule, et Apple ne
-    redemande rien ;
+    Remettre le réseau : la liste se débloque seule — dans la minute si l'app
+    est restée ouverte, sinon en la rouvrant — et Apple ne redemande rien ;
   - une seconde liste se rachète (c'est un consommable) ;
   - pour aller plus loin, un achat qui n'aboutit pas du premier coup :
     App Store Connect → Sandbox → le testeur → « Interrompre les achats ».
@@ -249,6 +282,11 @@ Ce que les essais d'ici ne peuvent pas dire. Sur iPhone ET sur Android :
   Le remboursement ne s'essaie pas simplement sur un téléphone : il est
   éprouvé contre un faux Apple (`essai-apple`), et se lira au premier vrai
   dans le journal du Worker (`[apple] achat remboursé`).
+  « Un achat précédent attend encore sa confirmation », qui ne part pas : le
+  téléphone garde une transaction payée que le serveur n'arrive pas à lire
+  chez Apple. `npx wrangler tail` dit pourquoi (ligne « [apple] ») ; sur un
+  téléphone d'essai, changer de compte « Sandbox » (Réglages → App Store) vide
+  cette file.
 - **Dehors** : un lien des mentions légales vers un autre site s'ouvre dans le
   navigateur, pas dans l'app.
 
