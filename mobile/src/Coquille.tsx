@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview'
 
+import { acheter, enSuspens, finir, prixDuProduit, surArrivee } from './achats'
 import { adresseDuChemin, adresseDuLien, destination } from './navigation'
 import { auToucher, etatPush, ouverture } from './notifications'
 import { Panne } from './Panne'
@@ -25,7 +26,7 @@ import { AGENT, EXPO_GO, INSPECTABLE, ORIGINE } from './site'
  * Ce composant ne connaît AUCUN écran du produit. Il tient quatre choses :
  *  - ce qui s'affiche ici et ce qui part dans le navigateur (navigation.ts) ;
  *  - les verbes du pont (pont.ts) : notifications, partage, fichier, vibreur,
- *    réglages, bouton « Retour » ;
+ *    réglages, bouton « Retour », et sur iPhone l'achat intégré (achats.ts) ;
  *  - les liens qui ouvrent l'app : une invitation, un lien de connexion, une
  *    notification touchée ;
  *  - ce qu'aucune page ne peut faire pour elle-même : l'écran de démarrage,
@@ -239,6 +240,10 @@ export function Coquille() {
     return () => { liens.remove(); arreter() }
   }, [aller])
 
+  // Une transaction arrivée d'elle-même (un achat validé plus tard par un
+  // tiers) : la page ne le sait pas, on le lui dit ; elle viendra la chercher.
+  useEffect(() => surArrivee(() => envoyer({ type: 'achat.arrivee' })), [envoyer])
+
   // Le retour au premier plan : la page relit ce qui a pu changer ailleurs
   // (une liste débloquée sur le site, la permission des notifications). On le
   // lui dit toujours, pari ou non : son accusé de réception remet le pari
@@ -321,6 +326,32 @@ export function Coquille() {
         break
       case 'quitter':
         if (Platform.OS === 'android') BackHandler.exitApp()
+        break
+      // L'achat intégré. Le natif ne décide de rien : il prête la feuille
+      // d'achat d'Apple, et rend ce qu'elle a dit (achats.ts).
+      case 'achat.produit': {
+        const prix = await prixDuProduit(m.produit)
+        envoyer(prix ? { type: 'achat.produit', id: m.id, ok: true, prix } : { type: 'achat.produit', id: m.id, ok: false })
+        break
+      }
+      case 'achat.acheter': {
+        // La feuille d'Apple peut rester ouverte des minutes : la réponse part
+        // quand elle se referme, quelle que soit la page qui écoute alors. Si
+        // ce n'est plus la même, la transaction reste en suspens — rien n'est
+        // perdu, la page d'après viendra la chercher.
+        const issue = await acheter(m.produit, m.jeton)
+        envoyer(issue ? { type: 'achat.acheter', id: m.id, ok: true, ...issue } : { type: 'achat.acheter', id: m.id, ok: false })
+        break
+      }
+      case 'achat.attente': {
+        const transactions = await enSuspens()
+        envoyer(transactions
+          ? { type: 'achat.attente', id: m.id, ok: true, transactions }
+          : { type: 'achat.attente', id: m.id, ok: false })
+        break
+      }
+      case 'achat.finir':
+        envoyer({ type: 'achat.finir', id: m.id, ok: await finir(m.transaction) })
         break
     }
   }, [charger, envoyer, rassurer, reculerSeul])

@@ -19,6 +19,10 @@ jest.mock('expo-notifications', () => {
   throw new Error('expo-notifications: Android Push notifications (remote notifications) functionality '
     + 'provided by expo-notifications was removed from Expo Go with the release of SDK 53.')
 })
+// L'achat intégré n'existe pas davantage dans Expo Go : le charger casserait de même.
+jest.mock('expo-iap', () => {
+  throw new Error('Cannot find native module \'ExpoIap\'')
+})
 
 const mockVueWeb = { props: null as any, envois: [] as any[] }
 jest.mock('react-native-webview', () => {
@@ -62,7 +66,7 @@ const laPageDit = (message: object) => act(async () => {
 })
 afterEach(async () => { await act(async () => { rendu?.unmount() }) })
 
-test('Expo Go : la coquille démarre, affiche le site, et dit à la page qu’ici on ne prévient pas', async () => {
+test('Expo Go : la coquille démarre, affiche le site, et dit à la page qu’ici on ne prévient pas et qu’on ne vend pas', async () => {
   await act(async () => { rendu = create(<Coquille />) })
   expect(mockVueWeb.props.source).toEqual({ uri: `${SITE}/` })
   // L'écran de démarrage d'Expo Go ne se règle pas : on ne le lui demande pas.
@@ -78,5 +82,18 @@ test('Expo Go : la coquille démarre, affiche le site, et dit à la page qu’ic
   expect(mockVueWeb.envois).toEqual([
     { type: 'push.etat', id: 'q1', ok: false },
     { type: 'push.demander', id: 'q2', ok: false }
+  ])
+
+  // Et l'achat intégré : « pas ici » à tout, la page ne proposera rien.
+  mockVueWeb.envois.length = 0
+  await laPageDit({ type: 'achat.produit', id: 'q3', produit: 'fr.babynamed.app.deblocage' })
+  await laPageDit({ type: 'achat.acheter', id: 'q4', produit: 'fr.babynamed.app.deblocage', jeton: '6f7da3b0-1c2d-4e5f-8a9b-0c1d2e3f4a5b' })
+  await laPageDit({ type: 'achat.attente', id: 'q5' })
+  await laPageDit({ type: 'achat.finir', id: 'q6', transaction: '2000000100000001' })
+  expect(mockVueWeb.envois).toEqual([
+    { type: 'achat.produit', id: 'q3', ok: false },
+    { type: 'achat.acheter', id: 'q4', ok: false },
+    { type: 'achat.attente', id: 'q5', ok: false },
+    { type: 'achat.finir', id: 'q6', ok: false }
   ])
 })

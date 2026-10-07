@@ -9,6 +9,7 @@
  *
  *     npm run essais
  */
+import * as Boutique from 'expo-iap'
 import * as Linking from 'expo-linking'
 import * as Notifications from 'expo-notifications'
 import * as Sharing from 'expo-sharing'
@@ -108,6 +109,23 @@ jest.mock('expo-linking', () => ({
   openURL: jest.fn(async () => true),
   openSettings: jest.fn(async () => {})
 }))
+/**
+ * StoreKit (iPhone). `arrivee` : ce que le natif a branché sur « une
+ * transaction arrive » — il le fait en se chargeant, une fois, d'où une
+ * variable tenue par la doublure elle-même.
+ */
+jest.mock('expo-iap', () => {
+  const branche: { arrivee: any } = { arrivee: null }
+  return {
+    branche,
+    initConnection: jest.fn(async () => true),
+    fetchProducts: jest.fn(async () => [{ id: 'fr.babynamed.app.deblocage', displayPrice: '7,99 €' }]),
+    requestPurchase: jest.fn(async () => null),
+    getPendingTransactionsIOS: jest.fn(async () => []),
+    finishTransaction: jest.fn(async () => {}),
+    purchaseUpdatedListener: (f: any) => { branche.arrivee = f; return { remove() {} } }
+  }
+})
 jest.mock('expo-notifications', () => ({
   AndroidImportance: { HIGH: 4 },
   setNotificationHandler: jest.fn(),
@@ -256,9 +274,13 @@ test('seule NOTRE page parle au natif', async () => {
   await laPageDit({ type: 'pret', sombre: false, fond: '#fbfaf9' }, 'https://ailleurs.exemple.test/')
   await laPageDit({ type: 'push.demander', id: 'q1' }, 'https://ailleurs.exemple.test/')
   await laPageDit({ type: 'reglages' }, `${SITE}/prenoms/`)
+  // Surtout pas la feuille d'achat d'Apple.
+  await laPageDit({ type: 'achat.acheter', id: 'q2', produit: 'fr.babynamed.app.deblocage',
+    jeton: '6f7da3b0-1c2d-4e5f-8a9b-0c1d2e3f4a5b' }, 'https://ailleurs.exemple.test/')
   expect(SplashScreen.hide).not.toHaveBeenCalled()
   expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled()
   expect(Linking.openSettings).not.toHaveBeenCalled()
+  expect(Boutique.requestPurchase).not.toHaveBeenCalled()
   expect(mockVueWeb.scripts).toHaveLength(0)
 })
 
@@ -326,6 +348,74 @@ test('les réglages du téléphone', async () => {
   await monter()
   await laPageDit({ type: 'reglages' })
   expect(Linking.openSettings).toHaveBeenCalledTimes(1)
+})
+
+// ======================================================= l'achat intégré (iPhone)
+// (Ce que StoreKit fait de chaque demande : tests/achats.test.ts. Ici, le pont.)
+const PRODUIT = 'fr.babynamed.app.deblocage'
+const JETON = '6f7da3b0-1c2d-4e5f-8a9b-0c1d2e3f4a5b'
+const achatRendu = (id: string) => ({ id, transactionId: id, productId: PRODUIT, purchaseState: 'purchased' })
+
+test('l’achat intégré : le prix d’Apple, pour le produit que la page nomme', async () => {
+  await monter()
+  await laPageDit({ type: 'achat.produit', id: 'q1', produit: PRODUIT })
+  expect(Boutique.fetchProducts).toHaveBeenCalledWith({ skus: [PRODUIT], type: 'in-app' })
+  expect(dernierRemis()).toEqual({ type: 'achat.produit', id: 'q1', ok: true, prix: '7,99 €' })
+  // Un produit qu'Apple ne connaît pas : « pas d'offre », et non un prix vide.
+  await laPageDit({ type: 'achat.produit', id: 'q2', produit: 'un.autre.produit' })
+  expect(dernierRemis()).toEqual({ type: 'achat.produit', id: 'q2', ok: false })
+})
+
+test('l’achat intégré : la feuille d’Apple s’ouvre avec le jeton du serveur, et la page apprend comment elle s’est refermée', async () => {
+  doublure(Boutique.requestPurchase).mockResolvedValueOnce(achatRendu('2000000100000001') as any)
+  await monter()
+  await laPageDit({ type: 'achat.acheter', id: 'q1', produit: PRODUIT, jeton: JETON })
+  expect(Boutique.requestPurchase).toHaveBeenCalledWith(
+    { request: { apple: { sku: PRODUIT, appAccountToken: JETON } }, type: 'in-app' })
+  expect(dernierRemis()).toEqual({ type: 'achat.acheter', id: 'q1', ok: true, etat: 'achete', transaction: '2000000100000001' })
+  // Rendue à la page, pas finie : c'est le site qui dira quand.
+  expect(Boutique.finishTransaction).not.toHaveBeenCalled()
+
+  doublure(Boutique.requestPurchase).mockRejectedValueOnce(Object.assign(new Error('annulé'), { code: 'user-cancelled' }))
+  await laPageDit({ type: 'achat.acheter', id: 'q2', produit: PRODUIT, jeton: JETON })
+  expect(dernierRemis()).toEqual({ type: 'achat.acheter', id: 'q2', ok: true, etat: 'annule' })
+})
+
+test('l’achat intégré : un jeton qui n’est pas un UUID, un produit douteux — aucune feuille ne s’ouvre', async () => {
+  await monter()
+  await laPageDit({ type: 'achat.acheter', id: 'q1', produit: PRODUIT, jeton: 'liste-12' })
+  await laPageDit({ type: 'achat.acheter', id: 'q2', produit: 'un produit; rm -rf', jeton: JETON })
+  await laPageDit({ type: 'achat.acheter', id: 'q3', produit: PRODUIT })
+  expect(Boutique.requestPurchase).not.toHaveBeenCalled()
+})
+
+test('l’achat intégré : les transactions en suspens, puis « finir » quand le site les a traitées', async () => {
+  const gardee = achatRendu('2000000100000011')
+  doublure(Boutique.getPendingTransactionsIOS).mockResolvedValue([gardee] as any)
+  await monter()
+  await laPageDit({ type: 'achat.attente', id: 'q1' })
+  expect(dernierRemis()).toEqual({ type: 'achat.attente', id: 'q1', ok: true,
+    transactions: [{ id: '2000000100000011', produit: PRODUIT }] })
+  expect(Boutique.finishTransaction).not.toHaveBeenCalled()
+
+  await laPageDit({ type: 'achat.finir', id: 'q2', transaction: '2000000100000011' })
+  expect(Boutique.finishTransaction).toHaveBeenCalledWith({ purchase: gardee, isConsumable: true })
+  expect(dernierRemis()).toEqual({ type: 'achat.finir', id: 'q2', ok: true })
+
+  // StoreKit ne sait plus dire ce qu'il garde : « on n'a pas pu savoir », pas « rien ».
+  doublure(Boutique.getPendingTransactionsIOS).mockRejectedValueOnce(new Error('?'))
+  await laPageDit({ type: 'achat.attente', id: 'q3' })
+  expect(dernierRemis()).toEqual({ type: 'achat.attente', id: 'q3', ok: false })
+  // Un numéro de transaction qui n'en est pas un ne va pas jusqu'à StoreKit.
+  await laPageDit({ type: 'achat.finir', id: 'q4', transaction: 'tout' })
+  expect(Boutique.finishTransaction).toHaveBeenCalledTimes(1)
+})
+
+test('l’achat intégré : une transaction arrivée d’elle-même est annoncée à la page', async () => {
+  await monter()
+  await laPageDemarre()
+  await agir(() => (Boutique as any).branche.arrivee(achatRendu('2000000100000021')))
+  expect(mockVueWeb.entendus).toEqual([{ type: 'achat.arrivee' }])
 })
 
 // =============================================================== la navigation

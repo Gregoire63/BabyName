@@ -40,6 +40,17 @@ export type MessagePage =
   | { type: 'reglages' }
   /** Sortir de l'app (Android : la réponse à `retour`, depuis l'accueil). */
   | { type: 'quitter' }
+  // L'achat intégré de l'App Store (iPhone seulement ; achats.ts). C'est la
+  // page qui nomme le produit : en changer ne demande pas de nouvelle app.
+  /** Le prix du produit, tel qu'Apple le formule. */
+  | { type: 'achat.produit'; id: string; produit: string }
+  /** Ouvrir la feuille d'achat. `jeton` : l'UUID tiré par le serveur du site,
+   *  qu'Apple rendra dans la transaction — c'est lui qui dit quoi débloquer. */
+  | { type: 'achat.acheter'; id: string; produit: string; jeton: string }
+  /** Les transactions payées que le site n'a pas encore dit avoir traitées. */
+  | { type: 'achat.attente'; id: string }
+  /** Le site a traité cette transaction : StoreKit peut l'oublier. */
+  | { type: 'achat.finir'; id: string; transaction: string }
 
 /** Ce que le natif dit. Une réponse reprend l'`id` de la question. */
 export type MessageNatif =
@@ -52,6 +63,16 @@ export type MessageNatif =
   | { type: 'push.etat' | 'push.demander'; id: string; ok: boolean;
       permission?: 'accordee' | 'refusee' | 'indeterminee'; jeton?: string }
   | { type: 'partager' | 'fichier'; id: string; ok: boolean }
+  // L'achat intégré. `ok: false` : pas d'achat sur ce téléphone (Android, Expo
+  // Go), ou on n'a pas pu savoir.
+  | { type: 'achat.produit'; id: string; ok: boolean; prix?: string }
+  | { type: 'achat.acheter'; id: string; ok: boolean;
+      etat?: 'achete' | 'annule' | 'attente' | 'erreur'; transaction?: string }
+  | { type: 'achat.attente'; id: string; ok: boolean; transactions?: { id: string; produit: string; le?: number }[] }
+  | { type: 'achat.finir'; id: string; ok: boolean }
+  /** Une transaction vient d'arriver sans qu'on l'ait achetée à l'instant
+   *  (un achat validé plus tard par un tiers) : la page viendra la chercher. */
+  | { type: 'achat.arrivee' }
 
 /**
  * L'accusé de réception d'un message du natif (plus haut). `de` : le verbe
@@ -67,6 +88,16 @@ export const FOND_SOMBRE = '#101321'
 const texte = (x: unknown, max: number): string => typeof x === 'string' ? x.slice(0, max) : ''
 const identifiant = (x: unknown): string | null =>
   typeof x === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(x) ? x : null
+
+/** Un produit de l'App Store (« fr.babynamed.app.deblocage »). */
+const produit = (x: unknown): string | null =>
+  typeof x === 'string' && /^[A-Za-z0-9._-]{1,100}$/.test(x) ? x : null
+/** Le jeton d'un achat : un UUID, la seule forme qu'Apple accepte et rende. */
+const uuid = (x: unknown): string | null =>
+  typeof x === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x) ? x.toLowerCase() : null
+/** Un numéro de transaction d'Apple : des chiffres. */
+const transaction = (x: unknown): string | null =>
+  typeof x === 'string' && /^[0-9]{1,32}$/.test(x) ? x : null
 
 /** Un nom de fichier sans chemin ni surprise : « babynamed-mes-donnees.json ». */
 export function nomDeFichier(x: unknown): string {
@@ -114,6 +145,22 @@ export function lireMessage(brut: string): MessagePage | Accuse | null {
       return { type: 'reglages' }
     case 'quitter':
       return { type: 'quitter' }
+    case 'achat.produit': {
+      const id = identifiant(m.id), p = produit(m.produit)
+      return id && p ? { type: 'achat.produit', id, produit: p } : null
+    }
+    case 'achat.acheter': {
+      const id = identifiant(m.id), p = produit(m.produit), jeton = uuid(m.jeton)
+      return id && p && jeton ? { type: 'achat.acheter', id, produit: p, jeton } : null
+    }
+    case 'achat.attente': {
+      const id = identifiant(m.id)
+      return id ? { type: 'achat.attente', id } : null
+    }
+    case 'achat.finir': {
+      const id = identifiant(m.id), t = transaction(m.transaction)
+      return id && t ? { type: 'achat.finir', id, transaction: t } : null
+    }
     case 'accuse':
       return { type: 'accuse', de: texte(m.de, 40), ecoute: m.ecoute === true }
     default:

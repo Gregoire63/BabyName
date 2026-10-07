@@ -57,6 +57,32 @@ test('les verbes sans réponse', () => {
   assert.deepEqual(lire({ type: 'quitter' }), { type: 'quitter' })
 })
 
+test('l’achat intégré : un produit, un jeton qui est un UUID, un numéro de transaction — ou rien', () => {
+  const PRODUIT = 'fr.babynamed.app.deblocage'
+  const JETON = '6f7da3b0-1c2d-4e5f-8a9b-0c1d2e3f4a5b'
+  assert.deepEqual(lire({ type: 'achat.produit', id: 'q1', produit: PRODUIT }), { type: 'achat.produit', id: 'q1', produit: PRODUIT })
+  assert.equal(lire({ type: 'achat.produit', id: 'q1' }), null)
+  assert.equal(lire({ type: 'achat.produit', id: 'q1', produit: 'un produit' }), null)
+  assert.equal(lire({ type: 'achat.produit', produit: PRODUIT }), null)
+
+  assert.deepEqual(lire({ type: 'achat.acheter', id: 'q2', produit: PRODUIT, jeton: JETON.toUpperCase() }),
+    { type: 'achat.acheter', id: 'q2', produit: PRODUIT, jeton: JETON })
+  // Apple n'accepte qu'un UUID, et ne rend rien d'autre : sans lui, le serveur ne saurait pas quoi débloquer.
+  assert.equal(lire({ type: 'achat.acheter', id: 'q2', produit: PRODUIT, jeton: 'liste-12' }), null)
+  assert.equal(lire({ type: 'achat.acheter', id: 'q2', produit: PRODUIT, jeton: `${JETON}0` }), null)
+  assert.equal(lire({ type: 'achat.acheter', id: 'q2', produit: PRODUIT }), null)
+  assert.equal(lire({ type: 'achat.acheter', id: 'q2', jeton: JETON }), null)
+
+  assert.deepEqual(lire({ type: 'achat.attente', id: 'q3' }), { type: 'achat.attente', id: 'q3' })
+  assert.equal(lire({ type: 'achat.attente' }), null)
+
+  assert.deepEqual(lire({ type: 'achat.finir', id: 'q4', transaction: '2000000100000001' }),
+    { type: 'achat.finir', id: 'q4', transaction: '2000000100000001' })
+  assert.equal(lire({ type: 'achat.finir', id: 'q4', transaction: 2000000100000001 }), null)
+  assert.equal(lire({ type: 'achat.finir', id: 'q4', transaction: '2000000100000001; tout' }), null)
+  assert.equal(lire({ type: 'achat.finir', id: 'q4' }), null)
+})
+
 test('ce qu’on ne comprend pas ne fait rien', () => {
   for (const brut of ['', 'pas du json', 'null', '42', '"pret"', '[]', '{}', '{"type":7}', '{"type":"un-verbe-de-demain"}']) {
     assert.equal(lireMessage(brut), null, brut)
