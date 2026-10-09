@@ -53,8 +53,8 @@ const n = await page.evaluate(async () => {
            caelis: d.cols.l.includes('Caëlis'), gz, octets: brut.length,
            sens, haute, sansConf }
 })
-dit(n.n === 19608, `catalogue complet : ${n.n} prénoms`)
-dit(n.rares === 11941, `dont ${n.rares} marqués rares`)
+dit(n.n === 21197, `catalogue complet (INSEE + ailleurs) : ${n.n} prénoms`)
+dit(n.rares === 13040, `dont ${n.rares} marqués rares (11 941 INSEE + 1 099 d’ailleurs)`)
 dit(n.champ === 'rare', 'le champ q est documenté dans champs')
 dit(n.sens > 6000 && n.haute > 0 && n.sansConf === 0,
     n.sansConf === 0
@@ -79,7 +79,7 @@ const avant = await nb()
 const annonce = parseInt(
   ((await page.locator('label', { hasText: 'Inclure les prénoms très rares' }).innerText())
     .match(/\+\s*([\d\s\u202f]+)/)?.[1] ?? '').replace(/[^\d]/g, ''), 10)
-dit(avant > 7000 && avant < 7700, `pile par défaut : ${avant} prénoms, les rares restent dehors`)
+dit(avant > 7000 && avant < 8200, `pile par défaut : ${avant} prénoms, les rares restent dehors`)
 dit(annonce > 11000, `la case annonce + ${annonce}`)
 
 // ---------- 3. la bascule ouvre exactement ce qu'elle annonce --------------

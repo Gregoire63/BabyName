@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { anneesBarres, bebesParAn, frequenceLisible, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
+import { anneesBarres, bebesParAn, frequenceLisible, meilleurAilleurs, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 
 /**
@@ -101,16 +101,22 @@ const barres = anneesBarres()
       <header class="tete">
         <h3 class="nom">{{ courant.l }}</h3>
         <span class="puce">{{ sexe(courant) }}</span>
-        <span v-if="courant.q" class="puce rare">rare</span>
+        <span v-if="courant.hf" class="puce">d’ailleurs</span>
+        <span v-else-if="courant.q" class="puce rare">rare</span>
       </header>
 
-      <p class="phrase">
+      <p v-if="courant.hf" class="phrase">
+        Pas donné en France de 2023 à 2025<template v-if="meilleurAilleurs(courant)"> ;
+        {{ meilleurAilleurs(courant)!.source.id === 'qc' ? 'au' : 'en' }} {{ meilleurAilleurs(courant)!.pays }},
+        <strong>{{ meilleurAilleurs(courant)!.sur }}</strong></template>.
+      </p>
+      <p v-else class="phrase">
         <strong>{{ courant.n.toLocaleString('fr-FR') }}</strong>
         naissance{{ courant.n > 1 ? 's' : '' }} en trois ans<template v-if="part(courant)">,
         soit {{ part(courant) }} des bébés qui portent ce prénom à l’oral</template>.
       </p>
 
-      <dl class="chiffres">
+      <dl v-if="!courant.hf" class="chiffres">
         <div><dt>des naissances</dt><dd>{{ frequenceLisible(courant.f) }}</dd></div>
         <div v-if="tendanceFiable(courant)"><dt>par an</dt>
           <dd :class="tendance(courant.t)">{{ pourcentAn(courant.t) }}</dd></div>

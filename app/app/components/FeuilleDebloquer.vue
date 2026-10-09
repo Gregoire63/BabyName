@@ -71,7 +71,7 @@ const nomListe = computed(() => g.etat.value?.groupe?.nom ?? 'cette liste')
 const quota = computed(() => g.etat.value?.quota)
 const GRATUIT = computed(() => [
   `${quota.value?.depart?.limite ?? 150} swipes pour commencer, puis ${quota.value?.limite_jour ?? 15} swipes par jour`,
-  'Les 19 608 prénoms et la recherche complète',
+  'Les 21 197 prénoms et la recherche complète',
   'Les accords et le classement',
   'L’origine, la signification et la courbe sur chaque fiche',
   'Le veto sur un prénom',

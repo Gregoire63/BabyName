@@ -37,7 +37,9 @@ dit(c.m[i('Masha')] === 'diminutif russe de Marie', `Masha : « ${c.m[i('Masha')
 dit(c.m[i('Philippe')] === 'qui aime les chevaux', `Philippe : « ${c.m[i('Philippe')]} »`)
 dit(c.m[i('Nicolas')] && c.m[i('Nicolas')] !== 'Nicolaus', `Nicolas n’a plus « Nicolaus » pour sens : « ${c.m[i('Nicolas')]} »`)
 dit(cat.seuil_tendance === 60 && Array.isArray(cat.barres_annees), `le seuil vient du catalogue (${cat.seuil_tendance}, barres ${cat.barres_annees})`)
-const sansNiCourbeNiBarres = c.l.filter((l, j) => !c.q[j] && !c.sr[j] && !c.nb[j]).length
+// Les prénoms d'ailleurs (hf) n'ont pas d'histoire française : la carte montre
+// leurs pays à la place (ContenuCarte).
+const sansNiCourbeNiBarres = c.l.filter((l, j) => !c.q[j] && !c.hf?.[j] && !c.sr[j] && !c.nb[j]).length
 dit(sansNiCourbeNiBarres === 0, `chaque prénom de la pile a sa courbe ou ses barres (${sansNiCourbeNiBarres} sans)`)
 
 // =================== LA CARTE D'UN PETIT PRÉNOM ==============================
@@ -76,7 +78,9 @@ await page.waitForTimeout(500)
 const texteFiche = await plat(fiche)
 dit(/environ 18 bébés par an, trop peu pour chiffrer une tendance/.test(texteFiche),
   'la fiche le dit en une phrase, sans pente inventée')
-dit(/Tendance trop peu de bébés/i.test(texteFiche) && !/%\/an/.test(texteFiche), 'et sa tuile « Tendance » aussi')
+// (la section « Dans le monde » peut, elle, donner la pente d'un pays où il est assez donné)
+const tuiles = await plat(fiche.locator('dl.chiffres'))
+dit(/Tendance trop peu de bébés/i.test(tuiles) && !/%\/an/.test(tuiles), 'et sa tuile « Tendance » aussi')
 dit(await fiche.locator('.barres').count() === 1, 'avec les mêmes barres')
 await page.getByRole('button', { name: 'Fermer la fiche' }).click()
 await page.waitForTimeout(600)

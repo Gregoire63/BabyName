@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { chargerCatalogue, filtrer, filtresParDefaut, type Prenom, type Filtres }
+import { chargerCatalogue, filtrer, filtresParDefaut, PAYS_DEFAUT, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
+import { appliquerPays, chargerPays } from '~/composables/usePays'
 import { marquerListeCourante } from '~/composables/useListeCourante'
 import { CLE_GROUPE, type EtatGroupe, type EntreeDejaPris, type StatutPaiement } from '~/composables/etatGroupe'
 
@@ -52,6 +53,9 @@ const segment = ref(props.segmentDepart ?? 'communs')
  */
 const etat = ref<any>(null)
 const catalogue = shallowRef<Prenom[]>([])
+/** Le catalogue seul (INSEE + prénoms d'ailleurs francophones) ; `catalogue`
+ *  y ajoute les prénoms des pays choisis par la liste (usePays). */
+const base = shallowRef<Prenom[]>([])
 const origines = shallowRef<string[]>([])
 const filtres = ref<Filtres>(filtresParDefaut())
 const dejaVotes = shallowRef<Set<string>>(new Set())
@@ -189,12 +193,34 @@ async function recharger() {
   dejaPris.value = e.deja_pris ?? []
   favoris.value = new Set(e.mes_favoris)
 
-  const moiId = e.moi.user_id
+  remapperAimes()
+}
+
+function remapperAimes() {
+  const moiId = etat.value?.moi?.user_id
+  if (!moiId) return
   const miens = votes.value.filter((v: any) => v.user_id === moiId)
   dejaVotes.value = new Set(miens.map((v: any) => v.prenom))
   aimes.value = miens.filter((v: any) => v.valeur === 2)
     .map((v: any) => parNom.value.get(v.prenom)!).filter(Boolean)
 }
+
+/**
+ * Les pays de la liste : leurs fichiers, leurs prénoms, et les chiffres
+ * communs qui font la pile et la carte (usePays). Rejoué quand ils changent.
+ */
+let selectionEnCours = 0
+async function appliquerSelection() {
+  if (!base.value.length) return
+  const codes = filtres.value.pays?.length ? [...filtres.value.pays] : [...PAYS_DEFAUT]
+  const n = ++selectionEnCours
+  const liste = await chargerPays(base.value, codes).catch(() => base.value)
+  if (n !== selectionEnCours) return
+  appliquerPays(liste, codes)
+  catalogue.value = [...liste]
+  remapperAimes()
+}
+watch(() => (filtres.value.pays ?? []).join(','), () => { appliquerSelection() })
 
 function ouvrirFiche(nom: string) {
   fiche.value = parNom.value.get(nom) ?? null
@@ -423,9 +449,11 @@ onMounted(async () => {
   if (el) el.scrollLeft = index.value * el.clientWidth
 
   const c = await chargerCatalogue()
+  base.value = c!.liste
   catalogue.value = c!.liste
   origines.value = c!.origines
   try { await recharger() } catch { return navigateTo('/') }
+  await appliquerSelection()
   pret.value = true
   attendrePaiement()
 })

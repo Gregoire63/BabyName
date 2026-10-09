@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { anneesBarres, bebesParAn, frequenceLisible, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
+import { anneesBarres, bebesParAn, frequenceLisible, meilleurAilleurs, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeSiPresent } from '~/composables/etatGroupe'
 import { projeter, ecart, CLASSE } from '~/composables/useProjectionClasse'
 import { memeEcriture } from '~/utils/tempetes'
+import { meilleurPays } from '~/composables/usePays'
 const props = defineProps<{ p: Prenom }>()
 const emit = defineEmits<{ fermer: [] }>()
 const g = useGroupeSiPresent()
@@ -70,6 +71,14 @@ const idTempetes = useId()
 /** Une phrase, pas un tableau : ce que le chiffre veut dire concretement. */
 const lecture = computed(() => {
   const p = props.p
+  // Donné ailleurs, pas ici : c'est la nouvelle, pas un défaut.
+  if (p.hf) {
+    const m = meilleurPays(p)
+    const a = m ? null : meilleurAilleurs(p)
+    return `Aucun bébé ne l’a reçu en France de 2023 à 2025 (INSEE)`
+      + (m ? ` ; ${m.en}, ${m.sur} le porte.`
+        : a ? ` ; ${a.source.id === 'qc' ? 'au' : 'en'} ${a.pays}, ${a.sur} le porte.` : '.')
+  }
   const base = `${frequenceLisible(p.f)} le reçoit aujourd’hui.`
   // Quelques bebes par an : on le dit, sans pente qui ne serait que du bruit.
   if (!fiable.value) {
@@ -98,7 +107,7 @@ const lecture = computed(() => {
           <div>
             <h2 :id="idNom" class="nom">{{ p.l }}</h2>
             <p class="mini doux" style="margin:4px 0 0">
-              {{ sexeTexte }}
+              {{ sexeTexte }}<template v-if="p.hf"> · <span class="ailleurs">prénom d’ailleurs</span></template>
             </p>
           </div>
           <button type="button" class="btn btn-0 rond" aria-label="Fermer la fiche" @click="fermer">
@@ -171,7 +180,7 @@ const lecture = computed(() => {
           </p>
         </section>
 
-        <dl class="chiffres">
+        <dl v-if="!p.hf" class="chiffres">
           <div><dt>Fréquence</dt><dd>{{ frequenceLisible(p.f) }}</dd></div>
           <div v-if="fiable"><dt>Tendance</dt>
             <dd :style="{ color: p.t > 8 ? 'var(--non)' : p.t < -5 ? 'var(--oui)' : 'inherit' }">
@@ -183,6 +192,8 @@ const lecture = computed(() => {
           <div><dt>Risque d’explosion</dt>
             <dd :style="{ color: p.r > 40 ? 'var(--non)' : 'inherit' }">{{ p.r.toFixed(0) }}/100</dd></div>
         </dl>
+
+        <DansLeMonde :p="p" />
 
         <p v-if="p.u > 0.12 && p.u < 0.88" class="note">
           Porté par les deux sexes ({{ (p.u * 100).toFixed(0) }} % de filles).
@@ -263,6 +274,8 @@ const lecture = computed(() => {
 .chiffres dt { font-size: .7rem; color: var(--doux); text-transform: uppercase; letter-spacing: .04em; }
 .chiffres dd { margin: 2px 0 0; font-weight: 640; font-variant-numeric: tabular-nums; }
 .note { margin: 0; font-size: .86rem; color: var(--doux); }
+.ailleurs { color: var(--encre); font-weight: 650; padding: 1px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--menthe) 45%, var(--carte)); }
 .note.alerte { color: var(--texte); background: color-mix(in srgb, var(--peche) 40%, transparent);
   padding: 10px 12px; border-radius: 11px; }
 </style>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { anneesBarres, bebesParAn, frequenceLisible, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
+import { anneesBarres, bebesParAn, frequenceLisible, meilleurAilleurs, pourcentAn, sourcesFrancophonie, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { tester } from '~/composables/useNomComplet'
 import { resumeTempetes } from '~/utils/tempetes'
+import { meilleurPays, nomSelection, paysDe, totalPour } from '~/composables/usePays'
 
 /**
  * Le contenu d'une carte de tri.
@@ -46,6 +47,53 @@ const tendance = computed(() => props.p.t > 8 ? 'monte' : props.p.t < -5 ? 'bais
 // la tuile donne alors le nombre de bebes, et les barres les montrent.
 const fiable = computed(() => tendanceFiable(props.p))
 const barres = anneesBarres()
+// Un prénom d'ailleurs : pas de chiffre français, le pays où il vit.
+const ailleurs = computed(() => {
+  if (!props.p.hf) return null
+  const m = meilleurPays(props.p)
+  if (m) return { dt: m.en, sur: m.sur }
+  const a = meilleurAilleurs(props.p)
+  return a ? { dt: `${a.source.id === 'qc' ? 'au' : 'en'} ${a.pays}`, sur: a.sur } : null
+})
+/**
+ * Un prénom d'ailleurs n'a pas de courbe française : à sa place, les pays où
+ * on le donne, en barres (sa part des naissances dans chacun).
+ */
+const ou = computed(() => {
+  const p = props.p
+  if (!p.hf || p.sr || p.nb) return []
+  const l: { nom: string; part: number }[] = []
+  for (const [code, v] of Object.entries(p.px ?? {})) {
+    const x = paysDe(code)
+    if (x) l.push({ nom: x.nom, part: v.n / totalPour(x, p.sexe) })
+  }
+  if (!l.length && p.fx) sourcesFrancophonie().forEach((s, i) => {
+    const v = p.fx![i]
+    if (!v) return
+    const tot = typeof s.total === 'number' ? s.total
+      : p.sexe === 'f' ? s.total.f : p.sexe === 'm' ? s.total.m : s.total.f + s.total.m
+    l.push({ nom: s.pays, part: v.n / tot })
+  })
+  l.sort((a, b) => b.part - a.part)
+  const max = l[0]?.part ?? 1
+  return l.slice(0, 5).map(x => ({ ...x, largeur: Math.max(4, Math.round(x.part / max * 100)),
+    sur: `1 sur ${Math.round(1 / x.part).toLocaleString('fr-FR')}` }))
+})
+
+/**
+ * Plusieurs pays choisis : la carte montre leur fréquence COMMUNE (usePays),
+ * pas le chiffre français. France seule : rien ne change.
+ */
+const selection = computed(() => {
+  const codes = g.filtres?.value?.pays ?? []
+  if (!codes.length || (codes.length === 1 && codes[0] === 'fr')) return null
+  if (props.p.fsel === undefined) return null
+  return { nom: nomSelection(codes), seul: codes.length === 1 }
+})
+const tendanceSel = computed(() => {
+  const t = props.p.tsel
+  return t == null ? '' : t > 8 ? 'monte' : t < -5 ? 'baisse' : ''
+})
 
 const DIT = ['Vous aviez dit non', 'Vous aviez dit neutre', 'Vous aviez dit oui'] as const
 
@@ -137,7 +185,18 @@ const niveau = computed(() => !essai.value ? ''
          disait pas de quoi. Pas les syllabes : chacun les compte en lisant
          le prénom, et une machine qui compte de travers (Léandre) agace plus
          qu'elle n'aide. -->
-    <dl class="resume">
+    <dl v-if="selection" class="resume">
+      <div><dt>{{ selection.seul ? 'des naissances' : 'moyenne de ' + selection.nom }}</dt>
+        <dd>{{ p.nsel ? frequenceLisible(p.fsel!) : 'pas donné' }}</dd></div>
+      <div v-if="p.tsel != null"><dt>par an</dt><dd :class="tendanceSel">{{ pourcentAn(p.tsel) }}</dd></div>
+      <div v-else-if="p.nsel"><dt>bébé{{ Math.round(p.nsel / 3) > 1 ? 's' : '' }} par an</dt>
+        <dd>≈ {{ Math.max(1, Math.round(p.nsel / 3)).toLocaleString('fr-FR') }}</dd></div>
+    </dl>
+    <dl v-else-if="p.hf" class="resume">
+      <div><dt>en France</dt><dd>pas donné</dd></div>
+      <div v-if="ailleurs"><dt>{{ ailleurs.dt }}</dt><dd>{{ ailleurs.sur }}</dd></div>
+    </dl>
+    <dl v-else class="resume">
       <div><dt>des naissances</dt><dd>{{ frequenceLisible(p.f) }}</dd></div>
       <div v-if="fiable"><dt>par an</dt><dd :class="tendance">{{ pourcentAn(p.t) }}</dd></div>
       <div v-else><dt>bébé{{ bebesParAn(p) > 1 ? 's' : '' }} par an</dt><dd>≈ {{ bebesParAn(p) }}</dd></div>
@@ -164,6 +223,16 @@ const niveau = computed(() => !essai.value ? ''
     <div v-else-if="p.nb" class="graphe">
       <p class="graphe-tete" aria-hidden="true"><span>Naissances par an</span></p>
       <div class="graphe-corps"><BarresPrenom :valeurs="p.nb" :an0="barres[0]" remplir /></div>
+    </div>
+    <div v-else-if="ou.length" class="graphe ou">
+      <p class="graphe-tete"><span>Là où on le donne</span></p>
+      <ul>
+        <li v-for="x in ou" :key="x.nom">
+          <span class="pays">{{ x.nom }}</span>
+          <span class="barre"><i :style="{ width: x.largeur + '%' }" /></span>
+          <span class="sur">{{ x.sur }}</span>
+        </li>
+      </ul>
     </div>
     </div>
 
@@ -228,6 +297,13 @@ const niveau = computed(() => !essai.value ? ''
 /* Une etymologie discutee ne doit pas se lire comme un fait. */
 .doute { font-style: normal; font-size: .74rem; color: var(--doux); }
 
+.ou ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ou li { display: grid; grid-template-columns: minmax(0, 7.5em) 1fr auto; align-items: center; gap: 8px;
+  font-size: .82rem; }
+.ou .pays { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--doux); }
+.ou .barre { height: 8px; border-radius: 999px; background: var(--trait); overflow: hidden; }
+.ou .barre i { display: block; height: 100%; border-radius: 999px; background: var(--encre); opacity: .75; }
+.ou .sur { font-variant-numeric: tabular-nums; font-weight: 650; }
 .resume { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .resume > div { background: var(--fond); border: 1px solid var(--trait); border-radius: 13px;
   padding: 7px 9px; display: flex; flex-direction: column-reverse; gap: 1px; min-width: 0; }

@@ -54,6 +54,74 @@ export interface Prenom {
    * groupe de prononciation ; absent pour presque tous. Voir utils/tempetes.
    */
   tp?: Tempete[]
+  /**
+   * Le même prénom au Québec, en Belgique et en Suisse, dans l'ordre de
+   * `sourcesFrancophonie()` : null si aucun des trois ne le publie, sinon
+   * une case par pays, null quand il y est absent ou sous le seuil.
+   */
+  fx: (ChiffreFx | null)[] | null
+  /**
+   * Donné au Québec, en Belgique ou en Suisse, mais pas en France sur
+   * 2023-2025 : ses chiffres français sont nuls (n = 0, originalité 100) et
+   * c'est `fx` qui dit où il vit. Peut avoir été donné ici avant (courbe).
+   */
+  hf: boolean
+  /** Chiffres par pays chargé (usePays) : code -> naissances, rang, tendance. */
+  px?: Record<string, ChiffreFx>
+  /** Pour les pays choisis par la liste (usePays.appliquerPays) : naissances
+   *  cumulées, rareté, fréquence (‰₀), originalité et tendance communes. */
+  nsel?: number; qsel?: boolean; fsel?: number; osel?: number; tsel?: number | null
+  /**
+   * Poids pour l'ordre de la pile, à l'échelle des naissances françaises
+   * sur 3 ans : `n` pour un prénom donné ici ; pour un prénom d'ailleurs, sa
+   * part des naissances dans le pays où il est le plus donné, ramenée à la
+   * France puis divisée par deux — il entre dans la pile, sans passer devant
+   * ce qu'on entend tous les jours dans les cours d'école d'ici.
+   */
+  poids: number
+}
+
+/** Un prénom dans un pays : naissances 2023-2025, rang, tendance %/an. */
+export interface ChiffreFx { n: number; rang: number | null; t: number | null }
+
+/** D'où vient chaque chiffre « ailleurs » : ce que montre le badge. */
+export interface SourceFx {
+  id: 'qc' | 'be' | 'ch'; pays: string; organisme: string; jeu: string
+  licence: string; url: string; annees: [number, number]
+  /** false : l'effectif publié compte filles et garçons ensemble (Québec). */
+  par_sexe: boolean; note: string
+  /** Naissances de la fenêtre : un nombre, ou par sexe. */
+  total: number | { f: number; m: number }
+}
+
+let sourcesFx: SourceFx[] = []
+/** Les sources des chiffres « ailleurs en francophonie », une fois le catalogue chargé. */
+export const sourcesFrancophonie = () => sourcesFx
+
+/**
+ * Le pays où ce prénom pèse le plus (Québec, Belgique, Suisse), en une
+ * ligne : « 1 garçon sur 380 ». Null s'il n'est donné dans aucun des trois.
+ * C'est ce que montre la carte d'un prénom d'ailleurs, à la place des
+ * chiffres français qu'il n'a pas.
+ */
+export function meilleurAilleurs(p: Pick<Prenom, 'fx' | 'sexe'>):
+  { pays: string; sur: string; n: number; rang: number | null; source: SourceFx } | null {
+  if (!p.fx) return null
+  let mieux: { part: number; i: number; tot: number } | null = null
+  sourcesFx.forEach((s, i) => {
+    const v = p.fx![i]
+    if (!v) return
+    const tot = typeof s.total === 'number' ? s.total
+      : p.sexe === 'f' || p.sexe === 'm' ? s.total[p.sexe] : s.total.f + s.total.m
+    const part = v.n / tot
+    if (!mieux || part > mieux.part) mieux = { part, i, tot }
+  })
+  if (!mieux) return null
+  const { i, tot } = mieux as { part: number; i: number; tot: number }
+  const s = sourcesFx[i]!, v = p.fx[i]!
+  const qui = !s.par_sexe ? 'bébé' : p.sexe === 'f' ? 'fille' : p.sexe === 'm' ? 'garçon' : 'bébé'
+  return { pays: s.pays, sur: `1 ${qui} sur ${Math.round(tot / v.n).toLocaleString('fr-FR')}`,
+           n: v.n, rang: v.rang, source: s }
 }
 
 export interface Filtres {
@@ -71,8 +139,16 @@ export interface Filtres {
   finales_out: string[]
   revival_seulement: boolean
   inclure_rares: boolean
+  /** Les prénoms donnés au Québec, en Belgique ou en Suisse mais pas en France
+   *  (avant le choix des pays ; ignoré quand `pays` est renseigné). */
+  inclure_ailleurs: boolean
+  /** Pays de référence (usePays) : la pile et les chiffres de la carte. */
+  pays: string[]
   recherche: string
 }
+
+/** La France par défaut : on ajoute les autres pays à la création de la liste. */
+export const PAYS_DEFAUT = ['fr'] as const
 
 export const filtresParDefaut = (): Filtres => ({
   sexe: ['f', 'm', 'fm'],
@@ -82,7 +158,7 @@ export const filtresParDefaut = (): Filtres => ({
   originalite: [0, 100], risque_max: 100,
   sens_requis: false, exclure_objet: false,
   initiales_out: [], finales_out: [],
-  revival_seulement: false, inclure_rares: false, recherche: ''
+  revival_seulement: false, inclure_rares: false, inclure_ailleurs: true, pays: [...PAYS_DEFAUT], recherche: ''
 })
 
 /**
@@ -96,9 +172,9 @@ export const filtresParDefaut = (): Filtres => ({
  * On regarde donc les deux premiers octets : 1f 8b, c'est du gzip, on
  * décompresse ; sinon c'est déjà du texte, on le lit tel quel.
  */
-async function chargerJson(): Promise<any> {
+export async function chargerJson(chemin = '/data/catalogue.json'): Promise<any> {
   try {
-    const r = await fetch('/data/catalogue.json.gz')
+    const r = await fetch(`${chemin}.gz`)
     if (r.ok) {
       const brut = new Uint8Array(await r.arrayBuffer())
       const gzip = brut[0] === 0x1f && brut[1] === 0x8b
@@ -109,7 +185,7 @@ async function chargerJson(): Promise<any> {
       }
     }
   } catch { /* on tente le repli */ }
-  return $fetch('/data/catalogue.json')
+  return $fetch(chemin)
 }
 
 let cache: { liste: Prenom[]; origines: string[]; annees: [number, number]
@@ -124,6 +200,7 @@ let cache: { liste: Prenom[]; origines: string[]; annees: [number, number]
  */
 let seuilTendance = 60
 export const tendanceFiable = (p: Pick<Prenom, 'n'>) => p.n >= seuilTendance
+export const seuilDeTendance = () => seuilTendance
 /** « +14 % », « −3 % », et « 0 % » plutôt que « -0 % » pour une pente de -0,3. */
 export function pourcentAn(t: number): string {
   const r = Math.round(t)
@@ -183,7 +260,9 @@ export async function chargerCatalogue() {
         ob: !!c.ob[k], obn: c.obn[k], dm: c.dm[k],
         sr: c.sr ? c.sr[k] : null,
         // l'INSEE publie par multiples de 5 : le catalogue les stocke divisés
-        nb: c.nb?.[k] ? c.nb[k].map((x: number) => x * 5) : null
+        nb: c.nb?.[k] ? c.nb[k].map((x: number) => x * 5) : null,
+        fx: c.fx?.[k] ? c.fx[k].map((v: any) => v ? { n: v[0], rang: v[1], t: v[2] } : null) : null,
+        hf: !!c.hf?.[k], poids: c.n[k]
       }
     }
     // Le catalogue est trie par frequence : le premier de chaque groupe est
@@ -222,6 +301,20 @@ export async function chargerCatalogue() {
     // (une fiche ouverte, une épingle, la tête de pile).
     for (const p of liste) markRaw(p)
     if (typeof d.seuil_tendance === 'number') seuilTendance = d.seuil_tendance
+    if (Array.isArray(d.fx_sources)) sourcesFx = d.fx_sources
+    // Le poids d'un prénom d'ailleurs, à l'échelle française (voir `poids`).
+    const naissancesFrance = liste.reduce((t, p) => t + p.n, 0)
+    for (const p of liste) {
+      if (!p.hf || !p.fx) continue
+      let part = 0
+      sourcesFx.forEach((s, i) => {
+        const v = p.fx![i]
+        // part de TOUTES les naissances du pays (la France compte les deux sexes)
+        const tot = typeof s.total === 'number' ? s.total : s.total.f + s.total.m
+        if (v && tot) part = Math.max(part, v.n / tot)
+      })
+      p.poids = Math.round(part * naissancesFrance / 2)
+    }
     cache = { liste: markRaw(liste), origines: d.origines, annees: d.serie_annees ?? [1986, 2025],
               barres: d.barres_annees ?? [2011, 2025] }
     return cache
@@ -240,18 +333,31 @@ export function filtrer(liste: Prenom[], f: Filtres): Prenom[] {
   // relire champ par champ pour chacun des 19 608 prénoms coûtait plus cher
   // que le filtre lui-même.
   const rares = f.inclure_rares, compose = f.compose, risque = f.risque_max
+  const ailleurs = f.inclure_ailleurs !== false
+  // Pays choisis (usePays.appliquerPays) : la pile, ce sont les prénoms donnés
+  // dans l'un d'eux, et la rareté comme l'originalité se mesurent sur eux.
+  // France seule : les chiffres INSEE, et les prénoms d'ailleurs francophones
+  // selon `inclure_ailleurs`, comme avant le choix des pays.
+  const parPays = (f.pays?.length ?? 0) > 0 && !(f.pays.length === 1 && f.pays[0] === 'fr')
   const carMin = f.car[0], carMax = f.car[1]
   const sylMin = f.syllabes[0], sylMax = f.syllabes[1]
   const oMin = f.originalite[0], oMax = f.originalite[1]
   const sens = f.sens_requis, objet = f.exclure_objet, revival = f.revival_seulement
 
   return liste.filter(p => {
-    if (p.q && !rares) return false
+    if (parPays && p.nsel !== undefined) {
+      if (p.nsel === 0) return false
+      if (p.qsel && !rares) return false
+    } else {
+      if (p.q && !rares) return false
+      if (p.hf && !ailleurs) return false
+    }
     if (!sexes.has(p.sexe)) return false
     if (p.c < carMin || p.c > carMax) return false
     if (p.y < sylMin || p.y > sylMax) return false
     if (compose !== null && p.k !== compose) return false
-    if (p.o < oMin || p.o > oMax) return false
+    const o = parPays && p.osel !== undefined ? p.osel : p.o
+    if (o < oMin || o > oMax) return false
     if (p.r > risque) return false
     if (sens && !p.m) return false
     if (objet && p.ob) return false
@@ -276,7 +382,7 @@ export function filtrer(liste: Prenom[], f: Filtres): Prenom[] {
  * (le catalogue : du plus donné au moins donné).
  */
 function noteur(aimes: Prenom[]): (p: Prenom) => number {
-  if (aimes.length < 3) return p => p.n
+  if (aimes.length < 3) return p => p.poids
 
   const orig = new Map<string, number>()
   let sylTot = 0, oTot = 0
@@ -296,7 +402,7 @@ function noteur(aimes: Prenom[]): (p: Prenom) => number {
     s += 1.0 * ((init.get(p.i) ?? 0) / n)
     s += 1.4 * Math.max(0, 1 - Math.abs(p.y - sylMoy) / 2)
     s += 1.0 * Math.max(0, 1 - Math.abs(p.o - oMoy) / 40)
-    s += 0.6 * Math.min(1, p.n / 3000)        // un peu de popularité, pas trop
+    s += 0.6 * Math.min(1, p.poids / 3000)    // un peu de popularité, pas trop
     return s
   }
 }

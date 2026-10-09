@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { paysDe } from '~/composables/usePays'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { useEnregistrementDiffere, type OptionsEnvoi } from '~/composables/useEnregistrementDiffere'
 
@@ -223,6 +224,7 @@ const filtresActifs = computed(() => {
   if (f.exclure_objet) out.push('sans homonyme objet')
   if (f.revival_seulement) out.push('revivals seulement')
   if (f.inclure_rares) out.push('prénoms très rares inclus')
+  if (f.pays?.length && f.pays.join() !== 'fr') out.push(`pays : ${f.pays.map(c => paysDe(c)?.nom ?? c).join(', ')}`)
   return out
 })
 

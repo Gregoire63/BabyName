@@ -1,11 +1,24 @@
 <script setup lang="ts">
-import { filtresParDefaut, type Filtres } from '~/composables/useCatalogue'
+import { filtresParDefaut, PAYS_DEFAUT, type Filtres } from '~/composables/useCatalogue'
+import { chargerIndexPays, type Pays } from '~/composables/usePays'
 const modele = defineModel<Filtres>({ required: true })
 const props = defineProps<{ origines: string[]; nb: number; nbRares: number }>()
 const emit = defineEmits<{ fermer: [] }>()
 
 const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 const avance = ref(false)
+
+// Où grandira l'enfant : la pile et la fréquence de la carte (usePays).
+const pays = shallowRef<Pays[]>([])
+onMounted(async () => { pays.value = await chargerIndexPays().catch(() => []) })
+const choisis = computed(() => modele.value.pays?.length ? modele.value.pays : [...PAYS_DEFAUT])
+function basculerPays(code: string) {
+  const liste = [...choisis.value]
+  const i = liste.indexOf(code)
+  if (i === -1) liste.push(code)
+  else if (liste.length > 1) liste.splice(i, 1)
+  modele.value.pays = liste
+}
 
 function bascule(liste: string[], v: string) {
   const i = liste.indexOf(v)
@@ -38,6 +51,20 @@ function cycler(o: string) {
     <!-- Des blocs nets, un réglage chacun : la feuille était une colonne de
          petits titres gris et de cases par défaut, où rien ne se détachait. -->
     <div class="blocs">
+      <section v-if="pays.length" class="bloc" aria-labelledby="f-pays">
+        <div class="tete">
+          <h3 id="f-pays" class="titre">Pays</h3>
+          <span class="valeur">{{ choisis.length }} choisi{{ choisis.length > 1 ? 's' : '' }}</span>
+        </div>
+        <p class="mini doux" style="margin:0">Les prénoms donnés dans ces pays ; la carte montre leur fréquence moyenne.</p>
+        <div class="nuage">
+          <button v-for="x in pays" :key="x.code" type="button" class="jeton petit"
+                  :class="{ in: choisis.includes(x.code) }" :aria-pressed="choisis.includes(x.code)"
+                  :title="`${x.organisme}, ${x.annees[0]}-${x.annees[1]}`"
+                  @click="basculerPays(x.code)">{{ x.nom }}</button>
+        </div>
+      </section>
+
       <section class="bloc" aria-labelledby="f-sexe">
         <h3 id="f-sexe" class="titre">Sexe</h3>
         <div class="trois">

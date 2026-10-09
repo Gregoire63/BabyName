@@ -51,6 +51,7 @@ const message = p => p.locator('.retour[role="status"]')
 
   // Un garçon, répandu, court : Louise est HORS des filtres.
   await page.getByRole('button', { name: 'Un garçon' }).click()
+  await page.getByRole('button', { name: 'Continuer' }).click()     // les pays : la francophonie, cochée d'office
   await page.getByRole('button', { name: /Répandu, assumé/ }).click()
   await page.getByRole('button', { name: /^Court/ }).click()
   await page.getByRole('button', { name: 'Créer la liste' }).click()
