@@ -5,6 +5,8 @@
  *  1. Un commentaire : les AUTRES membres l'apprennent (qui, dans quelle
  *     liste — ni le prénom, ni le texte) ; d'affilée, un seul message par
  *     demi-heure et par personne.
+ *  1 bis. Un prénom ajouté hors du catalogue : de même — qui, pas lequel, ni
+ *     son mot ; d'affilée, un seul ; le même tapé autrement, rien.
  *  2. La liste débloquée par quelqu'un d'autre : par un cadeau, par Stripe au
  *     retour du navigateur, par Stripe via son webhook. Une fois : un rejeu
  *     ne redit rien. Celui qui a payé n'est pas prévenu.
@@ -169,6 +171,29 @@ const SANS_BRUIT = m => m.channelId === 'activite' && !('sound' in m) && m.prior
     'ce rythme est celui de chacun : le commentaire d’Alice, lui, prévient Paul et Mamie')
 }
 
+// =================== 1 bis. UN PRÉNOM AJOUTÉ ================================
+{
+  let avant = messages.length
+  const r = await poster(paul.page, `/api/groupes/${NOTRE}/ajouts`, { prenom: 'Jeaninne', mot: 'Mon arrière-grand-mère' })
+  const aAlice = await jusqua(() => pour(alice, avant)[0])
+  const aMamie = await jusqua(() => pour(mamie, avant)[0])
+  dit(r.status === 200 && aAlice?.title === 'Notre liste' && aAlice.body === 'Paul a ajouté un prénom à trier.'
+      && aAlice.data?.chemin === `/g/${NOTRE}/swipe` && SANS_BRUIT(aAlice) && aMamie?.body === aAlice.body,
+    `un prénom ajouté prévient les autres membres, sans bruit : « ${aAlice?.title} — ${aAlice?.body} » → ${aAlice?.data?.chemin}`)
+  await silence()
+  dit(pour(paul, avant).length === 0 && pour(alice, avant).length === 1, 'pas celui qui l’a ajouté, et chacun une fois')
+  dit(!/Jeaninne|grand-mère/.test(JSON.stringify(messages.slice(avant))), 'le message ne porte ni le prénom, ni le mot')
+  avant = messages.length
+  await poster(paul.page, `/api/groupes/${NOTRE}/ajouts`, { prenom: 'Zélyanne' })
+  await poster(paul.page, `/api/groupes/${NOTRE}/ajouts`, { prenom: 'Ginette' })
+  await silence()
+  dit(messages.length === avant, 'il en ajoute deux autres dans la foulée : rien de plus ne part')
+  const deja = await poster(alice.page, `/api/groupes/${NOTRE}/ajouts`, { prenom: 'JEANINNE' })
+  await silence()
+  dit(deja.j?.deja === true && messages.length === avant,
+    'Alice tape le même en capitales : il était déjà là, rien n’est annoncé')
+}
+
 // =================== 2. LA LISTE DÉBLOQUÉE PAR QUELQU'UN D'AUTRE ============
 {
   // --- par un cadeau (le code de la semence)
@@ -299,9 +324,10 @@ const SANS_BRUIT = m => m.channelId === 'activite' && !('sound' in m) && m.prior
 // =================== 5. JAMAIS UN PRÉNOM ====================================
 {
   const tout = JSON.stringify(messages)
-  const fuites = PRENOMS.concat(['Louna', 'Lounah']).filter(p => new RegExp(`(^|[^\\p{L}])${p}([^\\p{L}]|$)`, 'u').test(tout))
+  const fuites = PRENOMS.concat(['Louna', 'Lounah', 'Jeaninne', 'Zélyanne', 'Ginette'])
+    .filter(p => new RegExp(`(^|[^\\p{L}])${p}([^\\p{L}]|$)`, 'u').test(tout))
   dit(messages.length >= 9 && fuites.length === 0,
-    `aucun des ${messages.length} messages ne porte un prénom jugé ou commenté${fuites.length ? ` — ${fuites.join(', ')}` : ''}`)
+    `aucun des ${messages.length} messages ne porte un prénom jugé, commenté ou ajouté${fuites.length ? ` — ${fuites.join(', ')}` : ''}`)
   const canaux = [...new Set(messages.map(m => m.channelId))].sort()
   dit(canaux.join(',') === 'accords,activite', `deux canaux, pas un de plus : ${canaux.join(', ')}`)
 }
