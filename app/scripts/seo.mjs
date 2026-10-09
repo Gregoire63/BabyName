@@ -82,9 +82,12 @@ for (let k = 0; k < d.n; k++) {
     y: c.y[k], i: c.i[k], gp: c.gp ? c.gp[k] : k,
     g: c.g[k].map(x => d.origines[x]), m: c.m[k], cf: c.cf ? c.cf[k] ?? null : null,
     dm: c.dm[k] ?? [], sr: c.sr ? c.sr[k] : null, rv: !!c.rv[k],
-    nb: c.nb?.[k] ? c.nb[k].map(x => x * 5) : null
+    nb: c.nb?.[k] ? c.nb[k].map(x => x * 5) : null,
+    fx: c.fx?.[k] ?? null, hf: !!c.hf?.[k]
   })
 }
+// Québec, Belgique, Suisse : d'où vient chaque chiffre « ailleurs » (badges).
+const FX = d.fx_sources ?? []
 
 // Rang par sexe (le catalogue est trié par fréquence, on retrie par sûreté).
 for (const s of ['f', 'm', 'fm']) {
@@ -335,7 +338,7 @@ nav.rubriques{border-bottom:1px solid var(--trait)}
 nav.rubriques ul{display:flex;gap:14px;margin:0;padding:0;list-style:none;overflow-x:auto;scrollbar-width:none}
 nav.rubriques ul::-webkit-scrollbar{display:none}
 @media (min-width:560px){nav.rubriques ul{gap:26px}}
-@media (max-width:400px){nav.rubriques ul{gap:12px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent)}nav.rubriques a{font-size:14px}}
+@media (max-width:400px){nav.rubriques ul{gap:10px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent)}nav.rubriques a{font-size:14px}}
 nav.rubriques a{display:block;padding:12px 0 9px;border-bottom:3px solid transparent;white-space:nowrap;font-size:15px;font-weight:800;line-height:1.3;text-decoration:none;color:var(--doux);transition:color .15s,border-color .15s}
 nav.rubriques a:hover{color:var(--texte);border-bottom-color:var(--trait)}
 nav.rubriques a[aria-current="page"]{color:var(--texte);border-bottom-color:var(--encre)}
@@ -381,6 +384,12 @@ h3{margin:22px 0 6px;font-size:19px;line-height:1.3}
 .graphe figcaption{margin:8px 6px 0;font-size:14px;color:var(--doux)}
 svg.courbe{display:block;width:100%;height:auto;overflow:visible}
 .popularite{display:grid;gap:14px}
+.ailleurs{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.ailleurs li{display:grid;gap:4px;padding:13px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait)}
+.ailleurs .tete{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px}.ailleurs .tete a{min-width:0}
+.ailleurs .valeur{margin:0;display:flex;flex-wrap:wrap;gap:4px 14px;font-variant-numeric:tabular-nums}
+.ailleurs .rien{margin:0;color:var(--doux)}
+.badge{font-size:13px;font-weight:800;padding:3px 10px;border-radius:999px;white-space:nowrap;text-decoration:none;background:color-mix(in srgb,var(--menthe) 55%,var(--carte));border:1px solid color-mix(in srgb,var(--menthe) 80%,var(--trait))}
 .faits{display:grid;gap:10px;margin:0;padding:0;list-style:none}
 .faits li{display:flex;gap:12px;align-items:flex-start;padding:13px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait);line-height:1.5}
 @media (min-width:760px){.chiffres>div{flex-basis:200px}.popularite{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);align-items:start}}
@@ -567,13 +576,13 @@ const RUBRIQUES = g => [
   ['populaires', 'Top 100', `/prenoms/populaires/${g}/`],
   ['rares', 'Rares', `/prenoms/rares/${g}/`],
   ['origines', 'Origines', '/prenoms/origines/'],
-  ['lettres', 'A–Z', '/prenoms/#lettres']
+  ['monde', 'Monde', '/prenoms/monde/']
 ]
 const actuel = oui => oui ? ' aria-current="page"' : ''
 const PLAN = `<nav class="plan" aria-label="Plan du site">
 ${[['filles', 'Filles'], ['garcons', 'Garçons']].map(([g, t]) => `<div><p class="t">${t}</p><ul>
 <li><a href="/prenoms/tendance/${g}/">Qui montent</a></li><li><a href="/prenoms/populaires/${g}/">Les plus donnés</a></li><li><a href="/prenoms/rares/${g}/">Rares</a></li></ul></div>`).join('\n')}
-<div><p class="t">Explorer</p><ul><li><a href="${CHERCHER}">Chercher un prénom</a></li><li><a href="/prenoms/">Tous les prénoms</a></li><li><a href="/prenoms/origines/">Par origine</a></li><li><a href="/prenoms/#lettres">Par lettre</a></li></ul></div>
+<div><p class="t">Explorer</p><ul><li><a href="${CHERCHER}">Chercher un prénom</a></li><li><a href="/prenoms/">Tous les prénoms</a></li><li><a href="/prenoms/origines/">Par origine</a></li><li><a href="/prenoms/monde/">Dans le monde</a></li><li><a href="/prenoms/#lettres">Par lettre</a></li></ul></div>
 <div><p class="t">${MARQUE}</p><ul><li><a href="${APP}">L’application</a></li><li><a href="/offrir" rel="nofollow">Offrir ${MARQUE}</a></li></ul></div>
 </nav>`
 
@@ -692,6 +701,128 @@ function proches(p, n = 12) {
 }
 
 // ---------------------------------------------------------------- fiche
+/**
+ * Le prénom au Québec, en Belgique et en Suisse, chaque chiffre avec son
+ * badge de source (organisme, années, lien vers le jeu de données). Absent
+ * de la fiche si aucun des trois pays ne le publie.
+ */
+// Tous les pays (pipeline/pays.py) : un prénom, ses chiffres dans chacun.
+const PAYS_DIR = resolve(PUBLIC, 'data/pays')
+const PAYS = existsSync(resolve(PAYS_DIR, 'index.json'))
+  ? JSON.parse(readFileSync(resolve(PAYS_DIR, 'index.json'), 'utf8')).pays.filter(x => !x.catalogue) : []
+const PX = new Map()                         // label -> code -> [ligne f, ligne m, ligne x]
+for (const x of PAYS) {
+  const f = resolve(PAYS_DIR, `${x.code}.json`)
+  if (!existsSync(f)) continue
+  for (const l of JSON.parse(readFileSync(f, 'utf8')).lignes) {
+    if (l[5]) continue                       // prénom absent du catalogue : pas de fiche ici
+    const m = PX.get(l[0]) ?? PX.set(l[0], {}).get(l[0])
+    ;(m[x.code] ??= [null, null, null])[l[1]] = l
+  }
+}
+const totalPour = (x, sx) => typeof x.total === 'number' ? x.total : sx ? x.total[sx] : x.total.f + x.total.m
+const enPays = x => x.code === 'qc' ? 'au Québec' : x.code === 'us' ? 'aux États-Unis' : `en ${x.nom}`
+const MONDE = {
+  be: ['belges', 'belge', 'Prénoms belges'], ch: ['suisses', 'suisse', 'Prénoms suisses'],
+  qc: ['quebecois', 'québécois', 'Prénoms québécois'], 'ca-on': ['ontario', 'de l’Ontario', 'Prénoms canadiens : l’Ontario'],
+  'ca-bc': ['colombie-britannique', 'de Colombie-Britannique', 'Prénoms canadiens : la Colombie-Britannique'],
+  us: ['americains', 'américain', 'Prénoms américains'], 'gb-eaw': ['anglais', 'anglais', 'Prénoms anglais'],
+  'gb-sct': ['ecossais', 'écossais', 'Prénoms écossais'], 'gb-nir': ['nord-irlandais', 'nord-irlandais', 'Prénoms nord-irlandais'],
+  ie: ['irlandais', 'irlandais', 'Prénoms irlandais'], at: ['autrichiens', 'autrichien', 'Prénoms autrichiens'],
+  se: ['suedois', 'suédois', 'Prénoms suédois'], no: ['norvegiens', 'norvégien', 'Prénoms norvégiens'],
+  pl: ['polonais', 'polonais', 'Prénoms polonais'], lv: ['lettons', 'letton', 'Prénoms lettons'],
+  nz: ['neo-zelandais', 'néo-zélandais', 'Prénoms néo-zélandais']
+}
+const parLabel = new Map()
+for (const p of tous) if (!parLabel.has(p.l) || p.n > parLabel.get(p.l).n) parLabel.set(p.l, p)
+const lienPrenom = l => { const s = slugDe(l); return pages.has(s) ? `/prenom/${s}/` : null }
+const cheminPays = (x, s) => `/prenoms/monde/${MONDE[x.code][0]}/${x.par_sexe ? (s === 'm' ? 'garcons/' : 'filles/') : ''}`
+const badgePays = x => `<a class="badge" href="${esc(x.url)}" rel="noopener" title="${esc(`${x.organisme} — ${x.jeu}, ${x.annees[0]}-${x.annees[1]}. Licence : ${x.licence}.`)}">${esc(x.sigle || x.organisme)} · ${x.annees[0]}-${String(x.annees[1]).slice(2)}</a>`
+const lignesPays = new Map()
+for (const x of PAYS) {
+  const f = resolve(PAYS_DIR, `${x.code}.json`)
+  if (existsSync(f) && MONDE[x.code]) lignesPays.set(x.code, JSON.parse(readFileSync(f, 'utf8')).lignes)
+}
+const PAYS_MONDE = PAYS.filter(x => lignesPays.has(x.code))
+
+function tableauPays(x, rows, tot) {
+  return `<div class="tableau r"><table><caption>Naissances ${x.annees[0]}-${x.annees[1]} (${esc(x.sigle || x.organisme)}) ; « En France » : naissances ${AN1 - 2}-${AN1} (INSEE).</caption>
+<thead><tr><th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="n"><span class="long">Naissances</span><abbr class="court" title="Naissances">Naiss.</abbr></th><th scope="col" class="n o">Fréquence</th><th scope="col" class="n">Tendance</th><th scope="col" class="n"><span class="long">En France</span><abbr class="court" title="Naissances en France">Fr.</abbr></th></tr></thead><tbody>
+${rows.map(r => {
+  const lien = lienPrenom(r[0])
+  const fr = parLabel.get(r[0])
+  return `<tr><td class="rg">${r[3]}</td><td>${lien ? `<a href="${lien}"><b>${esc(r[0])}</b></a>` : `<b>${esc(r[0])}</b>`}</td><td class="n">${nf(r[2])}</td><td class="n o">1 sur ${nf(tot / r[2])}</td><td class="n">${r[4] !== null ? tendanceHtml(r[4]) : ''}</td><td class="n">${fr && !fr.hf && fr.n ? nf(fr.n) : '<small>—</small>'}</td></tr>`
+}).join('')}
+</tbody></table></div>`
+}
+
+/** [n, rang, tendance] d'un prénom dans un pays, pour son sexe (les deux s'il est mixte). */
+function chiffrePays(p, x) {
+  const t = PX.get(p.l)?.[x.code]
+  if (!t) return null
+  const [f, m, tous] = t
+  if (tous) return [tous[2], tous[3], tous[4]]
+  if (p.sexe === 'f') return f ? [f[2], f[3], f[4]] : null
+  if (p.sexe === 'm') return m ? [m[2], m[3], m[4]] : null
+  const n = (f?.[2] ?? 0) + (m?.[2] ?? 0)
+  return n ? [n, null, null] : null
+}
+
+/** Le pays où le prénom pèse le plus : { s, v, sur: « 1 garçon sur 380 », en }. */
+function meilleurPays(p) {
+  const sx = p.sexe === 'f' || p.sexe === 'm' ? p.sexe : null
+  let mieux = null
+  for (const x of PAYS) {
+    const v = chiffrePays(p, x)
+    if (!v) continue
+    const tot = totalPour(x, sx)
+    if (!mieux || v[0] / tot > mieux.part) mieux = { s: x, v, part: v[0] / tot, tot }
+  }
+  if (!mieux) return null
+  const qui = !mieux.s.par_sexe || !sx ? 'bébé' : sx === 'f' ? 'fille' : 'garçon'
+  return { ...mieux, sur: `1 ${qui} sur ${nf(mieux.tot / mieux.v[0])}`, en: enPays(mieux.s) }
+}
+
+/**
+ * Le prénom dans tous les pays dont les chiffres sont publics : chaque ligne
+ * avec son badge de source (organisme, années, lien vers le jeu de données).
+ * Les pays où il ne figure pas tiennent en une phrase. Absent de la fiche si
+ * aucun pays ne le publie.
+ */
+function ailleurs(p, rangFrance) {
+  if (!PAYS.length) return ''
+  const sx = p.sexe === 'f' || p.sexe === 'm' ? p.sexe : null
+  const ord = r => r === 1 ? '1<sup>er</sup>' : `${r}<sup>e</sup>`
+  const vus = PAYS.map(x => ({ x, v: chiffrePays(p, x) }))
+  const presents = vus.filter(e => e.v).sort((a, b) => b.v[0] / totalPour(b.x, sx) - a.v[0] / totalPour(a.x, sx))
+  if (!presents.length) return ''
+  const absents = vus.filter(e => !e.v)
+  const lignes = presents.map(({ x, v }) => {
+    const org = x.sigle || x.organisme
+    const info = `${x.organisme} — ${x.jeu}, ${x.annees[0]}-${x.annees[1]}. Licence : ${x.licence}.`
+    const badge = `<a class="badge" href="${esc(x.url)}" rel="noopener" title="${esc(info)}">${esc(org)} · ${x.annees[0]}-${String(x.annees[1]).slice(2)}</a>`
+    const [n, rang, t] = v
+    const qui = !x.par_sexe || !sx ? 'bébé' : sx === 'f' ? 'fille' : 'garçon'
+    const parts = [
+      rang && rang <= 2000 ? `<b>${ord(rang)} prénom${x.par_sexe && sx ? (sx === 'f' ? ' de fille' : ' de garçon') : ''}</b>` : '',
+      `<span>${nf(n)} bébés en 3 ans</span>`,
+      `<span>1 ${qui} sur ${nf(totalPour(x, sx) / n)}</span>`,
+      t !== null && t !== undefined ? `<span class="${classeTendance(t)}">${pctTendance(t)} %/an</span>` : ''
+    ].filter(Boolean)
+    const note = x.note ? `<p class="rien"><small>${esc(x.note[0].toUpperCase() + x.note.slice(1))}.</small></p>` : ''
+    const lienPays = MONDE[x.code] ? cheminPays(x, sx === 'm' ? 'm' : 'f') : null
+    return `<li><div class="tete">${lienPays ? `<a href="${lienPays}"><b>${esc(x.nom)}</b></a>` : `<b>${esc(x.nom)}</b>`}${badge}</div><p class="valeur">${parts.join('')}</p>${note}</li>`
+  })
+  const classes = presents.filter(e => e.v[1] && e.v[1] <= 300).sort((a, b) => a.v[1] - b.v[1]).slice(0, 4)
+    .map(e => `${ord(e.v[1])} ${esc(enPays(e.x))}`)
+  const France = rangFrance && rangFrance <= 2000 ? `, contre ${ord(rangFrance)} en France` : ''
+  const phrase = classes.length ? `<p>${esc(p.l)} est ${liste(classes)}${France}.</p>` : ''
+  return `<section class="bloc r"><h2>${esc(p.l)} dans le monde</h2>${phrase}
+<ul class="ailleurs">${lignes.join('')}</ul>
+${absents.length ? `<p class="doute">Peu ou pas donné (sous le seuil de publication) : ${esc(liste(absents.map(e => e.x.nom)))}.</p>` : ''}
+<p class="doute">Chiffres officiels de chaque pays, sur leurs trois dernières années publiées.</p></section>`
+}
+
 function fiche(entrees) {
   const p = entrees[0]
   const autresGraphies = entrees.slice(1)
@@ -717,15 +848,20 @@ function fiche(entrees) {
 
   const pic = p.p && p.p < AN0 ? `Depuis 1900, son année record reste ${p.p}.` : p.p ? `Ce prénom a atteint son pic en ${p.p}.` : ''
   const ar = arabeDe(p)
-  const titre = p.m
+  const best = p.hf ? meilleurPays(p) : null
+  const titre = p.hf
+    ? `${p.l} : prénom ${genre} d’ailleurs${p.m ? ', signification et origine' : ''}${best ? `, donné ${best.en}` : ''}`
+    : p.m
     ? `${p.l}${ar ? ` (${ar})` : ''} : signification, origine et popularité du prénom`
     : `${p.l}${ar ? ` (${ar})` : ''} : origine et popularité du prénom`
   const fiable = p.n >= SEUIL_TENDANCE
   const parAn = Math.max(1, Math.round(p.n / 3))
   const description = descriptionFiche({
     nom: p.l, genre, origines, sens: p.m,
-    chiffre: `${nf(nTot)} naissances en France de ${AN1 - 2} à ${AN1}`,
-    tendance: fiable ? `, tendance ${tendanceMot(p.t)}` : ''
+    chiffre: p.hf
+      ? `Pas donné en France de ${AN1 - 2} à ${AN1}${best ? `, mais ${best.sur} ${best.en}` : ''}`
+      : `${nf(nTot)} naissances en France de ${AN1 - 2} à ${AN1}`,
+    tendance: fiable && !p.hf ? `, tendance ${tendanceMot(p.t)}` : ''
   })
 
   // L'essentiel d'abord, en haut : le sens, le genre, l'origine. Les phrases
@@ -733,7 +869,7 @@ function fiche(entrees) {
   const sensTete = (p.m
     ? `<p class="sens">« ${esc(p.m)} »${p.cf === 2 ? '' : `<small>${p.cf === 1 ? 'sens probable' : 'sens incertain'}</small>`}</p>` : '')
     + (ar ? `<p class="arabe"><span lang="ar" dir="rtl">${esc(ar)}</span><small>en arabe</small></p>` : '')
-  const etiquettes = [`Prénom ${genre}`, ...(origines.length ? [`Origine ${liste(origines)}`] : []),
+  const etiquettes = [`Prénom ${genre}`, ...(p.hf ? ['Prénom d’ailleurs'] : []), ...(origines.length ? [`Origine ${liste(origines)}`] : []),
     ...(p.rv ? ['Prénom rétro qui revient'] : [])]
   // La popularité en trois faits, pas en un paragraphe.
   const faits = [pic, fiable
@@ -756,7 +892,12 @@ function fiche(entrees) {
 <section class="hero">${h1(p.l)}${sensTete}
 <ul class="etiquettes">${etiquettes.map(e => `<li>${esc(e)}</li>`).join('')}</ul></section>
 
-<div class="chiffres">
+${p.hf ? `<div class="chiffres">
+<div><b>0</b><span>naissance en France en <span class="nw">${AN1 - 2}-${AN1}</span></span></div>
+${best ? `<div><b>${best.sur.replace(/^1 /, '1 ')}</b><span>${esc(best.en)}</span></div>` : ''}
+${best && best.v[1] && best.v[1] <= 1500 ? `<div><b>${best.v[1] === 1 ? '1<sup>er</sup>' : `${best.v[1]}<sup>e</sup>`}</b><span>prénom ${esc(best.en)}</span></div>` : ''}
+<div><b>100/100</b><span>originalité en France</span></div>
+</div>` : `<div class="chiffres">
 <div><b>${nf(nTot)}</b><span>naissances en <span class="nw">${AN1 - 2}-${AN1}</span></span></div>
 <div><b>${unSur(p.f)}</b><span>en France, filles et garçons</span></div>
 ${rang <= 2000 ? `<div><b>${rang}<sup>${rang === 1 ? 'er' : 'e'}</sup></b><span>prénom ${p.sexe === 'fm' ? 'le plus donné' : p.sexe === 'f' ? 'féminin' : 'masculin'}</span></div>` : ''}
@@ -764,19 +905,24 @@ ${fiable
   ? `<div><b>${pctTendance(p.t)} %/an</b><span>tendance récente : ${tendanceMot(p.t)}</span></div>`
   : `<div><b>≈ ${nf(parAn)}</b><span>bébé${parAn > 1 ? 's' : ''} par an</span></div>`}
 <div><b>${nf(p.o)}/100</b><span>originalité</span></div>
-</div>
+</div>`}
 
 <section class="bloc r"><h2>Signification et origine de ${esc(p.l)}</h2>
 <div class="carte"><p>${phraseSens}</p>${doute}</div></section>
 
-<section class="bloc r"><h2>Popularité de ${esc(p.l)} depuis ${p.sr || !p.nb ? AN0 : B0}</h2>
+${p.hf ? ailleurs(p, null) + (p.sr ? `
+<section class="bloc r"><h2>${esc(p.l)} en France, avant ${AN1 - 2}</h2>
+<div class="popularite"><figure class="carte graphe">${courbe(p)}
+<figcaption>Naissances pour 10 000 bébés nés en France, année par année (INSEE). Aucune de ${AN1 - 2} à ${AN1}.</figcaption></figure></div></section>` : '') : `<section class="bloc r"><h2>Popularité de ${esc(p.l)} depuis ${p.sr || !p.nb ? AN0 : B0}</h2>
 <div class="popularite"><figure class="carte graphe">${p.sr ? courbe(p) : barres(p)}
 <figcaption>${p.sr ? 'Naissances pour 10 000 bébés nés en France, année par année (INSEE).' : 'Naissances par an en France, arrondies à 5 par l’INSEE.'}</figcaption></figure>
-<ul class="faits">${faits.map(f => `<li><span>${f}</span></li>`).join('')}</ul></div></section>
+<ul class="faits">${faits.map(f => `<li><span>${f}</span></li>`).join('')}</ul></div></section>`}
+
+${p.hf ? '' : ailleurs(p, rang)}
 
 ${graphies.length ? `<section class="bloc r"><h2>Même prononciation, autres graphies</h2>
 <ul class="puces">${graphies.map(x =>
-  aPage(x) && x.slug !== p.slug ? `<li><a href="${url(x)}">${esc(x.l)} <small>${nf(x.n)}</small></a></li>` : `<li><span>${esc(x.l)} <small>${nf(x.n)}</small></span></li>`).join('')}</ul>
+  aPage(x) && x.slug !== p.slug ? `<li><a href="${url(x)}">${esc(x.l)} <small>${x.hf ? 'ailleurs' : nf(x.n)}</small></a></li>` : `<li><span>${esc(x.l)} <small>${x.hf ? 'ailleurs' : nf(x.n)}</small></span></li>`).join('')}</ul>
 <p class="doute">Nombre de naissances ${AN1 - 2}-${AN1}. À l’école, on les entend pareil : c’est ce total qui compte pour savoir si l’enfant sera seul à porter son prénom.</p></section>` : ''}
 
 ${p.dm.length ? `<section class="bloc r"><h2>Diminutifs</h2><ul class="puces">${p.dm.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ul></section>` : ''}
@@ -822,7 +968,7 @@ function tableau(xs, colonne = 'tendance') {
     ? ' ; tendance : évolution moyenne par an sur les dernières années.' : ' ; originalité sur 100 : plus elle est haute, plus le prénom est rare.'}`
   return `<div class="tableau r"><table><caption>${legende}</caption>
 <thead><tr><th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="o">Origine</th><th scope="col" class="n"><span class="long">Naissances</span><abbr class="court" title="Naissances">Naiss.</abbr></th><th scope="col" class="n">${colonne === 'tendance' ? 'Tendance' : '<span class="long">Originalité</span><abbr class="court" title="Originalité sur 100">Orig.</abbr>'}</th></tr></thead><tbody>
-${xs.map((x, i) => `<tr><td class="rg">${i + 1}</td><td><a href="${url(x)}"><b>${esc(x.l)}</b></a></td><td class="o">${esc(liste(x.g.map(ORIGINE_LIB)))}</td><td class="n">${nf(x.n)}</td><td class="n">${colonne === 'tendance' ? tend(x.t) : `${nf(x.o)}<span class="v-long">/100</span>`}</td></tr>`).join('')}
+${xs.map((x, i) => `<tr><td class="rg">${i + 1}</td><td><a href="${url(x)}"><b>${esc(x.l)}</b></a></td><td class="o">${esc(liste(x.g.map(ORIGINE_LIB)))}</td><td class="n">${x.hf ? '<small title="Donné au Québec, en Belgique ou en Suisse, pas en France">ailleurs</small>' : nf(x.n)}</td><td class="n">${x.hf ? '' : colonne === 'tendance' ? tend(x.t) : `${nf(x.o)}<span class="v-long">/100</span>`}</td></tr>`).join('')}
 </tbody></table></div>`
 }
 
@@ -945,6 +1091,76 @@ ${cta(null)}`
   urls.push(L.chemin)
 }
 
+// ---------------------------------------------------------------- le monde
+/**
+ * Les prénoms dans chaque pays dont les chiffres sont publics
+ * (pipeline/pays.py) : une page par pays et par sexe, en français, pour qui
+ * cherche « prénoms américains », « prénom suédois fille », « prénoms
+ * belges »… Chaque page : le top 100 de là-bas avec, à côté, ce qu'il pèse en
+ * France ; ceux qui montent ; ceux qui y sont courants et restent rares ici.
+ * Chaque chiffre porte sa source.
+ */
+for (const x of PAYS_MONDE) {
+  const [, adj, titreBase] = MONDE[x.code]
+  const sexes = x.par_sexe ? ['f', 'm'] : ['x']
+  for (const s of sexes) {
+    const sx = s === 'f' ? 0 : s === 'm' ? 1 : 2
+    const rows = lignesPays.get(x.code).filter(r => r[1] === sx).sort((a, b) => b[2] - a[2])
+    if (rows.length < 20) continue
+    const tot = s === 'x' ? x.total : x.total[s]
+    const top = rows.slice(0, 100)
+    const montent = rows.filter(r => r[4] !== null && r[2] >= 60).sort((a, b) => b[4] - a[4]).slice(0, 20)
+    // Courants là-bas, rares ou absents en France : la vraie trouvaille.
+    const decouvertes = rows.slice(0, 400).filter(r => { const fr = parLabel.get(r[0]); return !fr || fr.hf || fr.n < 60 }).slice(0, 30)
+    const pour = s === 'f' ? ' de fille' : s === 'm' ? ' de garçon' : ''
+    const chemin = cheminPays(x, s)
+    const h = `${titreBase}${pour}`
+    const en = enPays(x)
+    const bascule = x.par_sexe ? `<nav class="bascule" aria-label="Filles ou garçons">${[['f', 'Filles'], ['m', 'Garçons']].map(([g, t]) =>
+      `<a href="${cheminPays(x, g)}"${actuel(g === s)}>${t}</a>`).join('')}</nav>` : ''
+    const autres = `<section class="bloc r"><h2>Les autres pays</h2><ul class="puces">${PAYS_MONDE.filter(y => y !== x)
+      .map(y => `<li><a href="${cheminPays(y, s === 'x' ? 'f' : s)}">${esc(y.nom)}</a></li>`).join('')}</ul></section>`
+    ecrire(chemin, page({
+      chemin, rubrique: 'monde', genre: s === 'm' ? 'garcons' : 'filles',
+      titre: `${h} : les 100 plus donnés ${en} (${x.annees[0]}-${x.annees[1]})`,
+      description: `Les prénoms${pour} les plus donnés ${en} de ${x.annees[0]} à ${x.annees[1]}, d’après ${x.sigle || x.organisme} : rang, fréquence, tendance, et ce qu’ils pèsent en France.`,
+      fil: [{ n: 'Dans le monde', u: '/prenoms/monde/' }, { n: h, u: chemin }],
+      corps: `<section class="hero court">${h1(h)}<p class="sous">Les ${top.length} prénoms${pour} les plus donnés ${esc(en)}, de ${x.annees[0]} à ${x.annees[1]}. ${badgePays(x)}</p></section>
+${bascule}${tableauPays(x, top, tot)}
+${x.note ? `<p class="doute">${esc(x.note[0].toUpperCase() + x.note.slice(1))}.</p>` : ''}
+${decouvertes.length ? `<section class="bloc r"><h2>Courants ${esc(en)}, rares en France</h2>
+<p>Des prénoms${pour} bien installés ${esc(en)} mais presque jamais donnés en France : de quoi sortir des listes habituelles.</p>
+<ul class="puces">${decouvertes.map(r => { const l = lienPrenom(r[0]); return `<li>${l ? `<a href="${l}">` : '<span>'}${esc(r[0])} <small>${r[3]}<sup>e</sup></small>${l ? '</a>' : '</span>'}</li>` }).join('')}</ul></section>` : ''}
+${montent.length ? `<section class="bloc r"><h2>Ceux qui montent ${esc(en)}</h2>
+<ul class="puces">${montent.map(r => { const l = lienPrenom(r[0]); return `<li>${l ? `<a href="${l}">` : '<span>'}${esc(r[0])} <small>${pctTendance(r[4], 0)} %</small>${l ? '</a>' : '</span>'}</li>` }).join('')}</ul></section>` : ''}
+<section class="bloc r"><h2>D’où viennent ces chiffres</h2><p>${esc(x.organisme)}, « ${esc(x.jeu)} », naissances de ${x.annees[0]} à ${x.annees[1]}. Licence : ${esc(x.licence)}. Seuil de publication : ${esc(x.seuil || 'non précisé')}, un prénom absent n’est donc pas forcément jamais donné. La tendance compare la part du prénom dans les naissances avec celle d’il y a cinq ans.</p></section>
+${autres}
+${cta(null)}`
+    }))
+    urls.push(chemin)
+  }
+}
+
+if (PAYS_MONDE.length) {
+  const carte = x => {
+    const tops = (x.par_sexe ? [['f', 'Filles', 0], ['m', 'Garçons', 1]] : [['x', 'Tous', 2]]).map(([s, t, sx]) =>
+      `<div><p class="genre">${t}</p><ol class="apercu">${lignesPays.get(x.code).filter(r => r[1] === sx).sort((a, b) => b[2] - a[2]).slice(0, 3)
+        .map(r => `<li>${esc(r[0])}</li>`).join('')}</ol><a class="suite" href="${cheminPays(x, s === 'x' ? 'f' : s)}">Le top 100<span class="vh"> ${esc(enPays(x))}${s === 'm' ? ', garçons' : s === 'f' ? ', filles' : ''}</span></a></div>`).join('')
+    return `<article class="carte classement r"><h3>${esc(MONDE[x.code][2])}</h3><p>${esc(x.nom)}, ${x.annees[0]}-${x.annees[1]} ${badgePays(x)}</p><div class="duo">${tops}</div></article>`
+  }
+  ecrire('/prenoms/monde/', page({
+    chemin: '/prenoms/monde/', rubrique: 'monde',
+    titre: `Prénoms du monde : les plus donnés dans ${PAYS_MONDE.length + 1} pays`,
+    description: `Prénoms américains, anglais, belges, suisses, québécois, suédois, polonais… les plus donnés dans ${PAYS_MONDE.length} pays, chiffres officiels à l’appui, comparés à la France.`,
+    fil: [{ n: 'Dans le monde', u: '/prenoms/monde/' }],
+    corps: `<section class="hero court">${h1('Les prénoms dans le monde')}<p class="sous">Les prénoms les plus donnés dans ${PAYS_MONDE.length} pays, d’après leurs instituts statistiques, et ce qu’ils pèsent en France.</p></section>
+<section class="bloc"><div class="classements">${PAYS_MONDE.map(carte).join('')}</div></section>
+<p class="doute">Chaque pays publie ses prénoms à sa façon (seuils, accents, années) : chaque page le précise, avec un lien vers la source.</p>
+${cta(null)}`
+  }))
+  urls.push('/prenoms/monde/')
+}
+
 // Les origines, toutes, avec de quoi reconnaître chacune.
 ecrire('/prenoms/origines/', page({
   chemin: '/prenoms/origines/', rubrique: 'origines',
@@ -1015,6 +1231,8 @@ ecrire('/prenoms/', page({
 <section class="bloc"><h2>Les classements</h2><div class="classements">${CLASSEMENTS.map(carteClassement).join('')}</div></section>
 <section class="bloc r"><h2>Par origine</h2><ul class="origines six">${listesOrigines.slice(0, 6).map(carteOrigine).join('')}</ul>
 <p class="suite-bloc"><a class="suite" href="/prenoms/origines/">Les ${listesOrigines.length} origines</a></p></section>
+<section class="bloc r"><h2>Dans le monde</h2><ul class="puces">${PAYS_MONDE.map(x => `<li><a href="${cheminPays(x, 'f')}">${esc(MONDE[x.code][2])}</a></li>`).join('')}</ul>
+<p class="suite-bloc"><a class="suite" href="/prenoms/monde/">Les ${PAYS_MONDE.length} pays</a></p></section>
 <section class="bloc r" id="lettres"><h2>Par lettre</h2>${alphabet(null)}</section>
 ${offrir}
 ${cta(null)}`
@@ -1030,7 +1248,7 @@ ecrire(CHERCHER, page({
 <section class="bloc r"><h2>Ce prénom existe-t-il ?</h2><p>La recherche couvre tous les prénoms publiés par l’INSEE, donnés en France de ${AN0} à ${AN1}, même les plus rares. Un prénom qui n’y figure pas n’a pas forcément jamais été donné : l’INSEE ne publie un prénom qu’à partir de 3 naissances, en dessous il reste dans l’ombre du secret statistique.</p>
 <p>Et un prénom inédit reste possible : depuis la loi du 8 janvier 1993, les parents choisissent librement. L’officier d’état civil ne peut que saisir le procureur s’il juge le prénom contraire à l’intérêt de l’enfant.</p></section>
 <section class="bloc r"><h2>Orthographes et prénoms qui sonnent pareil</h2><p>Maëlys, Maelys, Maélis : pour l’INSEE, ce sont des prénoms différents, comptés à part. La recherche vous propose les orthographes voisines et les prénoms qui se prononcent de la même façon, avec le nombre de bébés de chacun. Pratique pour savoir si l’orthographe que vous aimez est rare, ou si le prénom est en fait très courant sous une autre forme.</p></section>
-<section class="bloc r"><h2>Ce que dit chaque fiche</h2><ul class="puces"><li>La signification et l’origine, quand elles sont établies.</li><li>La courbe des naissances depuis ${AN0}.</li><li>La tendance récente : il monte, il se maintient ou il recule.</li><li>Les autres orthographes et leur poids.</li></ul></section>
+<section class="bloc r"><h2>Ce que dit chaque fiche</h2><ul class="puces"><li>La signification et l’origine, quand elles sont établies.</li><li>La courbe des naissances depuis ${AN0}.</li><li>La tendance récente : il monte, il se maintient ou il recule.</li><li>Les autres orthographes et leur poids.</li><li>Sa place au Québec, en Belgique et en Suisse, chiffres officiels à l’appui.</li></ul></section>
 ${cta(null)}`,
   jsonld: [{
     '@context': 'https://schema.org', '@type': 'WebApplication', name: 'Chercher un prénom',
