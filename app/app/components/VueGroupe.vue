@@ -3,6 +3,7 @@ import { chargerCatalogue, filtrer, filtresParDefaut, type Prenom, type Filtres 
   from '~/composables/useCatalogue'
 import { marquerListeCourante } from '~/composables/useListeCourante'
 import { CLE_GROUPE, type EtatGroupe, type EntreeDejaPris, type StatutPaiement } from '~/composables/etatGroupe'
+import { ficheAjoutee, type EntreeAjout } from '~/composables/useAjouts'
 
 const props = defineProps<{ depart?: string; segmentDepart?: string }>()
 
@@ -82,7 +83,28 @@ const fiche = ref<Prenom | null>(null)
 // l'ouvrir aussi depuis les reglages de la liste.
 const filtresOuverts = ref(false)
 
-const parNom = computed(() => new Map(catalogue.value.map(p => [p.l, p])))
+const parNomCatalogue = computed(() => new Map(catalogue.value.map(p => [p.l, p])))
+
+/**
+ * Les prénoms que la liste a ajoutés hors du catalogue (ajouts.post.ts), tels
+ * que le serveur les donne, puis en fiches (useAjouts). Un prénom entré au
+ * catalogue depuis — un nouveau millésime de l'INSEE — y reprend sa vraie
+ * fiche : le catalogue gagne toujours.
+ */
+const entreesAjouts = shallowRef<EntreeAjout[]>([])
+/** L'instant du dernier chargement de la liste (voir auRetourSurApp). */
+let chargeLe = 0
+const ajouts = computed(() => {
+  const c = parNomCatalogue.value
+  return entreesAjouts.value.filter(a => !c.has(a.prenom)).map(ficheAjoutee)
+})
+/** Toute fiche par son nom : le catalogue, et les prénoms ajoutés. */
+const parNom = computed(() => {
+  if (!ajouts.value.length) return parNomCatalogue.value
+  const m = new Map(parNomCatalogue.value)
+  for (const p of ajouts.value) m.set(p.l, p)
+  return m
+})
 
 async function rechargerCommuns() {
   communs.value = await $fetch<any[]>(`/api/groupes/${gid}/communs`).catch(() => [])
@@ -162,6 +184,34 @@ async function retirerDejaPris(prenom: string) {
   Promise.all([recharger(), rechargerCommuns()]).catch(() => null)
 }
 
+/**
+ * Ajouter un prénom hors catalogue : une carte de plus, pour toute la liste.
+ * La liste locale suit dès que le serveur a dit oui — la recherche épingle la
+ * carte juste après, elle doit déjà la connaître. Déjà là (ajouté par l'autre
+ * entre-temps) : on relit la liste, pour l'avoir avec son auteur et son mot.
+ */
+async function ajouterPrenom(prenom: string, mot?: string): Promise<string> {
+  const r = await $fetch<{ prenom: string; deja?: boolean }>(`/api/groupes/${gid}/ajouts`,
+    { method: 'POST', body: { prenom, mot } })
+  if (!entreesAjouts.value.some(a => a.prenom === r.prenom)) {
+    if (r.deja) await recharger()
+    else {
+      const moi = etat.value?.membres?.find((m: any) => m.user_id === etat.value?.moi?.user_id)
+      entreesAjouts.value = [...entreesAjouts.value, { prenom: r.prenom, mot: mot?.trim() || null,
+        auteur: moi?.pseudo ?? null, mien: true, ajoute_le: new Date().toISOString() }]
+      recharger().catch(() => null)
+    }
+  }
+  return r.prenom
+}
+
+/** Le retirer : ce que j'y avais mis (vote, favori…) part avec, côté serveur. */
+async function retirerAjout(prenom: string) {
+  await $fetch(`/api/groupes/${gid}/ajouts?prenom=${encodeURIComponent(prenom)}`, { method: 'DELETE' })
+  entreesAjouts.value = entreesAjouts.value.filter(a => a.prenom !== prenom)
+  await Promise.all([recharger(), rechargerCommuns()])
+}
+
 async function basculerFavori(prenom: string) {
   const actif = !favoris.value.has(prenom)
   const s = new Set(favoris.value)
@@ -188,6 +238,12 @@ async function recharger() {
   mesVetos.value = e.mes_vetos ?? []
   dejaPris.value = e.deja_pris ?? []
   favoris.value = new Set(e.mes_favoris)
+  // Avant les oui ci-dessous : un oui à un prénom ajouté se retrouve par
+  // `parNom`. Remplacé seulement s'il a changé — tout ce qui lit `parNom` se
+  // referait pour rien à chaque rechargement.
+  const lus: EntreeAjout[] = e.ajouts ?? []
+  if (JSON.stringify(lus) !== JSON.stringify(entreesAjouts.value)) entreesAjouts.value = lus
+  chargeLe = Date.now()
 
   const moiId = e.moi.user_id
   const miens = votes.value.filter((v: any) => v.user_id === moiId)
@@ -320,8 +376,17 @@ async function verifierPaiement(): Promise<StatutPaiement | null> {
   }
   return s
 }
+/**
+ * Au retour sur l'app, la liste se relit — une demi-minute après le dernier
+ * chargement au moins : ce que les autres y ont fait entre-temps, un prénom
+ * ajouté surtout, dont la carte doit être là quand on revient (et quand on
+ * touche la notification qui l'annonce). La tête de la pile ne bouge pas
+ * (SectionTrier) : ce qui arrive se range derrière.
+ */
 function auRetourSurApp() {
-  if (document.visibilityState === 'visible' && pret.value && !etat.value?.groupe?.paye) verifierPaiement()
+  if (document.visibilityState !== 'visible' || !pret.value) return
+  if (!etat.value?.groupe?.paye) verifierPaiement()
+  if (Date.now() - chargeLe > 30000) recharger().catch(() => null)
 }
 onMounted(() => document.addEventListener('visibilitychange', auRetourSurApp))
 onUnmounted(() => document.removeEventListener('visibilitychange', auRetourSurApp))
@@ -345,7 +410,7 @@ onUnmounted(() => window.removeEventListener('babynamed:debloquee', auDeblocage)
 const partage: EtatGroupe = {
   gid, etat, catalogue, parNom, origines, filtres, dejaVotes, aimes, vetos,
   mesVetos, poserVeto, retirerVeto, dejaPris, parDejaPris, ajouterDejaPris,
-  retirerDejaPris, graphiesDe, favoris, basculerFavori,
+  retirerDejaPris, graphiesDe, ajouts, ajouterPrenom, retirerAjout, favoris, basculerFavori,
   communs, rechargerCommuns, votes, rechargerVotes, voter, feter,
   pret, recharger, ouvrirFiche, ouvrirFiltres, allerA, ouvrirDebloquer, verifierPaiement,
   annoncerPaiement

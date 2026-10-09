@@ -17,7 +17,7 @@ function parTete<T extends { prenom: string; tete: string | null }>(lignes: T[])
 export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
-  const [groupe, membres, av, vetos, dejaPris, favoris, proprio] = await Promise.all([
+  const [groupe, membres, av, vetos, dejaPris, favoris, proprio, ajouts] = await Promise.all([
     // Les codes d'invitation ne vont qu'a ceux qui decident (voir
     // groupes/index.get.ts) : un observateur ne fait entrer personne.
     // Debloquee par un cadeau : on dit de qui, s'il l'a signe.
@@ -44,7 +44,13 @@ export default defineEventHandler(async (e) => {
         where d.groupe_id = ?1 order by d.pose_le`, [gid]),
     q(`select prenom from favoris where groupe_id = ?1 and user_id = ?2`, [gid, moi.user_id]),
     // Qui peut supprimer la liste pour tous ; les autres la quittent.
-    proprietaire(gid)
+    proprietaire(gid),
+    // Les prénoms que la liste a ajoutés au catalogue (migration 0013) : des
+    // cartes du tri pour tous, avec leur auteur et son mot.
+    q<{ prenom: string; mot: string | null; user_id: string | null; auteur: string | null; ajoute_le: string }>(
+      `select a.prenom, a.mot, a.user_id, u.pseudo as auteur, a.ajoute_le
+         from prenoms_ajoutes a left join utilisateurs u on u.id = a.user_id
+        where a.groupe_id = ?1 order by a.ajoute_le`, [gid])
   ])
 
   /**
@@ -57,7 +63,8 @@ export default defineEventHandler(async (e) => {
    * retirent de la pile — mais ni l'auteur ni le motif ne sortent d'ici.
    *
    * « Déjà pris », au contraire, se montre en entier, a tous les membres :
-   * c'est tout son principe (deja-pris.post.ts).
+   * c'est tout son principe (deja-pris.post.ts). Les prénoms ajoutés aussi :
+   * une proposition se fait a visage decouvert (ajouts.post.ts).
    */
   return {
     groupe, membres, avancement: av, moi, proprietaire: proprio,
@@ -69,6 +76,9 @@ export default defineEventHandler(async (e) => {
       prenom: d.prenom, variantes: d.variantes, motif: d.ligne.motif,
       auteur: d.ligne.auteur, mien: d.ligne.user_id === moi.user_id, pose_le: d.ligne.pose_le
     })),
-    mes_favoris: favoris.map((f: any) => f.prenom)
+    mes_favoris: favoris.map((f: any) => f.prenom),
+    ajouts: ajouts.map(a => ({
+      prenom: a.prenom, mot: a.mot, auteur: a.auteur, mien: a.user_id === moi.user_id, ajoute_le: a.ajoute_le
+    }))
   }
 })

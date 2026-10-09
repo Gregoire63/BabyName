@@ -33,7 +33,7 @@ function parTete(lignes: any[]) {
 export default defineEventHandler(async (e) => {
   const uid = await exigerUtilisateur(e)
 
-  const [compte, passkeys, listes, bulletins, vetos, dejaPris, favoris, duels, elo, classement, commentaires, cadeaux, appareils, achatsApple] =
+  const [compte, passkeys, listes, bulletins, vetos, dejaPris, favoris, duels, elo, classement, commentaires, cadeaux, appareils, achatsApple, ajouts] =
     await Promise.all([
       // Le lot de depart consomme : l'archive du compte, plus ses bulletins
       // (migration 0005).
@@ -99,7 +99,11 @@ export default defineEventHandler(async (e) => {
       // sans achat : une feuille d'achat refermée ne dit rien de vous.
       q(`select transaction_id as transaction_apple, cast(groupe_id as text) as liste, achete_le, applique_le as debloquee_le,
                 rembourse_le from achats_apple
-          where user_id = ?1 and transaction_id is not null order by achete_le`, [uid])
+          where user_id = ?1 and transaction_id is not null order by achete_le`, [uid]),
+      // Les prénoms que la personne a ajoutés au catalogue d'une liste — y
+      // compris d'une liste quittée depuis : ils restent à la liste.
+      q(`select groupe_id, prenom, mot, ajoute_le from prenoms_ajoutes
+          where user_id = ?1 order by groupe_id, ajoute_le`, [uid])
     ])
 
   // Une ligne par vote, comme avant les bulletins : liste par liste, dans
@@ -134,6 +138,7 @@ export default defineEventHandler(async (e) => {
       valeurs_de_vote: 'non, neutre ou oui. « balayage » indique un « non » donné à toute une famille de prénoms d’un seul geste.',
       vetos: 'Vos vetos : les prénoms que vous avez écartés, avec leurs graphies (même prononciation) et votre motif. Les autres membres ne voient pas qui les a posés.',
       deja_pris: 'Les prénoms que vous avez marqués « déjà pris » : ils appartiennent à la liste. Si vous effacez votre compte, ils y restent, sans votre nom ni votre note.',
+      prenoms_ajoutes: 'Les prénoms que vous avez ajoutés à une liste, hors du catalogue, avec votre mot : toute la liste les voit, avec votre nom. Ils appartiennent à la liste : si vous la quittez ou effacez votre compte, ils y restent, sans votre nom ni votre mot.',
       cadeaux_recus: 'Les codes cadeaux dont vous vous êtes servi : de la part de qui, et le mot qui les accompagnait.',
       achats_app_store: 'Vos achats faits dans l’app iPhone : le numéro de transaction d’Apple (celui de votre reçu), la liste débloquée, les dates. Un achat sans liste est un déblocage payé d’avance : il servira à la prochaine liste que vous débloquerez.',
       quotas: `Le nombre de prénoms jugés le dernier jour de tri, sur chaque liste gratuite, une fois le lot de départ épuisé : le jour suivant le remplace. Effacé automatiquement au bout de ${CONSERVATION.quotaJours} jours.`
@@ -144,6 +149,7 @@ export default defineEventHandler(async (e) => {
     votes,
     vetos: parTete(vetos),
     deja_pris: parTete(dejaPris),
+    prenoms_ajoutes: ajouts,
     favoris,
     duels,
     elo,

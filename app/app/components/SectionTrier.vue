@@ -119,6 +119,21 @@ const dispo = computed(() => {
   return out
 })
 
+/**
+ * LES PRÉNOMS AJOUTÉS PAR LA LISTE PASSENT DEVANT, hors filtres.
+ *
+ * Quelqu'un de la liste les a tapés exprès (FeuilleRecherche) : c'est une
+ * proposition faite aux autres, pas une carte parmi dix-neuf mille. Ni les
+ * filtres de chacun (un « 2 à 3 syllabes » n'a pas à cacher l'arrière-grand-
+ * mère) ni l'ordre par affinité (leurs chiffres sont des zéros) ne les
+ * concernent : ils arrivent en tête, dans l'ordre où ils ont été ajoutés.
+ * Jugés ou bloqués, ils sortent comme les autres.
+ */
+const ajoutsAJuger = computed(() => {
+  const juges = g.dejaVotes.value, vetos = g.vetos.value
+  return g.ajouts.value.filter(p => !juges.has(p.l) && !vetos.has(p.l))
+})
+
 const TETE = 2
 /** Le debut de l'ordre courant : de quoi tenir la tete de pile (deux cartes
  *  retenues, deux pour les remplacer). L'ordre change a chaque « oui » — ce
@@ -126,7 +141,11 @@ const TETE = 2
  *  du tri par frequence au tri par affinite (useCatalogue : ordonner). On
  *  n'en calcule que le debut : ranger toute la pile apres chaque vote pour
  *  n'en montrer que deux cartes etait du travail perdu. */
-const devant = computed(() => premiers(dispo.value, g.aimes.value, TETE * 2))
+const devant = computed(() => {
+  const a = ajoutsAJuger.value
+  const suite = premiers(dispo.value, g.aimes.value, TETE * 2)
+  return a.length ? [...a, ...suite].slice(0, TETE * 2) : suite
+})
 
 /**
  * LA TETE DE PILE EST FIGEE.
@@ -151,7 +170,8 @@ watch(devant, (premieres) => {
   const garde: Prenom[] = []
   const vus = new Set<string>()
   for (const p of tete.value) {
-    const frais = pile.find(x => x.l === p.l)   // on reprend l'objet a jour
+    // on reprend l'objet a jour (un prenom ajoute n'est pas dans `dispo`)
+    const frais = p.ajout ? ajoutsAJuger.value.find(x => x.l === p.l) : pile.find(x => x.l === p.l)
     if (frais && !vus.has(p.l)) { garde.push(frais); vus.add(p.l) }
   }
   for (const p of premieres) {
@@ -200,9 +220,11 @@ function retenirEpingle(nom: string | null) {
   } catch { /* navigation privee : l'epingle vit le temps de la page */ }
 }
 
-watch([() => g.dejaVotes.value, () => g.vetos.value], ([votes, vetos]) => {
+watch([() => g.dejaVotes.value, () => g.vetos.value, () => g.ajouts.value], ([votes, vetos, ajouts]) => {
   const e = epingle.value
-  if (e && (vetos.has(e.l) || (!epingleDejaJuge && votes.has(e.l)))) {
+  // Un prénom ajouté que son auteur vient de retirer : plus de carte à tenir.
+  const retire = !!e?.ajout && !ajouts.some(x => x.l === e.l)
+  if (e && (retire || vetos.has(e.l) || (!epingleDejaJuge && votes.has(e.l)))) {
     epingle.value = null
     retenirEpingle(null)
   }
@@ -255,7 +277,10 @@ const DEJA_DIT = ['dit non à', 'voté neutre pour', 'dit oui à'] as const
  * dit. Un veto se dit sans son auteur, comme partout ailleurs dans l'app.
  */
 function epingler(demande: string, depuisAdresse: boolean) {
+  // Un prénom ajouté par la liste s'épingle aussi (retenu avant un
+  // rechargement) : il n'est pas au catalogue, on le cherche à son nom exact.
   const p = trouverPrenom(g.catalogue.value, demande)
+    ?? g.ajouts.value.find(x => memeAjout(x.l, demande)) ?? null
   const jugeOuVeto = !!p && (g.dejaVotes.value.has(p.l) || g.vetos.value.has(p.l))
   if (!p || jugeOuVeto) retenirEpingle(null)
   if (!p) return
@@ -310,7 +335,7 @@ watch(() => g.pret.value, (pret) => {
 }, { immediate: true })
 
 /** Combien de cartes restent dans la pile (une par prononciation). */
-const nbPossibles = computed(() => dispo.value.length)
+const nbPossibles = computed(() => dispo.value.length + ajoutsAJuger.value.length)
 const plafond = computed(() => HYGIENE + bonus.value)
 
 /** Le mur vient-il du depart de la LISTE (nouveau membre sur une liste deja
@@ -774,7 +799,9 @@ function prefixeAffiche(p: Prenom, racine: string): string {
  * que ce prenom et ses graphies : un simple non suffit, le bouton disparait.
  */
 function familleInfo(p: Prenom | null) {
-  if (!p) return null
+  // Un prénom ajouté est une proposition précise : on lui répond, on ne
+  // balaie pas avec lui les prénoms du catalogue qui commencent pareil.
+  if (!p || p.ajout) return null
   const f = familleDe(p)
   const meme = new Set([p.l, ...(p.variantes ?? [])])
   if (!f.some(x => !meme.has(x.l))) return null

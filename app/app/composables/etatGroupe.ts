@@ -48,6 +48,19 @@ export interface EtatGroupe {
   retirerDejaPris: (prenom: string) => Promise<void>
   /** Les autres graphies d'un prenom (meme prononciation), filtres ignores. */
   graphiesDe: (prenom: string) => string[]
+  /**
+   * Les prenoms que la liste a ajoutes hors du catalogue (useAjouts), en
+   * fiches : `parNom` les connait aussi, la pile les met en tete. Un prenom
+   * entre au catalogue depuis (un nouveau millesime) n'y est plus : il a
+   * retrouve sa vraie fiche.
+   */
+  ajouts: ComputedRef<Prenom[]>
+  /** Ajoute un prenom tape (son ecriture : ecrireAjout) ; rend celui qui est
+   *  dans la liste — le meme, s'il y etait deja, a la casse pres. */
+  ajouterPrenom: (prenom: string, mot?: string) => Promise<string>
+  /** Le retirer, quand on l'a ajoute et que personne d'autre ne l'a juge
+   *  (sinon le serveur refuse : 409 deja_juge). */
+  retirerAjout: (prenom: string) => Promise<void>
   favoris: Ref<Set<string>>
   basculerFavori: (prenom: string) => Promise<void>
   /** Les prenoms sur lesquels tout le monde s'accorde. Charges avec le reste :
@@ -116,7 +129,8 @@ export const CLE_GROUPE = Symbol('groupe') as InjectionKey<EtatGroupe>
 const CHAMPS = [
   'gid', 'etat', 'catalogue', 'parNom', 'origines', 'filtres', 'dejaVotes',
   'aimes', 'vetos', 'mesVetos', 'poserVeto', 'retirerVeto', 'dejaPris',
-  'parDejaPris', 'ajouterDejaPris', 'retirerDejaPris', 'graphiesDe', 'favoris',
+  'parDejaPris', 'ajouterDejaPris', 'retirerDejaPris', 'graphiesDe', 'ajouts',
+  'ajouterPrenom', 'retirerAjout', 'favoris',
   'basculerFavori', 'communs', 'rechargerCommuns', 'votes', 'rechargerVotes',
   'voter', 'feter', 'pret', 'recharger', 'ouvrirFiche', 'ouvrirFiltres', 'allerA',
   'ouvrirDebloquer', 'annoncerPaiement'

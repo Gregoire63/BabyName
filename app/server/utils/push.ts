@@ -19,10 +19,11 @@ import type { H3Event } from 'h3'
  *  - un accord (prevenirAccord), quelqu'un qui rejoint la liste
  *    (prevenirArrivee) : ce pour quoi on a l'app ; ils sonnent ;
  *  - la liste débloquée par quelqu'un d'autre (prevenirDeblocage), un
- *    commentaire (prevenirCommentaire), l'autre qui prend de l'avance
- *    (prevenirAvance) : l'activité de la liste, sans bruit, et rare — un
- *    déblocage n'arrive qu'une fois, les commentaires d'une même personne
- *    sont groupés par demi-heure, l'avance ne se dit qu'en franchissant un
+ *    commentaire (prevenirCommentaire), un prénom ajouté à trier
+ *    (prevenirAjout), l'autre qui prend de l'avance (prevenirAvance) :
+ *    l'activité de la liste, sans bruit, et rare — un déblocage n'arrive
+ *    qu'une fois, les commentaires et les ajouts d'une même personne sont
+ *    groupés par demi-heure, l'avance ne se dit qu'en franchissant un
  *    palier, une fois par jour au plus.
  * PAS chaque vote, pas les vetos (ils sont secrets), pas de rappel quotidien,
  * pas de réclame : une notification qui ne dit rien de neuf apprend à les
@@ -205,6 +206,25 @@ export function prevenirCommentaire(groupeId: number, auteur: string) {
     if (!r) return null
     return { titre: r.nom, corps: `${r.pseudo} a laissé un commentaire.`,
              chemin: `/g/${groupeId}/communs`, canal: 'activite' }
+  })
+}
+
+/**
+ * Un prénom vient d'être ajouté à la liste (ajouts.post.ts) : une carte de
+ * plus attend les autres, en tête de leur pile. Qui l'a ajouté, pas lequel —
+ * le prénom ne s'écrit jamais sur un écran verrouillé, celui-là moins que tout
+ * autre : c'est peut-être celui de la grand-mère qu'on veut surprendre.
+ * Plusieurs ajouts d'affilée ne font qu'une notification (la demi-heure des
+ * commentaires).
+ */
+export function prevenirAjout(groupeId: number, auteur: string) {
+  return prevenirListe(groupeId, auteur, async () => {
+    if (!(await premierDeLaFenetre('push-ajout', `${groupeId}:${auteur}`, RYTHME_COMMENTAIRES))) return null
+    const r = await q1<{ pseudo: string; nom: string }>(
+      `select u.pseudo, g.nom from utilisateurs u, groupes g where u.id = ?1 and g.id = ?2`, [auteur, groupeId])
+    if (!r) return null
+    return { titre: r.nom, corps: `${r.pseudo} a ajouté un prénom à trier.`,
+             chemin: `/g/${groupeId}/swipe`, canal: 'activite' }
   })
 }
 

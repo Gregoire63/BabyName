@@ -32,6 +32,12 @@ async function commenter() {
 
 /** « 1 commentaire », « 3 commentaires » : de quoi savoir qu'il faut déplier. */
 const motsLisibles = (n: number) => `${n} commentaire${n > 1 ? 's' : ''}`
+/** Sous l'accord, son sens — ou, pour un prénom ajouté par la liste, le mot
+ *  de qui l'a ajouté (useAjouts) : c'est ce qu'on en sait de plus parlant. */
+const sensDe = (nom: string): string | null => {
+  const p = g.parNom.value.get(nom)
+  return (p?.ajout ? p.ajout.mot : p?.m) ?? null
+}
 
 /** Un accord qu'on retire après coup — le bébé de la cousine est né entre-
  *  temps. La même feuille que sur la carte : déjà pris, ou autre raison. */
@@ -317,10 +323,10 @@ onUnmounted(() => { cancelAnimationFrame(auto); clearTimeout(minuteurClavier) })
               <span v-if="c.nouveau" class="v nouveau">nouveau</span>
             </p>
             </div>
-            <p v-if="c.nb_commentaires || g.parNom.value.get(c.prenom)?.m" class="mini doux" style="margin:3px 0 0">
+            <p v-if="c.nb_commentaires || sensDe(c.prenom)" class="mini doux" style="margin:3px 0 0">
               <span v-if="c.nb_commentaires" class="mots">{{ motsLisibles(c.nb_commentaires) }}</span>
-              <template v-if="c.nb_commentaires && g.parNom.value.get(c.prenom)?.m"> · </template>
-              <template v-if="g.parNom.value.get(c.prenom)?.m">« {{ g.parNom.value.get(c.prenom)!.m }} »</template>
+              <template v-if="c.nb_commentaires && sensDe(c.prenom)"> · </template>
+              <template v-if="sensDe(c.prenom)">« {{ sensDe(c.prenom) }} »</template>
             </p>
             <p v-if="c.coeurs?.length" class="mini coeurs" style="margin:4px 0 0">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.7 4.7 0 0 1 6.6-6.7l.8.8.8-.8a4.7 4.7 0 0 1 6.6 6.7Z" /></svg>

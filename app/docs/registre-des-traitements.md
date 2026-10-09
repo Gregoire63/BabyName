@@ -11,7 +11,7 @@ Tenu par : Grégoire Raturat, entrepreneur individuel, éditeur de babyNamed
 (non obligatoire : ni organisme public, ni suivi à grande échelle, ni données
 sensibles à grande échelle).
 
-Dernière mise à jour : 7 octobre 2026.
+Dernière mise à jour : 9 octobre 2026.
 
 Les durées ci-dessous sont celles de `shared/utils/editeur.ts` (`CONSERVATION`),
 appliquées chaque nuit par `server/utils/conservation.ts`. Si l'une change,
@@ -40,10 +40,10 @@ lit la même constante.
 | **Finalité** | Le service : trier des prénoms à plusieurs, vote à l'aveugle, accords, classement, commentaires, observateurs. |
 | **Base légale** | Exécution du contrat — art. 6.1.b. |
 | **Personnes** | Utilisateurs membres d'une liste. |
-| **Données** | Nom de la liste ; nom de famille de l'enfant (facultatif) ; filtres ; votes, vetos (et leur motif, visible de son seul auteur), prénoms « déjà pris » (et leur note, visibles de toute la liste avec le nom de leur auteur), favoris, duels, classements, commentaires ; l'ordre des accords, commun à la liste (sans auteur) ; appartenance et rôle dans chaque liste. |
-| **Destinataires** | Membres de la même liste, selon la règle du vote à l'aveugle (un vote n'est visible qu'à qui a voté sur le même prénom ; un veto n'est jamais attribué ; un prénom « déjà pris » l'est, c'est son principe). Éditeur, sous-traitants comme ci-dessus. |
+| **Données** | Nom de la liste ; nom de famille de l'enfant (facultatif) ; filtres ; votes, vetos (et leur motif, visible de son seul auteur), prénoms « déjà pris » (et leur note, visibles de toute la liste avec le nom de leur auteur), prénoms ajoutés hors du catalogue (et le mot de leur auteur, visibles de toute la liste avec son nom), favoris, duels, classements, commentaires ; l'ordre des accords, commun à la liste (sans auteur) ; appartenance et rôle dans chaque liste. |
+| **Destinataires** | Membres de la même liste, selon la règle du vote à l'aveugle (un vote n'est visible qu'à qui a voté sur le même prénom ; un veto n'est jamais attribué ; un prénom « déjà pris » ou ajouté hors du catalogue l'est, c'est son principe). Éditeur, sous-traitants comme ci-dessus. |
 | **Transferts hors UE** | Comme ci-dessus. |
-| **Conservation** | Liée au compte (effacée avec lui). Exception : un prénom « déjà pris » appartient à la liste — il y reste, sans son auteur ni sa note (clé étrangère `set null` + trigger, migration 0002). Une liste est effacée quand son propriétaire la supprime (pour tous), ou quand il n'y reste plus personne pour décider. Quitter une liste efface ce qu'on y a donné ; ses « déjà pris » y restent, sans auteur ni note. |
+| **Conservation** | Liée au compte (effacée avec lui). Exception : un prénom « déjà pris » appartient à la liste — il y reste, sans son auteur ni sa note (clé étrangère `set null` + trigger, migration 0002) ; de même un prénom ajouté hors du catalogue, sans son auteur ni son mot (migration 0013) — son auteur peut le retirer tant qu'aucun autre membre ne l'a jugé. Une liste est effacée quand son propriétaire la supprime (pour tous), ou quand il n'y reste plus personne pour décider. Quitter une liste efface ce qu'on y a donné ; ses « déjà pris » et ses prénoms ajoutés y restent, sans auteur ni note. |
 | **Sécurité** | Aucune lecture des votes d'autrui hors de `server/utils/votes.ts` ; contrôle d'appartenance sur chaque route (`exigerMembre`). |
 
 ## 3. Limite d'usage de la version gratuite

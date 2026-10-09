@@ -3,6 +3,7 @@ import { anneesBarres, bebesParAn, frequenceLisible, pourcentAn, tendanceFiable,
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { tester } from '~/composables/useNomComplet'
 import { resumeTempetes } from '~/utils/tempetes'
+import { donneesAjout, anneesDe } from '~/composables/useAjouts'
 
 /**
  * Le contenu d'une carte de tri.
@@ -64,6 +65,32 @@ const nomFamille = computed(() => {
   return gr?.paye && typeof gr?.nom_famille === 'string' ? gr.nom_famille.trim() : ''
 })
 const essai = computed(() => nomFamille.value ? tester(props.p.l, nomFamille.value) : null)
+
+/**
+ * UN PRÉNOM AJOUTÉ PAR LA LISTE n'a aucun chiffre du catalogue : sa carte
+ * montre ce qu'on en sait vraiment (useAjouts) — son historique à l'INSEE
+ * (Jeannine : 218 695 bébés, le dernier en 2015, par décennie), sinon le
+ * prénom qui se dit pareil, avec SES chiffres et son nom dessus ; sinon les
+ * prénoms qui s'écrivent presque pareil, et qu'aucune naissance n'a été
+ * publiée. Qui l'a ajouté, et son mot, à la place du sens.
+ */
+const ajout = computed(() => props.p.ajout ?? null)
+const donnees = computed(() => ajout.value ? donneesAjout(props.p, g.catalogue.value) : undefined)
+const hist = computed(() => {
+  const h = donnees.value?.hist
+  return h && h !== 'absent' ? h : null
+})
+const jumeau = computed(() => donnees.value?.jumeau ?? null)
+const parQui = computed(() => !ajout.value ? ''
+  : ajout.value.mien ? 'ajouté par vous' : ajout.value.par ? `ajouté par ${ajout.value.par}` : 'ajouté')
+const sexeAjout = computed(() => {
+  const x = donnees.value?.sexe
+  return x === 'fm' ? 'mixte' : x === 'f' ? 'fille' : x === 'm' ? 'garçon' : ''
+})
+const milliers = (n: number) => n.toLocaleString('fr-FR')
+/** « 1 sur 194 » quand il est assez donné pour le dire ; sinon les bébés par
+ *  an, comme sur sa propre carte (« 1 sur 58 824 » ne parle à personne). */
+const combienDe = (x: Prenom) => tendanceFiable(x) ? frequenceLisible(x.f) : `≈ ${bebesParAn(x)} bébé${bebesParAn(x) > 1 ? 's' : ''}/an`
 const niveau = computed(() => !essai.value ? ''
   : essai.value.accroche ? 'accroche'
   : essai.value.remarques.some(r => r.gravite === 'attention') ? 'attention' : 'bien')
@@ -77,7 +104,11 @@ const niveau = computed(() => !essai.value ? ''
          aviez dit ») : elles passent à la ligne, jamais sous le bouton. -->
     <div class="tete">
       <span class="etiquettes">
-        <span class="puce">
+        <template v-if="ajout">
+          <span class="puce ajoute">{{ parQui }}</span>
+          <span v-if="sexeAjout" class="puce">{{ sexeAjout }}</span>
+        </template>
+        <span v-else class="puce">
           {{ p.sexe === 'fm' ? 'mixte' : p.sexe === 'f' ? 'fille' : 'garçon' }}
         </span>
         <span v-if="dejaDit !== null" class="puce deja" :class="`d${dejaDit}`">{{ DIT[dejaDit] }}</span>
@@ -121,7 +152,20 @@ const niveau = computed(() => !essai.value ? ''
           }}<template v-if="p.variantes.length > 3"> +{{ p.variantes.length - 3 }}</template></span>
         <span class="voir">Voir plus</span>
       </button>
-      <p v-if="p.m" class="sens">« {{ p.m }} »<span v-if="p.cf !== null && p.cf < 2" class="doute"> · sens probable</span></p>
+      <!-- Un prénom ajouté : ce qui se dit pareil, là où les autres cartes
+           nomment leurs graphies ; puis le mot de qui l'a ajouté, à la place
+           d'un sens qu'on ne connaît pas. -->
+      <template v-if="ajout">
+        <button v-if="jumeau?.p" type="button" class="graphies"
+                :aria-label="`Se dit comme ${jumeau.l} : voir sa fiche`"
+                @click.stop="g.ouvrirFiche(jumeau.l)">
+          <span class="lesquelles">se dit comme {{ jumeau.l }}</span>
+          <span class="voir">Voir</span>
+        </button>
+        <p v-else-if="jumeau" class="graphies">se dit comme {{ jumeau.l }}</p>
+        <p v-if="ajout.mot" class="sens mot">« {{ ajout.mot }} »</p>
+      </template>
+      <p v-else-if="p.m" class="sens">« {{ p.m }} »<span v-if="p.cf !== null && p.cf < 2" class="doute"> · sens probable</span></p>
       <p v-else-if="p.me" class="sens doux">« {{ p.me }} »</p>
     </div>
 
@@ -137,13 +181,77 @@ const niveau = computed(() => !essai.value ? ''
          disait pas de quoi. Pas les syllabes : chacun les compte en lisant
          le prénom, et une machine qui compte de travers (Léandre) agace plus
          qu'elle n'aide. -->
-    <dl class="resume">
+    <template v-if="ajout">
+      <!-- Le temps de lire l'historique : la place des chiffres est tenue,
+           rien ne saute quand ils arrivent. -->
+      <div v-if="donnees === undefined" class="resume" aria-hidden="true">
+        <Squelette l="100%" :h="46" :r="13" /><Squelette l="100%" :h="46" :r="13" :retard="0.08" />
+      </div>
+      <dl v-else-if="hist" class="resume">
+        <div><dt>bébés depuis {{ hist.premiere }}</dt><dd>{{ milliers(hist.total) }}</dd></div>
+        <div><dt>le dernier</dt><dd>en {{ hist.derniere }}</dd></div>
+      </dl>
+      <dl v-else-if="jumeau?.p" class="resume">
+        <div><dt>{{ jumeau.l }}, des naissances</dt><dd>{{ frequenceLisible(jumeau.p.f) }}</dd></div>
+        <div v-if="tendanceFiable(jumeau.p)"><dt>{{ jumeau.l }}, par an</dt><dd>{{ pourcentAn(jumeau.p.t) }}</dd></div>
+        <div v-else><dt>{{ jumeau.l }}, par an</dt><dd>≈ {{ bebesParAn(jumeau.p) }} bébé{{ bebesParAn(jumeau.p) > 1 ? 's' : '' }}</dd></div>
+      </dl>
+      <dl v-else-if="jumeau?.h" class="resume">
+        <div><dt>{{ jumeau.l }}, depuis {{ jumeau.h.premiere }}</dt><dd>{{ milliers(jumeau.h.total) }} bébés</dd></div>
+        <div><dt>{{ jumeau.l }}, le dernier</dt><dd>en {{ jumeau.h.derniere }}</dd></div>
+      </dl>
+      <p v-else-if="donnees.hist === 'absent'" class="absent">
+        Aucune naissance publiée par l’INSEE depuis 1900.
+      </p>
+    </template>
+    <dl v-else class="resume">
       <div><dt>des naissances</dt><dd>{{ frequenceLisible(p.f) }}</dd></div>
       <div v-if="fiable"><dt>par an</dt><dd :class="tendance">{{ pourcentAn(p.t) }}</dd></div>
       <div v-else><dt>bébé{{ bebesParAn(p) > 1 ? 's' : '' }} par an</dt><dd>≈ {{ bebesParAn(p) }}</dd></div>
     </dl>
 
-    <p v-if="p.r > 30" class="alerte">
+    <template v-if="ajout">
+      <div v-if="hist" class="graphe">
+        <p class="graphe-tete" aria-hidden="true">
+          <span>Naissances par décennie</span><span>au plus haut : {{ anneesDe(hist.pic) }}</span>
+        </p>
+        <div class="graphe-corps"><BarresPrenom :valeurs="hist.parDecennie" :an0="hist.decennies[0]!" :pas="10" remplir /></div>
+      </div>
+      <div v-else-if="jumeau?.p?.sr" class="graphe">
+        <!-- Lue, celle-ci : la courbe est celle d'un AUTRE prénom, et son
+             résumé (CourbePrenom) ne le dit pas. -->
+        <p class="graphe-tete"><span>{{ jumeau.l }} depuis 1986</span></p>
+        <div class="graphe-corps"><CourbePrenom :serie="jumeau.p.sr" remplir /></div>
+        <p class="graphe-axe" aria-hidden="true"><span>1986</span><span>2025</span></p>
+      </div>
+      <div v-else-if="jumeau?.p?.nb" class="graphe">
+        <p class="graphe-tete"><span>{{ jumeau.l }}, naissances par an</span></p>
+        <div class="graphe-corps"><BarresPrenom :valeurs="jumeau.p.nb" :an0="barres[0]" remplir /></div>
+      </div>
+      <div v-else-if="jumeau?.h" class="graphe">
+        <p class="graphe-tete">
+          <span>{{ jumeau.l }}, par décennie</span><span>au plus haut : {{ anneesDe(jumeau.h.pic) }}</span>
+        </p>
+        <div class="graphe-corps"><BarresPrenom :valeurs="jumeau.h.parDecennie" :an0="jumeau.h.decennies[0]!" :pas="10" remplir /></div>
+      </div>
+      <!-- Rien de publié pour lui, ni pour ce qui se dit pareil : les prénoms
+           qui s'écrivent presque pareil, chacun avec SES chiffres et sous son
+           nom — de quoi situer un prénom inventé parmi des vrais. Pas des
+           boutons : c'est là que le pouce saisit la carte pour la lancer (la
+           fiche, elle, les ouvre). -->
+      <div v-else-if="donnees?.proches.length" class="proches">
+        <p class="graphe-tete"><span>S’écrivent presque pareil</span></p>
+        <ul>
+          <li v-for="x in donnees.proches" :key="x.l" class="proche">
+            <span class="qui">{{ x.l }}</span>
+            <span class="combien">{{ combienDe(x) }}</span>
+            <span class="allure" aria-hidden="true"><CourbePrenom v-if="x.sr" :serie="x.sr" :hauteur="22" /></span>
+          </li>
+        </ul>
+      </div>
+    </template>
+
+    <p v-else-if="p.r > 30" class="alerte">
       Rare et en forte hausse : il peut être partout dans cinq ans.
     </p>
     <p v-else-if="p.rv" class="alerte">
@@ -153,7 +261,7 @@ const niveau = computed(() => !essai.value ? ''
       Aussi : {{ p.obn || 'un nom commun' }}.
     </p>
 
-    <div v-if="p.sr" class="graphe">
+    <div v-if="!ajout && p.sr" class="graphe">
       <p class="graphe-tete" aria-hidden="true">
         <span>Naissances depuis 1986</span>
         <span v-if="pic">au plus haut en {{ pic }}</span>
@@ -161,7 +269,7 @@ const niveau = computed(() => !essai.value ? ''
       <div class="graphe-corps"><CourbePrenom :serie="p.sr" remplir /></div>
       <p class="graphe-axe" aria-hidden="true"><span>1986</span><span>2025</span></p>
     </div>
-    <div v-else-if="p.nb" class="graphe">
+    <div v-else-if="!ajout && p.nb" class="graphe">
       <p class="graphe-tete" aria-hidden="true"><span>Naissances par an</span></p>
       <div class="graphe-corps"><BarresPrenom :valeurs="p.nb" :an0="barres[0]" remplir /></div>
     </div>
@@ -270,6 +378,21 @@ const niveau = computed(() => !essai.value ? ''
 
 .alerte { margin: 0; font-size: .84rem; padding: 9px 11px; border-radius: 11px;
   background: color-mix(in srgb, var(--peche) 45%, transparent); }
+
+/* Un prénom ajouté par la liste : son étiquette dit qui, en menthe (ni le
+   genre ni une origine) ; son mot se lit comme un sens, il en tient lieu. */
+.puce.ajoute { background: color-mix(in srgb, var(--menthe) 60%, transparent); }
+.sens.mot { font-size: .98rem; }
+.absent { margin: 0; font-size: .84rem; padding: 9px 11px; border-radius: 11px;
+  background: var(--fond); border: 1px solid var(--trait); }
+.proches { display: flex; flex-direction: column; gap: 6px; }
+.proches ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.proches li + li { border-top: 1px solid var(--trait); }
+.proche { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px; align-items: center;
+  gap: 10px; padding: 8px 2px; }
+.proche .qui { font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proche .combien { font-size: .76rem; color: var(--doux); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.proche .allure { height: 22px; }
 
 /* La courbe prend toute la place qui reste ; faute de place, c'est elle qui
    cede, pas le reste de la carte. Elle cede d'abord ses legendes : sous

@@ -1205,6 +1205,61 @@ lieu de limite.
 Un « déjà pris » appartient à la liste : effacer son compte le laisse en
 place, sans auteur ni note (`on delete set null` + `trg_deja_pris_sans_auteur`).
 
+## Ajouter un prénom qui n'est pas au catalogue
+
+Le catalogue, c'est ce que l'INSEE publie pour les trois dernières années :
+le prénom d'une arrière-grand-mère (Jeannine), une graphie ancienne (Jerome,
+sans ses accents) ou un prénom inventé n'y sont pas. La recherche du tri les
+ajoute : tapé en entier et absent, **« Ajouter « Jeannine » »** apparaît sous
+les résultats ; un second geste laisse un mot pour la liste (140 caractères)
+et confirme — une faute de frappe ne part pas d'un seul toucher. S'il se dit
+comme un prénom connu, celui-ci est proposé d'abord (« Jeanine, se dit
+pareil »).
+
+La carte passe **en tête de la pile de chaque membre**, hors filtres et avant
+l'ordre par affinité (`ajoutsAJuger`, SectionTrier.vue) : quelqu'un l'a choisie
+exprès. Ensuite c'est un prénom comme un autre — votes à l'aveugle, vetos,
+« déjà pris », favoris, commentaires, accords ne connaissent qu'un prénom écrit.
+
+| | |
+|---|---|
+| qui ajoute | qui décide (pas un observateur) ; 60 par heure et par personne |
+| qui le voit | toute la liste, avec « ajouté par Alice » et son mot : une proposition n'est pas un vote, mais elle ne se cache pas |
+| combien | 200 par liste (`AJOUTS_MAX`, trigger `trg_prenoms_ajoutes_plein`) |
+| écriture | `ecrireAjout` (`shared/utils/ajouts.ts`), la même dans l'app et sur le serveur : « jeannine », « JEANNINE » et « Jeannine » font une carte ; l'apostrophe est celle de l'INSEE (M'Mah) |
+| retrait | par son auteur, depuis la fiche, tant que **personne d'autre** ne l'a jugé (vote, veto, déjà pris, favori, commentaire) — ce qu'il y avait mis part avec ; ensuite il est à la liste (409 `deja_juge`) |
+| compte effacé, liste quittée | la carte reste, sans auteur ni mot (`set null` + `trg_prenoms_ajoutes_sans_auteur`) |
+| où | table `prenoms_ajoutes` (migration 0013) ; `POST` et `DELETE /api/groupes/:id/ajouts` ; `ajouts` dans l'état de la liste ; l'export RGPD |
+| notification | « Alice a ajouté un prénom à trier. » — canal activité, une par demi-heure et par auteur, jamais le prénom |
+
+**Ce que la carte montre à la place des chiffres du catalogue**
+(`useAjouts.ts`) — rien d'inventé :
+
+1. l'historique de l'INSEE pour cette écriture-là :
+   `public/data/historique.json.gz`, les 29 555 prénoms publiés depuis 1900 et
+   absents du catalogue, par décennie (239 Ko, chargé la première fois qu'une
+   carte ajoutée s'affiche) — Jeannine : 218 695 bébés, surtout dans les
+   années 1930, le dernier en 2015 ;
+2. le prénom qui **se dit** pareil (la clé de prononciation du catalogue,
+   `usePhonetique.ts`) : au catalogue d'abord, dans l'historique ensuite — ses
+   chiffres à lui, sous son nom ;
+3. sinon ceux qui s'écrivent presque pareil, avec leurs chiffres, et le fait
+   qu'aucune naissance n'a été publiée depuis 1900.
+
+Ni sens ni origine : une étymologie devinée pour un prénom inventé serait un
+mensonge poli. Si l'historique n'a pas pu se charger, la carte ne dit rien de
+son absence. Ces prénoms ne comptent ni dans l'ordre par affinité ni dans les
+portraits de goûts : leurs chiffres sont des zéros.
+
+`historique.json.gz` vient de `pipeline/export_historique.py`, à relancer à
+chaque millésime de l'INSEE, après `export_catalogue.py` : il refuse de tourner
+si un prénom donné ces trois dernières années manque au catalogue (les deux
+fichiers ne seraient plus du même millésime).
+
+Au retour sur l'app, la liste se relit (trente secondes au moins après son
+dernier chargement) : la carte que l'autre vient d'ajouter est là, et la
+notification y mène. `essai-ajout` tient tout ça.
+
 ## Données personnelles (RGPD)
 
 Tout ce que la loi demande, fait dans l'app plutôt que promis dans un texte :
@@ -1216,7 +1271,7 @@ Tout ce que la loi demande, fait dans l'app plutôt que promis dans un texte :
 | Rectification (art. 16) | *Mon compte → Nom affiché* ; le reste se modifie dans l'app |
 | Effacement (art. 17) | *Mon compte → Supprimer mon compte* : `POST /api/moi/supprimer` (mot `SUPPRIMER` exigé), immédiat |
 | Effacement d'une liste | *Réglages de la liste → Supprimer cette liste* : `POST /api/groupes/:id/supprimer` (mot `SUPPRIMER` exigé), réservé au propriétaire — le créateur, ou après son départ le plus ancien de ceux qui décident (`server/utils/proprietaire.ts`) —, immédiat, pour tous ses membres |
-| Quitter une liste | *Réglages de la liste → Quitter cette liste* : `POST /api/groupes/:id/quitter` ; efface ce qu'on y a donné, laisse ses « déjà pris » sans auteur ; la liste part s'il n'y reste personne pour décider |
+| Quitter une liste | *Réglages de la liste → Quitter cette liste* : `POST /api/groupes/:id/quitter` ; efface ce qu'on y a donné, laisse ses « déjà pris » et ses prénoms ajoutés sans auteur ; la liste part s'il n'y reste personne pour décider |
 | Conservation limitée (art. 5.1.e) | purge chaque nuit : tâche `server/tasks/purge.ts`, lancée par le *Cron Trigger* du Worker ; à la main : `GET /api/admin/purger` avec `CRON_SECRET` |
 | Minimisation | e-mail facultatif, enregistré seulement une fois prouvé, et qui ne sert qu'à la connexion ; liens et codes gardés en empreintes ; compteurs d'essais sur des empreintes chiffrées (jamais une IP en clair) ; police servie par l'app (plus d'IP envoyée à Google) |
 | Consentement (art. 6.1.a, 7) | les notifications des apps iOS et Android : rien n'est enregistré sans un geste (« Me prévenir »), retiré d'un geste (`usePush`, `api/appareils`) |

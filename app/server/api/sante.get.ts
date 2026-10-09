@@ -68,7 +68,7 @@ export default defineEventHandler(async (e) => {
          from sqlite_master m join pragma_table_info(m.name) p
         where m.type = 'table'
           and m.name in ('bulletins', 'utilisateurs', 'groupes', 'passkeys', 'liens_connexion', 'limites',
-                         'vetos', 'deja_pris', 'cadeaux', 'achats_apple')`)
+                         'vetos', 'deja_pris', 'cadeaux', 'achats_apple', 'prenoms_ajoutes')`)
     // Effacer un compte ne doit pas effacer les listes qu'il a creees (donc
     // les votes de l'autre parent) : la cle vers le createur passe a NULL.
     const rgpd = await b.q1<{ regle: string }>(
@@ -94,7 +94,9 @@ export default defineEventHandler(async (e) => {
         // Les codes cadeaux (migration 0003).
         'cadeaux': a('cadeaux', 'code_hash') && a('cadeaux', 'expire_le'),
         // L'achat dans l'app iOS (migration 0012).
-        'achats_apple': a('achats_apple', 'transaction_id') && a('achats_apple', 'jeton')
+        'achats_apple': a('achats_apple', 'transaction_id') && a('achats_apple', 'jeton'),
+        // Les prénoms ajoutés au catalogue par une liste (migration 0013).
+        'prenoms_ajoutes': a('prenoms_ajoutes', 'mot') && a('prenoms_ajoutes', 'user_id')
       }
       // Pas de compte des listes vendues ici : meme reservee, cette route n'a
       // pas a porter le nombre de clients. Il se lit dans la console D1.
