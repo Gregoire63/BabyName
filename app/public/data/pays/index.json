@@ -1,0 +1,408 @@
+{
+ "version": 1,
+ "pays": [
+  {
+   "code": "fr",
+   "nom": "France",
+   "groupe": "Francophonie",
+   "catalogue": true,
+   "sigle": "INSEE",
+   "organisme": "INSEE",
+   "jeu": "Fichier des prénoms, millésime 2025",
+   "licence": "Licence ouverte Etalab 2.0",
+   "url": "https://www.insee.fr/fr/statistiques/8595130",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "3 naissances par an",
+   "par_sexe": true,
+   "note": "",
+   "total": {
+    "f": 882250,
+    "m": 933935
+   }
+  },
+  {
+   "code": "be",
+   "nom": "Belgique",
+   "groupe": "Francophonie",
+   "catalogue": false,
+   "sigle": "Statbel",
+   "organisme": "Statbel",
+   "jeu": "Prénoms des nouveau-nés",
+   "licence": "Licence open data Statbel",
+   "url": "https://statbel.fgov.be/fr/themes/population/noms-et-prenoms/prenoms-filles-et-garcons",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "5 naissances par an",
+   "par_sexe": true,
+   "note": "",
+   "total": {
+    "f": 123576,
+    "m": 134106
+   },
+   "prenoms": 4166,
+   "nouveaux": 0
+  },
+  {
+   "code": "ch",
+   "nom": "Suisse",
+   "groupe": "Francophonie",
+   "catalogue": false,
+   "sigle": "OFS",
+   "organisme": "Office fédéral de la statistique",
+   "jeu": "Prénoms des nouveau-nés",
+   "licence": "opendata.swiss, source à citer",
+   "url": "https://www.bfs.admin.ch/asset/fr/DF_BEVNAT_PRENOMS_2",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "5 naissances par an",
+   "par_sexe": true,
+   "note": "",
+   "total": {
+    "f": 99050,
+    "m": 105961
+   },
+   "prenoms": 4240,
+   "nouveaux": 0
+  },
+  {
+   "code": "qc",
+   "nom": "Québec",
+   "groupe": "Francophonie",
+   "catalogue": false,
+   "sigle": "Retraite Québec",
+   "organisme": "Retraite Québec",
+   "jeu": "Banque de prénoms",
+   "licence": "CC BY 4.0",
+   "url": "https://www.donneesquebec.ca/recherche/dataset/banque-de-prenoms-filles",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "5 naissances par an",
+   "par_sexe": false,
+   "note": "filles et garçons confondus, accents ignorés",
+   "total": 168370,
+   "prenoms": 2304,
+   "nouveaux": 0
+  },
+  {
+   "code": "ca-on",
+   "nom": "Ontario",
+   "groupe": "Amérique du Nord",
+   "catalogue": false,
+   "sigle": "ServiceOntario",
+   "organisme": "Gouvernement de l'Ontario, ServiceOntario (Bureau du registraire général)",
+   "jeu": "Ontario top baby names (male) + (female)",
+   "licence": "Open Government Licence – Ontario (OGL-ON-1.0), réutilisation commerciale autorisée avec attribution",
+   "url": "https://data.ontario.ca/dataset/ontario-top-baby-names-male",
+   "annees": [
+    2022,
+    2024
+   ],
+   "seuil": "prénoms donnés au moins 5 fois par an (minimum observé 6 depuis 2014)",
+   "par_sexe": true,
+   "note": "",
+   "total": {
+    "f": 154497,
+    "m": 169945
+   },
+   "prenoms": 4324,
+   "nouveaux": 1262
+  },
+  {
+   "code": "ca-bc",
+   "nom": "Colombie-Britannique",
+   "groupe": "Amérique du Nord",
+   "catalogue": false,
+   "sigle": "BC Vital Statistics",
+   "organisme": "Gouvernement de la Colombie-Britannique, BC Vital Statistics Agency",
+   "jeu": "Most Popular Boys Names for the Past 100 Years + Most Popular Girl Names for the Past 100 Years",
+   "licence": "Open Government Licence – British Columbia (bc-oglbc), réutilisation commerciale autorisée avec attribution",
+   "url": "https://open.canada.ca/data/en/dataset/bfcdd4d7-056b-4069-a09e-5dbda4d11841",
+   "annees": [
+    2021,
+    2023
+   ],
+   "seuil": "prénoms donnés au moins 5 fois par an",
+   "par_sexe": true,
+   "note": "dernières données publiées : 2021-2023",
+   "total": {
+    "f": 39699,
+    "m": 44537
+   },
+   "prenoms": 2029,
+   "nouveaux": 480
+  },
+  {
+   "code": "us",
+   "nom": "États-Unis",
+   "groupe": "Amérique du Nord",
+   "catalogue": false,
+   "sigle": "SSA",
+   "organisme": "Social Security Administration",
+   "jeu": "Popular Baby Names (national)",
+   "licence": "Domaine public (document du gouvernement fédéral US) — aucune mention sur limits.html, politique SSA ssa.gov/agency/websitepolicies.html : « considered public domain »",
+   "url": "https://www.ssa.gov/oact/babynames/limits.html",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "5 naissances par an et par sexe",
+   "par_sexe": true,
+   "note": "",
+   "total": {
+    "f": 4832039,
+    "m": 5141540
+   },
+   "prenoms": 42018,
+   "nouveaux": 31612
+  },
+  {
+   "code": "gb-eaw",
+   "nom": "Angleterre et pays de Galles",
+   "groupe": "Europe",
+   "catalogue": false,
+   "sigle": "ONS",
+   "organisme": "Office for National Statistics (ONS)",
+   "jeu": "Baby names in England and Wales: from 1996 (babynames1996to2025.xlsx)",
+   "licence": "Open Government Licence v3.0 (mention sur la page dataset : All content is available under the Open Government Licence v3)",
+   "url": "https://www.ons.gov.uk/peoplepopulationandcommunity/birthsdeathsandmarriages/livebirths/datasets/babynamesinenglandandwalesfrom1996",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "3",
+   "par_sexe": true,
+   "note": "",
+   "total": {
+    "f": 767832,
+    "m": 826349
+   },
+   "prenoms": 13932,
+   "nouveaux": 7456
+  },
+  {
+   "code": "gb-sct",
+   "nom": "Écosse",
+   "groupe": "Europe",
+   "catalogue": false,
+   "sigle": "NRS",
+   "organisme": "National Records of Scotland (NRS)",
+   "jeu": "Babies' first names - All names given to babies between 1974 to 2025 (full-list-1974-2025.csv)",
+   "licence": "Open Government Licence v3.0 (page publication : All content is available under the Open Government Licence v3 - metadata : Crown copyright 2026, re-use free of charge under the Open Government Licence)",
+   "url": "https://www.nrscotland.gov.uk/publications/babies-first-names-2025/",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "3",
+   "par_sexe": true,
+   "note": "accents non publiés",
+   "total": {
+    "f": 54382,
+    "m": 59937
+   },
+   "prenoms": 1950,
+   "nouveaux": 472
+  },
+  {
+   "code": "gb-nir",
+   "nom": "Irlande du Nord",
+   "groupe": "Europe",
+   "catalogue": false,
+   "sigle": "NISRA",
+   "organisme": "Northern Ireland Statistics and Research Agency (NISRA)",
+   "jeu": "Full Names List 1997 to 2025 (Full_Name_List_NI_97_25.xlsx - First Forenames Given to Babies Registered in Northern Ireland)",
+   "licence": "Open Government Licence (page Crown copyright de nisra.gov.uk : re-use free of charge under the terms of the Open Government Licence - attribution Source: NISRA requise - pas de mention de licence dans le classeur ni sur la page de publication)",
+   "url": "https://www.nisra.gov.uk/publications/baby-names-2025",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "3",
+   "par_sexe": true,
+   "note": "accents non publiés",
+   "total": {
+    "f": 22510,
+    "m": 25467
+   },
+   "prenoms": 1000,
+   "nouveaux": 265
+  },
+  {
+   "code": "ie",
+   "nom": "Irlande",
+   "groupe": "Europe",
+   "catalogue": false,
+   "sigle": "CSO",
+   "organisme": "Central Statistics Office (CSO)",
+   "jeu": "VSA50 (garçons) et VSA60 (filles) - Boys/Girls Names in Ireland with 3 or More Occurrences",
+   "licence": "CC BY 4.0 (politique de copyright CSO : statistiques sous Creative Commons Attribution 4.0 - cso.ie/en/aboutus/whoweare/copyrightpolicy - attribution CSO requise)",
+   "url": "https://data.cso.ie/table/VSA50",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "3",
+   "par_sexe": true,
+   "note": "",
+   "total": {
+    "f": 64851,
+    "m": 71823
+   },
+   "prenoms": 2099,
+   "nouveaux": 494
+  },
+  {
+   "code": "at",
+   "nom": "Autriche",
+   "groupe": "Europe",
+   "catalogue": false,
+   "sigle": "Statistik Austria",
+   "organisme": "Statistik Austria",
+   "jeu": "Vornamen 1984 bis 2025 original Schreibweise (ODS éditions 2023/2024/2025, Tabellen 12-13 : erste Vornamen) pour n + OGD OGDEXT_VORNAMEN_1 (Vorname normalisiert) pour nold",
+   "licence": "CC BY 4.0 (data.statistik.gv.at, jeu OGDEXT_VORNAMEN_1) — site statistik.at : réutilisation commerciale autorisée avec mention « STATISTIK AUSTRIA » et signalement des modifications",
+   "url": "https://www.statistik.at/statistiken/bevoelkerung-und-soziales/bevoelkerung/geburten/vornamen-der-geborenen",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "aucun (tous les prénoms publiés dès 1 naissance)",
+   "par_sexe": true,
+   "note": "",
+   "total": {
+    "f": 112020,
+    "m": 118953
+   },
+   "prenoms": 3384,
+   "nouveaux": 426
+  },
+  {
+   "code": "se",
+   "nom": "Suède",
+   "groupe": "Europe",
+   "catalogue": false,
+   "sigle": "SCB",
+   "organisme": "SCB (Statistiska centralbyrån)",
+   "jeu": "Nyfödda – Tilltalsnamn, alfabetisk översikt 1998–2022 (uppdateras ej) – fichiers Excel flicknamn/pojknamn",
+   "licence": "CC BY 4.0 (matériel du site scb.se, mention « Källa: SCB » — la base Statistikdatabasen est en CC0) — réutilisation commerciale autorisée",
+   "url": "https://www.scb.se/hitta-statistik/statistik-efter-amne/befolkning-och-levnadsforhallanden/ovrigt/namnstatistik/",
+   "annees": [
+    2020,
+    2022
+   ],
+   "seuil": "10 naissances par an et par sexe (valeurs < 10 publiées « - » et comptées 0)",
+   "par_sexe": true,
+   "note": "dernières données publiées : 2020-2022",
+   "total": {
+    "f": 129012,
+    "m": 139915
+   },
+   "prenoms": 1566,
+   "nouveaux": 289
+  },
+  {
+   "code": "no",
+   "nom": "Norvège",
+   "groupe": "Europe",
+   "catalogue": false,
+   "sigle": "SSB",
+   "organisme": "SSB (Statistisk sentralbyrå)",
+   "jeu": "Table 10467 Fødte etter jente- eller guttenavn (API PxWeb v0 JSON-stat2, mise à jour 2026-01-28) — liste limitée aux prénoms portés par au moins 200 personnes l'année précédente",
+   "licence": "CC BY 4.0 (ssb.no/diverse/lisens, réutilisation commerciale autorisée avec attribution, anciennement NLOD compatible) — table marquée copyright=false",
+   "url": "https://www.ssb.no/statbank/table/10467",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "4 naissances par an et par sexe (valeurs < 4 masquées « . » et comptées 0)",
+   "par_sexe": true,
+   "note": "liste partielle : prénoms portés par au moins 200 personnes",
+   "total": {
+    "f": 63909,
+    "m": 69430
+   },
+   "prenoms": 1138,
+   "nouveaux": 299
+  },
+  {
+   "code": "pl",
+   "nom": "Pologne",
+   "groupe": "Europe",
+   "catalogue": false,
+   "sigle": "PESEL",
+   "organisme": "Ministerstwo Cyfryzacji (registre PESEL)",
+   "jeu": "Imiona nadawane dzieciom w Polsce (imię pierwsze)",
+   "licence": "CC0 1.0 (dane.gov.pl)",
+   "url": "https://dane.gov.pl/pl/dataset/219,imiona-nadawane-dzieciom-w-polsce",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "2",
+   "par_sexe": true,
+   "note": "premier prénom seulement",
+   "total": {
+    "f": 384910,
+    "m": 406067
+   },
+   "prenoms": 1651,
+   "nouveaux": 550
+  },
+  {
+   "code": "lv",
+   "nom": "Lettonie",
+   "groupe": "Europe",
+   "catalogue": false,
+   "sigle": "CSB",
+   "organisme": "Centrālā statistikas pārvalde (CSB Latvia)",
+   "jeu": "Baby names in Latvia CIJV01 (enfants de moins d'un an au 1er janvier de l'année de référence, donc nés l'année précédente – annees 2024-2026 = naissances ~2023-2025, niveau Latvija)",
+   "licence": "CC BY 4.0 (stat.gov.lv, conditions de réutilisation du portail)",
+   "url": "https://stat.gov.lv/en/statistics-themes/population/names-surnames/other/21452-baby-names-latvia",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "4 (prénoms au total > 3)",
+   "par_sexe": true,
+   "note": "",
+   "total": {
+    "f": 16329,
+    "m": 17726
+   },
+   "prenoms": 569,
+   "nouveaux": 386
+  },
+  {
+   "code": "nz",
+   "nom": "Nouvelle-Zélande",
+   "groupe": "Océanie",
+   "catalogue": false,
+   "sigle": "DIA",
+   "organisme": "Department of Internal Affairs (DIA) - Births Deaths and Marriages",
+   "jeu": "Baby name popularity over time - Baby name counts over time (baby-names-1900-to-2025.csv)",
+   "licence": "CC BY 4.0 (Creative Commons Attribution 4.0 International - métadonnées data.govt.nz)",
+   "url": "https://catalogue.data.govt.nz/dataset/baby-name-popularity-over-time",
+   "annees": [
+    2023,
+    2025
+   ],
+   "seuil": "10",
+   "par_sexe": true,
+   "note": "quelques macrons perdus par la source",
+   "total": {
+    "f": 41985,
+    "m": 49247
+   },
+   "prenoms": 1215,
+   "nouveaux": 253
+  }
+ ]
+}

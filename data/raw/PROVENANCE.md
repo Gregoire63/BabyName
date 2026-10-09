@@ -137,3 +137,77 @@ Le francais reste a la charge du Wiktionnaire FR et de la couche manuelle.
 | manuel        | 800, prioritaire | 800 |
 
 Couverture finale : origine 82,6 % / signification 73,2 % (ponderees naissances).
+
+---
+
+# Francophonie : Québec, Belgique, Suisse (`francophonie_2023_2025.txt`)
+
+Extrait le 2026-10-09, par le navigateur intégré de l'app Claude (aucun de
+ces sites n'est joignable depuis la VM ni le conteneur), puis recopié et
+vérifié par empreinte (87 101 caractères, h31 = 212164870).
+
+| Bloc | Pays | Source | Licence |
+|---|---|---|---|
+| `#Q` | Québec | Retraite Québec, *Banque de prénoms* filles + garçons 1980-2025 (donneesquebec.ca, mis à jour 2026-10-01) | CC BY 4.0 |
+| `#Bf` `#Bm` | Belgique | Statbel, *Prénoms filles / garçons 1995-2025* (xlsx, colonne Belgique) | Licence open data Statbel (réutilisation libre, y compris commerciale) |
+| `#Cf` `#Cm` | Suisse | OFS, DF_BEVNAT_PRENOMS_2 / _1 (stats.swiss, SDMX, géo 8100 = Suisse) | opendata.swiss « terms_by » : libre, source à citer |
+
+Format : `#<bloc>;<naissances 2023-2025>;<naissances 2018-2020>` puis
+`prenom;n_2023_2025[;n_2018_2020]` (le second nombre seulement à partir de
+30). Prénoms gardés à partir de 5 naissances sur 2023-2025 (les lignes de 5 à
+9 ont été ajoutées dans un second envoi, même jour, empreinte 2800372923).
+
+Bloc `#QS` : sexe des prénoms québécois, d'après le fichier (filles ou
+garçons) où ils figurent sur 2023-2025 — `nom;f` ou `nom;m`, absent = les deux.
+Grossier (un seul bébé de l'autre sexe suffit à classer « mixte ») mais c'est
+tout ce que le Québec publie.
+
+## Prénoms d'ailleurs
+
+Les prénoms donnés dans ces pays mais absents de l'INSEE 2023-2025 entrent
+au catalogue (`hors_france`, voir `build_metrics.hors_france`) : 1 589, dont
+490 dans la pile (≥ 20 naissances sur trois ans dans un même pays).
+
+## Pièges
+
+- **Québec : les effectifs sont TOUS SEXES.** Un prénom présent dans les deux
+  fichiers y porte exactement le même nombre (Noah : 634 « filles » en 2023 —
+  c'est le total). On fusionne donc les deux fichiers, sans sexe.
+- Québec : capitales sans accents (LEA = Léa + Lea), « <5 » compté 0.
+- Belgique et Suisse : un prénom n'est publié qu'à partir de 5 naissances par
+  an ; les totaux sont la somme des prénoms publiés, pas les naissances
+  officielles (≈ 90 % de celles-ci).
+- Pour rafraîchir : refaire l'extraction (même agrégation : sommes 2023-2025
+  et 2018-2020) et relancer `pipeline/export_catalogue.py`.
+
+
+---
+
+# Tous les pays (`data/raw/pays/<code>.txt`, pipeline/pays.py)
+
+Extraits le 2026-10-09 par le navigateur intégré (aucune source n'est
+joignable depuis la VM ni le conteneur), recopiés et vérifiés par empreinte.
+L'en-tête de chaque fichier dit l'organisme, le jeu, la licence constatée,
+les années, le seuil. Fenêtre récente = les 3 dernières années publiées,
+ancienne = 5 ans plus tôt ; prénoms gardés à partir de 5 naissances.
+
+| Code | Pays | Source | Années | Licence |
+|---|---|---|---|---|
+| us | États-Unis | SSA, names.zip | 2023-2025 | domaine public |
+| gb-eaw | Angleterre et pays de Galles | ONS | 2023-2025 | OGL v3 |
+| gb-sct | Écosse | NRS (accents non publiés) | 2023-2025 | OGL v3 |
+| gb-nir | Irlande du Nord | NISRA (accents non publiés) | 2023-2025 | OGL |
+| ie | Irlande | CSO, VSA50/VSA60 | 2023-2025 | CC BY 4.0 |
+| ca-on | Ontario | data.ontario.ca | 2022-2024 | OGL-Ontario |
+| ca-bc | Colombie-Britannique | BC Vital Statistics | 2021-2023 | OGL-BC |
+| at | Autriche | Statistik Austria | 2023-2025 | CC BY 4.0 |
+| se | Suède | SCB (arrêté après 2022) | 2020-2022 | CC BY 4.0 |
+| no | Norvège | SSB 10467 (liste partielle ≥ 200 porteurs) | 2023-2025 | CC BY 4.0 |
+| pl | Pologne | dane.gov.pl 219 (premier prénom) | 2023-2025 | CC0 |
+| lv | Lettonie | CSB CIJV01 (année publiée N = naissances N-1) | 2023-2025 | CC BY 4.0 |
+| nz | Nouvelle-Zélande | DIA (macrons parfois perdus) | 2023-2025 | CC BY 4.0 |
+| il | Israël | CBS — extrait mais NON proposé : graphie hébraïque seule | 2022-2024 | licence ouverte CBS |
+
+Non disponibles : Alberta (anti-robot Cloudflare), Espagne / Danemark /
+Australie (top 100 seulement), Pays-Bas / Italie (pas d'export), Allemagne
+(pas de source nationale).

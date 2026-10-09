@@ -23,3 +23,6 @@ data/build/
 
 # Marketing (videos TikTok, voix, scripts) : hors du depot
 marketing/
+
+# Restes de travail des sessions Claude (pas de rm dans ce dossier) : a vider a la main
+data/raw/_a_supprimer/

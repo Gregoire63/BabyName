@@ -21,6 +21,7 @@ BUILD = ROOT / "data" / "build"
 BUILD.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(Path(__file__).parent))
 from phonetique import prononciation
+import francophonie
 
 RECENT_WINDOW = 3     # annees pour la frequence "actuelle"
 SEUIL_PILE = 20       # en dessous : prenom marque "rare", hors pile de swipe
@@ -166,6 +167,49 @@ def syllables_fr(name: str) -> int:
     return max(total, 1)
 
 
+# ---------------------------------------------------------------- ailleurs
+def hors_france(m: pd.DataFrame) -> pd.DataFrame:
+    """Les prénoms donnés au Québec, en Belgique ou en Suisse mais pas en
+    France sur la même fenêtre (pipeline/francophonie.py).
+
+    Ils entrent au catalogue comme les autres : chercher un prénom peu porté
+    ici, c'est précisément l'usage. Leurs chiffres FRANÇAIS sont nuls et le
+    disent (0 naissance, originalité 100) ; leurs chiffres d'ailleurs vivent
+    dans la colonne `fx` du catalogue. Ils vont dans la pile au même seuil que
+    l'INSEE (SEUIL_PILE naissances sur trois ans, dans un même pays).
+    """
+    lignes = []
+    for c in francophonie.nouveaux(m["label"]):
+        label = c["label"]
+        f, mm = c["f"], c["m"]
+        tot = f + mm
+        u = min(f, mm) / tot * 2 if tot else 0
+        lignes.append({
+            "prenom": label.upper(), "label": label,
+            "slug": strip_accents(label).lower(),
+            "sexe": "fm" if u >= 0.35 else ("m" if mm >= f else "f"),
+            "unisexe_ratio": round(u, 3),
+            "births_m": 0, "births_f": 0, "births_recent": 0, "births_total": 0,
+            "freq_recent_p10k": 0.0, "trend_pct_an": 0.0,
+            "peak_year": np.nan, "peak_freq_p10k": 0.0,
+            "is_revival": False, "revival_emergent": False,
+            "originalite": 100.0, "risque_surprise": 0.0,
+            "nb_car": len(re.sub(r"[- ’']", "", label)),
+            "nb_syllabes": syllables_fr(label),
+            "compose": bool(re.search(r"[- ]", label)),
+            "initiale": strip_accents(label)[0].upper(),
+            "finale": strip_accents(label).lower()[-1],
+            "first_year": np.nan, "last_year": np.nan,
+            "rare": c["max"] < SEUIL_PILE,
+            "prononciation": prononciation(label),
+            "hors_france": True,
+        })
+    out = pd.DataFrame(lignes)
+    print(f"\nailleurs : {len(out):,} prénoms donnés au Québec, en Belgique ou en Suisse "
+          f"mais pas en France ({(~out['rare']).sum():,} dans la pile)")
+    return out
+
+
 # ---------------------------------------------------------------- metriques
 def main() -> None:
     src = find_source()
@@ -290,11 +334,14 @@ def main() -> None:
     # ... et qui n'est PAS encore redevenu courant : la vraie zone de decouverte.
     m["revival_emergent"] = m["is_revival"] & (f < 5)
 
+    m["hors_france"] = False
+    m = pd.concat([m, hors_france(m)], ignore_index=True)
+
     cols = ["label", "slug", "sexe", "unisexe_ratio", "births_m", "births_f",
             "births_recent", "births_total", "freq_recent_p10k", "trend_pct_an",
             "peak_year", "peak_freq_p10k", "is_revival", "revival_emergent", "originalite",
             "risque_surprise", "nb_car", "nb_syllabes", "compose", "initiale",
-            "finale", "first_year", "last_year", "rare", "prononciation"]
+            "finale", "first_year", "last_year", "rare", "prononciation", "hors_france"]
     m = m[cols].sort_values("freq_recent_p10k", ascending=False)
     for c in ("freq_recent_p10k", "trend_pct_an", "peak_freq_p10k", "unisexe_ratio"):
         m[c] = m[c].round(3)

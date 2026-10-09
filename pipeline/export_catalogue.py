@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 from wikitexte import syntaxe_residuelle
+import francophonie
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "data" / "build" / "prenoms_final.csv"
@@ -72,7 +73,7 @@ def series_par_prenom() -> tuple[dict[str, list[float]], dict[str, dict[int, int
 
 def main() -> None:
     d = pd.read_csv(SRC)
-    d = d.sort_values("births_recent", ascending=False).reset_index(drop=True)
+    d = d.sort_values("births_recent", ascending=False, kind="stable").reset_index(drop=True)
 
     # Groupes de prononciation : une carte pour Nelya + Nelia + Nelya. Le
     # groupe est (prononciation, sexe) — Maël et Maëlle se disent pareil mais
@@ -101,9 +102,11 @@ def main() -> None:
         pic = max(brut.get(cle, {}).values(), default=0)
         return series.get(cle) if n >= SEUIL_TENDANCE or pic >= SEUIL_PIC else None
 
-    def enc_barres(label, rare, serie):
+    hf = d["hors_france"].fillna(False).astype(bool).tolist() if "hors_france" in d else [False] * len(d)
+
+    def enc_barres(label, rare, serie, ailleurs=False):
         # effectifs /5 (l'unite de l'INSEE) : des petits entiers, que le gzip ecrase
-        if serie is not None or rare:
+        if serie is not None or rare or ailleurs:
             return None
         par = brut.get(str(label).upper(), {})
         return [par.get(a, 0) // 5 for a in range(BARRES[0], BARRES[1] + 1)]
@@ -145,7 +148,12 @@ def main() -> None:
         # courbe 1986-2025, pour 10 000 naissances ; null si trop peu de volume
         "sr": [enc_serie(l, n) for l, n in zip(d["label"], d["births_recent"].fillna(0))],
     }
-    cols["nb"] = [enc_barres(l, r, sr) for l, r, sr in zip(d["label"], d["rare"].fillna(False), cols["sr"])]
+    cols["nb"] = [enc_barres(l, r, sr, a) for l, r, sr, a in zip(d["label"], d["rare"].fillna(False), cols["sr"], hf)]
+    # Donné au Québec, en Belgique ou en Suisse, pas en France (INSEE 2023-2025).
+    cols["hf"] = [int(x) for x in hf]
+    # Ailleurs en francophonie : Québec, Belgique, Suisse (pipeline/francophonie.py).
+    # null, ou [qc, be, ch] -- chacun 0 ou [naissances 3 ans, rang, tendance %/an].
+    cols["fx"], fx_sources, fx_nb = francophonie.stats(cols["l"], d["sexe"].tolist())
 
     # Dernier filet : aucun reste de wikitexte ne part dans l'app (Masha
     # affichait « {{transliterator »). La fusion les ecarte deja ; si l'un
@@ -175,7 +183,11 @@ def main() -> None:
             "me": "signification_en", "ob": "objet_marque",
             "obn": "objet_marque_note", "dm": "diminutifs", "sr": "serie_p10k",
             "nb": "naissances_par_an_div5",
+            "fx": "francophonie_qc_be_ch",
+            "hf": "hors_france",
         },
+        # Ce qui fonde chaque chiffre « ailleurs » : la fiche l'affiche en badge.
+        "fx_sources": fx_sources,
         "serie_annees": [AN0, AN1],
         # Sous ce nombre de naissances en trois ans, pas de tendance chiffree.
         "seuil_tendance": SEUIL_TENDANCE,
@@ -204,6 +216,8 @@ def main() -> None:
     print(f"  {groupes:,} groupes de prononciation "
           f"({len(d)-groupes:,} cartes en moins, -{(1-groupes/len(d))*100:.0f} %)")
     print(f"  {sens:,} avec un sens, dont {sur:,} en confiance haute")
+    print(f"  hors France : {sum(hf):,} prénoms donnés seulement au Québec, en Belgique ou en Suisse")
+    print(f"  francophonie : Québec {fx_nb['qc']:,}, Belgique {fx_nb['be']:,}, Suisse {fx_nb['ch']:,}")
     print(f"  brut : {len(txt)/1024:.0f} Ko  ({OUT.name})")
     print(f"  gzip : {gz.stat().st_size/1024:.0f} Ko  ({gz.name})  <- deploye")
 
