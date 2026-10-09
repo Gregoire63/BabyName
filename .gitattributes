@@ -1,0 +1,3 @@
+# Les données sont écrites par le pipeline Python, sous Windows comme ailleurs :
+# fins de ligne Unix dans le dépôt, quelles que soient celles du disque.
+app/public/data/**/*.json text eol=lf
