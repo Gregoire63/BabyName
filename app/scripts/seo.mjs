@@ -39,7 +39,7 @@ const MARQUE = 'babyNamed'
  * apprend vite a ignorer un lastmod qui ment. A monter quand les donnees ou
  * les gabarits changent vraiment.
  */
-const MAJ = '2026-09-30'
+const MAJ = '2026-10-09'
 /** La page qui presente l'application elle-meme, statique : c'est elle que
  *  lisent les robots et les IA, la racine « / » n'etant qu'une coquille JS. */
 const APP = '/choisir-un-prenom-a-deux/'
@@ -197,6 +197,7 @@ const FEMININ = { 'latin': 'latine', 'grec': 'grecque', 'français': 'française
 const ORIGINE_F = o => { const l = ORIGINE_LIB(o); return FEMININ[l] ?? l }
 const slugOrigine = o => slugDe(ORIGINE_LIB(o))
 const liste = (xs) => xs.length <= 1 ? xs.join('') : xs.slice(0, -1).join(', ') + ' et ' + xs.at(-1)
+const majuscule = t => t.charAt(0).toUpperCase() + t.slice(1)
 const lettreDe = p => (sansAccent(p.l)[0] || '').replace(/[^a-z]/, '')
 
 /**
@@ -259,15 +260,19 @@ const PLAGES = {
 rmSync(resolve(SORTIE, 'statique'), { recursive: true, force: true })
 mkdirSync(resolve(SORTIE, 'statique'), { recursive: true })
 const polices = []
-for (const poids of [500, 800]) {
-  for (const [jeu, plage] of Object.entries(PLAGES)) {
-    const octets = readFileSync(resolve(POLICES, `nunito-${jeu}-${poids}-normal.woff2`))
-    const nom = `nunito-${jeu}-${poids}.${createHash('sha256').update(octets).digest('hex').slice(0, 10)}.woff2`
-    writeFileSync(resolve(SORTIE, 'statique', nom), octets)
-    polices.push({ poids, jeu, plage, url: `/statique/${nom}` })
+// Gloock (OFL, app/assets/fonts/OFL-gloock.txt) : les prénoms et les titres.
+// Un seul poids ; le texte reste en Nunito, comme dans l'app.
+for (const [famille, fichier, poidsListe] of [['Nunito', 'nunito', [500, 800]], ['Gloock', 'gloock', [400]]]) {
+  for (const poids of poidsListe) {
+    for (const [jeu, plage] of Object.entries(PLAGES)) {
+      const octets = readFileSync(resolve(POLICES, `${fichier}-${jeu}-${poids}-normal.woff2`))
+      const nom = `${fichier}-${jeu}-${poids}.${createHash('sha256').update(octets).digest('hex').slice(0, 10)}.woff2`
+      writeFileSync(resolve(SORTIE, 'statique', nom), octets)
+      polices.push({ famille, poids, jeu, plage, url: `/statique/${nom}` })
+    }
   }
 }
-const FONTES = polices.map(p => `@font-face{font-family:Nunito;font-style:normal;font-weight:${p.poids};font-display:optional;src:url(${p.url}) format("woff2");unicode-range:${p.plage}}`).join('')
+const FONTES = polices.map(p => `@font-face{font-family:${p.famille};font-style:normal;font-weight:${p.poids};font-display:optional;src:url(${p.url}) format("woff2");unicode-range:${p.plage}}`).join('')
 const PRECHARGE = polices.filter(p => p.jeu === 'latin')
   .map(p => `<link rel="preload" href="${p.url}" as="font" type="font/woff2" crossorigin>`).join('\n')
 
@@ -287,6 +292,10 @@ const RECH = construireRecherche({ tous, pages, slugDe, racine: RACINE })
 const RECHERCHE_JS = enStatique('recherche', 'js', RECHERCHE_CLIENT
   .replace("'__INDEX__'", () => JSON.stringify(enStatique('recherche', 'txt', RECH.index)))
   .replace('__INSEE__', () => JSON.stringify(Object.fromEntries([...RECH.lettres].map(([l, t]) => [l, enStatique(`insee-${l}`, 'txt', t)])))))
+/** Montre le sommaire de l'en-tête quand celui de la page est passé sous
+ *  l'en-tête. La marge de 100 000 px vers le bas compte « plus bas que l'écran »
+ *  comme visible : seul « passé, même en partie, sous l'en-tête » déclenche. */
+const SOMMAIRE_JS = enStatique('sommaire', 'js', `(()=>{const h=document.querySelector('header.h'),n=document.querySelector('main nav.sommaire');if(!h||!n||!('IntersectionObserver' in window))return;new IntersectionObserver(([e])=>{h.classList.toggle('montre',e.intersectionRatio<1)},{threshold:[0,1],rootMargin:'-'+h.offsetHeight+'px 0px 100000px 0px'}).observe(n)})()`)
 const LOUPE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></svg>'
 let idRecherche = 0
 /** Le grand champ : /prenoms/ et /chercher-un-prenom/. Sans JavaScript, il
@@ -310,259 +319,335 @@ const formRecherche = (adresse = false) => { const id = `q${++idRecherche}`; ret
  */
 const CSS = `
 ${FONTES}
-:root{--encre:#1a234e;--menthe:#cae1d9;--peche:#ecbbb6;--sable:#dfd2cc;--fond:#fbfaf9;--carte:#fff;--trait:#e9e3de;--texte:#1a234e;--doux:#5b6079;--oui:#2c7a5f;--non:#b4463e;--bouton:#1a234e;--sur-bouton:#fff;--voile:rgba(255,255,255,.62);--ombre:0 1px 2px rgba(26,35,78,.05),0 10px 28px -16px rgba(26,35,78,.3)}
-@media (prefers-color-scheme:dark){:root{--fond:#101321;--carte:#191d2e;--trait:#2a2f45;--texte:#eef0f7;--doux:#a3a9c2;--encre:#eef0f7;--menthe:#2c4a44;--peche:#4d3330;--sable:#33313c;--oui:#62d2a2;--non:#f08d86;--bouton:#eef0f7;--sur-bouton:#101321;--voile:rgba(255,255,255,.08);--ombre:0 1px 2px rgba(0,0,0,.35),0 12px 30px -16px rgba(0,0,0,.75)}}
+:root{color-scheme:light;--fond:#fbfaf9;--surface:#f2ede9;--texte:#1a234e;--doux:#555c79;--trait:#e4dfda;--trait-fort:#d3cbc4;--oui:#2a7559;--non:#ad4139;--bouton:#1a234e;--sur-bouton:#f8f6f3;--appel:#1d2654;--sur-appel:#f3f1ee;--appel-doux:#c4c8de;--accent:#ecbbb6;
+--menthe:#cae1d9;--peche:#efc9c3;--sable:#e5d9d1;--lavande:#d9dcf0;--miel:#f1e1bb;--sauge:#dde4cc;--brume:#e6e2e9;--champ:var(--brume);
+--serif:Gloock,"Iowan Old Style","Palatino Linotype",Georgia,serif}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--fond:#13162b;--surface:#1c2038;--texte:#ebeaf2;--doux:#a7acc6;--trait:#2a2f4b;--trait-fort:#3a405f;--oui:#68d1a5;--non:#f2958d;--bouton:#ebeaf2;--sur-bouton:#13162b;--appel:#232a4f;--sur-appel:#ebeaf2;--appel-doux:#b3b8d4;--accent:#efc0ba;
+--menthe:#1f3c37;--peche:#45292e;--sable:#372f33;--lavande:#2a2e52;--miel:#3d3420;--sauge:#2e3725;--brume:#262838}}
 *,*::before,*::after{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;background:var(--fond)}
 body{margin:0;font:500 17px/1.65 Nunito,ui-rounded,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--texte);background:var(--fond);-webkit-font-smoothing:antialiased}
 @media (min-width:760px){body{font-size:18px}}
-a{color:inherit;text-underline-offset:.2em;text-decoration-thickness:1px}
+a{color:inherit;text-underline-offset:.2em;text-decoration-thickness:1.5px}
 .nw{white-space:nowrap}
-a:focus-visible,summary:focus-visible{outline:3px solid var(--encre);outline-offset:3px;border-radius:10px}
+a:focus-visible,summary:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--texte);outline-offset:3px;border-radius:10px}
 b,strong,th{font-weight:800}
 p{margin:0 0 1em;text-wrap:pretty}
-h1,h2,h3{font-weight:800;text-wrap:balance;letter-spacing:-.015em}
-.l{max-width:760px;margin:0 auto;padding:0 18px}
-.aller{position:absolute;left:-999px;top:8px;z-index:9;padding:8px 14px;border-radius:12px;background:var(--carte);font-weight:800}
+h1,h2,h3{text-wrap:balance}
+h1,h2{font-family:var(--serif);font-weight:400;letter-spacing:-.01em}
+h3{font-weight:800}
+.l{max-width:720px;margin:0 auto;padding:0 20px}
+.aller{position:absolute;left:-999px;top:8px;z-index:9;padding:8px 14px;border-radius:12px;background:var(--fond);font-weight:800}
 .aller:focus{left:12px}
-header.h{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--fond) 82%,transparent);-webkit-backdrop-filter:saturate(1.5) blur(14px);backdrop-filter:saturate(1.5) blur(14px);border-bottom:1px solid color-mix(in srgb,var(--trait) 70%,transparent)}
-header.h .l{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:10px;padding-bottom:10px}
+.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* La bande de couleur : en-tête, rubriques, fil et haut de page sur la
+   couleur de la page (l'origine du prénom, le type de classement). Le fond
+   déborde jusqu'aux bords de l'écran par une ombre découpée, sans largeur
+   en vw : rien ne dépasse à droite. */
+/* L'en-tête est FIXE, pas collant (sticky) : Chrome replace un élément
+   collant à chaque image du défilement et l'arrondit au pixel près sur un
+   écran à 125/150 % ou un téléphone, d'où une barre qui tremble de 1 à 2 px.
+   Fixe et sur sa propre couche (translateZ), il ne bouge plus ; le corps de
+   page lui réserve sa hauteur. */
+header.h{position:fixed;top:0;left:0;right:0;z-index:5;background:var(--champ);transform:translateZ(0)}
+body{padding-top:60px}
+header.h .l{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:8px;padding-bottom:8px}
 header.h a.m{display:flex;gap:9px;align-items:center;font-weight:800;font-size:18px;text-decoration:none}
 header.h img{width:30px;height:30px;border-radius:9px}
-.b{display:inline-block;background:var(--bouton);color:var(--sur-bouton);text-decoration:none;font-weight:800;padding:13px 24px;border-radius:999px;transition:transform .18s,box-shadow .18s}
-.b:hover{transform:translateY(-2px);box-shadow:0 12px 26px -12px rgba(26,35,78,.6)}
-.b:focus-visible{outline:3px solid var(--encre);outline-offset:3px}
-.b.p{padding:9px 16px;font-size:15px}
-@media (max-width:370px){header.h .l{gap:8px}header.h .b.p{padding:9px 12px;font-size:14px}}
-nav.rubriques{border-bottom:1px solid var(--trait)}
-nav.rubriques ul{display:flex;gap:14px;margin:0;padding:0;list-style:none;overflow-x:auto;scrollbar-width:none}
+header.h .actions{display:flex;align-items:center;gap:4px}
+header.h .loupe{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;color:var(--texte)}
+header.h .loupe:hover{background:color-mix(in srgb,var(--texte) 8%,transparent)}
+header.h .loupe svg,.cherche .champ-ligne>svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+.b{display:inline-flex;align-items:center;justify-content:center;min-height:48px;background:var(--bouton);color:var(--sur-bouton);text-decoration:none;font-weight:800;padding:0 24px;border-radius:999px;transition:background .15s}
+.b:hover{background:color-mix(in srgb,var(--bouton) 86%,var(--champ))}
+.b.p{min-height:40px;padding:0 16px;font-size:15px}
+@media (max-width:370px){header.h .l{gap:8px}header.h .b.p{padding:0 12px;font-size:14px}}
+nav.rubriques{background:var(--champ)}
+nav.rubriques ul{display:flex;gap:20px;margin:0;padding:0;list-style:none;overflow-x:auto;scrollbar-width:none}
 nav.rubriques ul::-webkit-scrollbar{display:none}
-@media (min-width:560px){nav.rubriques ul{gap:26px}}
-@media (max-width:400px){nav.rubriques ul{gap:10px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent)}nav.rubriques a{font-size:14px}}
-nav.rubriques a{display:block;padding:12px 0 9px;border-bottom:3px solid transparent;white-space:nowrap;font-size:15px;font-weight:800;line-height:1.3;text-decoration:none;color:var(--doux);transition:color .15s,border-color .15s}
-nav.rubriques a:hover{color:var(--texte);border-bottom-color:var(--trait)}
-nav.rubriques a[aria-current="page"]{color:var(--texte);border-bottom-color:var(--encre)}
-nav.fil{margin:14px 0 0;font-size:14px;color:var(--doux)}
-nav.fil a{color:var(--doux)}
-.bascule{display:inline-flex;gap:4px;margin:0 0 14px;padding:4px;border-radius:999px;background:var(--carte);border:1px solid var(--trait)}
-.bascule a{padding:8px 20px;border-radius:999px;font-weight:800;text-decoration:none;color:var(--doux)}
+@media (max-width:400px){nav.rubriques ul{gap:8px}nav.rubriques a{font-size:14px}}
+nav.rubriques a{display:block;padding:8px 0 7px;border-bottom:2px solid transparent;white-space:nowrap;font-size:15px;font-weight:800;line-height:1.3;text-decoration:none;color:color-mix(in srgb,var(--texte) 72%,var(--champ))}
+nav.rubriques a:hover{color:var(--texte)}
+nav.rubriques a[aria-current="page"]{color:var(--texte);border-bottom-color:var(--texte)}
+nav.fil{margin:0;padding:12px 0 0;font-size:14px;color:color-mix(in srgb,var(--texte) 75%,var(--champ));background:var(--champ);box-shadow:0 0 0 100vmax var(--champ);clip-path:inset(0 -100vmax -2px)}
+nav.fil a{color:inherit}
+.hero{margin:0 0 28px;padding:10px 0 30px;background:var(--champ);box-shadow:0 0 0 100vmax var(--champ);clip-path:inset(0 -100vmax)}
+@media (min-width:640px){.hero .graphe{max-width:540px}}
+.hero.fiche{padding-bottom:0}
+h1{margin:0;font-size:clamp(40px,11vw,64px);line-height:1.02;letter-spacing:-.02em}
+h1.long{font-size:clamp(34px,9vw,52px);line-height:1.06}
+h1.nom{font-size:clamp(46px,var(--t,24vw),132px);line-height:.95;letter-spacing:-.025em;overflow-wrap:anywhere}
+.hero .sous{margin:12px 0 0;max-width:34em;font-size:17px;line-height:1.55}
+.sens{margin:14px 0 0;font-size:clamp(21px,6vw,27px);line-height:1.25;font-weight:800}
+.sens small,.arabe small{display:inline-block;vertical-align:middle;margin-left:8px;padding:2px 10px;border-radius:999px;border:1.5px solid color-mix(in srgb,var(--texte) 35%,var(--champ));font-size:13px;font-weight:800;letter-spacing:0}
+.arabe{margin:8px 0 0;font-size:clamp(24px,7vw,32px);line-height:1.3;font-weight:700}
+.qui{margin:8px 0 0;font-size:17px;color:color-mix(in srgb,var(--texte) 80%,var(--champ))}
+.hero .b{margin-top:22px}
+.hero .graphe{margin:22px 0 0;padding:0}
+.hero .graphe figcaption{margin:0;padding:8px 0 14px;font-size:13px;line-height:1.4;color:color-mix(in srgb,var(--texte) 75%,var(--champ))}
+svg.courbe{display:block;width:100%;height:auto;overflow:visible}
+/* La couleur de la courbe : celle de la bande, plus soutenue (plus claire en
+   mode sombre). */
+.courbe .aire,.courbe .barre,.graphies i{fill:color-mix(in srgb,var(--champ) 78%,var(--texte));fill:oklch(from var(--champ) calc(l - .11) calc(c * 1.9 + .01) h)}
+@media (prefers-color-scheme:dark){.courbe .aire,.courbe .barre,.graphies i{fill:color-mix(in srgb,var(--champ) 70%,var(--texte));fill:oklch(from var(--champ) calc(l + .12) calc(c * 1.5 + .01) h)}}
+.chapo{font-size:19px;line-height:1.6}
+.bloc{margin:48px 0 0}
+section[id]{scroll-margin-top:136px}
+h2{margin:0 0 12px;font-size:clamp(27px,7.4vw,34px);line-height:1.15}
+h2 small{margin-left:4px;font-family:Nunito,system-ui,sans-serif;font-size:.5em;font-weight:800;color:var(--doux);letter-spacing:0}
+h3{margin:22px 0 6px;font-size:19px;line-height:1.3}
+/* Les chiffres : une grille de deux, séparée par des traits, le nombre en
+   grand au-dessus de ce qu'il compte. */
+.chiffres{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px;margin:0 0 8px;padding:0}
+@media (min-width:640px){.chiffres{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.chiffres>div{display:flex;flex-direction:column;gap:2px;padding:14px 0 12px;border-top:1px solid var(--trait)}
+.chiffres dt,.chiffres>div>span{font-size:14px;line-height:1.35;color:var(--doux)}
+.chiffres dd,.chiffres>div>b{order:-1;margin:0;font-family:var(--serif);font-weight:400;font-size:clamp(27px,8vw,34px);line-height:1.1;letter-spacing:-.01em}
+.chiffres sup{font-size:.5em}
+/* Le sommaire de la fiche : une rangée qui colle sous l'en-tête et défile
+   d'un doigt, sans barre de défilement. */
+/* Le sommaire, en deux exemplaires : l'un dans la page, l'autre DANS
+   l'en-tête, qui s'y montre quand le premier a quitté l'écran
+   (statique/sommaire.js). Deux éléments collants empilés se décalent d'un ou
+   deux pixels pendant le défilement par inertie d'un téléphone : la barre
+   vibre et le texte passe entre les deux. Ici un seul élément colle,
+   l'en-tête ; la rangée du sommaire est posée sous lui (top:100%), sans
+   changer sa hauteur, donc rien ne bouge dans la page quand elle apparaît.
+   L'ombre vers le haut bouche l'espace que laisse parfois la barre d'adresse
+   d'un téléphone quand elle se replie. */
+header.h{box-shadow:0 -80px 0 var(--champ)}
+header.h .l{height:60px}
+nav.sommaire{margin:20px -20px 0;padding:10px 20px;background:var(--fond);border-bottom:1px solid var(--trait)}
+header.h nav.sommaire{position:absolute;left:0;right:0;top:calc(100% - 1px);margin:0;padding-top:5px;padding-bottom:9px;border-top:1px solid var(--champ);visibility:hidden;opacity:0;transform:translateY(-6px);transition:opacity .18s,transform .18s,visibility 0s .18s}
+header.h nav.sommaire ul{max-width:680px;margin:0 auto}
+header.h.montre nav.sommaire{visibility:visible;opacity:1;transform:none;transition:opacity .18s,transform .18s,visibility 0s}
+nav.sommaire ul{display:flex;gap:8px;margin:0;padding:0;list-style:none;overflow-x:auto;scrollbar-width:none}
+nav.sommaire ul::-webkit-scrollbar{display:none}
+nav.sommaire li:last-child{padding-right:24px}
+nav.sommaire a{display:flex;align-items:center;min-height:40px;padding:0 16px;border-radius:999px;border:1.5px solid var(--trait-fort);white-space:nowrap;text-decoration:none;font-weight:800;font-size:15px}
+nav.sommaire a:hover{border-color:var(--texte)}
+.carte>p:last-child{margin-bottom:0}
+.doute{margin:.6em 0 0;font-size:15px;color:var(--doux)}
+.faits{display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.faits li:last-child{padding:14px 18px;border-radius:16px;background:var(--surface)}
+.ailleurs{display:grid;margin:0;padding:0;list-style:none}
+.ailleurs li{display:grid;gap:4px;padding:14px 0;border-top:1px solid var(--trait)}
+.ailleurs li:last-child{border-bottom:1px solid var(--trait)}
+.ailleurs .tete{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px}.ailleurs .tete a{min-width:0}
+.ailleurs .valeur{margin:0;display:flex;flex-wrap:wrap;gap:4px 14px;font-variant-numeric:tabular-nums}
+.ailleurs .rien{margin:0;color:var(--doux)}
+.prov{font-size:11px;font-weight:800;margin-left:6px;padding:1px 6px;border-radius:6px;text-decoration:none;white-space:nowrap;background:var(--surface)}
+.badge{font-size:13px;font-weight:800;padding:2px 10px;border-radius:999px;white-space:nowrap;text-decoration:none;border:1.5px solid var(--trait-fort)}
+.badge:hover{border-color:var(--texte)}
+.puces{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+.puces a,.puces span{display:inline-flex;align-items:baseline;gap:6px;padding:9px 15px;border-radius:999px;border:1.5px solid var(--trait-fort);text-decoration:none;font-weight:800;font-size:16px}
+.puces a:hover{border-color:var(--texte)}
+.puces small{color:var(--doux);font-size:13px}
+/* Les graphies : une ligne chacune, avec une barre à l'échelle. */
+.graphies{display:grid;margin:0;padding:0;list-style:none}
+.graphies li{display:grid;grid-template-columns:minmax(0,9em) minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--trait)}
+.graphies li:last-child{border-bottom:1px solid var(--trait)}
+.graphies .g{font-family:var(--serif);font-size:22px;line-height:1.2;text-decoration:none;overflow-wrap:anywhere}
+a.g:hover{text-decoration:underline}
+.graphies i{display:block;height:8px;width:var(--w);min-width:4px;border-radius:4px;background:color-mix(in srgb,var(--champ) 78%,var(--texte));background:oklch(from var(--champ) calc(l - .11) calc(c * 1.9 + .01) h)}
+@media (prefers-color-scheme:dark){.graphies i{background:oklch(from var(--champ) calc(l + .12) calc(c * 1.5 + .01) h)}}
+.graphies b{font-variant-numeric:tabular-nums;text-align:right}
+.graphies small{font-size:14px;color:var(--doux)}
+/* Les prénoms proches : en grand, à la suite, comme on les dirait. */
+.noms-grands{display:flex;flex-wrap:wrap;gap:2px 22px;margin:0;padding:0;list-style:none;font-family:var(--serif);font-size:27px;line-height:1.65}
+.noms-grands a{text-decoration-thickness:1px;text-decoration-color:var(--trait-fort)}
+.noms-grands a:hover{text-decoration-color:currentColor}
+.rangs{display:grid;margin:0;padding:0;list-style:none}
+.rangs a{display:flex;align-items:baseline;gap:14px;padding:13px 0;border-top:1px solid var(--trait);text-decoration:none}
+.rangs li:last-child a{border-bottom:1px solid var(--trait)}
+.rangs a:hover span{text-decoration:underline}
+.rangs b{flex:none;min-width:2.1em;font-family:var(--serif);font-weight:400;font-size:28px;line-height:1}
+.rangs sup{font-size:.5em}
+/* L'appel vers l'app : un aplat sombre, la carte du prénom comme dans l'app. */
+.cta{margin:56px 0;padding:40px 0 42px;background:var(--appel);color:var(--sur-appel);box-shadow:0 0 0 100vmax var(--appel);clip-path:inset(0 -100vmax)}
+.cta h2{margin-bottom:10px}
+.cta p{max-width:32em;color:var(--appel-doux)}
+.cta .b{background:var(--accent);color:#1a234e}
+.cta .b:hover{background:color-mix(in srgb,var(--accent) 85%,#fbfaf9)}
+.cta .doute{margin:1em 0 0;color:var(--appel-doux)}
+.pile{position:relative;width:230px;height:168px;margin:0 0 24px 8px}
+.pile::before{content:"";position:absolute;left:14px;top:14px;width:206px;height:146px;border-radius:22px;background:var(--accent);transform:rotate(7deg)}
+.pile div{position:absolute;inset:0 16px 12px 0;padding:22px 22px 0;border-radius:22px;background:#fbfaf9;color:#1a234e;transform:rotate(-4deg);box-shadow:0 18px 40px -18px rgba(5,8,25,.7)}
+.pile b{display:block;font-family:var(--serif);font-weight:400;font-size:clamp(28px,var(--t2,44px),44px);line-height:1;overflow-wrap:anywhere}
+.pile span{display:block;margin-top:8px;font-size:14px;font-weight:800;line-height:1.3}
+.offrir{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:32px 0 0;padding:18px 20px;border-radius:20px;background:var(--surface)}
+.offrir b{display:block;font-size:17px}
+.offrir span{display:block;margin-top:2px;font-size:15px;line-height:1.45}
+.offrir .b{flex:none}
+@media (max-width:420px){.offrir{flex-direction:column;align-items:flex-start}}
+/* Les classements : un tableau sans boîte, le prénom en grand. */
+.tableau{overflow-x:auto;scrollbar-width:none;margin:8px 0 0}
+.tableau::-webkit-scrollbar{display:none}
+table{width:100%;border-collapse:collapse;font-size:16px}
+caption{padding:0 0 12px;text-align:left;font-size:14px;line-height:1.45;color:var(--doux);caption-side:bottom;padding-top:12px}
+td,th{padding:11px 8px;border-top:1px solid var(--trait);text-align:left;vertical-align:baseline}
+th{padding-top:8px;padding-bottom:8px;border-top:0;font-size:13px;color:var(--doux)}
+tbody tr:last-child td{border-bottom:1px solid var(--trait)}
+th.rg,td.rg{width:2.4em;padding-left:0;padding-right:0;text-align:left}
+td.rg{font-size:14px;font-weight:800;color:var(--doux);font-variant-numeric:tabular-nums}
+td a{text-decoration:none}
+td a b{font-family:var(--serif);font-weight:400;font-size:23px;line-height:1.15}
+td a:hover b{text-decoration:underline;text-decoration-thickness:1px}
+td small{display:block;margin-top:2px;font-size:14px;line-height:1.35;color:var(--doux)}
+td.o{font-size:15px;color:var(--doux)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;width:1%}
+td:last-child,th:last-child{padding-right:0}
+.monte{color:var(--oui);font-weight:800}
+.baisse{color:var(--non);font-weight:800}
+.nul{color:var(--doux)}
+@media (max-width:560px){.o{display:none}table{font-size:15px}td,th{padding-left:5px;padding-right:5px}td a b{font-size:21px}td small{overflow-wrap:anywhere}}
+th .court,.v-court{display:none}th .court{text-decoration:none}
+@media (max-width:430px){th .long,.v-long{display:none}th .court,.v-court{display:inline}th.rg,td.rg{width:1.9em}td.n,th.n{padding-left:10px}}
+@media (max-width:360px){table{font-size:14px}th{font-size:12px}td a b{font-size:19px}}
+.bascule{display:inline-flex;gap:2px;margin:0 0 18px;padding:4px;border-radius:999px;background:var(--surface)}
+.bascule a{display:flex;align-items:center;min-height:40px;padding:0 20px;border-radius:999px;font-weight:800;text-decoration:none;color:var(--doux)}
 .bascule a:hover{color:var(--texte)}
 .bascule a[aria-current="page"]{color:var(--sur-bouton);background:var(--bouton)}
-.alphabet{display:flex;flex-wrap:wrap;gap:5px;margin:0;padding:0;list-style:none}
-.alphabet a{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;font-size:16px;background:var(--carte);border:1px solid var(--trait);text-decoration:none;font-weight:800;transition:transform .18s,background .18s}
-.alphabet a:hover{transform:translateY(-2px);background:var(--menthe)}
+.alphabet{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;margin:0;padding:0;list-style:none}
+.alphabet a{display:grid;place-items:center;height:48px;border-radius:12px;border:1.5px solid var(--trait-fort);font-family:var(--serif);font-size:22px;text-decoration:none}
+.alphabet a:hover{border-color:var(--texte)}
 .alphabet a[aria-current="page"]{color:var(--sur-bouton);background:var(--bouton);border-color:var(--bouton)}
 .voisins{display:flex;justify-content:space-between;gap:12px;margin:28px 0 0;font-weight:800}
 .voisins a{text-decoration:none}
 .voisins a:hover{text-decoration:underline}
-.hero{position:relative;isolation:isolate;overflow:hidden;margin:12px 0 22px;padding:36px 24px 30px;border-radius:30px;background:linear-gradient(135deg,var(--menthe),var(--sable) 55%,var(--peche))}
-.hero::before,.hero::after{content:"";position:absolute;z-index:-1;border-radius:50%;background:radial-gradient(circle,var(--voile),transparent 68%)}
-.hero::before{width:260px;height:260px;right:-80px;top:-100px}
-.hero::after{width:200px;height:200px;left:-70px;bottom:-110px}
-h1{margin:0;font-size:clamp(42px,12vw,68px);line-height:1.02;letter-spacing:-.03em}
-h1.long{font-size:clamp(31px,8.4vw,50px);line-height:1.08}
-.hero .sous{margin:12px 0 0;max-width:36em;font-size:17px;line-height:1.55}
-.hero.court{margin-bottom:16px;padding:26px 22px 22px}
-.sens{margin:10px 0 0;font-size:clamp(21px,5.8vw,28px);line-height:1.25;font-weight:800}
-.arabe{margin:8px 0 0;font-size:clamp(24px,7vw,32px);line-height:1.3;font-weight:700}.arabe small{display:inline-block;vertical-align:middle;margin-left:10px;padding:3px 10px;border-radius:999px;background:var(--voile);font-size:13px;font-weight:800}.sens small{display:inline-block;vertical-align:middle;margin-left:6px;padding:3px 10px;border-radius:999px;background:var(--voile);font-size:13px;letter-spacing:0}
-.etiquettes{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0 0;padding:0;list-style:none}
-.etiquettes li{padding:5px 12px;border-radius:999px;background:var(--voile);font-size:14px;font-weight:800}
-.hero .b{margin-top:22px}
-.chapo{font-size:19px;line-height:1.6}
-.bloc{margin:48px 0 0}
-h2{margin:0 0 14px;font-size:clamp(23px,6vw,28px);line-height:1.2}
-h2::before{content:"";display:block;width:36px;height:5px;margin:0 0 12px;border-radius:5px;background:linear-gradient(90deg,var(--menthe),var(--peche))}
-h3{margin:22px 0 6px;font-size:19px;line-height:1.3}
-.chiffres{display:flex;flex-wrap:wrap;gap:10px}
-.chiffres>div{flex:1 1 150px;padding:15px 16px;border-radius:20px;background:var(--carte);border:1px solid var(--trait);box-shadow:var(--ombre)}
-.chiffres b{display:block;font-size:clamp(22px,6vw,28px);line-height:1.15;letter-spacing:-.02em}
-.chiffres>div>span{display:block;margin-top:5px;font-size:14px;line-height:1.35;color:var(--doux)}
-.carte{padding:18px 20px;border-radius:22px;background:var(--carte);border:1px solid var(--trait);box-shadow:var(--ombre)}
-.carte>p:last-child{margin-bottom:0}
-.doute{margin:.6em 0 0;font-size:15px;color:var(--doux)}
-.graphe{margin:0;padding:16px 14px 12px}
-.graphe figcaption{margin:8px 6px 0;font-size:14px;color:var(--doux)}
-svg.courbe{display:block;width:100%;height:auto;overflow:visible}
-.popularite{display:grid;gap:14px}
-.ailleurs{display:grid;gap:10px;margin:0;padding:0;list-style:none}
-.ailleurs li{display:grid;gap:4px;padding:13px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait)}
-.ailleurs .tete{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px}.ailleurs .tete a{min-width:0}
-.ailleurs .valeur{margin:0;display:flex;flex-wrap:wrap;gap:4px 14px;font-variant-numeric:tabular-nums}
-.ailleurs .rien{margin:0;color:var(--doux)}
-.prov{font-size:11px;font-weight:800;margin-left:6px;padding:1px 6px;border-radius:6px;text-decoration:none;white-space:nowrap;background:color-mix(in srgb,var(--menthe) 40%,var(--carte))}
-.badge{font-size:13px;font-weight:800;padding:3px 10px;border-radius:999px;white-space:nowrap;text-decoration:none;background:color-mix(in srgb,var(--menthe) 55%,var(--carte));border:1px solid color-mix(in srgb,var(--menthe) 80%,var(--trait))}
-.faits{display:grid;gap:10px;margin:0;padding:0;list-style:none}
-.faits li{display:flex;gap:12px;align-items:flex-start;padding:13px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait);line-height:1.5}
-@media (min-width:760px){.chiffres>div{flex-basis:200px}.popularite{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);align-items:start}}
-.faits li::before{content:"";flex:none;width:10px;height:10px;margin-top:.5em;border-radius:50%;background:linear-gradient(135deg,var(--menthe),var(--peche))}
-.puces{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
-.puces a,.puces span{display:inline-flex;align-items:baseline;gap:6px;padding:8px 15px;border-radius:999px;background:var(--carte);border:1px solid var(--trait);text-decoration:none;font-weight:800;font-size:16px;transition:transform .18s,box-shadow .18s,border-color .18s}
-.puces a:hover{transform:translateY(-2px);box-shadow:var(--ombre);border-color:color-mix(in srgb,var(--encre) 28%,var(--trait))}
-.puces small{color:var(--doux);font-size:13px}
-.cta{position:relative;isolation:isolate;overflow:hidden;margin:52px 0;padding:32px 22px 26px;text-align:center;border-radius:30px;background:var(--carte);border:1px solid var(--trait);box-shadow:var(--ombre)}
-.cta::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(120% 90% at 50% -10%,color-mix(in srgb,var(--menthe) 70%,transparent),transparent 62%)}
-.cta h2::before{margin:0 auto 14px}
-.cta p{max-width:32em;margin:0 auto 1.2em}
-.cta .doute{margin:1em auto 0}
-.offrir{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:18px 0 22px;padding:16px 18px;border-radius:22px;background:linear-gradient(135deg,var(--peche),var(--sable));color:var(--texte)}
-.offrir b{display:block;font-size:17px}
-.offrir span{display:block;margin-top:2px;font-size:15px;line-height:1.45}
-.offrir .b{flex:none}
-.tableau{overflow-x:auto;border-radius:22px;background:var(--carte);border:1px solid var(--trait);box-shadow:var(--ombre)}
-table{width:100%;border-collapse:separate;border-spacing:0;font-size:16px}
-caption{padding:14px 14px 10px;text-align:left;font-size:14px;line-height:1.45;color:var(--doux)}
-td,th{padding:12px 10px;border-bottom:1px solid var(--trait);text-align:left;vertical-align:top}
-th.rg,td.rg{width:2.6em;padding-right:0;text-align:right}
-tbody tr:last-child td{border-bottom:0}
-th{font-size:13px;color:var(--doux);background:color-mix(in srgb,var(--sable) 28%,var(--carte))}
-td:first-child{color:var(--doux);font-variant-numeric:tabular-nums}
-tbody tr{transition:background .15s}
-tbody tr:hover{background:color-mix(in srgb,var(--menthe) 25%,var(--carte))}
-td a{text-decoration:none}
-td a:hover{text-decoration:underline}
-td small{display:block;margin-top:2px;font-size:14px;line-height:1.35;color:var(--doux)}
-td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.monte{color:var(--oui);font-weight:800}
-.baisse{color:var(--non);font-weight:800}
-.nul{color:var(--doux)}
-@media (max-width:560px){.o{display:none}table{font-size:15px}td,th{padding:11px 6px}td.n,th.n{padding-left:4px}td small{overflow-wrap:anywhere}}
-@media (max-width:360px){table{font-size:14px}th{font-size:12px}td,th{padding:10px 4px}th.rg,td.rg{width:2em}}
-th .court,.v-court{display:none}th .court{text-decoration:none}
-/* Téléphones étroits, ou texte agrandi dans les réglages d'accessibilité : on
-   gagne la place du libellé long et de la décimale plutôt que de faire
-   défiler le tableau de côté. */
-/* Les colonnes de chiffres gardent de l'air à droite (la dernière collait au
-   bord de la carte) ; c'est la colonne Prénom, la seule dont le texte peut
-   passer à la ligne, qui cède la place. */
-td.n,th.n{width:1%}
-td:last-child,th:last-child{padding-right:14px}
-@media (max-width:430px){th .long,.v-long{display:none}th .court,.v-court{display:inline}td,th{padding-left:5px;padding-right:5px}th.rg,td.rg{width:1.7em}td.n,th.n{padding-left:12px}td:last-child,th:last-child{padding-right:16px}}
 ul.noms{columns:2 9em;column-gap:20px;margin:0;padding:0;list-style:none}
-@media (min-width:760px){ul.noms{columns:4 9em}}
+@media (min-width:640px){ul.noms{columns:3 9em}}
 ul.noms li{break-inside:avoid;padding:3px 0}
 ul.noms a{text-decoration:none}
 ul.noms a:hover{text-decoration:underline}
 ul.noms a.courant{font-weight:800}
-.classements{display:grid;gap:14px}
-.classement h3{margin:0 0 4px;font-size:21px}
-.classement>p{margin:0 0 16px;font-size:15px;line-height:1.45;color:var(--doux)}
+/* L'accueil : chaque classement en une rangée, ses premiers prénoms en grand. */
+.classements{display:grid}
+.classement{padding:18px 0 20px;border-top:1px solid var(--trait)}
+.classement:last-child{border-bottom:1px solid var(--trait)}
+.classement h3{margin:0 0 2px;font-size:19px}
+.classement>p{margin:0 0 14px;font-size:15px;line-height:1.45;color:var(--doux)}
 .duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 22px}
-.duo .genre{margin:0 0 6px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--doux)}
-ol.apercu{display:grid;gap:5px;margin:0 0 12px;padding:0;list-style:none}
-ol.apercu li{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-ol.apercu a{overflow:hidden;font-weight:800;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}
-ol.apercu a:hover{text-decoration:underline}
-ol.apercu small{flex:none;font-size:14px;font-variant-numeric:tabular-nums;color:var(--doux)}
-a.suite{font-size:15px;font-weight:800;text-decoration:none}
-a.suite::after{content:" →"}
-a.suite:hover{text-decoration:underline}
-.origines{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px;margin:0;padding:0;list-style:none}
-.origines a{display:block;height:100%;padding:14px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait);text-decoration:none;box-shadow:var(--ombre);transition:transform .18s,border-color .18s}
-.origines a:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--encre) 28%,var(--trait))}
-.origines b{display:block;font-size:18px;line-height:1.25}
-.origines span{display:block;font-size:14px;color:var(--doux)}
-.origines small{display:block;margin-top:8px;font-size:14px;line-height:1.35}
-@media (min-width:760px){.origines.six{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.duo .genre{margin:0 0 4px;font-size:14px;font-weight:800;color:var(--doux)}
+ol.apercu{display:grid;gap:2px;margin:0 0 10px;padding:0;list-style:none}
+ol.apercu li{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-family:var(--serif);font-size:22px;line-height:1.3}
+ol.apercu a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}
+ol.apercu a:hover{text-decoration:underline;text-decoration-thickness:1px}
+ol.apercu small{flex:none;font-family:Nunito,system-ui,sans-serif;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--doux)}
+a.suite{font-size:15px;font-weight:800}
 .suite-bloc{margin:14px 0 0}
-h2 small{margin-left:4px;font-size:.62em;color:var(--doux);letter-spacing:0}
-.vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-header.h .actions{display:flex;align-items:center;gap:4px}
-header.h .loupe{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;color:var(--texte)}
-header.h .loupe:hover{background:color-mix(in srgb,var(--trait) 70%,transparent)}
-header.h .loupe svg,.cherche .champ-ligne>svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+/* Les origines : chacune sur sa couleur, celle de ses fiches. */
+.origines{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:0;padding:0;list-style:none}
+.origines a{display:block;height:100%;padding:16px;border-radius:18px;background:var(--champ);text-decoration:none}
+.origines a:hover b{text-decoration:underline;text-decoration-thickness:1px}
+.origines b{display:block;font-family:var(--serif);font-weight:400;font-size:22px;line-height:1.1;overflow-wrap:anywhere}
+.origines span{display:block;margin-top:6px;font-size:14px;font-weight:800}
+.origines small{display:block;margin-top:6px;font-size:14px;line-height:1.35;color:color-mix(in srgb,var(--texte) 78%,var(--champ))}
+@media (min-width:640px){.origines.six{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* La recherche. */
 .cherche{position:relative}
-.cherche .champ-ligne{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 16px;border-radius:999px;background:var(--carte);border:1px solid var(--trait);box-shadow:var(--ombre);color:var(--doux)}
-.cherche .champ-ligne:focus-within{border-color:var(--encre);box-shadow:0 0 0 1px var(--encre),var(--ombre)}
+.cherche .champ-ligne{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 16px;border-radius:999px;background:var(--fond);border:1.5px solid var(--texte);color:var(--doux)}
+.cherche .champ-ligne:focus-within{box-shadow:0 0 0 2px var(--texte)}
 .cherche input{flex:1;min-width:0;border:0;background:none;font:inherit;font-weight:700;color:var(--texte);padding:10px 0;outline:none;-webkit-appearance:none;appearance:none}
+.cherche input:focus-visible{outline:none}
+.cherche input::placeholder{color:var(--doux)}
 .cherche input::-webkit-search-cancel-button{display:none}
 .cherche.grand{margin:22px 0 0}
 .cherche.grand input{font-size:19px}
-.cherche .b{padding:11px 20px;font:inherit;font-size:16px;font-weight:800;border:0;cursor:pointer}
-@media (max-width:420px){.cherche .b{padding:11px 14px}.cherche.grand input{font-size:17px}}
-.suggestions{list-style:none;margin:8px 0 0;padding:0;border-radius:18px;background:var(--carte);border:1px solid var(--trait);overflow:hidden;text-align:left}
+.cherche .b{min-height:44px;padding:0 20px;font:inherit;font-size:16px;font-weight:800;border:0;cursor:pointer}
+@media (max-width:420px){.cherche .b{padding:0 14px}.cherche.grand input{font-size:17px}}
+.suggestions{list-style:none;margin:8px 0 0;padding:0;border-radius:18px;background:var(--fond);border:1px solid var(--trait-fort);overflow:hidden;text-align:left}
 .suggestions:empty{display:none}
 .suggestions li+li{border-top:1px solid var(--trait)}
 .suggestions a{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:11px 16px;text-decoration:none}
-.suggestions a:hover,.suggestions a:focus{background:color-mix(in srgb,var(--menthe) 35%,var(--carte));outline:none}
-.suggestions b{flex:none}
+.suggestions a:hover,.suggestions a:focus{background:var(--surface);outline:none}
+.suggestions b{flex:none;font-family:var(--serif);font-weight:400;font-size:20px}
 .suggestions small{color:var(--doux);font-size:14px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:380px){.suggestions a{padding:11px 12px}.suggestions small{font-size:13px}}
 .verdict{margin:12px 0 0;text-align:left}
 .verdict:empty{display:none}
-.verdict>p{margin:0 0 .6em;padding:14px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait);font-size:16px;line-height:1.5}
-.verdict>p.t,.verdict>p.doux{padding:0;border:0;background:none}
+.verdict>p{margin:0 0 .6em;padding:14px 16px;border-radius:16px;background:var(--fond);font-size:16px;line-height:1.5}
+.verdict>p.t,.verdict>p.doux{padding:0;background:none}
 .verdict>p.t{font-weight:800;margin-top:12px}
-.recherche-voile{position:fixed;inset:0;z-index:20;padding:12px;background:rgba(16,19,33,.45);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.recherche-voile{position:fixed;inset:0;z-index:20;padding:12px;background:rgba(10,13,30,.5);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
 .recherche-voile[hidden]{display:none}
 .recherche-boite{max-width:620px;max-height:100%;margin:0 auto;padding:4px;overflow-y:auto}
-.recherche-boite .fermer{flex:none;width:42px;height:42px;border:0;border-radius:50%;background:none;color:var(--doux);font:inherit;font-size:18px;cursor:pointer}
+.recherche-boite .fermer{flex:none;width:44px;height:44px;border:0;border-radius:50%;background:none;color:var(--doux);font:inherit;font-size:18px;cursor:pointer}
 html.recherche-ouverte{overflow:hidden}
-section[id]{scroll-margin-top:84px}
-.rangs{display:grid;gap:8px;margin:0;padding:0;list-style:none}
-.rangs a{display:flex;align-items:baseline;gap:12px;padding:12px 16px;border-radius:18px;background:var(--carte);border:1px solid var(--trait);text-decoration:none;transition:border-color .18s}
-.rangs a:hover{border-color:color-mix(in srgb,var(--encre) 28%,var(--trait))}
-.rangs b{flex:none;min-width:2.6em;font-size:19px}
-ol.etapes{display:grid;gap:12px;margin:0;padding:0;list-style:none;counter-reset:e}
-ol.etapes li{position:relative;counter-increment:e;padding:16px 18px 16px 66px;border-radius:22px;background:var(--carte);border:1px solid var(--trait);box-shadow:var(--ombre)}
-ol.etapes li::before{content:counter(e);position:absolute;left:16px;top:15px;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;font-weight:800;background:linear-gradient(135deg,var(--menthe),var(--peche))}
-.offres{display:grid;gap:12px}
-@media (min-width:760px){.offres{grid-template-columns:1fr 1fr}}
-.offre .prix{display:block;margin:0 0 10px;font-size:30px;font-weight:800;line-height:1.1;letter-spacing:-.02em}
-.offre .prix small{font-size:16px;letter-spacing:0;color:var(--doux)}
-.offre.plus{background:linear-gradient(165deg,color-mix(in srgb,var(--menthe) 50%,var(--carte)),var(--carte) 72%)}
-.faq{display:grid;gap:10px}
-.faq details{padding:0 18px;border-radius:20px;background:var(--carte);border:1px solid var(--trait);box-shadow:var(--ombre)}
-.faq summary{position:relative;padding:15px 30px 15px 0;list-style:none;cursor:pointer}
+/* La page de l'app. */
+ol.etapes{display:grid;margin:0;padding:0;list-style:none;counter-reset:e}
+ol.etapes li{position:relative;counter-increment:e;padding:16px 0 16px 58px;border-top:1px solid var(--trait)}
+ol.etapes li:last-child{border-bottom:1px solid var(--trait)}
+ol.etapes li::before{content:counter(e);position:absolute;left:0;top:12px;font-family:var(--serif);font-size:34px;line-height:1}
+.offres{display:grid;gap:10px}
+@media (min-width:640px){.offres{grid-template-columns:1fr 1fr}}
+.offre{padding:20px;border-radius:20px;background:var(--surface)}
+.offre .prix{display:block;margin:0 0 10px;font-family:var(--serif);font-size:34px;line-height:1.1}
+.offre .prix small{font-family:Nunito,system-ui,sans-serif;font-size:16px;font-weight:800;color:var(--doux)}
+.offre.plus{background:var(--champ)}
+.faq{display:grid}
+.faq details{border-top:1px solid var(--trait)}
+.faq details:last-child{border-bottom:1px solid var(--trait)}
+.faq summary{position:relative;padding:16px 32px 16px 0;list-style:none;cursor:pointer}
 .faq summary::-webkit-details-marker{display:none}
-.faq summary h3{margin:0;font-size:17px;line-height:1.4;letter-spacing:0}
-.faq summary::after{content:"";position:absolute;right:4px;top:50%;width:9px;height:9px;border-right:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:translateY(-75%) rotate(45deg);transition:transform .25s}
+.faq summary h3{margin:0;font-size:17px;line-height:1.4}
+.faq summary::after{content:"";position:absolute;right:6px;top:50%;width:9px;height:9px;border-right:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:translateY(-75%) rotate(45deg);transition:transform .25s}
 .faq details[open] summary::after{transform:translateY(-25%) rotate(-135deg)}
 .faq details p{margin:0 0 16px}
-footer{margin:64px 0 0;border-top:1px solid var(--trait);font-size:14px;color:var(--doux);background:color-mix(in srgb,var(--sable) 16%,var(--fond))}
-footer .l{padding-top:30px;padding-bottom:40px}
+footer{margin:64px 0 0;font-size:15px;color:var(--doux);background:var(--surface)}
+main>.cta:last-child{margin-bottom:0}
+main>.cta:last-child+footer,main:has(>.cta:last-child)+footer{margin-top:0}
+footer .l{padding-top:32px;padding-bottom:40px}
 footer a{color:var(--doux);text-decoration:none}
 footer a:hover{color:var(--texte);text-decoration:underline}
 .plan{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 18px;margin:0 0 26px}
-@media (min-width:760px){.plan{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (min-width:640px){.plan{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .plan .t{margin:0 0 8px;font-weight:800;color:var(--texte)}
 .plan ul{display:grid;gap:6px;margin:0;padding:0;list-style:none}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
-@keyframes monte{from{opacity:0;transform:translateY(18px)}}
-@keyframes apparait{from{opacity:0}}
-@keyframes flotte{to{transform:translate(-24px,18px) scale(1.12)}}
 @keyframes trace{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes apparait{from{opacity:0}}
 @keyframes pousse{from{transform:scaleY(0)}}
-@keyframes pop{from{opacity:0;transform:scale(.2)}}
 @keyframes ouvre{from{opacity:0;transform:translateY(-6px)}}
+/* Une seule animation : la courbe du prénom se trace à l'ouverture. Le texte
+   est là d'emblée, rien n'attend pour se montrer. */
 @media (prefers-reduced-motion:no-preference){
-.hero{animation:apparait .6s ease-out both}
-.hero>*,.chiffres>div{animation:monte .7s cubic-bezier(.2,.75,.25,1) both}
-.hero>:nth-child(2){animation-delay:.08s}.hero>:nth-child(3){animation-delay:.16s}.hero>:nth-child(4){animation-delay:.24s}
-.chiffres>div:nth-child(1){animation-delay:.2s}.chiffres>div:nth-child(2){animation-delay:.27s}.chiffres>div:nth-child(3){animation-delay:.34s}.chiffres>div:nth-child(4){animation-delay:.41s}.chiffres>div:nth-child(5){animation-delay:.48s}.chiffres>div:nth-child(6){animation-delay:.55s}
-.hero::before{animation:flotte 9s ease-in-out infinite alternate}
-.hero::after{animation:flotte 12s ease-in-out infinite alternate-reverse}
-.courbe .trait{stroke-dasharray:1;animation:trace 1.8s .4s cubic-bezier(.45,0,.2,1) both}
-.courbe .aire{animation:apparait 1.2s 1s ease-out both}
-.courbe .pic{transform-box:fill-box;transform-origin:center;animation:pop .5s 2s cubic-bezier(.3,1.5,.5,1) both}
-.courbe .etiquette-pic{animation:apparait .5s 2.1s ease-out both}
-.courbe .barre{transform-box:fill-box;transform-origin:50% 100%;animation:pousse .7s calc(.3s + var(--i,0) * 50ms) cubic-bezier(.2,.75,.25,1) both}
-.courbe .val{animation:apparait .4s calc(.7s + var(--i,0) * 50ms) ease-out both}
-.faq details[open]>p{animation:ouvre .3s ease-out}
-@supports (animation-timeline:view()){
-.r{animation:monte linear both;animation-timeline:view();animation-range:entry 0% entry 160px}
-.graphe{view-timeline:--graphe}
-.courbe .trait{animation:trace linear both;animation-timeline:--graphe;animation-range:entry 30% cover 45%}
-.courbe .aire{animation:apparait linear both;animation-timeline:--graphe;animation-range:entry 60% cover 42%}
-.courbe .pic,.courbe .etiquette-pic{animation:pop linear both;animation-timeline:--graphe;animation-range:cover 40% cover 46%}
-.courbe .etiquette-pic{animation-name:apparait}
-.courbe .barre{animation:pousse linear both;animation-timeline:--graphe;animation-range:entry calc(25% + var(--i,0) * 3%) cover calc(30% + var(--i,0) * 1%)}
-.courbe .val{animation:apparait linear both;animation-timeline:--graphe;animation-range:cover calc(26% + var(--i,0) * 1%) cover calc(32% + var(--i,0) * 1%)}
+.courbe .trait{stroke-dasharray:1;animation:trace 1.6s .15s cubic-bezier(.45,0,.2,1) both}
+.courbe .aire{animation:apparait .9s .7s ease-out both}
+.courbe .barre{transform-box:fill-box;transform-origin:50% 100%;animation:pousse .6s calc(.1s + var(--i,0) * 40ms) cubic-bezier(.2,.75,.25,1) both}
+.faq details[open]>p{animation:ouvre .25s ease-out}
 }
-}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
 `.replace(/\n/g, '')
 
 /** Un long titre n'a pas la taille d'un prénom. */
 const h1 = t => `<h1${t.length > 20 ? ' class="long"' : ''}>${esc(t)}</h1>`
+/**
+ * Le nom de la fiche, aussi grand que la largeur le permet : la taille suit le
+ * nombre de lettres (Gloock fait environ 0,58 em par lettre), bornée en CSS.
+ */
+const h1Nom = t => `<h1 class="nom" style="--t:${Math.min(28, 88 / (Math.max(t.length, 3) * 0.58)).toFixed(1)}vw">${esc(t)}</h1>`
+
+/**
+ * La couleur d'une page (la bande du haut) : celle de l'origine du prénom,
+ * pour qu'une famille de prénoms se reconnaisse d'une fiche à l'autre ; celle
+ * du type de liste pour un classement. Chaque couleur a sa version sombre
+ * (variables --menthe… redéfinies en mode sombre).
+ */
+const CHAMPS = ['menthe', 'peche', 'sable', 'lavande', 'miel', 'sauge', 'brume']
+const CHAMP_ORIGINE = { germanique: 'menthe', latin: 'peche', arabe: 'sable', 'hébraïque': 'lavande', grec: 'miel', 'moderne-inventé': 'sauge', celtique: 'sauge', 'anglo-saxon': 'lavande', 'français': 'peche', slave: 'miel', scandinave: 'menthe', espagnol: 'peche', italien: 'peche', persan: 'sable', turc: 'sable', 'hébreu': 'lavande' }
+const champOrigine = o => {
+  if (!o) return 'brume'
+  if (CHAMP_ORIGINE[o]) return CHAMP_ORIGINE[o]
+  let h = 0
+  for (const ch of o) h = (h * 31 + ch.codePointAt(0)) >>> 0
+  return CHAMPS[h % (CHAMPS.length - 1)]
+}
+const CHAMP_LISTE = { tendance: 'peche', populaires: 'lavande', rares: 'miel', monde: 'menthe', lettres: 'sable' }
+/** La barre d'adresse du téléphone prend la couleur de la bande. */
+const TEINTES = {
+  menthe: ['#cae1d9', '#1f3c37'], peche: ['#efc9c3', '#45292e'], sable: ['#e5d9d1', '#372f33'], lavande: ['#d9dcf0', '#2a2e52'],
+  miel: ['#f1e1bb', '#3d3420'], sauge: ['#dde4cc', '#2e3725'], brume: ['#e6e2e9', '#262838'], fond: ['#fbfaf9', '#13162b']
+}
 
 /**
  * La navigation, sur toutes les pages : les rubriques sous l'en-tête (une
@@ -588,7 +673,7 @@ ${[['filles', 'Filles'], ['garcons', 'Garçons']].map(([g, t]) => `<div><p class
 </nav>`
 
 function page({ chemin, titre, description, fil = [], corps, jsonld = [], ariane = null, indexer = true,
-  rubrique = null, genre = 'filles', appel = { texte: 'Choisir à deux', href: APP } }) {
+  rubrique = null, genre = 'filles', appel = { texte: 'Choisir à deux', href: APP }, champ = 'brume', classe = '', sommaire = '' }) {
   const canon = SITE + chemin
   const bc = ariane ?? [{ n: 'Prénoms', u: '/prenoms/' }, ...fil]
   jsonld = [{
@@ -604,16 +689,17 @@ function page({ chemin, titre, description, fil = [], corps, jsonld = [], ariane
 <meta property="og:type" content="website"><meta property="og:site_name" content="${MARQUE}">
 <meta property="og:title" content="${esc(titre)}"><meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${canon}"><meta property="og:image" content="${SITE}/icone-512.png">
-<meta name="theme-color" content="#fbfaf9" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#101321" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="${TEINTES[champ][0]}" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="${TEINTES[champ][1]}" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/logo.png" type="image/png">
 ${PRECHARGE}
 <style>${CSS}</style>
 ${jsonld.map(j => `<script type="application/ld+json">${JSON.stringify(j).replace(/</g, '\\u003c')}</script>`).join('\n')}
-</head><body>
+</head><body${classe ? ` class="${classe}"` : ''} style="--champ:var(--${champ})">
 <a class="aller" href="#contenu">Aller au contenu</a>
 <header class="h"><div class="l"><a class="m" href="/prenoms/"><img src="/logo.png" alt="" width="30" height="30">${MARQUE}</a>
-<div class="actions"><a class="loupe" href="${CHERCHER}" aria-label="Chercher un prénom">${LOUPE}</a><a class="b p" href="${appel.href}">${esc(appel.texte)}</a></div></div></header>
+<div class="actions"><a class="loupe" href="${CHERCHER}" aria-label="Chercher un prénom">${LOUPE}</a><a class="b p" href="${appel.href}">${esc(appel.texte)}</a></div></div>${sommaire ? `
+<nav class="sommaire" aria-label="Sur cette page, en haut de l’écran"><ul>${sommaire}</ul></nav>` : ''}</header>
 <nav class="rubriques" aria-label="Rubriques"><div class="l"><ul>
 ${RUBRIQUES(genre).map(([id, t, u]) => `<li><a href="${u}"${actuel(id === rubrique)}>${t}</a></li>`).join('')}
 </ul></div></nav>
@@ -626,13 +712,15 @@ ${PLAN}
 <p>Chiffres : INSEE, fichier des prénoms (naissances en France de ${AN0} à ${AN1}). Origines et significations : Wiktionnaire et relecture ; quand le sens est incertain, la fiche le dit.</p>
 <p><a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/conditions">Conditions</a> · <a href="/accessibilite">Accessibilité</a></p>
 </div></footer>
-<script src="${RECHERCHE_JS}" defer></script>
+<script src="${RECHERCHE_JS}" defer></script>${sommaire ? `
+<script src="${SOMMAIRE_JS}" defer></script>` : ''}
 </body></html>`
 }
 
 const cta = (p) => `<section class="cta r">
+${p ? `<div class="pile" aria-hidden="true"><div><b style="--t2:${Math.min(44, 190 / (Math.max(p.l.length, 3) * 0.58)).toFixed(0)}px">${esc(p.l)}</b>${p.m ? `<span>${esc(p.m.length > 40 ? p.m.slice(0, 38).replace(/\s+\S*$/, '') + '…' : p.m)}</span>` : ''}</div></div>` : ''}
 <h2>${p ? `${esc(p.l)} vous plaît ?` : 'Trouver le prénom à deux'}</h2>
-<p>Swipez chacun de votre côté, sans vous influencer. Vous ne voyez que les prénoms qui vous plaisent à tous les deux, puis vous les départagez en duels.</p>
+<p>Swipez chacun de votre côté, sans vous influencer. Vous ne voyez que les prénoms qui vous plaisent à tous les deux.</p>
 <a class="b" rel="nofollow" href="/?ref=seo${p ? `&amp;prenom=${encodeURIComponent(p.slug)}` : ''}">Commencer gratuitement</a>
 <p class="doute">Sans publicité. Votre partenaire rejoint par un simple lien, sans rien installer.</p>
 </section>`
@@ -653,12 +741,11 @@ function courbe(p) {
   const iMax = p.sr.indexOf(max)
   const graduations = [AN0, 2000, 2010, AN1].filter(a => a >= AN0 && a <= AN1)
   return `<svg class="courbe" viewBox="0 0 ${W} ${H}" role="img" aria-label="Naissances de ${esc(p.l)} pour 10 000 bébés, de ${AN0} à ${AN1}">
-<defs><linearGradient id="degrade" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--menthe)"/><stop offset="1" style="stop-color:var(--menthe);stop-opacity:.2"/></linearGradient></defs>
-<path class="aire" d="M${x(0).toFixed(1)},${H - B} L${pts.join(' L')} L${x(p.sr.length - 1).toFixed(1)},${H - B} Z" style="fill:url(#degrade)"/>
-<line x1="${G}" x2="${W - D}" y1="${H - B}" y2="${H - B}" style="stroke:var(--trait)" stroke-width="1.5"/>
-<polyline class="trait" pathLength="1" points="${pts.join(' ')}" fill="none" style="stroke:var(--encre)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
-${graduations.map((a, i) => `<text x="${x(a - AN0).toFixed(1)}" y="${H - 6}" font-size="13" style="fill:var(--doux)" text-anchor="${i === 0 ? 'start' : i === graduations.length - 1 ? 'end' : 'middle'}">${a}</text>`).join('')}
-<circle class="pic" cx="${x(iMax).toFixed(1)}" cy="${y(max).toFixed(1)}" r="5" style="fill:var(--encre)"/>
+<path class="aire" d="M${x(0).toFixed(1)},${H - B} L${pts.join(' L')} L${x(p.sr.length - 1).toFixed(1)},${H - B} Z"/>
+<line x1="${G}" x2="${W - D}" y1="${H - B}" y2="${H - B}" style="stroke:var(--texte);stroke-opacity:.3" stroke-width="1.5"/>
+<polyline class="trait" pathLength="1" points="${pts.join(' ')}" fill="none" style="stroke:var(--texte)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+${graduations.map((a, i) => `<text x="${x(a - AN0).toFixed(1)}" y="${H - 6}" font-size="13" font-weight="800" style="fill:var(--texte)" text-anchor="${i === 0 ? 'start' : i === graduations.length - 1 ? 'end' : 'middle'}">${a}</text>`).join('')}
+<circle class="pic" cx="${x(iMax).toFixed(1)}" cy="${y(max).toFixed(1)}" r="5" style="fill:var(--texte);stroke:var(--champ);stroke-width:3"/>
 <text class="etiquette-pic" x="${Math.min(Math.max(x(iMax), 78), W - 78).toFixed(1)}" y="${Math.max(y(max) - 13, 15).toFixed(1)}" font-size="13" font-weight="800" style="fill:var(--texte)" text-anchor="middle">${dec(max)} / 10 000 en ${AN0 + iMax}</text>
 </svg>`
 }
@@ -676,9 +763,9 @@ function barres(p) {
   const annees = p.nb.map((_, i) => B0 + i)
     .filter(a => a === B0 || a === B1 || (a % 5 === 0 && a - B0 >= 3 && B1 - a >= 3))
   return `<svg class="courbe" viewBox="0 0 ${W} ${H}" role="img" aria-label="Naissances de ${esc(p.l)} par an, de ${B0} à ${B1}, arrondies à 5 par l’INSEE : au plus ${max}">
-${p.nb.map((v, i) => v > 0 ? `<rect class="barre" style="--i:${i};fill:var(--menthe);stroke:var(--encre)" x="${(G + i * pas + pas * 0.16).toFixed(1)}" y="${y(v).toFixed(1)}" width="${(pas * 0.68).toFixed(1)}" height="${(H - B - y(v)).toFixed(1)}" rx="3" stroke-width="1.5"/><text class="val" style="--i:${i};fill:var(--texte)" x="${cx(i)}" y="${(y(v) - 5).toFixed(1)}" font-size="12" font-weight="800" text-anchor="middle">${v}</text>` : '').join('')}
-<line x1="${G}" x2="${W - D}" y1="${H - B}" y2="${H - B}" style="stroke:var(--trait)" stroke-width="1.5"/>
-${annees.map(a => `<text x="${cx(a - B0)}" y="${H - 6}" font-size="13" style="fill:var(--doux)" text-anchor="middle">${a}</text>`).join('')}
+${p.nb.map((v, i) => v > 0 ? `<rect class="barre" style="--i:${i};stroke:var(--texte)" x="${(G + i * pas + pas * 0.16).toFixed(1)}" y="${y(v).toFixed(1)}" width="${(pas * 0.68).toFixed(1)}" height="${(H - B - y(v)).toFixed(1)}" rx="3" stroke-width="1.5"/><text class="val" style="--i:${i};fill:var(--texte)" x="${cx(i)}" y="${(y(v) - 5).toFixed(1)}" font-size="12" font-weight="800" text-anchor="middle">${v}</text>` : '').join('')}
+<line x1="${G}" x2="${W - D}" y1="${H - B}" y2="${H - B}" style="stroke:var(--texte);stroke-opacity:.3" stroke-width="1.5"/>
+${annees.map(a => `<text x="${cx(a - B0)}" y="${H - 6}" font-size="13" font-weight="800" style="fill:var(--texte)" text-anchor="middle">${a}</text>`).join('')}
 </svg>`
 }
 
@@ -878,7 +965,7 @@ function ailleurs(p, rangFrance) {
     .map(e => `${ord(e.v[1])} ${esc(enPays(e.x))}`)
   const France = rangFrance && rangFrance <= 2000 ? `, contre ${ord(rangFrance)} en France` : ''
   const phrase = classes.length ? `<p>${esc(p.l)} est ${liste(classes)}${France}.</p>` : ''
-  return `<section class="bloc r"><h2>${esc(p.l)} dans le monde</h2>${phrase}
+  return `<section class="bloc" id="monde"><h2>${esc(p.l)} dans le monde</h2>${phrase}
 <ul class="ailleurs">${lignes.join('')}</ul>
 ${absents.length ? `<p class="doute">Peu ou pas donné (sous le seuil de publication) : ${esc(liste(absents.map(e => e.x.nom)))}.</p>` : ''}
 <p class="doute">Chiffres officiels de chaque pays, sur leurs trois dernières années publiées.</p></section>`
@@ -907,7 +994,7 @@ function fiche(entrees) {
     ? `Dans une école de 200 enfants nés ces années-là, on compterait en moyenne <b>${dec(ecole)}</b> ${esc(p.l)}${groupe.length ? ' en comptant les graphies qui se prononcent pareil' : ''}.`
     : `Dans des écoles de 200 enfants nés ces années-là, on trouverait en moyenne un${p.sexe === 'f' ? 'e' : ''} ${esc(p.l)} toutes les <b>${1 / ecole < 10 ? dec(1 / ecole) : nf(1 / ecole)}</b> écoles${groupe.length ? ', toutes graphies confondues' : ''}.`
 
-  const pic = p.p && p.p < AN0 ? `Depuis 1900, son année record reste ${p.p}.` : p.p ? `Ce prénom a atteint son pic en ${p.p}.` : ''
+  const pic = p.p && p.p < AN0 ? `Son record, dans les chiffres de l’INSEE qui remontent à 1900, date de ${p.p}.` : p.p ? `Ce prénom a atteint son pic en ${p.p}.` : ''
   const ar = arabeDe(p)
   const best = p.hf ? meilleurPays(p) : null
   const titre = p.hf
@@ -930,8 +1017,10 @@ function fiche(entrees) {
   const sensTete = (p.m
     ? `<p class="sens">« ${esc(p.m)} »${p.cf === 2 ? '' : `<small>${p.cf === 1 ? 'sens probable' : 'sens incertain'}</small>`}</p>` : '')
     + (ar ? `<p class="arabe"><span lang="ar" dir="rtl">${esc(ar)}</span><small>en arabe</small></p>` : '')
-  const etiquettes = [`Prénom ${genre}`, ...(p.hf ? ['Prénom d’ailleurs'] : []), ...(origines.length ? [`Origine ${liste(origines)}`] : []),
-    ...(p.rv ? ['Prénom rétro qui revient'] : [])]
+  // Qui il est, en une phrase : le genre, l'origine (qui mène à sa liste).
+  const lienOrigine = o => { const L = listes.find(x => x.origine === o); return L ? `<a href="${L.chemin}">${esc(ORIGINE_F(o))}</a>` : esc(ORIGINE_F(o)) }
+  const qui = `Prénom ${genre}${p.g.length ? `, d’origine ${liste(p.g.map(lienOrigine))}` : ''}.`
+    + (p.hf ? ' Donné ailleurs, pas en France.' : '') + (p.rv ? ' Un prénom rétro qui revient.' : '')
   // La popularité en trois faits, pas en un paragraphe.
   const faits = [pic, fiable
     ? `Sur les dernières années, ${esc(p.l)} est ${tendanceMot(p.t)} (${pctTendance(p.t)} % par an).`
@@ -949,55 +1038,62 @@ function fiche(entrees) {
     `<li><a href="/prenoms/lettre/${lettre}/"><b aria-hidden="true">${lettre.toUpperCase()}</b><span>Tous les prénoms en ${lettre.toUpperCase()}</span></a></li>`
   ]
 
+  // La courbe en bas du haut de page : le dessin propre à chaque prénom.
+  const graphe = p.sr || p.nb ? `<figure class="graphe">${p.sr ? courbe(p) : barres(p)}
+<figcaption>${p.sr ? `Naissances pour 10 000 bébés nés en France, de ${AN0} à ${AN1} (INSEE).${p.hf ? ` Aucune de ${AN1 - 2} à ${AN1}.` : ''}` : 'Naissances par an en France, arrondies à 5 par l’INSEE.'}</figcaption></figure>` : ''
+  const chiffre = (b, t) => `<div><dt>${t}</dt><dd>${b}</dd></div>`
+  const monde = ailleurs(p, p.hf ? null : rang)
+  const sommaire = [['sens', 'Sens'], ...(p.hf ? [] : [['popularite', 'Popularité']]), ...(monde ? [['monde', 'Dans le monde']] : []),
+    ...(graphies.length ? [['graphies', 'Graphies']] : []), ['proches', 'Prénoms proches']]
+  const liensSommaire = sommaire.map(([id, t]) => `<li><a href="#${id}">${t}</a></li>`).join('')
+
   const corps = `
-<section class="hero">${h1(p.l)}${sensTete}
-<ul class="etiquettes">${etiquettes.map(e => `<li>${esc(e)}</li>`).join('')}</ul></section>
+<section class="hero fiche">${h1Nom(p.l)}${sensTete}
+<p class="qui">${qui}</p>
+${graphe}</section>
 
-${p.hf ? `<div class="chiffres">
-<div><b>0</b><span>naissance en France en <span class="nw">${AN1 - 2}-${AN1}</span></span></div>
-${best ? `<div><b>${best.sur.replace(/^1 /, '1 ')}</b><span>${esc(best.en)}</span></div>` : ''}
-${best && best.v[1] && best.v[1] <= 1500 ? `<div><b>${best.v[1] === 1 ? '1<sup>er</sup>' : `${best.v[1]}<sup>e</sup>`}</b><span>prénom ${esc(best.en)}</span></div>` : ''}
-<div><b>100/100</b><span>originalité en France</span></div>
-</div>` : `<div class="chiffres">
-<div><b>${nf(nTot)}</b><span>naissances en <span class="nw">${AN1 - 2}-${AN1}</span></span></div>
-<div><b>${unSur(p.f)}</b><span>en France, filles et garçons</span></div>
-${rang <= 2000 ? `<div><b>${rang}<sup>${rang === 1 ? 'er' : 'e'}</sup></b><span>prénom ${p.sexe === 'fm' ? 'le plus donné' : p.sexe === 'f' ? 'féminin' : 'masculin'}</span></div>` : ''}
-${fiable
-  ? `<div><b>${pctTendance(p.t)} %/an</b><span>tendance récente : ${tendanceMot(p.t)}</span></div>`
-  : `<div><b>≈ ${nf(parAn)}</b><span>bébé${parAn > 1 ? 's' : ''} par an</span></div>`}
-<div><b>${nf(p.o)}/100</b><span>originalité</span></div>
-</div>`}
+${p.hf ? `<dl class="chiffres">
+${chiffre('0', `naissance en France en <span class="nw">${AN1 - 2}-${AN1}</span>`)}
+${best ? chiffre(best.sur, esc(best.en)) : ''}
+${best && best.v[1] && best.v[1] <= 1500 ? chiffre(best.v[1] === 1 ? '1<sup>er</sup>' : `${best.v[1]}<sup>e</sup>`, `prénom ${esc(best.en)}`) : ''}
+${chiffre('100/100', 'originalité en France')}
+</dl>` : `<dl class="chiffres">
+${rang <= 2000 ? chiffre(`${rang}<sup>${rang === 1 ? 'er' : 'e'}</sup>`, `prénom ${p.sexe === 'fm' ? 'le plus donné' : p.sexe === 'f' ? 'féminin' : 'masculin'}`) : ''}
+${chiffre(nf(nTot), `naissances en <span class="nw">${AN1 - 2}-${AN1}</span>`)}
+${chiffre(unSur(p.f), 'en France, filles et garçons')}
+${fiable ? chiffre(majuscule(tendanceMot(p.t)), `${pctTendance(p.t)} % par an récemment`) : chiffre(`≈ ${nf(parAn)}`, `bébé${parAn > 1 ? 's' : ''} par an`)}
+${chiffre(`${nf(p.o)}/100`, 'originalité')}
+</dl>`}
 
-<section class="bloc r"><h2>Signification et origine de ${esc(p.l)}</h2>
+<nav class="sommaire" aria-label="Sur cette page"><ul>${liensSommaire}</ul></nav>
+
+<section class="bloc" id="sens"><h2>Signification et origine de ${esc(p.l)}</h2>
 <div class="carte"><p>${phraseSens}</p>${doute}</div></section>
 
-${p.hf ? ailleurs(p, null) + (p.sr ? `
-<section class="bloc r"><h2>${esc(p.l)} en France, avant ${AN1 - 2}</h2>
-<div class="popularite"><figure class="carte graphe">${courbe(p)}
-<figcaption>Naissances pour 10 000 bébés nés en France, année par année (INSEE). Aucune de ${AN1 - 2} à ${AN1}.</figcaption></figure></div></section>` : '') : `<section class="bloc r"><h2>Popularité de ${esc(p.l)} depuis ${p.sr || !p.nb ? AN0 : B0}</h2>
-<div class="popularite"><figure class="carte graphe">${p.sr ? courbe(p) : barres(p)}
-<figcaption>${p.sr ? 'Naissances pour 10 000 bébés nés en France, année par année (INSEE).' : 'Naissances par an en France, arrondies à 5 par l’INSEE.'}</figcaption></figure>
-<ul class="faits">${faits.map(f => `<li><span>${f}</span></li>`).join('')}</ul></div></section>`}
+${p.hf ? '' : `<section class="bloc" id="popularite"><h2>Popularité de ${esc(p.l)} depuis ${p.sr || !p.nb ? AN0 : B0}</h2>
+<ul class="faits">${faits.map(f => `<li>${f}</li>`).join('')}</ul></section>`}
 
-${p.hf ? '' : ailleurs(p, rang)}
+${monde}
 
-${graphies.length ? `<section class="bloc r"><h2>Même prononciation, autres graphies</h2>
-<ul class="puces">${graphies.map(x =>
-  aPage(x) && x.slug !== p.slug ? `<li><a href="${url(x)}">${esc(x.l)} <small>${x.hf ? 'ailleurs' : nf(x.n)}</small></a></li>` : `<li><span>${esc(x.l)} <small>${x.hf ? 'ailleurs' : nf(x.n)}</small></span></li>`).join('')}</ul>
+
+${graphies.length ? `<section class="bloc" id="graphies"><h2>Même prononciation, autres graphies</h2>
+<ul class="graphies">${(() => { const max = Math.max(1, ...graphies.map(x => x.n)); return graphies.map(x => {
+  const nom = aPage(x) && x.slug !== p.slug ? `<a class="g" href="${url(x)}">${esc(x.l)}</a>` : `<span class="g">${esc(x.l)}</span>`
+  return `<li>${nom}<i style="--w:${x.hf ? 0 : Math.round(100 * x.n / max)}%"></i>${x.hf ? '<small>ailleurs</small>' : `<b>${nf(x.n)}</b>`}</li>` }).join('') })()}</ul>
 <p class="doute">Nombre de naissances ${AN1 - 2}-${AN1}. À l’école, on les entend pareil : c’est ce total qui compte pour savoir si l’enfant sera seul à porter son prénom.</p></section>` : ''}
 
-${p.dm.length ? `<section class="bloc r"><h2>Diminutifs</h2><ul class="puces">${p.dm.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ul></section>` : ''}
+${p.dm.length ? `<section class="bloc"><h2>Diminutifs</h2><ul class="puces">${p.dm.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ul></section>` : ''}
 
 ${cta(p)}
 
-<section class="bloc r"><h2>Prénoms proches de ${esc(p.l)}</h2>
-<ul class="puces">${proches(p).map(x => `<li><a href="${url(x)}">${esc(x.l)}</a></li>`).join('')}</ul></section>
+<section class="bloc" id="proches"><h2>Prénoms proches de ${esc(p.l)}</h2>
+<ul class="noms-grands">${proches(p).map(x => `<li><a href="${url(x)}">${esc(x.l)}</a></li>`).join('')}</ul></section>
 
-<section class="bloc r"><h2>${classe.length ? `${esc(p.l)} dans les classements` : 'À voir aussi'}</h2>
+<section class="bloc"><h2>${classe.length ? `${esc(p.l)} dans les classements` : 'À voir aussi'}</h2>
 <ul class="rangs">${voir.join('')}</ul></section>
 `
   return page({
-    chemin: url(p), titre, description, corps, indexer: indexable(p), genre: genreDe(p.sexe),
+    chemin: url(p), titre, description, corps, indexer: indexable(p), genre: genreDe(p.sexe), champ: champOrigine(p.g[0]), classe: 'fiche', sommaire: liensSommaire,
     fil: [{ n: `Lettre ${lettre.toUpperCase()}`, u: `/prenoms/lettre/${lettre}/` }, { n: p.l, u: url(p) }]
   })
 }
@@ -1129,8 +1225,7 @@ for (const e of pages.values()) {
 // Les origines, de la plus représentée à la plus rare : c'est l'ordre dans
 // lequel on les cherche (latine avant finno-ougrienne), pas l'alphabet.
 const listesOrigines = listes.filter(L => L.origine).sort((a, b) => b.total - a.total)
-const majuscule = t => t.charAt(0).toUpperCase() + t.slice(1)
-const carteOrigine = L => `<li><a href="${L.chemin}"><b>${esc(majuscule(ORIGINE_F(L.origine)))}</b><span>${nf(L.total)} prénoms</span><small>${L.xs.slice(0, 3).map(x => esc(x.l)).join(', ')}</small></a></li>`
+const carteOrigine = L => `<li><a href="${L.chemin}" style="--champ:var(--${champOrigine(L.origine)})"><b>${esc(majuscule(ORIGINE_F(L.origine)))}</b><span>${nf(L.total)} prénoms</span><small>${L.xs.slice(0, 3).map(x => esc(x.l)).join(', ')}</small></a></li>`
 
 for (const L of listes) {
   // Filles ou garçons : le même classement, d'un geste.
@@ -1140,7 +1235,7 @@ for (const L of listes) {
     .map(x => `<li><a href="${x.chemin}">${esc(ORIGINE_LIB(x.origine))} <small>${nf(x.total)}</small></a></li>`).join('')}</ul></section>` : ''
   ecrire(L.chemin, page({
     chemin: L.chemin, titre: L.titre, description: L.description,
-    rubrique: L.origine ? 'origines' : L.type, genre: genreDe(L.sexe),
+    rubrique: L.origine ? 'origines' : L.type, genre: genreDe(L.sexe), champ: L.origine ? champOrigine(L.origine) : CHAMP_LISTE[L.type],
     fil: L.origine ? [{ n: 'Origines', u: '/prenoms/origines/' }, { n: L.h1, u: L.chemin }] : [{ n: L.h1, u: L.chemin }],
     corps: `<section class="hero court">${h1(L.h1)}<p class="sous">${esc(L.sous)}</p></section>
 ${bascule}${tableau(L.xs, L.col)}
@@ -1182,7 +1277,7 @@ for (const x of PAYS_MONDE) {
     const autres = `<section class="bloc r"><h2>Les autres pays</h2><ul class="puces">${PAYS_MONDE.filter(y => y !== x)
       .map(y => `<li><a href="${cheminPays(y, s === 'x' ? 'f' : s)}">${esc(y.nom)}</a></li>`).join('')}</ul></section>`
     ecrire(chemin, page({
-      chemin, rubrique: 'monde', genre: s === 'm' ? 'garcons' : 'filles',
+      chemin, rubrique: 'monde', genre: s === 'm' ? 'garcons' : 'filles', champ: 'menthe',
       titre: `${h} : les 100 plus donnés ${en} (${x.annees[0]}-${x.annees[1]})`,
       description: `Les prénoms${pour} les plus donnés ${en} de ${x.annees[0]} à ${x.annees[1]}, d’après ${x.sigle || x.organisme} : rang, fréquence, tendance, et ce qu’ils pèsent en France.`,
       fil: [{ n: 'Dans le monde', u: '/prenoms/monde/' }, { n: h, u: chemin }],
@@ -1210,7 +1305,7 @@ if (PAYS_MONDE.length) {
     return `<article class="carte classement r"><h3>${esc(MONDE[x.code][2])}</h3><p>${esc(x.membres ? x.membres.map(m => GROUPES[x.code].membres[m.code][1]).join(', ') : x.nom)}, ${x.annees[0]}-${x.annees[1]} ${badgePays(x)}</p><div class="duo">${tops}</div></article>`
   }
   ecrire('/prenoms/monde/', page({
-    chemin: '/prenoms/monde/', rubrique: 'monde',
+    chemin: '/prenoms/monde/', rubrique: 'monde', champ: 'menthe',
     titre: `Prénoms du monde : les plus donnés dans ${PAYS_MONDE.length + 1} pays`,
     description: `Prénoms américains, anglais, belges, suisses, québécois, suédois, polonais… les plus donnés dans ${PAYS_MONDE.length} pays, chiffres officiels à l’appui, comparés à la France.`,
     fil: [{ n: 'Dans le monde', u: '/prenoms/monde/' }],
@@ -1224,7 +1319,7 @@ ${cta(null)}`
 
 // Les origines, toutes, avec de quoi reconnaître chacune.
 ecrire('/prenoms/origines/', page({
-  chemin: '/prenoms/origines/', rubrique: 'origines',
+  chemin: '/prenoms/origines/', rubrique: 'origines', champ: 'sable',
   fil: [{ n: 'Origines', u: '/prenoms/origines/' }],
   titre: `Prénoms par origine : ${listesOrigines.length} origines, signification et popularité`,
   description: `Les prénoms donnés en France classés par origine, de la ${ORIGINE_F(listesOrigines[0].origine)} à la ${ORIGINE_F(listesOrigines.at(-1).origine)} : signification, popularité et naissances INSEE.`,
@@ -1251,7 +1346,7 @@ lettres.forEach((l, i) => {
   const chemin = `/prenoms/lettre/${l}/`
   const L = l.toUpperCase()
   ecrire(chemin, page({
-    chemin, rubrique: 'lettres', fil: [{ n: `Lettre ${L}`, u: chemin }],
+    chemin, rubrique: 'lettres', champ: 'sable', fil: [{ n: `Lettre ${L}`, u: chemin }],
     titre: `Prénoms en ${L} : ${xs.length} prénoms de fille et de garçon`,
     description: `Tous les prénoms commençant par ${L} donnés en France : filles, garçons et mixtes, avec signification, origine et popularité.`,
     corps: `<section class="hero court">${h1(`Prénoms en ${L}`)}<p class="sous">${xs.length} prénoms donnés en France. En gras, les plus courants : plus de ${COURANT} naissances de ${AN1 - 2} à ${AN1}.</p></section>
@@ -1285,7 +1380,7 @@ const carteClassement = C => {
   return `<article class="carte classement r"><h3>${C.titre}</h3><p>${C.desc}</p><div class="duo">${colonne('f', 'Filles')}${colonne('m', 'Garçons')}</div></article>`
 }
 ecrire('/prenoms/', page({
-  chemin: '/prenoms/',
+  chemin: '/prenoms/', champ: 'fond',
   titre: `Prénoms : ${nf(pages.size)} fiches avec signification, origine et popularité`,
   description: `Signification, origine et courbe de popularité de ${nf(pages.size)} prénoms donnés en France, d’après les naissances INSEE. Tendances, prénoms rares, par origine.`,
   corps: `<section class="hero">${h1('Trouver un prénom')}<p class="sous">${nf(pages.size)} prénoms donnés en France, avec leurs vrais chiffres : le sens, l’origine, et les naissances depuis ${AN0}.</p>${formRecherche()}</section>
@@ -1373,7 +1468,7 @@ const FAQ = [
 ]
 
 ecrire(APP, page({
-  chemin: APP, appel: { texte: 'Ouvrir l’app', href: '/' },
+  chemin: APP, appel: { texte: 'Ouvrir l’app', href: '/' }, champ: 'peche',
   ariane: [{ n: MARQUE, u: '/' }, { n: 'Choisir à deux', u: APP }],
   titre: `Choisir un prénom à deux, sans s’influencer : l’application ${MARQUE}`,
   description: `Chacun trie les prénoms de son côté, sans voir l’avis de l’autre ; ${MARQUE} ne montre que ceux que vous aimez tous les deux. Gratuit, sans mot de passe.`,

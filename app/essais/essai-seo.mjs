@@ -114,13 +114,13 @@ dit([...louise.matchAll(/<script\b([^>]*)>/g)].every(m =>
 const polices = [...louise.matchAll(/url\((\/statique\/nunito-[a-z-]+-\d+\.[0-9a-f]{10}\.woff2)\)/g)].map(m => m[1])
 dit(polices.length === 4 && polices.every(u => { try { readFileSync(join(sortie, u)); return true } catch { return false } }),
   `Nunito servie par le site, sous des noms à empreinte (${polices.length} fichiers présents)`)
-dit([...louise.matchAll(/<link rel="preload" href="(\/statique\/[^"]+)" as="font" type="font\/woff2" crossorigin>/g)].length === 2,
-  'les deux graisses du texte latin sont préchargées')
+dit([...louise.matchAll(/<link rel="preload" href="(\/statique\/[^"]+)" as="font" type="font\/woff2" crossorigin>/g)].length === 3,
+  'les deux graisses du texte et Gloock (titres), en latin, sont préchargées')
 const css = louise.match(/<style>(.*?)<\/style>/s)?.[1] ?? ''
 const horsMouvement = css.split('@media (prefers-reduced-motion:no-preference)')[0]
 dit(!/animation(-name)?:/.test(horsMouvement) && /animation:/.test(css),
   'toutes les animations vivent sous prefers-reduced-motion: no-preference')
-dit(/class="trait" pathLength="1"/.test(louise) && /<figure class="carte graphe">/.test(louise),
+dit(/class="trait" pathLength="1"/.test(louise) && /<figure class="graphe">/.test(louise),
   'la courbe est prête à se tracer (pathLength) dans sa carte')
 
 // ---------- la navigation ------------------------------------------------------
@@ -213,7 +213,7 @@ await pb.keyboard.type('ma', { delay: 40 })
 await pb.waitForTimeout(600)
 const b2 = await pb.evaluate(() => ({ y: Math.round(scrollY), lignes: document.querySelectorAll('form.cherche.grand .suggestions li').length,
   colle: getComputedStyle(document.querySelector('header.h')).position }))
-dit(b2.y === 0 && b2.lignes > 0 && b2.colle === 'sticky',
+dit(b2.y === 0 && b2.lignes > 0 && b2.colle === 'fixed',
   `sur un ordinateur, la page ne bouge pas quand on entre dans le champ (${b2.lignes} suggestions, défilement ${b2.y})`)
 await nav.close()
 serveur.close()
