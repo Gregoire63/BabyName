@@ -13,7 +13,7 @@ expo-env.d.ts
 /android
 
 # Jamais dans le dépôt, qui est public : clés de signature, et le fichier de
-# Firebase (voir app.config.ts).
+# Firebase (voir app.config.js).
 .kotlin/
 *.orig.*
 *.jks
@@ -31,3 +31,7 @@ GoogleService-Info.plist
 *.tsbuildinfo
 .DS_Store
 npm-debug.*
+
+# La clé privée d’un compte de service Firebase (envoi des notifications) :
+# elle va dans EAS (`eas credentials`), puis se supprime.
+*-firebase-adminsdk-*.json

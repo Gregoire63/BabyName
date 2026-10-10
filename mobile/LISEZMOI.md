@@ -53,7 +53,7 @@ contre un faux Apple (`essai-apple`).
 
 ```
 app.json          tout ce qui est fixe : nom, identifiants, icônes, liens, greffons
-app.config.ts     ce qui dépend de la machine : le fichier de Firebase
+app.config.js     ce qui dépend de la machine : le fichier de Firebase
 eas.json          les constructions : preview (à installer à la main), production (stores)
 App.tsx, index.ts l'entrée
 src/
