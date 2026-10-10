@@ -45,7 +45,7 @@
     // "NUXT_ANDROID_EMPREINTES": "AA:BB:…,CC:DD:…",
     //   le compte de démonstration des stores : une adresse en .test, que
     //   personne ne peut posséder (son code à six chiffres : secret NUXT_DEMO_CODE)
-    "NUXT_DEMO_EMAIL": "demo@babynamed.test"
+    "NUXT_DEMO_EMAIL": "demo@babynamed.test",
     //   l'achat dans l'app iPhone (LISEZMOI, « L'achat dans l'app iPhone ») : la
     //   clé « Achats intégrés » d'App Store Connect. Son identifiant et celui de
     //   l'émetteur ici ; le contenu du fichier .p8 en secret (NUXT_APPLE_IAP_CLE),
@@ -53,8 +53,8 @@
     //   première ligne de ce qu'on y colle :
     //     Get-Content AuthKey_XXXXXXXXXX.p8 -Raw | npx wrangler secret put NUXT_APPLE_IAP_CLE
     //   Tant qu'il manque l'un des trois, l'app iPhone ne propose aucun achat.
-    // "NUXT_APPLE_IAP_CLE_ID": "ABC123DEFG",
-    // "NUXT_APPLE_IAP_EMETTEUR": "00000000-0000-0000-0000-000000000000"
+    "NUXT_APPLE_IAP_CLE_ID": "28KWS5CG9W",
+    "NUXT_APPLE_IAP_EMETTEUR": "3af5e20a-8f7a-4293-88d2-3b9b86fe8228"
   },
 
   // La purge RGPD, chaque nuit : la MÊME expression que scheduledTasks dans
