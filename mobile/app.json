@@ -91,6 +91,12 @@
           "mode": "production"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4274b254-be7c-4774-958e-824f95b48188"
+      }
+    },
+    "owner": "gregoire69"
   }
 }
