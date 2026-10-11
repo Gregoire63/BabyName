@@ -17,14 +17,21 @@ const { join } = require('node:path')
  * avec sa propre version de @expo/config, qui ne savait pas lire `import type`
  * (« Unexpected token '{' », 10/10/2026).
  *
+ * Les traductions de langues/fr.json (CFBundleDisplayName) sont des clés iOS :
+ * sur Android, prebuild en fait une chaîne res/values-b+fr sans valeur par
+ * défaut, et lint bloque le build release (ExtraTranslation, 11/10/2026).
+ * EAS_BUILD_PLATFORM est posé par EAS sur la machine de build.
+ *
  * @param {import('expo/config').ConfigContext} contexte
  * @returns {import('expo/config').ExpoConfig}
  */
 module.exports = ({ config }) => {
   const firebase = process.env.GOOGLE_SERVICES_JSON
     ?? (existsSync(join(__dirname, 'google-services.json')) ? './google-services.json' : undefined)
+  const android = process.env.EAS_BUILD_PLATFORM === 'android'
   return {
     ...config,
+    ...(android ? { locales: undefined } : {}),
     name: config.name ?? 'babyNamed',
     slug: config.slug ?? 'babynamed',
     android: { ...config.android, ...(firebase ? { googleServicesFile: firebase } : {}) }

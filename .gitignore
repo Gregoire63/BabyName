@@ -26,3 +26,7 @@ marketing/
 
 # Restes de travail des sessions Claude (pas de rm dans ce dossier) : a vider a la main
 data/raw/_a_supprimer/
+
+.claude
+
+568479
