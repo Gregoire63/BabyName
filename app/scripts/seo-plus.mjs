@@ -407,7 +407,7 @@ function pageCadeau() {
 </ul><p class="doute">Sans publicité, sans abonnement : un seul paiement pour toute la liste.</p></section>
 <section class="bloc r"><h2>Questions</h2>
 <h3>Et s’ils ont déjà choisi ?</h3><p>Tant que le code n’a pas servi, vous pouvez vous rétracter pendant 14 jours. Au-delà, il reste valable 2 ans : pour le prochain.</p>
-<h3>Faut-il qu’ils installent une application ?</h3><p>Non : tout se passe dans le navigateur, sur téléphone ou ordinateur. Le second parent rejoint par un simple lien.</p></section>
+<h3>Faut-il qu’ils installent une application ?</h3><p>Non : tout se passe dans le navigateur, sur téléphone ou ordinateur, ou dans l’app quand elle existe pour leur téléphone. Le second parent rejoint par un simple lien.</p></section>
 ${cta('cadeau')}`
   ecrire(CADEAU, page({
     chemin: CADEAU,

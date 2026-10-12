@@ -322,6 +322,13 @@ async function vider() {
   location.reload()
 }
 
+// Le téléphone a son app dans un store : on n'y propose plus la PWA.
+const storeDuTelephone = ref(false)
+onMounted(() => {
+  const os = systemeVisiteur()
+  storeDuTelephone.value = (os === 'ios' && !!APP_IOS) || (os === 'android' && !!APP_ANDROID)
+})
+
 const fiche = ref<Prenom | null>(null)
 const parNom = computed(() => new Map(catalogue.value.map(p => [p.l, p])))
 const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
@@ -432,7 +439,10 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           <span class="mini doux">Avec le code de quelqu’un</span>
         </button>
 
-        <BoutonInstaller v-if="!coquille.dansApp" class="large" />
+        <!-- Sur iPhone, l'App Store remplace l'installation sur l'écran
+             d'accueil ; sur Android, Google Play dès que l'app est publique. -->
+        <BadgesStores v-if="!coquille.dansApp" class="large" />
+        <BoutonInstaller v-if="!coquille.dansApp && !storeDuTelephone" class="large" />
 
         <p v-if="cadeauSurLeSite" class="carte large mini" role="status" style="margin:0">
           Un code cadeau s’utilise sur le site babynamed.fr, pas dans l’app.

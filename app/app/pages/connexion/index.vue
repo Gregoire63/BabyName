@@ -263,6 +263,7 @@ onBeforeUnmount(() => abandonnerPasskey())
         </div>
       </div>
 
+      <BadgesStores />
       <component :is="OutilsDev" v-if="OutilsDev" :occupe="envoi" @entre="entreEnDev" />
     </template>
 

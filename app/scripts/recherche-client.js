@@ -2,6 +2,15 @@
    Les adresses des fichiers (index, INSEE par lettre) sont posées au build par scripts/seo.mjs. */
 (function () {
   'use strict'
+  /* Le systeme du visiteur, pour ne montrer que le bon bouton de store
+     (CSS html[data-os], scripts/seo.mjs). Un iPad recent se dit « Macintosh » :
+     on le reconnait a l'ecran tactile. */
+  try {
+    var ua = navigator.userAgent || ''
+    var os = /android/i.test(ua) ? 'android'
+      : /iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1) ? 'ios' : 'autre'
+    document.documentElement.setAttribute('data-os', os)
+  } catch (e) { /* les deux boutons restent */ }
   var INDEX = '__INDEX__', INSEE = __INSEE__
   var SEXE = { f: 'fille', m: 'garçon', fm: 'mixte' }
   var nf = function (x) { return Math.round(x).toLocaleString('fr-FR') }

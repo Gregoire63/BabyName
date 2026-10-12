@@ -44,6 +44,29 @@ const MAJ = '2026-10-09'
  *  lisent les robots et les IA, la racine « / » n'etant qu'une coquille JS. */
 const APP = '/choisir-un-prenom-a-deux/'
 const PRIX = (process.env.NUXT_PUBLIC_PRIX_LISTE || '6 €').trim()
+/**
+ * Les applications mobiles. Une adresse vide : pas (encore) publique, le
+ * bouton n'apparait nulle part — un lien vers une fiche que le public ne
+ * peut pas ouvrir est pire que pas de lien. Google Play : vide tant que
+ * l'app n'est qu'en test ferme (la fiche n'existe que pour les testeurs).
+ * Le systeme du visiteur decide du bouton montre (data-os, pose par
+ * recherche-client.js) : iPhone → App Store, Android → Google Play,
+ * ordinateur ou inconnu → les deux.
+ */
+const APPLE_ID = '6821347375'
+const APP_IOS = (process.env.NUXT_PUBLIC_APP_IOS ?? `https://apps.apple.com/fr/app/id${APPLE_ID}`).trim()
+const APP_ANDROID = (process.env.NUXT_PUBLIC_APP_ANDROID ?? '').trim()
+// Tant que la fiche Play n'est pas publique : le bouton Android mène au
+// groupe des testeurs (test fermé), étiqueté « bêta » — comme DishRank.
+const ANDROID_BETA = 'https://groups.google.com/g/babynamed-testeurs'
+// Mêmes glyphes que la vitrine DishRank (src/components/DownloadButtons.tsx).
+const GLYPHE_APPLE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.38-1.09-.5-2.09-.55-3.24 0-1.44.72-2.2.48-3.08-.38C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.78 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.1zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>'
+const GLYPHE_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20.5V3.5c0-.59.34-1.11.84-1.35L13.69 12l-9.85 9.85c-.5-.25-.84-.76-.84-1.35zM16.81 15.12L6.05 21.34l8.49-8.49 2.27 2.27zM20.16 10.81c.35.27.58.72.58 1.19 0 .47-.23.91-.57 1.18l-2.29 1.32-2.5-2.5 2.5-2.5 2.28 1.31zM6.05 2.66l10.76 6.22-2.27 2.27L6.05 2.66z"/></svg>'
+const magasins = () => `<p class="stores">${
+  APP_IOS ? `<a class="store store-ios" href="${APP_IOS}" target="_blank" rel="noopener" aria-label="Télécharger ${MARQUE} sur l’App Store">${GLYPHE_APPLE}App Store</a>` : ''}${
+  APP_ANDROID
+    ? `<a class="store store-android" href="${APP_ANDROID}" target="_blank" rel="noopener" aria-label="Télécharger ${MARQUE} sur Google Play">${GLYPHE_PLAY}Google Play</a>`
+    : `<a class="store store-android" href="${ANDROID_BETA}" target="_blank" rel="noopener" aria-label="Rejoindre la bêta Android de ${MARQUE}">${GLYPHE_PLAY}Google Play <small>bêta</small></a>`}</p>`
 const PRIX_NOMBRE = Number(PRIX.replace(',', '.').replace(/[^\d.]/g, '')) || 6
 // Les limites du gratuit viennent du schema, pas d'une copie : si elles
 // changent en base, la page qui les annonce change au build suivant.
@@ -470,6 +493,12 @@ a.g:hover{text-decoration:underline}
 .cta .b{background:var(--accent);color:#1a234e}
 .cta .b:hover{background:color-mix(in srgb,var(--accent) 85%,#fbfaf9)}
 .cta .doute{margin:1em 0 0;color:var(--appel-doux)}
+.stores{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 0}
+.store{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:999px;background:var(--sur-appel,#fbfaf9);color:#1a234e;font-weight:700;font-size:.95rem;text-decoration:none;box-shadow:0 6px 18px -8px rgba(0,0,0,.45);transition:transform .15s}
+.store:hover{transform:translateY(-1px)}
+.store svg{width:16px;height:16px;fill:currentColor}
+.store small{font-weight:600;font-size:.72em;padding:2px 6px;border-radius:999px;background:color-mix(in srgb,#1a234e 12%,transparent)}
+html[data-os=ios] .store-android,html[data-os=android] .store-ios{display:none}
 .pile{position:relative;width:230px;height:168px;margin:0 0 24px 8px}
 .pile::before{content:"";position:absolute;left:14px;top:14px;width:206px;height:146px;border-radius:22px;background:var(--accent);transform:rotate(7deg)}
 .pile div{position:absolute;inset:0 16px 12px 0;padding:22px 22px 0;border-radius:22px;background:#fbfaf9;color:#1a234e;transform:rotate(-4deg);box-shadow:0 18px 40px -18px rgba(5,8,25,.7)}
@@ -691,7 +720,8 @@ function page({ chemin, titre, description, fil = [], corps, jsonld = [], ariane
 <meta property="og:url" content="${canon}"><meta property="og:image" content="${SITE}/icone-512.png">
 <meta name="theme-color" content="${TEINTES[champ][0]}" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="${TEINTES[champ][1]}" media="(prefers-color-scheme: dark)">
-<link rel="icon" href="/logo.png" type="image/png">
+<link rel="icon" href="/logo.png" type="image/png">${APP_IOS ? `
+<meta name="apple-itunes-app" content="app-id=${APPLE_ID}">` : ''}
 ${PRECHARGE}
 <style>${CSS}</style>
 ${jsonld.map(j => `<script type="application/ld+json">${JSON.stringify(j).replace(/</g, '\\u003c')}</script>`).join('\n')}
@@ -722,6 +752,7 @@ ${p ? `<div class="pile" aria-hidden="true"><div><b style="--t2:${Math.min(44, 1
 <h2>${p ? `${esc(p.l)} vous plaît ?` : 'Trouver le prénom à deux'}</h2>
 <p>Swipez chacun de votre côté, sans vous influencer. Vous ne voyez que les prénoms qui vous plaisent à tous les deux.</p>
 <a class="b" rel="nofollow" href="/?ref=seo${p ? `&amp;prenom=${encodeURIComponent(p.slug)}` : ''}">Commencer gratuitement</a>
+${magasins()}
 <p class="doute">Sans publicité. Votre partenaire rejoint par un simple lien, sans rien installer.</p>
 </section>`
 
@@ -1458,7 +1489,9 @@ const FAQ = [
   ['Et les prénoms déjà pris dans la famille ?',
    `Ajoutez-les une fois à la liste « Déjà pris » : la cousine, le fils des amis, quelqu’un qu’on connaît trop. Ils sortent du tri pour tout le monde, avec toutes leurs graphies (Chloé emporte Cloé et Khloé), sans limite. Pour un prénom qu’on préfère ne pas expliquer, chacun a aussi ${BLOCAGES} vetos.`],
   ['Faut-il installer une application ?',
-   'Non. babyNamed s’ouvre dans le navigateur, sur téléphone comme sur ordinateur, et s’ajoute à l’écran d’accueil si vous le souhaitez. Votre partenaire rejoint votre liste par un simple lien.'],
+   `Non. babyNamed s’ouvre dans le navigateur, sur téléphone comme sur ordinateur, et s’ajoute à l’écran d’accueil si vous le souhaitez.${
+   APP_IOS && APP_ANDROID ? ' Il existe aussi en application, sur l’App Store et Google Play.' : APP_IOS ? ' Il existe aussi en application sur iPhone (App Store).' : APP_ANDROID ? ' Il existe aussi en application sur Android (Google Play).' : ''
+   } Votre partenaire rejoint votre liste par un simple lien, et chacun choisit le navigateur ou l’app : c’est la même liste.`],
   ['Est-ce vraiment gratuit ?',
    `Oui : on trie, on trouve ses accords et on choisit sans rien payer : ${QUOTA_DEPART} prénoms pour commencer, puis ${QUOTA_JOUR} par jour, sans jamais être bloqué. L’option à ${PRIX} TTC débloque une liste pour la vie, pour tous ses membres.`],
   ['D’où viennent les chiffres ?',
@@ -1484,7 +1517,12 @@ ecrire(APP, page({
       { '@type': 'Offer', price: String(PRIX_NOMBRE), priceCurrency: 'EUR',
         name: 'Déblocage d’une liste', description: 'Débloque la liste pour la vie, pour tous ses membres' }
     ]
-  }, {
+  }, ...[APP_IOS && { os: 'iOS', url: APP_IOS }, APP_ANDROID && { os: 'Android', url: APP_ANDROID }].filter(Boolean).map(m => ({
+    '@context': 'https://schema.org', '@type': 'MobileApplication',
+    name: MARQUE, operatingSystem: m.os, applicationCategory: 'LifestyleApplication',
+    inLanguage: 'fr-FR', installUrl: m.url, url: m.url,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' }
+  })), {
     '@context': 'https://schema.org', '@type': 'FAQPage',
     mainEntity: FAQ.map(([q, r]) => ({ '@type': 'Question', name: q,
       acceptedAnswer: { '@type': 'Answer', text: r } }))
@@ -1536,6 +1574,7 @@ ${FAQ.map(([q, r], i) => `<details${i === 0 ? ' open' : ''}><summary><h3>${esc(q
 <h2>Commencer maintenant</h2>
 <p>Créez votre liste en une minute, puis envoyez le lien à l’autre parent.</p>
 <a class="b" href="/">Commencer gratuitement</a>
+${magasins()}
 </section>`
 }))
 urls.unshift(APP)
