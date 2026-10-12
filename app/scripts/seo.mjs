@@ -26,6 +26,8 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { construireRecherche, CLIENT as RECHERCHE_CLIENT } from './recherche.mjs'
 import { construireFichesInsee } from './fiches-insee.mjs'
+import { dessinerCourbe } from './courbe.mjs'
+import { alternatesAccueil, liensAlternate, chargerSensEn, aFicheEn, cheminFicheEn } from './langues.mjs'
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PUBLIC = resolve(RACINE, 'public')
@@ -172,6 +174,13 @@ const indexable = p => !mince(p) && (p.n >= INDEX_NAISSANCES || pic(p) >= INDEX_
  */
 const INDEXNOW_CLE = '0f5cbc8e26a39832c708ce22ae3b9d1d'
 const url = p => `/prenom/${p.slug}/`
+/**
+ * La version anglaise d'une fiche (/en/french-names/<slug>/), écrite par
+ * scripts/seo-langues.mjs, quand le prénom a un sens en anglais. Même règle
+ * des deux côtés (scripts/langues.mjs) : chaque fiche annonce l'autre
+ * (hreflang), et une annonce sans retour serait ignorée par Google.
+ */
+const SENS_EN = chargerSensEn(RACINE)
 /**
  * L'ecriture arabe des prenoms d'origine arabe (pipeline/ecriture_arabe.py) :
  * on cherche « Jad en arabe », « Reem signification islam ». Une graphie sans
@@ -702,7 +711,8 @@ ${[['filles', 'Filles'], ['garcons', 'Garçons']].map(([g, t]) => `<div><p class
 </nav>`
 
 function page({ chemin, titre, description, fil = [], corps, jsonld = [], ariane = null, indexer = true,
-  rubrique = null, genre = 'filles', appel = { texte: 'Choisir à deux', href: APP }, champ = 'brume', classe = '', sommaire = '' }) {
+  rubrique = null, genre = 'filles', appel = { texte: 'Choisir à deux', href: APP }, champ = 'brume', classe = '', sommaire = '',
+  alternates = [] }) {
   const canon = SITE + chemin
   const bc = ariane ?? [{ n: 'Prénoms', u: '/prenoms/' }, ...fil]
   jsonld = [{
@@ -714,7 +724,7 @@ function page({ chemin, titre, description, fil = [], corps, jsonld = [], ariane
 <meta name="viewport" content="width=device-width,initial-scale=1">${indexer ? '' : '\n<meta name="robots" content="noindex, follow">'}
 <title>${esc(titre)}</title>
 <meta name="description" content="${esc(description)}">
-<link rel="canonical" href="${canon}">
+<link rel="canonical" href="${canon}">${alternates.length ? '\n' + liensAlternate(SITE, alternates) : ''}
 <meta property="og:type" content="website"><meta property="og:site_name" content="${MARQUE}">
 <meta property="og:title" content="${esc(titre)}"><meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${canon}"><meta property="og:image" content="${SITE}/icone-512.png">
@@ -763,22 +773,11 @@ ${magasins()}
  * et `val` (décalées par --i).
  */
 function courbe(p) {
-  if (!p.sr || !p.sr.some(v => v > 0)) return ''
-  const W = 400, H = 200, G = 8, D = 8, B = 26, T = 34
-  const max = Math.max(...p.sr)
-  const x = i => G + (i / (p.sr.length - 1)) * (W - G - D)
-  const y = v => T + (1 - v / max) * (H - T - B)
-  const pts = p.sr.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`)
-  const iMax = p.sr.indexOf(max)
-  const graduations = [AN0, 2000, 2010, AN1].filter(a => a >= AN0 && a <= AN1)
-  return `<svg class="courbe" viewBox="0 0 ${W} ${H}" role="img" aria-label="Naissances de ${esc(p.l)} pour 10 000 bébés, de ${AN0} à ${AN1}">
-<path class="aire" d="M${x(0).toFixed(1)},${H - B} L${pts.join(' L')} L${x(p.sr.length - 1).toFixed(1)},${H - B} Z"/>
-<line x1="${G}" x2="${W - D}" y1="${H - B}" y2="${H - B}" style="stroke:var(--texte);stroke-opacity:.3" stroke-width="1.5"/>
-<polyline class="trait" pathLength="1" points="${pts.join(' ')}" fill="none" style="stroke:var(--texte)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
-${graduations.map((a, i) => `<text x="${x(a - AN0).toFixed(1)}" y="${H - 6}" font-size="13" font-weight="800" style="fill:var(--texte)" text-anchor="${i === 0 ? 'start' : i === graduations.length - 1 ? 'end' : 'middle'}">${a}</text>`).join('')}
-<circle class="pic" cx="${x(iMax).toFixed(1)}" cy="${y(max).toFixed(1)}" r="5" style="fill:var(--texte);stroke:var(--champ);stroke-width:3"/>
-<text class="etiquette-pic" x="${Math.min(Math.max(x(iMax), 78), W - 78).toFixed(1)}" y="${Math.max(y(max) - 13, 15).toFixed(1)}" font-size="13" font-weight="800" style="fill:var(--texte)" text-anchor="middle">${dec(max)} / 10 000 en ${AN0 + iMax}</text>
-</svg>`
+  return dessinerCourbe(p.sr, {
+    an0: AN0, an1: AN1,
+    aria: `Naissances de ${esc(p.l)} pour 10 000 bébés, de ${AN0} à ${AN1}`,
+    pic: (max, annee) => `${dec(max)} / 10 000 en ${annee}`
+  })
 }
 
 // Les petits prénoms, sans courbe : leurs naissances année par année.
@@ -1125,6 +1124,7 @@ ${cta(p)}
 `
   return page({
     chemin: url(p), titre, description, corps, indexer: indexable(p), genre: genreDe(p.sexe), champ: champOrigine(p.g[0]), classe: 'fiche', sommaire: liensSommaire,
+    alternates: aFicheEn(p, SENS_EN) ? [{ hreflang: 'fr', chemin: url(p) }, { hreflang: 'en', chemin: cheminFicheEn(p.slug) }, { hreflang: 'x-default', chemin: url(p) }] : [],
     fil: [{ n: `Lettre ${lettre.toUpperCase()}`, u: `/prenoms/lettre/${lettre}/` }, { n: p.l, u: url(p) }]
   })
 }
@@ -1502,6 +1502,8 @@ const FAQ = [
 
 ecrire(APP, page({
   chemin: APP, appel: { texte: 'Ouvrir l’app', href: '/' }, champ: 'peche',
+  // La même page dans les autres langues de l'app (scripts/seo-langues.mjs).
+  alternates: alternatesAccueil(),
   ariane: [{ n: MARQUE, u: '/' }, { n: 'Choisir à deux', u: APP }],
   titre: `Choisir un prénom à deux, sans s’influencer : l’application ${MARQUE}`,
   description: `Chacun trie les prénoms de son côté, sans voir l’avis de l’autre ; ${MARQUE} ne montre que ceux que vous aimez tous les deux. Gratuit, sans mot de passe.`,

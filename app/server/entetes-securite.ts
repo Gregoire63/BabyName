@@ -64,4 +64,7 @@ export const POLITIQUE_STATIQUE = [...BASE_CSP, `script-src 'self' ${ANALYTICS}`
 /** Les dossiers des pages statiques générées par scripts/seo.mjs. */
 export const SECTIONS_STATIQUES = ['prenoms', 'prenom', 'lettre', 'origine', 'choisir-un-prenom-a-deux',
   // scripts/seo-plus.mjs
-  'tester-prenom-nom-de-famille', 'idee-cadeau-futurs-parents', 'chercher-un-prenom']
+  'tester-prenom-nom-de-famille', 'idee-cadeau-futurs-parents', 'chercher-un-prenom',
+  // scripts/seo-langues.mjs : l'app dans les autres langues (ACCUEILS de
+  // scripts/langues.mjs), et sous /en/ la section « French baby names ».
+  'en', 'de', 'nl', 'sv', 'nb', 'pl', 'lv']

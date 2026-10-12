@@ -30,3 +30,11 @@ public/idee-cadeau-futurs-parents/
 # Genere par scripts/seo.mjs (recherche, fiches INSEE rendues par le Worker)
 public/chercher-un-prenom/
 server/assets/fiches/
+# Genere par scripts/seo-langues.mjs (accueils de l'app par langue, section anglaise)
+public/en/
+public/de/
+public/nl/
+public/sv/
+public/nb/
+public/pl/
+public/lv/
