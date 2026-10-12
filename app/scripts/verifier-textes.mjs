@@ -7,9 +7,10 @@
  * Une clé manquante ailleurs que dans _langues fait échouer le build : elle
  * s'afficherait telle quelle. Lancé par `npm run build`.
  */
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import { transform } from 'esbuild'
 import { resolve, dirname } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 
 const DOSSIER = resolve(dirname(fileURLToPath(import.meta.url)), '../app/textes')
 const fautes = []
@@ -17,8 +18,11 @@ const toutes = new Set()
 const params = (v) => typeof v === 'string' ? [...v.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort().join(',') : null
 
 async function charger(f) {
-  // Les fichiers sont du TypeScript sans types à l'exécution : Node 22.6+ les lit.
-  return (await import(pathToFileURL(f).href)).default
+  // Du TypeScript : esbuild (déjà là, par Nuxt) retire les types, puis Node
+  // l'importe. Sans dépendre de la version de Node (le retrait des types
+  // natif n'existe que depuis la 22.18).
+  const { code } = await transform(readFileSync(f, 'utf8'), { loader: 'ts', format: 'esm' })
+  return (await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'))).default
 }
 
 for (const f of readdirSync(DOSSIER).filter(n => n.endsWith('.ts')).sort()) {
