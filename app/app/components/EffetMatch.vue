@@ -2,6 +2,7 @@
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { useVerdicts } from '~/composables/useVerdicts'
 import { tester } from '~/composables/useNomComplet'
+import { t } from '~/composables/useLangue'
 
 /**
  * Le moment ou tout le monde a dit oui sur le meme prenom.
@@ -117,8 +118,8 @@ function voirPourquoi() {
 const qui = computed(() => {
   const n = props.avec
   if (!n.length) return ''
-  if (n.length === 1) return `${n[0]} aussi.`
-  return `${n.slice(0, -1).join(', ')} et ${n[n.length - 1]} aussi.`
+  if (n.length === 1) return t('EffetMatch.quiUn', { nom: n[0] })
+  return t('EffetMatch.quiPlusieurs', { debut: n.slice(0, -1).join(', '), fin: n[n.length - 1] })
 })
 </script>
 
@@ -132,16 +133,16 @@ const qui = computed(() => {
 
     <div class="coeur">
       <Etincelles :taille="42" couleur="var(--peche)" aria-hidden="true" />
-      <p :id="idTitre" class="titre">Vous êtes d’accord</p>
+      <p :id="idTitre" class="titre">{{ $t('EffetMatch.titre') }}</p>
       <h2 :id="idNom" class="nom">{{ prenom }}</h2>
       <p class="qui">{{ qui }}</p>
 
       <div class="actions">
-        <button class="btn btn-1" @click="emit('fermer')">Continuer à trier</button>
-        <button class="btn btn-0" @click="emit('communs')">Voir nos accords</button>
+        <button class="btn btn-1" @click="emit('fermer')">{{ $t('EffetMatch.continuer') }}</button>
+        <button class="btn btn-0" @click="emit('communs')">{{ $t('EffetMatch.voirAccords') }}</button>
         <button v-if="push.etat.value === 'a-demander'" type="button" class="btn btn-0 mini"
                 @click="push.activer()">
-          Me prévenir du prochain accord
+          {{ $t('EffetMatch.prevenir') }}
         </button>
       </div>
 
@@ -152,14 +153,13 @@ const qui = computed(() => {
           <p class="remarques">{{ essai.remarques.map(r => r.court).join(' · ') }}</p>
         </div>
         <button v-else type="button" class="offre" @click="essayerNom">
-          <span>{{ paye ? `Essayer ${prenom} avec votre nom de famille`
-                        : `${prenom} avec votre nom de famille : comment ça sonne ?` }}</span>
-          <em v-if="!paye" class="tag">liste débloquée</em>
+          <span>{{ paye ? $t('EffetMatch.essayer', { prenom })
+                        : $t('EffetMatch.commentSonne', { prenom }) }}</span>
+          <em v-if="!paye" class="tag">{{ $t('EffetMatch.debloquee') }}</em>
         </button>
         <button v-if="separent" type="button" class="offre" @click="voirPourquoi">
-          <span>{{ separent }} prénom{{ separent > 1 ? 's' : '' }} vous
-            {{ separent > 1 ? 'séparent' : 'sépare' }} : voir pourquoi</span>
-          <em v-if="!paye" class="tag">liste débloquée</em>
+          <span>{{ $t('EffetMatch.separent', { n: separent }) }}</span>
+          <em v-if="!paye" class="tag">{{ $t('EffetMatch.debloquee') }}</em>
         </button>
       </div>
     </div>

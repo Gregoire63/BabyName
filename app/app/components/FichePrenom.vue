@@ -4,6 +4,8 @@ import { useGroupeSiPresent } from '~/composables/etatGroupe'
 import { projeter, ecart, CLASSE } from '~/composables/useProjectionClasse'
 import { memeEcriture } from '~/utils/tempetes'
 import { meilleurPays } from '~/composables/usePays'
+import { t, langue, nombre } from '~/composables/useLangue'
+import { nomPays } from '~/utils/nomPays'
 const props = defineProps<{ p: Prenom }>()
 const emit = defineEmits<{ fermer: [] }>()
 const g = useGroupeSiPresent()
@@ -52,8 +54,7 @@ const vente = useVente()
 const classe = computed(() => projeter(props.p, paye.value))
 const manque = computed(() => paye.value ? null : ecart(props.p))
 
-const sexeTexte = computed(() =>
-  props.p.sexe === 'fm' ? 'mixte' : props.p.sexe === 'f' ? 'fille' : 'garçon')
+const sexeTexte = computed(() => t(`Sexe.${props.p.sexe}`))
 
 const fiable = computed(() => tendanceFiable(props.p))
 const barres = anneesBarres()
@@ -75,22 +76,23 @@ const lecture = computed(() => {
   if (p.hf) {
     const m = meilleurPays(p)
     const a = m ? null : meilleurAilleurs(p)
-    return `Aucun bébé ne l’a reçu en France de 2023 à 2025 (INSEE)`
-      + (m ? ` ; ${m.en}, ${m.sur} le porte.`
-        : a ? ` ; ${a.source.id === 'qc' ? 'au' : 'en'} ${a.pays}, ${a.sur} le porte.` : '.')
+    // « en Belgique », « au Québec » : le français garde ses prépositions.
+    const dans = (code: string, nom: string, fr: string) =>
+      langue.value === 'fr' ? fr : t('Pays.dans', { pays: nomPays(code, nom), code })
+    return t('FichePrenom.horsFrance', m ? { dans: dans(m.pays.code, m.pays.nom, m.en), sur: m.sur }
+      : a ? { dans: dans(a.source.id, a.pays, `${a.source.id === 'qc' ? 'au' : 'en'} ${a.pays}`), sur: a.sur } : {})
   }
-  const base = `${frequenceLisible(p.f)} le reçoit aujourd’hui.`
+  const base = t('FichePrenom.base', { freq: frequenceLisible(p.f) })
   // Quelques bebes par an : on le dit, sans pente qui ne serait que du bruit.
   if (!fiable.value) {
-    const n = bebesParAn(p)
-    return `${frequenceLisible(p.f)} le reçoit aujourd’hui : environ ${n} bébé${n > 1 ? 's' : ''} par an, `
-      + 'trop peu pour chiffrer une tendance.'
+    return t('FichePrenom.tropPeuTendance', { freq: frequenceLisible(p.f), n: bebesParAn(p) })
   }
-  if (p.t > 15) return `${base} Il grimpe vite (${pourcentAn(p.t)}/an).`
-  if (p.t > 5) return `${base} Il monte doucement.`
-  if (p.t < -10) return `${base} Il recule nettement (${pourcentAn(p.t)}/an).`
-  if (p.t < -3) return `${base} Il s’efface lentement.`
-  return `${base} Sa cote est stable.`
+  const pct = pourcentAn(p.t)
+  if (p.t > 15) return t('FichePrenom.monteVite', { base, pct })
+  if (p.t > 5) return t('FichePrenom.monte', { base })
+  if (p.t < -10) return t('FichePrenom.recule', { base, pct })
+  if (p.t < -3) return t('FichePrenom.sEfface', { base })
+  return t('FichePrenom.stable', { base })
 })
 </script>
 
@@ -107,23 +109,22 @@ const lecture = computed(() => {
           <div>
             <h2 :id="idNom" class="nom">{{ p.l }}</h2>
             <p class="mini doux" style="margin:4px 0 0">
-              {{ sexeTexte }}<template v-if="p.hf"> · <span class="ailleurs">prénom d’ailleurs</span></template>
+              {{ sexeTexte }}<template v-if="p.hf"> · <span class="ailleurs">{{ $t('FichePrenom.ailleurs') }}</span></template>
             </p>
           </div>
-          <button type="button" class="btn btn-0 rond" aria-label="Fermer la fiche" @click="fermer">
+          <button type="button" class="btn btn-0 rond" :aria-label="$t('FichePrenom.fermer')" @click="fermer">
             <span aria-hidden="true">✕</span>
           </button>
         </header>
 
         <p v-if="p.m" class="sens">« {{ p.m }} »</p>
         <p v-if="p.m && p.cf !== null && p.cf < 2" class="note doux">
-          {{ p.cf === 0 ? 'Étymologie douteuse ou débattue : à prendre comme une piste, pas comme un fait.'
-                        : 'Étymologie probable : les sources ne sont pas unanimes.' }}
+          {{ p.cf === 0 ? $t('FichePrenom.douteuse') : $t('FichePrenom.probable') }}
         </p>
-        <p v-else-if="p.me" class="sens doux">« {{ p.me }} » <span class="mini">(source anglaise)</span></p>
+        <p v-else-if="p.me" class="sens doux">« {{ p.me }} » <span class="mini">{{ $t('FichePrenom.sourceAnglaise') }}</span></p>
 
         <div v-if="p.g.length" class="ligne" style="flex-wrap:wrap;gap:6px">
-          <span v-for="o in p.g" :key="o" class="puce">{{ o }}</span>
+          <span v-for="o in p.g" :key="o" class="puce">{{ $t(`Origines.${o}`) }}</span>
         </div>
 
         <section v-if="tempetes.length" class="tempetes" :aria-labelledby="idTempetes">
@@ -132,86 +133,85 @@ const lecture = computed(() => {
               <path d="M7.5 17H7a4 4 0 0 1-.9-7.9 5.6 5.6 0 0 1 10.8-1.4A4.2 4.2 0 0 1 17.6 17h-1.1" />
               <path d="m12.6 11.6-2.6 4.6h3.6L11 20.8" />
             </svg>
-            {{ commeTempete ? 'Se dit comme une tempête' : tempetes.length > 1 ? 'Nom de tempêtes' : 'Nom de tempête' }}
+            {{ commeTempete ? $t('FichePrenom.commeTempete') : tempetes.length > 1 ? $t('FichePrenom.nomTempetes') : $t('FichePrenom.nomTempete') }}
           </h3>
           <DetailTempete v-for="t in tempetes" :key="`${t.nom}-${t.an}`" :t="t" :prenom="p.l" />
         </section>
 
         <section v-if="sommet" class="bloc">
-          <h3>Depuis {{ AN0 }}</h3>
+          <h3>{{ $t('FichePrenom.depuis', { an: AN0 }) }}</h3>
           <CourbePrenom :serie="p.sr" :hauteur="88" pic />
           <div class="ligne mini doux" style="justify-content:space-between">
             <span>{{ AN0 }}</span>
-            <span>Sommet {{ sommet.an }} · {{ frequenceLisible(sommet.v) }}</span>
+            <span>{{ $t('FichePrenom.sommet', { an: sommet.an, freq: frequenceLisible(sommet.v) }) }}</span>
             <span>{{ AN1 }}</span>
           </div>
         </section>
         <section v-else-if="p.nb" class="bloc">
-          <h3>Naissances par an</h3>
+          <h3>{{ $t('FichePrenom.naissancesParAn') }}</h3>
           <BarresPrenom :valeurs="p.nb" :an0="barres[0]" :hauteur="110" />
         </section>
 
         <p class="lecture">{{ lecture }}</p>
 
         <section v-if="classe" class="classe" :class="{ vendu: paye }">
-          <h3>Dans une classe de {{ CLASSE }}</h3>
+          <h3>{{ $t('FichePrenom.dansClasse', { n: CLASSE }) }}</h3>
           <p class="verdict">{{ classe.phrase }}</p>
 
           <template v-if="paye">
             <p class="mini doux" style="margin:0">
-              L’année de sa naissance<template v-if="p.ngp > 1">, toutes graphies confondues</template>.
+              {{ $t('FichePrenom.anneeNaissance') }}<template v-if="p.ngp > 1">{{ $t('FichePrenom.toutesGraphies') }}</template>.
             </p>
           </template>
 
           <template v-else-if="manque">
             <p class="mini" style="margin:0">
-              Ce chiffre ne compte qu'une graphie, l'année dernière : pour ce
-              prénom il tombe à côté :
+              {{ $t('FichePrenom.uneGraphie') }}
               <template v-if="manque.evolution">{{ manque.evolution }}</template>
-              <template v-if="manque.evolution && manque.graphies"> et </template>
+              <template v-if="manque.evolution && manque.graphies">{{ $t('FichePrenom.et') }}</template>
               <template v-if="manque.graphies">{{ manque.graphies }}</template>.
             </p>
             <button v-if="dansListe && vente.ouverte" class="btn btn-1 mini" @click="g!.ouvrirDebloquer()">
-              Voir le vrai chiffre
+              {{ $t('FichePrenom.voirVrai') }}
             </button>
           </template>
           <p v-else class="mini doux" style="margin:0">
-            Ni la mode ni l'orthographe ne changent la réponse pour celui-ci.
+            {{ $t('FichePrenom.rienNeChange') }}
           </p>
         </section>
 
         <dl v-if="!p.hf" class="chiffres">
-          <div><dt>Fréquence</dt><dd>{{ frequenceLisible(p.f) }}</dd></div>
-          <div v-if="fiable"><dt>Tendance</dt>
+          <div><dt>{{ $t('FichePrenom.frequence') }}</dt><dd>{{ frequenceLisible(p.f) }}</dd></div>
+          <div v-if="fiable"><dt>{{ $t('FichePrenom.tendance') }}</dt>
             <dd :style="{ color: p.t > 8 ? 'var(--non)' : p.t < -5 ? 'var(--oui)' : 'inherit' }">
-              {{ pourcentAn(p.t) }}/an</dd></div>
-          <div v-else><dt>Tendance</dt><dd class="doux">trop peu de bébés</dd></div>
-          <div><dt>Originalité</dt><dd>{{ p.o.toFixed(0) }}/100</dd></div>
-          <div><dt>Pic historique</dt><dd>{{ p.p || 'inconnu' }}<span v-if="p.p && p.p < 1986" class="mini doux"> (avant 1986)</span></dd></div>
-          <div><dt>Naissances 3 ans</dt><dd>{{ p.n.toLocaleString('fr-FR') }}</dd></div>
-          <div><dt>Risque d’explosion</dt>
+              {{ $t('FichePrenom.parAn', { pct: pourcentAn(p.t) }) }}</dd></div>
+          <div v-else><dt>{{ $t('FichePrenom.tendance') }}</dt><dd class="doux">{{ $t('FichePrenom.tropPeu') }}</dd></div>
+          <div><dt>{{ $t('FichePrenom.originalite') }}</dt><dd>{{ p.o.toFixed(0) }}/100</dd></div>
+          <div><dt>{{ $t('FichePrenom.pic') }}</dt><dd>{{ p.p || $t('FichePrenom.inconnu') }}<span v-if="p.p && p.p < 1986" class="mini doux">{{ $t('FichePrenom.avant1986') }}</span></dd></div>
+          <div><dt>{{ $t('FichePrenom.naissances3') }}</dt><dd>{{ nombre(p.n) }}</dd></div>
+          <div><dt>{{ $t('FichePrenom.risque') }}</dt>
             <dd :style="{ color: p.r > 40 ? 'var(--non)' : 'inherit' }">{{ p.r.toFixed(0) }}/100</dd></div>
         </dl>
 
         <DansLeMonde :p="p" />
 
         <p v-if="p.u > 0.12 && p.u < 0.88" class="note">
-          Porté par les deux sexes ({{ (p.u * 100).toFixed(0) }} % de filles).
+          {{ $t('FichePrenom.deuxSexes', { pct: (p.u * 100).toFixed(0) }) }}
         </p>
         <p v-if="p.rv" class="note">
-          Prénom d’avant 1970 qui remonte : il sonnera « ancien » à vos parents, neuf à ses camarades.
+          {{ $t('FichePrenom.revival') }}
         </p>
         <p v-if="p.r > 30" class="note alerte">
-          Il grimpe et reste rare : il peut être partout dans cinq ans.
+          {{ $t('FichePrenom.explosion') }}
         </p>
         <p v-if="p.ob" class="note alerte">
-          Homonyme repéré : {{ p.obn || 'un nom commun ou une marque' }}.
+          {{ $t('FichePrenom.homonyme', { quoi: p.obn || $t('FichePrenom.homonymeDefaut') }) }}
         </p>
         <p v-if="p.dm?.length" class="note">
-          Diminutifs probables : {{ p.dm.join(', ') }}.
+          {{ $t('FichePrenom.diminutifs', { liste: p.dm.join(', ') }) }}
         </p>
         <p v-if="!p.m && !p.me" class="note doux">
-          Aucune étymologie fiable trouvée pour ce prénom.
+          {{ $t('FichePrenom.sansEtymologie') }}
         </p>
       </div>
     </div>

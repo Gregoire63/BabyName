@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
-import { useVerdicts, MOT } from '~/composables/useVerdicts'
+import { useVerdicts } from '~/composables/useVerdicts'
 import { expliquerDesaccords, type Explication } from '~/composables/usePortrait'
+import { t } from '~/composables/useLangue'
 
 /**
  * Les desaccords, et la possibilite d'en revenir.
@@ -50,14 +51,12 @@ const autresDecideurs = computed(() => (g.etat.value?.avancement ?? [])
   .filter((m: any) => m.role !== 'observateur' && m.user_id !== moiId.value)
   .map((m: any) => m.pseudo as string))
 const eux = computed(() => autresDecideurs.value.length === 1 ? autresDecideurs.value[0]! : '')
-/** « qu’Alice » mais « que Paul » ; « d’Alice », « de Paul ». */
-const voyelle = (nom: string) => /^[aeiouyhàâäéèêëîïôöùûü]/i.test(nom)
-const que = (nom: string) => voyelle(nom) ? `qu’${nom}` : `que ${nom}`
+// « qu’Alice » mais « que Paul » : l'élision vit avec le texte (app/textes/PanneauRevoir).
 
 const groupes = computed(() => [
-  { cle: 'moi', titre: 'Ceux que vous n’avez pas aimés',
+  { cle: 'moi', titre: t('PanneauRevoir.titreMoi'),
     liste: aRevoir.value.filter(v => v.mien === 0) },
-  { cle: 'eux', titre: eux.value ? `Ceux ${que(eux.value)} n’a pas aimés` : 'Ceux que les autres n’ont pas aimés',
+  { cle: 'eux', titre: eux.value ? t('PanneauRevoir.titreEux', { nom: eux.value }) : t('PanneauRevoir.titreAutres'),
     liste: aRevoir.value.filter(v => v.mien !== 0) }
 ].filter(gr => gr.liste.length))
 
@@ -156,15 +155,15 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
   <div class="pile">
     <div v-if="!aRevoir.length" class="vide">
       <Etincelles :taille="34" couleur="var(--menthe)" />
-      <h2>Aucun désaccord</h2>
-      <button class="btn" @click="g.allerA('swipe')">Aller trier</button>
+      <h2>{{ $t('PanneauRevoir.aucun') }}</h2>
+      <button class="btn" @click="g.allerA('swipe')">{{ $t('PanneauRevoir.allerTrier') }}</button>
     </div>
 
     <template v-else>
       <!-- pas dans une app des stores : rien ne s'y vend (useVente) -->
       <button v-if="!paye && vente.ouverte" class="btn btn-0 mini" style="align-self:flex-start"
               @click="g.ouvrirDebloquer()">
-        Savoir ce qui vous sépare sur chacun
+        {{ $t('PanneauRevoir.savoir') }}
       </button>
 
       <section v-for="gr in groupes" :key="gr.cle" class="groupe-revoir"
@@ -174,7 +173,7 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
                   :aria-expanded="!replies.has(gr.cle)" :aria-controls="`liste-revoir-${gr.cle}`"
                   @click="basculer(gr.cle, $event)">
             <span class="libelle">{{ gr.titre }}</span>
-            <span class="puce">{{ gr.liste.length }}<span class="sr-only"> prénom{{ gr.liste.length > 1 ? 's' : '' }}</span></span>
+            <span class="puce">{{ gr.liste.length }}<span class="sr-only"> {{ pluriel(gr.liste.length, $t('PanneauRevoir.prenom'), $t('PanneauRevoir.prenoms')) }}</span></span>
             <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
           </button>
         </h3>
@@ -188,10 +187,10 @@ async function changer(prenom: string, valeur: 0 | 1 | 2,
           </div>
           <p v-if="pourquoi.has(v.prenom)" class="pourquoi">{{ pourquoi.get(v.prenom)!.texte }}</p>
           <div class="ligne avis">
-            <span class="puce" :class="`a${v.mien}`">Vous · {{ MOT[v.mien ?? 1] }}</span>
+            <span class="puce" :class="`a${v.mien}`">{{ $t('PanneauRevoir.vous') }} · {{ $t(`PanneauRevoir.verdict${v.mien ?? 1}`) }}</span>
             <span v-for="a in v.autres" :key="a.pseudo" class="puce"
                   :class="[`a${a.valeur}`, { obs: a.observateur }]">
-              {{ a.pseudo }} · {{ MOT[a.valeur] }}<template v-if="a.observateur"> · avis</template>
+              {{ a.pseudo }} · {{ $t(`PanneauRevoir.verdict${a.valeur}`) }}<template v-if="a.observateur"> · {{ $t('PanneauRevoir.avis') }}</template>
             </span>
           </div>
         </article>

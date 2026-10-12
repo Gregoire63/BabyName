@@ -12,20 +12,28 @@
  * Une seule dans l'app (app.vue), ouverte par useFeuilleLegale().
  */
 import type { Component } from 'vue'
+import { legalEnFrancais, lireLegalEnFrancais } from '~/utils/pagesLegales'
 import LegalConfidentialite from '~/components/legal/Confidentialite.vue'
 import LegalConditions from '~/components/legal/Conditions.vue'
 import LegalMentions from '~/components/legal/Mentions.vue'
 import LegalAccessibilite from '~/components/legal/Accessibilite.vue'
+import LegalConfidentialiteEn from '~/components/legal/ConfidentialiteEn.vue'
+import LegalConditionsEn from '~/components/legal/ConditionsEn.vue'
+import LegalMentionsEn from '~/components/legal/MentionsEn.vue'
+import LegalAccessibiliteEn from '~/components/legal/AccessibiliteEn.vue'
 
 const props = defineProps<{ chemin: string }>()
 const emit = defineEmits<{ fermer: [] }>()
 
-const TEXTES: Record<string, Component> = {
-  '/confidentialite': LegalConfidentialite,
-  '/conditions': LegalConditions,
-  '/mentions-legales': LegalMentions,
-  '/accessibilite': LegalAccessibilite
+/** Chaque texte, en français (seul à faire foi) et dans sa traduction anglaise,
+ *  montrée dans toute autre langue (legalEnFrancais, utils/pagesLegales.ts). */
+const TEXTES: Record<string, { fr: Component; en: Component }> = {
+  '/confidentialite': { fr: LegalConfidentialite, en: LegalConfidentialiteEn },
+  '/conditions': { fr: LegalConditions, en: LegalConditionsEn },
+  '/mentions-legales': { fr: LegalMentions, en: LegalMentionsEn },
+  '/accessibilite': { fr: LegalAccessibilite, en: LegalAccessibiliteEn }
 }
+const enFrancais = legalEnFrancais
 
 const courant = ref(docLegal(props.chemin).chemin)
 // Rouverte sur un autre texte (un lien du bas, dans la feuille elle-même).
@@ -77,15 +85,18 @@ function lien(e: MouseEvent) {
 
 <template>
   <Feuille :titre="doc.titre" class="feuille-legale" @fermer="emit('fermer')">
-    <nav ref="onglets" class="onglets-legaux" aria-label="Textes légaux">
+    <nav ref="onglets" class="onglets-legaux" :aria-label="$t('FeuilleLegale.onglets')">
       <button v-for="d in DOCS_LEGAUX" :key="d.chemin" type="button" class="onglet-legal"
               :aria-current="d.chemin === courant ? 'page' : undefined" @click="aller(d.chemin)">
         {{ d.court }}
       </button>
     </nav>
-    <p v-if="depuis" class="maj">En vigueur depuis le {{ depuis }}.</p>
-    <div ref="texte" class="texte-legal" @click.capture="lien">
-      <component :is="TEXTES[courant]" />
+    <p v-if="depuis" class="maj">{{ $t('pagesLegales.enVigueur', { date: depuis }) }}</p>
+    <p v-if="$langue !== 'fr' && enFrancais" class="maj">
+      <button type="button" class="lien-langue" @click="lireLegalEnFrancais(false)">{{ $t('pagesLegales.lireTraduction') }}</button>
+    </p>
+    <div ref="texte" class="texte-legal" :lang="enFrancais ? 'fr' : 'en'" @click.capture="lien">
+      <component :is="enFrancais ? TEXTES[courant]?.fr : TEXTES[courant]?.en" />
     </div>
   </Feuille>
 </template>
@@ -99,6 +110,8 @@ function lien(e: MouseEvent) {
   cursor: pointer; white-space: nowrap; }
 .onglet-legal[aria-current="page"] { background: var(--encre); border-color: var(--encre); color: var(--fond); }
 .maj { color: var(--doux); font-size: .82rem; margin: 0; }
+.lien-langue { border: 0; background: none; padding: 0; font: inherit; color: inherit;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 /* Dans la feuille, la carte est le fond : l'encadré s'en détache autrement. */
 .texte-legal :deep(.encadre) { background: var(--fond); }
 .texte-legal :deep(h2:first-child) { margin-top: 6px; }

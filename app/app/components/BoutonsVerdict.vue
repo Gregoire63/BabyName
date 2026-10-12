@@ -1,13 +1,17 @@
 <script setup lang="ts">
+import { t } from '~/composables/useLangue'
+
 /** Les trois memes verdicts que sur la carte de tri, en petit, pour changer
  *  d'avis sans revenir dans la pile. */
 const props = defineProps<{ valeur: number | null; occupe?: boolean
   /** Le prenom concerne : dans une liste de resultats, trois boutons « Oui »
    *  par ligne ne disent pas a quel prenom ils repondent (WCAG 2.4.6). */
   nom?: string }>()
-const LIBELLE = ['Non', 'Neutre', 'Oui'] as const
-const nomAccessible = (v: 0 | 1 | 2) => !props.nom ? LIBELLE[v]
-  : v === 0 ? `Non à ${props.nom}` : v === 1 ? `Neutre pour ${props.nom}` : `Oui à ${props.nom}`
+const LIBELLE = ['non', 'neutre', 'oui'] as const
+const nomAccessible = (v: 0 | 1 | 2) => !props.nom ? t(`BoutonsVerdict.${LIBELLE[v]}`)
+  : v === 0 ? t('BoutonsVerdict.nonA', { nom: props.nom })
+  : v === 1 ? t('BoutonsVerdict.neutrePour', { nom: props.nom })
+  : t('BoutonsVerdict.ouiA', { nom: props.nom })
 const emit = defineEmits<{ choisir: [v: 0 | 1 | 2] }>()
 </script>
 

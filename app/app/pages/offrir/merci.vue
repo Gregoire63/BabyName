@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t, locale } from '~/composables/useLangue'
+
 /**
  * Après le paiement d'un cadeau : le code, à transmettre.
  *
@@ -9,7 +11,7 @@
  * Deux façons de le donner : le LIEN (un toucher, et la feuille du cadeau
  * s'ouvre chez le destinataire) et le CODE (pour une carte écrite à la main).
  */
-useHead({ title: 'Votre cadeau' })
+useHead({ title: computed(() => t('PageOffrirMerci.titre')) })
 const route = useRoute()
 const sessionId = typeof route.query.session_id === 'string' ? route.query.session_id : ''
 
@@ -22,13 +24,11 @@ const copie = ref('')
 const nu = computed(() => c.value ? normaliserCodeCadeau(c.value.code) : '')
 const lien = computed(() => nu.value ? `${location.origin}/?cadeau=${nu.value}` : '')
 const jusquau = computed(() => c.value?.expire_le
-  ? new Date(c.value.expire_le).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  ? new Date(c.value.expire_le).toLocaleDateString(locale.value, { day: 'numeric', month: 'long', year: 'numeric' })
   : '')
 const texte = computed(() => {
-  const qui = c.value?.de_la_part ? `${c.value.de_la_part} vous offre` : 'Je vous offre'
-  const mot = c.value?.message ? `« ${c.value.message} »\n` : ''
-  return `${mot}${qui} babyNamed : une liste débloquée pour choisir le prénom de votre bébé à deux, ` +
-    `sans vous influencer. Ouvrez le lien, ou tapez le code ${c.value?.code} sur babynamed.fr.`
+  const mot = c.value?.message ? `${t('PageOffrirMerci.mot', { message: c.value.message })}\n` : ''
+  return mot + t('PageOffrirMerci.partage', { qui: c.value?.de_la_part, code: c.value?.code })
 })
 
 onMounted(async () => {
@@ -50,7 +50,7 @@ onMounted(async () => {
 
 async function partager() {
   if (navigator.share) {
-    try { await navigator.share({ title: 'Un cadeau babyNamed', text: texte.value, url: lien.value }); return }
+    try { await navigator.share({ title: t('PageOffrirMerci.partageTitre'), text: texte.value, url: lien.value }); return }
     catch { /* partage annulé : on n'insiste pas */ }
     return
   }
@@ -70,10 +70,10 @@ async function copier(quoi: 'lien' | 'code') {
   <main id="contenu" class="accueil" tabindex="-1">
     <Ambiance />
     <div class="haut">
-      <NuxtLink to="/" aria-label="babyNamed, accueil">
+      <NuxtLink to="/" :aria-label="$t('PageOffrirMerci.accueil')">
         <img src="/logo.png" alt="" width="66" height="66">
       </NuxtLink>
-      <h1>Votre cadeau</h1>
+      <h1>{{ $t('PageOffrirMerci.titre') }}</h1>
     </div>
 
     <div v-if="!charge" class="carte pile" aria-busy="true">
@@ -84,49 +84,45 @@ async function copier(quoi: 'lien' | 'code') {
     <div v-else-if="erreur || !c" class="carte pile" role="alert">
       <p style="margin:0">
         {{ erreur === 'sans_session' || erreur === 'session_introuvable'
-          ? 'Cette page ne correspond à aucun achat de cadeau.'
-          : 'Le cadeau n’a pas pu être relu. Rechargez la page dans un instant : rien n’est perdu, le code figure aussi sur la facture envoyée par e-mail.' }}
+          ? $t('PageOffrirMerci.introuvable')
+          : $t('PageOffrirMerci.relecture') }}
       </p>
-      <NuxtLink to="/offrir" class="btn">Offrir babyNamed</NuxtLink>
+      <NuxtLink to="/offrir" class="btn">{{ $t('PageOffrirMerci.offrir') }}</NuxtLink>
     </div>
 
     <template v-else>
       <section class="carte pile code-carte" aria-labelledby="titre-code">
         <Etincelles class="deco" :taille="28" couleur="var(--peche)" />
         <h2 id="titre-code" class="mini doux" style="margin:0">
-          {{ c.statut === 'pret' ? 'Merci ! Le code à transmettre'
-            : c.statut === 'en_attente' ? 'Paiement en cours d’encaissement'
-            : c.statut === 'utilise' ? 'Ce cadeau a déjà été ouvert'
-            : 'Ce cadeau a été annulé' }}
+          {{ $t(`PageOffrirMerci.statut_${c.statut}`) }}
         </h2>
-        <p class="code" aria-label="Code cadeau">{{ c.code }}</p>
+        <p class="code" :aria-label="$t('PageOffrirMerci.codeCadeau')">{{ c.code }}</p>
         <p v-if="c.statut === 'en_attente'" class="mini" style="margin:0">
-          Le code vaudra dès que le paiement sera encaissé (un prélèvement prend
-          quelques jours). Il figure déjà sur la facture envoyée par e-mail.
+          {{ $t('PageOffrirMerci.enAttente') }}
         </p>
         <p v-else-if="c.statut === 'pret'" class="mini" style="margin:0">
-          Valable jusqu’au {{ jusquau }}. Il figure aussi sur la facture.
+          {{ $t('PageOffrirMerci.valable', { date: jusquau }) }}
         </p>
         <p v-if="c.de_la_part || c.message" class="mini doux" style="margin:0">
-          Ils liront : <strong>{{ c.de_la_part ?? 'Quelqu’un' }}</strong> vous offre
-          babyNamed<template v-if="c.message"> : « {{ c.message }} »</template>
+          {{ $t('PageOffrirMerci.liront') }} <strong>{{ c.de_la_part ?? $t('PageOffrirMerci.quelquun') }}</strong>
+          {{ $t('PageOffrirMerci.offre') }}<template v-if="c.message">{{ $t('PageOffrirMerci.motApres', { message: c.message }) }}</template>
         </p>
       </section>
 
       <div v-if="c.statut === 'pret' || c.statut === 'en_attente'" class="pile" style="gap:10px">
-        <button type="button" class="btn btn-1" @click="partager">Envoyer le lien</button>
+        <button type="button" class="btn btn-1" @click="partager">{{ $t('PageOffrirMerci.envoyer') }}</button>
         <button type="button" class="btn" @click="copier('lien')">
-          {{ copie === 'lien' ? 'Copié' : 'Copier le message et le lien' }}
+          {{ copie === 'lien' ? $t('PageOffrirMerci.copie') : $t('PageOffrirMerci.copierLien') }}
         </button>
         <button type="button" class="btn btn-0" @click="copier('code')">
-          {{ copie === 'code' ? 'Copié' : 'Copier le code seul' }}
+          {{ copie === 'code' ? $t('PageOffrirMerci.copie') : $t('PageOffrirMerci.copierCode') }}
         </button>
         <p class="mini doux" style="margin:0">
-          Le code seul se tape sur babynamed.fr, sous « Rejoindre une liste ».
+          {{ $t('PageOffrirMerci.aide') }}
         </p>
       </div>
 
-      <NuxtLink to="/offrir" class="lien mini" style="align-self:center">Offrir un autre cadeau</NuxtLink>
+      <NuxtLink to="/offrir" class="lien mini" style="align-self:center">{{ $t('PageOffrirMerci.autre') }}</NuxtLink>
     </template>
 
     <PiedLegal compact />

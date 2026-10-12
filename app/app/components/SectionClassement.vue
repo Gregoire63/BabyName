@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { useVerdicts } from '~/composables/useVerdicts'
+import { t } from '~/composables/useLangue'
 
 /**
  * Le tiroir « decider ensemble ». Trois volets : ce sur quoi on s'accorde,
@@ -18,10 +19,10 @@ const g = useGroupeCourant()
 const { aRevoir } = useVerdicts()
 
 const TOUS_LES_VOLETS = [
-  { id: 'communs', t: 'Communs' },
-  { id: 'revoir', t: 'À revoir' },
-  { id: 'choix', t: 'Mes choix' },
-  { id: 'portrait', t: 'Portrait' }
+  { id: 'communs' },
+  { id: 'revoir' },
+  { id: 'choix' },
+  { id: 'portrait' }
 ]
 // Le portrait vient avec la liste débloquée. Sur une liste gratuite, son
 // volet le présente et mène à l'offre — sauf dans une app des stores, où
@@ -63,25 +64,25 @@ const resume = computed(() => {
   const n = g.communs.value.length
   const d = aRevoir.value.length
   switch (props.segment) {
-    case 'communs': return `${n} prénom${n > 1 ? 's' : ''} en commun`
-    case 'revoir': return d ? `${d} désaccord${d > 1 ? 's' : ''}` : 'aucun désaccord'
-    case 'portrait': return 'ce que vos oui disent de vous'
-    default: return 'tout ce que vous avez jugé'
+    case 'communs': return t('SectionClassement.nbCommuns', { n })
+    case 'revoir': return d ? t('SectionClassement.nbDesaccords', { n: d }) : t('SectionClassement.aucunDesaccord')
+    case 'portrait': return t('SectionClassement.resumePortrait')
+    default: return t('SectionClassement.resumeChoix')
   }
 })
 </script>
 
 <template>
   <div class="pile">
-    <TeteListe onglet="Classement" :info="resume" />
+    <TeteListe :onglet="$t('SectionClassement.onglet')" :info="resume" />
 
-    <div ref="rangee" class="segment" role="tablist" aria-label="Volets du classement"
+    <div ref="rangee" class="segment" role="tablist" :aria-label="$t('SectionClassement.volets')"
          @keydown="auClavierOnglets">
       <button v-for="v in VOLETS" :id="`onglet-${v.id}`" :key="v.id" type="button" role="tab"
               :aria-selected="segment === v.id" :aria-controls="`volet-${v.id}`"
               :tabindex="segment === v.id ? 0 : -1" :class="{ on: segment === v.id }"
               @click="emit('segment', v.id)">
-        {{ v.t }}
+        {{ $t(`SectionClassement.volet_${v.id}`) }}
         <i v-if="v.id === 'communs' && g.communs.value.length" class="nb">
           {{ g.communs.value.length }}</i>
         <i v-else-if="v.id === 'revoir' && aRevoir.length" class="nb chaud">

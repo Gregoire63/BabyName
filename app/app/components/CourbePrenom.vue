@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '~/composables/useLangue'
 /** Courbe 1986-2025 en pour 10 000 naissances, normalisee sur son propre max.
  *  Partagee par la carte de tri (compacte) et la fiche complete. */
 const props = defineProps<{ serie: number[] | null; hauteur?: number; pic?: boolean
@@ -38,8 +39,8 @@ const resume = computed(() => {
   if (!d.value || !s) return ''
   const debut = s.slice(0, 5).reduce((a, b) => a + b, 0) / 5
   const fin = s.slice(-5).reduce((a, b) => a + b, 0) / 5
-  const sens = fin > debut * 1.3 ? 'en hausse' : fin < debut * 0.7 ? 'en baisse' : 'plutôt stable'
-  return `Naissances de ${AN0} à ${AN0 + s.length - 1} : ${sens}, au plus haut en ${d.value.pic.an}.`
+  const sens = t(`CourbePrenom.${fin > debut * 1.3 ? 'hausse' : fin < debut * 0.7 ? 'baisse' : 'stable'}`)
+  return t('CourbePrenom.resume', { debut: AN0, fin: AN0 + s.length - 1, sens, pic: d.value.pic.an })
 })
 </script>
 

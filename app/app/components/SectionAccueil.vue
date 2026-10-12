@@ -2,6 +2,7 @@
 import { chargerCatalogue, frequenceLisible, pourcentAn, trouverPrenom, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
 import { listeCourante } from '~/composables/useListeCourante'
+import { t, locale } from '~/composables/useLangue'
 
 /**
  * L'accueil, hors de toute liste. C'est le seul ecran sans barre du bas :
@@ -9,7 +10,7 @@ import { listeCourante } from '~/composables/useListeCourante'
  * qu'on y est. Ce qui touche au compte vit ici, pas dans les reglages d'une
  * liste — un nom et des facons de se connecter n'appartiennent a aucune liste.
  */
-useHead({ title: 'Accueil' })
+useHead({ title: computed(() => t('SectionAccueil.titrePage')) })
 
 const compteOuvert = ref(false)
 const rejoindreOuvert = ref(false)
@@ -51,7 +52,11 @@ const annee = ref(2025)
  * entre les deux ecrans, indefiniment. Seul un 401 doit ramener a la
  * connexion ; le reste s'affiche.
  */
+// Le code de la panne ('403', 'e500', 'e' sans code) ; le message suit la langue.
 const panne = ref('')
+const messagePanne = computed(() => panne.value === '403'
+  ? t('SectionAccueil.accesRefuse')
+  : t('SectionAccueil.serveurKo', { code: panne.value.slice(1) }))
 async function charger() {
   panne.value = ''
   try {
@@ -59,9 +64,7 @@ async function charger() {
   } catch (e: any) {
     const code = e?.statusCode ?? e?.response?.status
     if (code === 401) return navigateTo('/connexion')
-    panne.value = code === 403
-      ? 'Accès refusé.'
-      : `Le serveur n’a pas répondu correctement${code ? ` (erreur ${code})` : ''}.`
+    panne.value = code === 403 ? '403' : `e${code ?? ''}`
   } finally { chargement.value = false }
 }
 
@@ -278,9 +281,9 @@ function glisseFin(e: PointerEvent) {
 }
 
 const quandDernier = (d: string | null) => {
-  if (!d) return 'pas encore commencée'
+  if (!d) return t('SectionAccueil.pasCommencee')
   const j = Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
-  return j === 0 ? 'aujourd’hui' : j === 1 ? 'hier' : `il y a ${j} jours`
+  return j === 0 ? t('SectionAccueil.aujourdhui') : j === 1 ? t('SectionAccueil.hier') : t('SectionAccueil.ilYa', { n: j })
 }
 
 // --- statistiques de l'année ----------------------------------------------
@@ -345,7 +348,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <h1 style="flex:1">babyNamed</h1>
         <!-- Le nom visible est dans le nom accessible (WCAG 2.5.3) : « Mon
              compte : Paul » se dit et se commande a la voix par « Paul ». -->
-        <button type="button" class="qui" :aria-label="`Mon compte : ${moi?.pseudo ?? ''}`"
+        <button type="button" class="qui" :aria-label="$t('SectionAccueil.monCompteDe', { nom: moi?.pseudo ?? '' })"
                 @click="compteOuvert = true">
           <span>{{ moi?.pseudo ?? '…' }}</span>
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -359,8 +362,8 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
            regle — pas une fenetre qui bloque le tri. -->
       <button v-if="moi && moi.moyens === 0" type="button" class="carte proteger"
               @click="compteOuvert = true">
-        <strong>Ce compte n’existe que sur cet appareil</strong>
-        <span class="mini">Ajoutez une passkey ou votre e-mail pour le retrouver ailleurs.</span>
+        <strong>{{ $t('SectionAccueil.seulAppareil') }}</strong>
+        <span class="mini">{{ $t('SectionAccueil.seulAppareilAide') }}</span>
       </button>
 
       <!-- « bento-attente » et non « bento » : la même grille, mais un nom à
@@ -392,13 +395,13 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
       </div>
 
       <div v-else-if="panne" class="carte pile panne">
-        <h2>Ça coince côté serveur</h2>
-        <p class="mini" style="margin:0">{{ panne }}</p>
+        <h2>{{ $t('SectionAccueil.panneTitre') }}</h2>
+        <p class="mini" style="margin:0">{{ messagePanne }}</p>
         <p class="mini doux" style="margin:0">
-          Votre session est intacte : c’est la liste qui n’a pas pu être lue.
+          {{ $t('SectionAccueil.sessionIntacte') }}
         </p>
-        <button class="btn btn-1" @click="chargement = true; charger()">Réessayer</button>
-        <button class="btn btn-0 doux" @click="compteOuvert = true">Mon compte</button>
+        <button class="btn btn-1" @click="chargement = true; charger()">{{ $t('SectionAccueil.reessayer') }}</button>
+        <button class="btn btn-0 doux" @click="compteOuvert = true">{{ $t('SectionAccueil.monCompte') }}</button>
       </div>
 
       <div v-else class="bento">
@@ -406,37 +409,37 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <NuxtLink v-if="principale" :to="`/g/${principale.id}/swipe`"
                   class="carte degrade grande">
           <Etincelles class="deco" :taille="30" />
-          <p class="etiquette">Liste en cours</p>
+          <p class="etiquette">{{ $t('SectionAccueil.listeEnCours') }}</p>
           <h2 class="titre">{{ principale.nom }}</h2>
           <div class="ligne chiffres">
-            <span><strong>{{ principale.mes_votes }}</strong> {{ pluriel(principale.mes_votes, 'jugé', 'jugés') }} par vous</span>
-            <span><strong>{{ principale.nb_communs }}</strong> en commun</span>
-            <span><strong>{{ principale.nb_membres }}</strong> {{ principale.nb_membres > 1 ? 'membres' : 'membre' }}</span>
+            <span><strong>{{ principale.mes_votes }}</strong> {{ $t('SectionAccueil.jugesParVous', { n: principale.mes_votes }) }}</span>
+            <span><strong>{{ principale.nb_communs }}</strong> {{ $t('SectionAccueil.enCommun') }}</span>
+            <span><strong>{{ principale.nb_membres }}</strong> {{ $t('SectionAccueil.membres', { n: principale.nb_membres }) }}</span>
           </div>
           <p class="mini" style="margin:0;opacity:.85">
-            Dernier vote {{ quandDernier(principale.derniere_activite) }}
+            {{ $t('SectionAccueil.dernierVote', { quand: quandDernier(principale.derniere_activite) }) }}
           </p>
         </NuxtLink>
 
         <div v-else class="carte degrade grande accueil">
           <Etincelles class="deco" :taille="30" />
-          <h2 class="titre">Commencez ici</h2>
+          <h2 class="titre">{{ $t('SectionAccueil.commencez') }}</h2>
           <p class="mini" style="margin:0;opacity:.85">
-            Chacun trie de son côté, sans voir le vote de l’autre.
+            {{ $t('SectionAccueil.chacunTrie') }}
           </p>
         </div>
 
         <!-- actions -->
         <button class="carte tuile colonne creer" @click="assistant = true">
           <span class="rond">＋</span>
-          <strong>{{ groupes.length ? 'Une autre liste' : 'Créer ma liste' }}</strong>
-          <span class="mini doux">Quelques questions, puis on trie</span>
+          <strong>{{ groupes.length ? $t('SectionAccueil.autreListe') : $t('SectionAccueil.creerListe') }}</strong>
+          <span class="mini doux">{{ $t('SectionAccueil.quelquesQuestions') }}</span>
         </button>
 
         <button class="carte tuile colonne creer" @click="rejoindreOuvert = true">
           <span class="rond">→</span>
-          <strong>Rejoindre une liste</strong>
-          <span class="mini doux">Avec le code de quelqu’un</span>
+          <strong>{{ $t('SectionAccueil.rejoindre') }}</strong>
+          <span class="mini doux">{{ $t('SectionAccueil.avecCode') }}</span>
         </button>
 
         <!-- Sur iPhone, l'App Store remplace l'installation sur l'écran
@@ -445,8 +448,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <BoutonInstaller v-if="!coquille.dansApp && !storeDuTelephone" class="large" />
 
         <p v-if="cadeauSurLeSite" class="carte large mini" role="status" style="margin:0">
-          Un code cadeau s’utilise sur le site babynamed.fr, pas dans l’app.
-          La liste y sera débloquée, et ici aussi.
+          {{ $t('SectionAccueil.cadeauSurSite') }}
         </p>
 
         <!-- Offrir : les futurs parents autour de soi sont le meilleur endroit
@@ -454,18 +456,18 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <button v-if="vente.cadeaux" type="button" class="carte large offrir" @click="offrirOuvert = true">
           <Etincelles :taille="18" couleur="var(--peche)" une />
           <span style="flex:1;min-width:0">
-            <strong>Offrir babyNamed</strong>
-            <span class="mini doux" style="display:block">À des futurs parents : une liste débloquée</span>
+            <strong>{{ $t('SectionAccueil.offrir') }}</strong>
+            <span class="mini doux" style="display:block">{{ $t('SectionAccueil.offrirAide') }}</span>
           </span>
           <svg viewBox="0 0 24 24" aria-hidden="true" class="fleche"><path d="m9 5 7 7-7 7" /></svg>
         </button>
 
         <!-- statistiques -->
         <template v-if="stats">
-          <p class="section">Les naissances de {{ annee }}</p>
+          <p class="section">{{ $t('SectionAccueil.naissances', { annee }) }}</p>
 
           <div class="carte tuile colonne large">
-            <p class="etiquette">Les plus donnés · filles</p>
+            <p class="etiquette">{{ $t('SectionAccueil.topFilles') }}</p>
             <button v-for="(p, i) in stats.topF" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="n">{{ i + 1 }}</span><span class="q">{{ p.l }}</span>
               <em>{{ frequenceLisible(derniereAnnee(p)) }}</em>
@@ -473,7 +475,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           </div>
 
           <div class="carte tuile colonne large">
-            <p class="etiquette">Les plus donnés · garçons</p>
+            <p class="etiquette">{{ $t('SectionAccueil.topGarcons') }}</p>
             <button v-for="(p, i) in stats.topM" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="n">{{ i + 1 }}</span><span class="q">{{ p.l }}</span>
               <em>{{ frequenceLisible(derniereAnnee(p)) }}</em>
@@ -481,9 +483,9 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           </div>
 
           <div class="carte large colonne">
-            <p class="etiquette">À surveiller</p>
+            <p class="etiquette">{{ $t('SectionAccueil.surveiller') }}</p>
             <p class="mini doux" style="margin:0 0 4px">
-              Rares aujourd’hui, en forte hausse.
+              {{ $t('SectionAccueil.surveillerAide') }}
             </p>
             <div class="ligne" style="flex-wrap:wrap;gap:7px">
               <button v-for="p in stats.guetter" :key="p.l" class="puce"
@@ -494,21 +496,21 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
           </div>
 
           <div class="carte tuile colonne large">
-            <p class="etiquette">Ça monte</p>
+            <p class="etiquette">{{ $t('SectionAccueil.monte') }}</p>
             <button v-for="p in stats.monte" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="q">{{ p.l }}</span><em :style="{ color: Math.round(p.t) ? 'var(--non)' : 'var(--doux)' }">{{ pourcentAn(p.t) }}</em>
             </button>
           </div>
 
           <div class="carte tuile colonne large">
-            <p class="etiquette">Ça retombe</p>
+            <p class="etiquette">{{ $t('SectionAccueil.retombe') }}</p>
             <button v-for="p in stats.tombe" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="q">{{ p.l }}</span><em :style="{ color: Math.round(p.t) ? 'var(--oui)' : 'var(--doux)' }">{{ pourcentAn(p.t) }}</em>
             </button>
           </div>
 
           <div v-if="stats.revivals.length" class="carte large colonne">
-            <p class="etiquette">Ils reviennent d’avant 1970</p>
+            <p class="etiquette">{{ $t('SectionAccueil.reviennent') }}</p>
             <div class="ligne" style="flex-wrap:wrap;gap:7px">
               <button v-for="p in stats.revivals" :key="p.l" class="puce"
                       style="border:0;cursor:pointer" @click="ouvrir(p.l)">{{ p.l }}</button>
@@ -518,13 +520,13 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
         <!-- listes passées -->
         <template v-if="autres.length">
-          <p class="section">Mes autres listes</p>
+          <p class="section">{{ $t('SectionAccueil.autresListes') }}</p>
           <NuxtLink v-for="g in autres" :key="g.id" :to="`/g/${g.id}/swipe`"
                     class="carte large passee">
             <div style="flex:1;min-width:0">
               <strong>{{ g.nom }}</strong>
               <p class="mini doux" style="margin:2px 0 0">
-                {{ g.mes_votes }} {{ pluriel(g.mes_votes, 'jugé', 'jugés') }} · {{ g.nb_communs }} en commun ·
+                {{ g.mes_votes }} {{ pluriel(g.mes_votes, $t('SectionAccueil.juge'), $t('SectionAccueil.juges')) }} · {{ g.nb_communs }} {{ $t('SectionAccueil.enCommun') }} ·
                 {{ quandDernier(g.derniere_activite) }}
               </p>
             </div>
@@ -533,10 +535,9 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         </template>
 
         <p class="mini doux credit">
-          {{ stats?.total.toLocaleString('fr-FR') ?? '…' }} prénoms · fichier INSEE des prénoms,
-          millésime 2025<template v-if="!coquille.dansApp"> · <a href="/prenoms/" class="lien">toutes les fiches prénoms</a></template><br>
+          {{ stats?.total.toLocaleString(locale) ?? '…' }} {{ $t('SectionAccueil.credit') }}<template v-if="!coquille.dansApp"> · <a href="/prenoms/" class="lien">{{ $t('SectionAccueil.toutesFiches') }}</a></template><br>
           <button type="button" class="version" @click="vider">
-            version {{ version }}{{ purge ? ' · rechargement…' : ' · toucher pour recharger à neuf' }}
+            {{ $t('SectionAccueil.version', { v: version }) }}{{ purge ? $t('SectionAccueil.rechargement') : $t('SectionAccueil.toucherRecharger') }}
           </button>
         </p>
         <PiedLegal class="credit" />
@@ -545,7 +546,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
     <button v-if="principale" class="tirette" :class="{ armee: arme }"
             :style="{ transform: `translateX(${-tire}px)` }"
-            :aria-label="`Revenir dans ${principale.nom}`"
+            :aria-label="$t('SectionAccueil.revenirDans', { nom: principale.nom })"
             @pointerdown="bordDebut" @pointermove="bordBouge"
             @pointerup="bordFin" @pointercancel="bordFin" @click="entrerListe">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" /></svg>

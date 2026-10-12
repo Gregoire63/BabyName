@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '~/composables/useLangue'
+
 /**
  * Le code de l'e-mail, copié d'un geste : /connexion/code#c=123456.
  *
@@ -18,7 +20,7 @@
  * « Copier le code ». Dans les deux cas l'écran DIT ce qui s'est passé
  * (role="status") — c'est la moitié de ce qu'on attend d'un bouton « copier ».
  */
-useHead({ title: 'Votre code' })
+useHead({ title: () => t('PageConnexionCode.titrePage') })
 
 const code = ref('')
 const etat = ref<'lecture' | 'a-copier' | 'copie' | 'absent'>('lecture')
@@ -72,20 +74,19 @@ onMounted(async () => {
 
     <div class="carte pile">
       <template v-if="etat === 'absent'">
-        <h2>Code introuvable</h2>
+        <h2>{{ $t('PageConnexionCode.introuvable') }}</h2>
         <p class="mini" style="margin:0" role="alert">
-          L’adresse s’est coupée en route. Rouvrez l’e-mail et touchez le code,
-          ou tapez-le dans l’app.
+          {{ $t('PageConnexionCode.coupee') }}
         </p>
-        <NuxtLink to="/connexion" class="btn" style="text-align:center">Aller à la connexion</NuxtLink>
+        <NuxtLink to="/connexion" class="btn" style="text-align:center">{{ $t('PageConnexionCode.allerConnexion') }}</NuxtLink>
       </template>
 
       <template v-else>
-        <h2>Votre code</h2>
+        <h2>{{ $t('PageConnexionCode.votreCode') }}</h2>
         <!-- Le code lui-même se touche, comme dans l'e-mail. La copie a
              échoué : il devient un texte, qui se sélectionne d'un toucher. -->
         <p v-if="rate" class="chiffres a-la-main">{{ code }}</p>
-        <button v-else type="button" class="chiffres" :aria-label="`Copier le code ${code}`"
+        <button v-else type="button" class="chiffres" :aria-label="$t('PageConnexionCode.copierAria', { code })"
                 :disabled="etat === 'lecture'" @click="copier">{{ code }}</button>
 
         <!-- Toujours là, d'abord vide : un lecteur d'écran n'annonce que ce
@@ -93,18 +94,18 @@ onMounted(async () => {
         <p class="fait" role="status">
           <template v-if="etat === 'copie'">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
-            Code copié
+            {{ $t('PageConnexionCode.copie') }}
           </template>
         </p>
 
         <button v-if="etat === 'a-copier' && !rate" type="button" class="btn btn-1" @click="copier">
-          Copier le code
+          {{ $t('PageConnexionCode.copier') }}
         </button>
         <p v-if="rate" class="mini" style="margin:0" role="alert">
-          La copie n’a pas marché ici. Sélectionnez le code, ou tapez-le dans l’app.
+          {{ $t('PageConnexionCode.rate') }}
         </p>
         <p v-if="etat === 'copie'" class="mini doux" style="margin:0">
-          Revenez dans babyNamed et collez-le.
+          {{ $t('PageConnexionCode.revenir') }}
         </p>
       </template>
     </div>

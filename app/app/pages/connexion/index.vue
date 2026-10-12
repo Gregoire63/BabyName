@@ -2,6 +2,7 @@
 import { defineAsyncComponent } from 'vue'
 import { chargerCatalogue, trouverPrenom } from '~/composables/useCatalogue'
 import { passkeysPossibles, connecterPasskey, abandonnerPasskey } from '~/composables/usePasskey'
+import { t } from '~/composables/useLangue'
 
 /**
  * Entrer : deux onglets, Inscription et Connexion — rien d'autre à comprendre.
@@ -30,7 +31,7 @@ const erreurPasskey = ref('')
 
 // L'entrée de l'app est aussi ce que les moteurs voient à la racine (/ y mène
 // qui n'est pas connecté) : un titre qui dit ce que fait l'app, pas « Connexion ».
-useHead({ title: 'babyNamed : choisir le prénom de bébé à deux' })
+useHead({ title: () => t('PageConnexion.titrePage') })
 
 // Retour d'une suppression de compte : on le dit, plutot que de laisser
 // croire a une simple deconnexion.
@@ -176,7 +177,7 @@ onBeforeUnmount(() => abandonnerPasskey())
   <main id="contenu" class="accueil" tabindex="-1">
     <Ambiance />
     <p v-if="compteSupprime" class="carte mini supprime" role="status">
-      Votre compte et vos données ont été supprimés.
+      {{ $t('PageConnexion.compteSupprime') }}
     </p>
 
     <!-- entré par e-mail : la passkey, proposée une fois -->
@@ -199,27 +200,26 @@ onBeforeUnmount(() => abandonnerPasskey())
       <div class="haut">
         <img src="/logo.png" alt="" width="66" height="66">
         <h1>babyNamed</h1>
-        <p class="doux">Choisir un prénom à deux, sans s’influencer.</p>
+        <p class="doux">{{ $t('PageConnexion.accroche') }}</p>
       </div>
 
       <p v-if="prenomVu" class="attend">
-        Votre liste commencera par <strong>{{ prenomVu }}</strong>.
+        {{ $t('PageConnexion.prenomAvant') }} <strong>{{ prenomVu }}</strong>{{ $t('PageConnexion.prenomApres') }}
       </p>
       <p v-if="invitation" class="attend">
-        Une liste vous a été partagée : vous y entrez juste après.
+        {{ $t('PageConnexion.invitation') }}
       </p>
       <p v-if="cadeau && vente.cadeaux" class="attend">
-        <strong>{{ cadeauDe ? `${cadeauDe} vous offre babyNamed` : 'Un cadeau vous attend' }}</strong> :
-        une liste débloquée.
+        <strong>{{ cadeauDe ? $t('PageConnexion.cadeauDe', { nom: cadeauDe }) : $t('PageConnexion.cadeau') }}</strong>{{ $t('PageConnexion.cadeauSuite') }}
       </p>
 
       <div class="carte pile">
-        <div class="segment-entree" role="tablist" aria-label="Inscription ou connexion" @keydown="auClavier">
+        <div class="segment-entree" role="tablist" :aria-label="$t('PageConnexion.onglets')" @keydown="auClavier">
           <button v-for="o in ONGLETS" :id="`${idOnglets}-${o}`" :key="o"
                   type="button" role="tab" :aria-selected="onglet === o"
                   :aria-controls="`${idOnglets}-panneau`" :tabindex="onglet === o ? 0 : -1"
                   @click="choisirOnglet(o)">
-            {{ o === 'inscription' ? 'Inscription' : 'Connexion' }}
+            {{ $t(`PageConnexion.${o}`) }}
           </button>
         </div>
 
@@ -229,35 +229,34 @@ onBeforeUnmount(() => abandonnerPasskey())
             <FormulaireEmail v-if="courrielPossible !== false" but="inscription" :pseudo="pseudo"
                              @envoye="emailParti" @fait="entreParEmail">
               <template #avant>
-                <label :for="`${idOnglets}-prenom`" class="mini doux">Votre prénom</label>
-                <input :id="`${idOnglets}-prenom`" v-model="pseudo" class="champ" placeholder="Camille"
+                <label :for="`${idOnglets}-prenom`" class="mini doux">{{ $t('PageConnexion.votrePrenom') }}</label>
+                <input :id="`${idOnglets}-prenom`" v-model="pseudo" class="champ" :placeholder="$t('PageConnexion.exemplePrenom')"
                        autocomplete="given-name" maxlength="40">
               </template>
               <!-- L'information au moment de la collecte (RGPD, art. 13) : une
                    ligne ici, le détail derrière le lien. -->
               <template #apres>
                 <p class="mini doux" style="margin:0">
-                  En créant un compte, vous acceptez les
-                  <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions</a>.
-                  <a href="/confidentialite" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/confidentialite')">Vos données</a> ne servent
-                  qu’à faire marcher l’app.
+                  {{ $t('PageConnexion.rgpdAvant') }}
+                  <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">{{ $t('PageConnexion.conditions') }}</a>{{ $t('PageConnexion.rgpdPoint') }}
+                  <a href="/confidentialite" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/confidentialite')">{{ $t('PageConnexion.vosDonnees') }}</a>
+                  {{ $t('PageConnexion.rgpdApres') }}
                 </p>
               </template>
             </FormulaireEmail>
             <p v-else class="mini doux" style="margin:0">
-              Les inscriptions ne sont pas encore ouvertes.
+              {{ $t('PageConnexion.fermees') }}
             </p>
           </template>
 
           <template v-else>
             <FormulaireEmail v-if="courrielPossible !== false" but="connexion" @envoye="emailParti" @fait="entreParEmail" />
             <button v-if="passkeyPossible" type="button" class="btn" :disabled="envoi" @click="avecPasskey">
-              Se connecter avec une passkey
+              {{ $t('PageConnexion.avecPasskey') }}
             </button>
             <p v-if="erreurPasskey" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreurPasskey }}</p>
             <p v-if="courrielPossible === false && !passkeyPossible" class="mini doux" style="margin:0">
-              Ce navigateur ne sait pas se servir d’une passkey. Ouvrez babyNamed sur le
-              téléphone où vous l’avez créée.
+              {{ $t('PageConnexion.sansPasskey') }}
             </p>
           </template>
         </div>

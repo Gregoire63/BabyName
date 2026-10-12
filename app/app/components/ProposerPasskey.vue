@@ -41,15 +41,14 @@ function plusTard() {
     <span class="icone" aria-hidden="true">
       <svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="4.5" /><path d="M11.2 11.2 20 20M16.5 16.5l2-2M18.6 18.6l1.6-1.6" /></svg>
     </span>
-    <h2 id="titre-passkey">Connexion plus rapide</h2>
+    <h2 id="titre-passkey">{{ $t('ProposerPasskey.titre') }}</h2>
     <p class="mini doux" style="margin:0">
-      Créez une passkey : la prochaine fois, votre visage, votre empreinte ou le code
-      de votre téléphone suffiront.
+      {{ $t('ProposerPasskey.texte') }}
     </p>
     <button type="button" class="btn btn-1" :disabled="occupe" @click="creer">
-      {{ occupe ? 'Un instant…' : 'Créer une passkey' }}
+      {{ occupe ? $t('ProposerPasskey.instant') : $t('ProposerPasskey.creer') }}
     </button>
-    <button type="button" class="btn btn-0 doux" :disabled="occupe" @click="plusTard">Plus tard</button>
+    <button type="button" class="btn btn-0 doux" :disabled="occupe" @click="plusTard">{{ $t('ProposerPasskey.plusTard') }}</button>
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
   </div>
 </template>

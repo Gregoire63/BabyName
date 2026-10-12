@@ -8,7 +8,7 @@
  */
 export default defineEventHandler(async (e) => {
   await limiter(e, 'code-ip', ipDe(e), 30, 600)
-  const { email: brut, code, but } = await readBody<{ email?: string; code?: string; but?: string }>(e) ?? {}
+  const { email: brut, code, but, langue } = await readBody<{ email?: string; code?: string; but?: string; langue?: string }>(e) ?? {}
   const email = emailValide(brut)
   await limiter(e, 'code-email', email, 10, 900)
 
@@ -16,7 +16,7 @@ export default defineEventHandler(async (e) => {
   // (utils/demo.ts). Les deux freins ci-dessus valent pour lui aussi.
   if (but !== 'verification' && estAdresseDemo(email)) {
     if (!codeDemoJuste(email, code)) throw createError({ statusCode: 400, statusMessage: 'code_faux' })
-    const u = await ouvrirCompteInscrit(email, 'Démo')
+    const u = await ouvrirCompteInscrit(email, 'Démo', langue)
     await oublierEssais('code-email', email)
     poserSession(e, u.id, u.gen)
     return { but: 'connexion', utilisateur: { id: u.id, pseudo: u.pseudo } }
@@ -38,7 +38,7 @@ export default defineEventHandler(async (e) => {
   const r = await consommerCode(email, ['connexion', 'inscription'], String(code ?? ''))
   if (!r.ok) throw createError({ statusCode: 400, statusMessage: `code_${r.raison}`, data: { restants: r.restants } })
   if (r.but === 'inscription') {
-    const u = await ouvrirCompteInscrit(email, r.pseudo ?? '')
+    const u = await ouvrirCompteInscrit(email, r.pseudo ?? '', langue)
     await oublierEssais('code-email', email)
     poserSession(e, u.id, u.gen)
     return { but: 'inscription', nouveau: u.nouveau, utilisateur: { id: u.id, pseudo: u.pseudo } }

@@ -24,8 +24,7 @@ const enRetard = computed(() => {
 
 <template>
   <p v-if="enRetard" class="rappel mini">
-    {{ enRetard.manque }} votes manquent à {{ enRetard.pseudo }} : la liste reste incomplète
-    tant que {{ enRetard.pseudo }} n’a pas rattrapé.
+    {{ $t('RappelRetard.retard', { n: enRetard.manque, qui: enRetard.pseudo }) }}
   </p>
 </template>
 

@@ -1,5 +1,6 @@
 import { bords, estVoyelle } from '~/composables/usePhonetique'
 import type { Prenom } from '~/composables/useCatalogue'
+import TEXTES from '../textes/useNomComplet'
 
 /**
  * « Ça donne quoi avec notre nom ? »
@@ -28,6 +29,19 @@ export interface VerdictNom {
   syllabes: number
   initiales: string
   accroche: boolean       // au moins une vraie accroche
+}
+
+/**
+ * Les phrases viennent d'app/textes/useNomComplet.ts. Ce module n'importe PAS
+ * useLangue : l'outil public et son essai le compilent seul avec esbuild
+ * (scripts/seo-plus.mjs, essais/essai-nom-complet.mjs), sans Vite ni Nuxt.
+ * L'app passe donc `t` (useLangue) en troisième argument de tester() ; sans
+ * lui, c'est le français.
+ */
+export type Traduire = (cle: string, p?: Record<string, unknown>) => string
+const enFrancais: Traduire = (cle, p = {}) => {
+  const v = TEXTES.fr[cle.replace(/^useNomComplet\./, '') as keyof typeof TEXTES.fr] as string
+  return v.replace(/\{(\w+)\}/g, (m, k: string) => p[k] === undefined ? m : String(p[k]))
 }
 
 /** Sigles qu'on préfère ne pas donner à son enfant pour la vie. */
@@ -91,7 +105,7 @@ export function syllabes(nom: string): number {
   return Math.max(total, 1)
 }
 
-export function tester(prenom: string, nomFamille: string): VerdictNom | null {
+export function tester(prenom: string, nomFamille: string, t: Traduire = enFrancais): VerdictNom | null {
   const nf = (nomFamille ?? '').trim()
   if (!nf || !prenom) return null
 
@@ -102,46 +116,46 @@ export function tester(prenom: string, nomFamille: string): VerdictNom | null {
   // 1. Hiatus : deux voyelles qui se touchent. C'est le défaut le plus
   //    audible et celui que personne ne voit à l'écrit.
   if (estVoyelle(p.fin) && estVoyelle(n.debut)) {
-    remarques.push({ gravite: 'accroche', court: 'deux voyelles se touchent',
-      texte: `« ${prenom} ${nf} » : les deux voyelles se touchent, on entend une hésitation.` })
+    remarques.push({ gravite: 'accroche', court: t('useNomComplet.hiatusCourt'),
+      texte: t('useNomComplet.hiatus', { prenom, nom: nf }) })
   }
 
   // 2. Même consonne de part et d'autre : on bafouille.
   if (!estVoyelle(p.fin) && p.fin === n.debut) {
-    remarques.push({ gravite: 'accroche', court: 'même son de part et d’autre, ça bute',
-      texte: `Le prénom finit et le nom commence par le même son : ça bute.` })
+    remarques.push({ gravite: 'accroche', court: t('useNomComplet.memeSonCourt'),
+      texte: t('useNomComplet.memeSon') })
   }
 
   // 3. Rime : les deux se terminent pareil, sur au moins deux sons.
   const finP = p.cle.slice(-2), finN = n.cle.slice(-2)
   if (finP.length === 2 && finP === finN) {
-    remarques.push({ gravite: 'attention', court: 'le prénom et le nom riment',
-      texte: `Le prénom et le nom riment. Certains aiment, d'autres l'entendent comme une comptine.` })
+    remarques.push({ gravite: 'attention', court: t('useNomComplet.rimeCourt'),
+      texte: t('useNomComplet.rime') })
   }
 
   // 4. Longueur totale.
   const syl = syllabes(prenom) + syllabes(nf)
   if (syl <= 2) {
-    remarques.push({ gravite: 'attention', court: `très court : ${syl} syllabes`,
-      texte: `Très court à dire : ${syl} syllabes en tout.` })
+    remarques.push({ gravite: 'attention', court: t('useNomComplet.tresCourtCourt', { n: syl }),
+      texte: t('useNomComplet.tresCourt', { n: syl }) })
   } else if (syl >= 8) {
-    remarques.push({ gravite: 'attention', court: `long à dire : ${syl} syllabes`,
-      texte: `Long à dire : ${syl} syllabes en tout.` })
+    remarques.push({ gravite: 'attention', court: t('useNomComplet.longCourt', { n: syl }),
+      texte: t('useNomComplet.long', { n: syl }) })
   }
 
   // 5. Initiales.
   const ini = initialesDe(prenom, nf)
   const sigle = SIGLES[ini] ?? (ini.length >= 2 ? SIGLES[ini.slice(0, 2)] : undefined)
   if (sigle) {
-    remarques.push({ gravite: 'accroche', court: `initiales : ${sigle}`,
-      texte: `Les initiales donnent ${sigle}.` })
+    remarques.push({ gravite: 'accroche', court: t('useNomComplet.initialesCourt', { sigle }),
+      texte: t('useNomComplet.initiales', { sigle }) })
   }
 
   if (!remarques.length) {
     // Sur la carte, le verdict seul : le compte n'y apprend rien quand rien
     // n'accroche (il reste dans le texte long, et sur l'outil public).
-    remarques.push({ gravite: 'bien', court: 'rien n’accroche',
-      texte: `Rien n'accroche : ${syl} syllabes, l'enchaînement est net.` })
+    remarques.push({ gravite: 'bien', court: t('useNomComplet.rienCourt'),
+      texte: t('useNomComplet.rien', { n: syl }) })
   }
   return {
     remarques,

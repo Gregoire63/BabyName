@@ -1,3 +1,5 @@
+import { langueDe } from '../../utils/langues'
+
 /**
  * Ajouter (ou changer) l'adresse du compte : un e-mail de verification part,
  * avec un lien et un code. Rien n'est enregistre avant la preuve — sinon on
@@ -11,13 +13,14 @@
 export default defineEventHandler(async (e) => {
   const moi = await exigerCompte(e)
   await limiter(e, 'email-ajout', moi.id, 6, 3600)
-  const { email: brut } = await readBody<{ email?: string }>(e) ?? {}
+  const { email: brut, langue } = await readBody<{ email?: string; langue?: string }>(e) ?? {}
   const email = emailValide(brut)
   await limiter(e, 'lien-email', email, 5, 900)
   if (!courrielPret()) throw createError({ statusCode: 503, statusMessage: 'courriel_non_configure' })
   if (email === moi.email) return { ok: true, deja: true }
 
   const { jeton, code } = await creerLien({ email, userId: moi.id, but: 'verification' })
-  await envoyerCourriel(courrielVerification({ a: email, pseudo: moi.pseudo, lien: lienDe(e, jeton), code }))
+  await envoyerCourriel(courrielVerification({ a: email, pseudo: moi.pseudo, lien: lienDe(e, jeton), code,
+    langue: moi.langue ?? langueDe(langue) }))
   return { ok: true }
 })

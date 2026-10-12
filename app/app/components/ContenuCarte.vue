@@ -4,6 +4,7 @@ import { useGroupeCourant } from '~/composables/etatGroupe'
 import { tester } from '~/composables/useNomComplet'
 import { resumeTempetes } from '~/utils/tempetes'
 import { meilleurPays, nomSelection, paysDe, totalPour } from '~/composables/usePays'
+import { locale, t } from '~/composables/useLangue'
 
 /**
  * Le contenu d'une carte de tri.
@@ -53,7 +54,7 @@ const ailleurs = computed(() => {
   const m = meilleurPays(props.p)
   if (m) return { dt: m.en, sur: m.sur }
   const a = meilleurAilleurs(props.p)
-  return a ? { dt: `${a.source.id === 'qc' ? 'au' : 'en'} ${a.pays}`, sur: a.sur } : null
+  return a ? { dt: t(a.source.id === 'qc' ? 'ContenuCarte.auPays' : 'ContenuCarte.enPays', { pays: a.pays }), sur: a.sur } : null
 })
 /**
  * Un prénom d'ailleurs n'a pas de courbe française : à sa place, les pays où
@@ -77,7 +78,7 @@ const ou = computed(() => {
   l.sort((a, b) => b.part - a.part)
   const max = l[0]?.part ?? 1
   return l.slice(0, 5).map(x => ({ ...x, largeur: Math.max(4, Math.round(x.part / max * 100)),
-    sur: `1 sur ${Math.round(1 / x.part).toLocaleString('fr-FR')}` }))
+    sur: t('ContenuCarte.unSur', { n: Math.round(1 / x.part).toLocaleString(locale.value) }) }))
 })
 
 /**
@@ -94,8 +95,6 @@ const tendanceSel = computed(() => {
   const t = props.p.tsel
   return t == null ? '' : t > 8 ? 'monte' : t < -5 ? 'baisse' : ''
 })
-
-const DIT = ['Vous aviez dit non', 'Vous aviez dit neutre', 'Vous aviez dit oui'] as const
 
 /** Irma, Hugo, Klaus… : une icône, le détail dans la fiche (utils/tempetes). */
 const tempete = computed(() => props.p.tp?.length ? resumeTempetes(props.p.l, props.p.tp) : '')
@@ -126,16 +125,16 @@ const niveau = computed(() => !essai.value ? ''
     <div class="tete">
       <span class="etiquettes">
         <span class="puce">
-          {{ p.sexe === 'fm' ? 'mixte' : p.sexe === 'f' ? 'fille' : 'garçon' }}
+          {{ $t(`ContenuCarte.sexe_${p.sexe === 'fm' ? 'fm' : p.sexe === 'f' ? 'f' : 'm'}`) }}
         </span>
-        <span v-if="dejaDit !== null" class="puce deja" :class="`d${dejaDit}`">{{ DIT[dejaDit] }}</span>
+        <span v-if="dejaDit !== null" class="puce deja" :class="`d${dejaDit}`">{{ $t(`ContenuCarte.dit${dejaDit}`) }}</span>
         <!-- Un nom de tempête : l'icône seule, juste après le genre (toujours
              sur la première ligne). La toucher ouvre sa feuille — quelle
              tempête, quand, quel bilan —, comme « Voir plus » les graphies.
              Un bouton : le geste qui commence dessus ne fait pas glisser la
              carte, et le toucher n'ouvre pas la fiche. -->
         <button v-if="tempete" type="button" class="puce orage" :title="tempete"
-                :aria-label="`${tempete}. En savoir plus`" aria-haspopup="dialog"
+                :aria-label="$t('ContenuCarte.tempeteAria', { tempete })" aria-haspopup="dialog"
                 @click.stop="emit('tempete')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M7.5 17H7a4 4 0 0 1-.9-7.9 5.6 5.6 0 0 1 10.8-1.4A4.2 4.2 0 0 1 17.6 17h-1.1" />
@@ -147,7 +146,7 @@ const niveau = computed(() => !essai.value ? ''
       <button type="button" class="etoile" :class="{ on: g.favoris.value.has(p.l) }"
               :aria-pressed="g.favoris.value.has(p.l)" @click.stop="emit('favori')">
         <Etincelles :taille="20" aria-hidden="true" />
-        <span>{{ g.favoris.value.has(p.l) ? 'Dans les favoris' : 'Favoris' }}</span>
+        <span>{{ g.favoris.value.has(p.l) ? $t('ContenuCarte.dansFavoris') : $t('ContenuCarte.favoris') }}</span>
       </button>
     </div>
 
@@ -163,13 +162,13 @@ const niveau = computed(() => !essai.value ? ''
            chiffres, une graphie par onglet — et dit que le vote les emporte
            toutes. -->
       <button v-if="p.variantes?.length" type="button" class="graphies"
-              :aria-label="`Aussi écrit ${p.variantes.join(', ')} : voir les chiffres de chaque graphie`"
+              :aria-label="$t('ContenuCarte.graphiesAria', { liste: p.variantes.join(', ') })"
               @click.stop="emit('graphies')">
-        <span class="lesquelles">aussi écrit {{ p.variantes.slice(0, 3).join(', ')
+        <span class="lesquelles">{{ $t('ContenuCarte.aussiEcrit', { liste: p.variantes.slice(0, 3).join(', ') })
           }}<template v-if="p.variantes.length > 3"> +{{ p.variantes.length - 3 }}</template></span>
-        <span class="voir">Voir plus</span>
+        <span class="voir">{{ $t('ContenuCarte.voirPlus') }}</span>
       </button>
-      <p v-if="p.m" class="sens">« {{ p.m }} »<span v-if="p.cf !== null && p.cf < 2" class="doute"> · sens probable</span></p>
+      <p v-if="p.m" class="sens">« {{ p.m }} »<span v-if="p.cf !== null && p.cf < 2" class="doute"> · {{ $t('ContenuCarte.sensProbable') }}</span></p>
       <p v-else-if="p.me" class="sens doux">« {{ p.me }} »</p>
     </div>
 
@@ -186,46 +185,46 @@ const niveau = computed(() => !essai.value ? ''
          le prénom, et une machine qui compte de travers (Léandre) agace plus
          qu'elle n'aide. -->
     <dl v-if="selection" class="resume">
-      <div><dt>{{ selection.seul ? 'des naissances' : 'moyenne de ' + selection.nom }}</dt>
-        <dd>{{ p.nsel ? frequenceLisible(p.fsel!) : 'pas donné' }}</dd></div>
-      <div v-if="p.tsel != null"><dt>par an</dt><dd :class="tendanceSel">{{ pourcentAn(p.tsel) }}</dd></div>
-      <div v-else-if="p.nsel"><dt>bébé{{ Math.round(p.nsel / 3) > 1 ? 's' : '' }} par an</dt>
-        <dd>≈ {{ Math.max(1, Math.round(p.nsel / 3)).toLocaleString('fr-FR') }}</dd></div>
+      <div><dt>{{ selection.seul ? $t('ContenuCarte.desNaissances') : $t('ContenuCarte.moyenneDe', { nom: selection.nom }) }}</dt>
+        <dd>{{ p.nsel ? frequenceLisible(p.fsel!) : $t('ContenuCarte.pasDonne') }}</dd></div>
+      <div v-if="p.tsel != null"><dt>{{ $t('ContenuCarte.parAn') }}</dt><dd :class="tendanceSel">{{ pourcentAn(p.tsel) }}</dd></div>
+      <div v-else-if="p.nsel"><dt>{{ $t('ContenuCarte.bebesParAn', { n: Math.round(p.nsel / 3) }) }}</dt>
+        <dd>≈ {{ Math.max(1, Math.round(p.nsel / 3)).toLocaleString(locale) }}</dd></div>
     </dl>
     <dl v-else-if="p.hf" class="resume">
-      <div><dt>en France</dt><dd>pas donné</dd></div>
+      <div><dt>{{ $t('ContenuCarte.enFrance') }}</dt><dd>{{ $t('ContenuCarte.pasDonne') }}</dd></div>
       <div v-if="ailleurs"><dt>{{ ailleurs.dt }}</dt><dd>{{ ailleurs.sur }}</dd></div>
     </dl>
     <dl v-else class="resume">
-      <div><dt>des naissances</dt><dd>{{ frequenceLisible(p.f) }}</dd></div>
-      <div v-if="fiable"><dt>par an</dt><dd :class="tendance">{{ pourcentAn(p.t) }}</dd></div>
-      <div v-else><dt>bébé{{ bebesParAn(p) > 1 ? 's' : '' }} par an</dt><dd>≈ {{ bebesParAn(p) }}</dd></div>
+      <div><dt>{{ $t('ContenuCarte.desNaissances') }}</dt><dd>{{ frequenceLisible(p.f) }}</dd></div>
+      <div v-if="fiable"><dt>{{ $t('ContenuCarte.parAn') }}</dt><dd :class="tendance">{{ pourcentAn(p.t) }}</dd></div>
+      <div v-else><dt>{{ $t('ContenuCarte.bebesParAn', { n: bebesParAn(p) }) }}</dt><dd>≈ {{ bebesParAn(p) }}</dd></div>
     </dl>
 
     <p v-if="p.r > 30" class="alerte">
-      Rare et en forte hausse : il peut être partout dans cinq ans.
+      {{ $t('ContenuCarte.alerteRare') }}
     </p>
     <p v-else-if="p.rv" class="alerte">
-      Prénom d’avant 1970 qui remonte.
+      {{ $t('ContenuCarte.alerteRevient') }}
     </p>
     <p v-else-if="p.ob" class="alerte">
-      Aussi : {{ p.obn || 'un nom commun' }}.
+      {{ $t('ContenuCarte.aussi', { quoi: p.obn || $t('ContenuCarte.nomCommun') }) }}
     </p>
 
     <div v-if="p.sr" class="graphe">
       <p class="graphe-tete" aria-hidden="true">
-        <span>Naissances depuis 1986</span>
-        <span v-if="pic">au plus haut en {{ pic }}</span>
+        <span>{{ $t('ContenuCarte.naissancesDepuis') }}</span>
+        <span v-if="pic">{{ $t('ContenuCarte.auPlusHaut', { annee: pic }) }}</span>
       </p>
       <div class="graphe-corps"><CourbePrenom :serie="p.sr" remplir /></div>
       <p class="graphe-axe" aria-hidden="true"><span>1986</span><span>2025</span></p>
     </div>
     <div v-else-if="p.nb" class="graphe">
-      <p class="graphe-tete" aria-hidden="true"><span>Naissances par an</span></p>
+      <p class="graphe-tete" aria-hidden="true"><span>{{ $t('ContenuCarte.naissancesParAn') }}</span></p>
       <div class="graphe-corps"><BarresPrenom :valeurs="p.nb" :an0="barres[0]" remplir /></div>
     </div>
     <div v-else-if="ou.length" class="graphe ou">
-      <p class="graphe-tete"><span>Là où on le donne</span></p>
+      <p class="graphe-tete"><span>{{ $t('ContenuCarte.ouOnLeDonne') }}</span></p>
       <ul>
         <li v-for="x in ou" :key="x.nom">
           <span class="pays">{{ x.nom }}</span>
@@ -241,31 +240,31 @@ const niveau = computed(() => !essai.value ? ''
          la fiche (voir SectionTrier) ; le bouton reste pour le clavier et pour
          qui ne le devine pas. -->
     <div class="bas">
-      <button type="button" class="btn outil" :aria-label="`Infos sur ${p.l}`"
+      <button type="button" class="btn outil" :aria-label="$t('ContenuCarte.infosAria', { nom: p.l })"
               @click.stop="emit('fiche')">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="8.6" /><path d="M12 11v5.4" /><circle cx="12" cy="7.7" r=".5" />
         </svg>
-        <span>Infos</span>
+        <span>{{ $t('ContenuCarte.infos') }}</span>
       </button>
       <!-- Sa place est toujours tenue, meme vide : « Veto » reste au meme
            endroit d'une carte a l'autre, le pouce n'a pas a le chercher. -->
       <button v-if="peutBloquer" type="button" class="btn outil" :class="{ vide: !famille }"
-              :aria-label="famille ? `Non aux ${famille.prefixe}… : ${famille.n} prénoms qui commencent par ${famille.prefixe}` : undefined"
+              :aria-label="famille ? $t('ContenuCarte.familleAria', { prefixe: famille.prefixe, n: famille.n }) : undefined"
               :tabindex="famille ? undefined : -1"
               @click.stop="famille && emit('famille')">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <rect x="7.5" y="3.5" width="12" height="15" rx="2.5" />
           <path d="M4.5 7.5v10a3 3 0 0 0 3 3h8" /><path d="m11 8.5 5 5M16 8.5l-5 5" />
         </svg>
-        <span class="deborde">Non aux {{ famille?.prefixe }}…</span>
+        <span class="deborde">{{ $t('ContenuCarte.nonAux', { prefixe: famille?.prefixe ?? '' }) }}</span>
       </button>
       <button v-if="peutBloquer" type="button" class="btn outil rouge"
-              :aria-label="`Veto sur ${p.l}`" @click.stop="emit('veto')">
+              :aria-label="$t('ContenuCarte.vetoAria', { nom: p.l })" @click.stop="emit('veto')">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="8.6" /><path d="m6 6 12 12" />
         </svg>
-        <span>Veto</span>
+        <span>{{ $t('ContenuCarte.veto') }}</span>
       </button>
     </div>
   </div>

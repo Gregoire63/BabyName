@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t, locale, aTexte } from '~/composables/useLangue'
+
 /**
  * « On vous offre babyNamed » — se servir d'un code cadeau.
  *
@@ -23,21 +25,15 @@ const charge = ref(false)
 const envoi = ref('')
 const erreur = ref('')
 
-const RAISONS: Record<string, string> = {
-  code_invalide: 'Ce code n’a pas le bon format : douze caractères, comme K7QM-X3PD-9RTA.',
-  cadeau_inconnu: 'Code inconnu. Vérifiez-le ; s’il vient d’être acheté, le paiement est peut-être encore en cours.',
-  cadeau_utilise: 'Ce code cadeau a déjà servi.',
-  cadeau_annule: 'Ce code cadeau a été annulé (l’achat a été remboursé).',
-  cadeau_expire: 'Ce code cadeau a expiré.',
-  liste_deja_debloquee: 'Cette liste est déjà débloquée : le cadeau n’a pas été utilisé.',
-  trop_d_essais: 'Trop d’essais d’un coup : réessayez dans un moment.'
-}
+/** Le message d'un code d'erreur du serveur (textes : FeuilleCadeau.raison_<code>), ou undefined. */
+const raison = (code: string | null | undefined) =>
+  code && aTexte(`FeuilleCadeau.raison_${code}`) ? t(`FeuilleCadeau.raison_${code}`) : undefined
 
 /** Les listes que ce cadeau peut débloquer : les miennes, pas encore payées. */
 const aDebloquer = computed(() => listes.value.filter(g => !g.paye))
 const toutesPayees = computed(() => listes.value.length > 0 && !aDebloquer.value.length)
 const jusquau = computed(() => infos.value?.expire_le
-  ? new Date(infos.value.expire_le).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  ? new Date(infos.value.expire_le).toLocaleDateString(locale.value, { day: 'numeric', month: 'long', year: 'numeric' })
   : '')
 
 onMounted(async () => {
@@ -61,14 +57,14 @@ async function debloquer(gid: string) {
     await navigateTo({ path: `/g/${gid}/swipe`, query: { offerte: '1' } })
   } catch (e: any) {
     const m = e?.data?.statusMessage
-    erreur.value = RAISONS[m] ?? 'Le cadeau n’a pas pu être utilisé. Réessayez dans un instant.'
+    erreur.value = raison(m) ?? t('FeuilleCadeau.erreurDefaut')
     envoi.value = ''
   }
 }
 </script>
 
 <template>
-  <Feuille titre="Un cadeau pour vous" @fermer="emit('fermer')">
+  <Feuille :titre="$t('FeuilleCadeau.titre')" @fermer="emit('fermer')">
     <template v-if="!charge">
       <Squelette l="70%" :h="22" :r="8" />
       <Squelette l="90%" :h="14" :retard="0.06" />
@@ -76,39 +72,38 @@ async function debloquer(gid: string) {
 
     <template v-else-if="!infos?.valide">
       <p class="mini" role="alert" style="margin:0">
-        {{ RAISONS[infos?.raison ?? ''] ?? 'Ce code cadeau ne peut pas être utilisé.' }}
+        {{ raison(infos?.raison) ?? $t('FeuilleCadeau.invalide') }}
       </p>
-      <p class="mini doux" style="margin:10px 0 0">Code saisi : {{ lisible || code }}</p>
+      <p class="mini doux" style="margin:10px 0 0">{{ $t('FeuilleCadeau.codeSaisi', { code: lisible || code }) }}</p>
     </template>
 
     <template v-else>
       <div class="carte-cadeau">
         <Etincelles class="deco" :taille="26" couleur="var(--peche)" />
         <p class="qui">
-          <strong>{{ infos.de_la_part ?? 'Quelqu’un' }}</strong> vous offre babyNamed
+          <strong>{{ infos.de_la_part ?? $t('FeuilleCadeau.quelquun') }}</strong> {{ $t('FeuilleCadeau.offre') }}
         </p>
-        <p v-if="infos.message" class="mot">« {{ infos.message }} »</p>
+        <p v-if="infos.message" class="mot">{{ $t('FeuilleCadeau.mot', { message: infos.message }) }}</p>
       </div>
       <p class="mini doux" style="margin:12px 0 0">
-        Une liste débloquée, pour vous deux. Valable jusqu’au {{ jusquau }}.
+        {{ $t('FeuilleCadeau.valable', { date: jusquau }) }}
       </p>
 
-      <h3 class="titre-bloc">Quelle liste débloquer ?</h3>
+      <h3 class="titre-bloc">{{ $t('FeuilleCadeau.quelleListe') }}</h3>
       <div class="pile" style="gap:8px">
         <button v-for="g in aDebloquer" :key="g.id" type="button" class="choix"
                 :disabled="!!envoi" @click="debloquer(g.id)">
-          <span class="nom">{{ envoi === g.id ? 'Un instant…' : `Débloquer « ${g.nom} »` }}</span>
-          <span class="mini doux">{{ g.mes_votes }} {{ pluriel(g.mes_votes, 'jugé', 'jugés') }} · {{ g.nb_membres }} {{ g.nb_membres > 1 ? 'membres' : 'membre' }}</span>
+          <span class="nom">{{ envoi === g.id ? $t('FeuilleCadeau.unInstant') : $t('FeuilleCadeau.debloquerNom', { nom: g.nom }) }}</span>
+          <span class="mini doux">{{ $t('FeuilleCadeau.votes', { n: g.mes_votes }) }} · {{ $t('FeuilleCadeau.membres', { n: g.nb_membres }) }}</span>
         </button>
         <button type="button" class="choix" :class="{ principal: !aDebloquer.length }"
                 :disabled="!!envoi" @click="emit('nouvelle', code)">
-          <span class="nom">Créer une nouvelle liste, déjà débloquée</span>
-          <span class="mini doux">Quelques questions, puis vous triez</span>
+          <span class="nom">{{ $t('FeuilleCadeau.nouvelle') }}</span>
+          <span class="mini doux">{{ $t('FeuilleCadeau.nouvelleAide') }}</span>
         </button>
       </div>
       <p v-if="toutesPayees" class="mini doux" style="margin:10px 0 0">
-        Vos listes sont déjà débloquées : ce cadeau peut en ouvrir une nouvelle,
-        ou attendre : le code reste valable jusqu’au {{ jusquau }}.
+        {{ $t('FeuilleCadeau.toutesPayees', { date: jusquau }) }}
       </p>
       <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:10px 0 0">{{ erreur }}</p>
     </template>

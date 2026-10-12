@@ -2,6 +2,7 @@ import {
   startRegistration, startAuthentication, browserSupportsWebAuthn,
   browserSupportsWebAuthnAutofill, sendSignal, WebAuthnAbortService
 } from '@simplewebauthn/browser'
+import { t } from '~/composables/useLangue'
 
 /**
  * Les passkeys, côté app : créer, se connecter, prévenir le trousseau.
@@ -41,18 +42,18 @@ function expliquer(err: any, creation = false): string {
   const code = err?.data?.statusMessage ?? err?.statusMessage
   if (nom === 'NotAllowedError' || err?.code === 'ERROR_CEREMONY_ABORTED') return ''   // annulé : rien à dire
   if (nom === 'InvalidStateError' || err?.code === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED') {
-    return 'Cet appareil a déjà une passkey pour ce compte.'
+    return t('usePasskey.dejaLa')
   }
   if (nom === 'SecurityError' || err?.code === 'ERROR_INVALID_DOMAIN' || err?.code === 'ERROR_INVALID_RP_ID') {
-    return 'Les passkeys ne marchent pas à cette adresse.'
+    return t('usePasskey.domaine')
   }
-  if (code === 'passkey_inconnue') return 'Cette passkey n’est plus liée à aucun compte (elle a été retirée).'
-  if (code === 'defi_expire') return 'Trop de temps a passé. Réessayez.'
-  if (code === 'trop_d_essais') return 'Trop d’essais d’un coup. Réessayez dans quelques minutes.'
+  if (code === 'passkey_inconnue') return t('usePasskey.inconnue')
+  if (code === 'defi_expire') return t('usePasskey.expire')
+  if (code === 'trop_d_essais') return t('usePasskey.tropDEssais')
   console.warn('[passkey]', creation ? 'création' : 'connexion', nom ?? err?.statusCode ?? '', code ?? err?.message ?? '')
   return creation
-    ? 'La passkey n’a pas pu être créée. Réessayez dans un instant.'
-    : 'La passkey n’a pas pu servir. Réessayez, ou recevez un lien par e-mail.'
+    ? t('usePasskey.creationRatee')
+    : t('usePasskey.connexionRatee')
 }
 
 export type Resultat = { ok: true } | { ok: false; message: string

@@ -30,13 +30,12 @@ async function installer() {
       <path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14" />
     </svg>
     <span class="textes">
-      <strong>Installer l’application</strong>
+      <strong>{{ $t('BoutonInstaller.titre') }}</strong>
       <span class="mini ligne-2">
-        {{ ios ? 'Sur l’écran d’accueil, comme une vraie app' : 'Plein écran, hors ligne, sans navigateur' }}
+        {{ ios ? $t('BoutonInstaller.sousIos') : $t('BoutonInstaller.sous') }}
       </span>
       <span v-if="aide" class="mini aide">
-        Touchez <strong>Partager</strong> en bas de Safari, puis
-        <strong>Sur l’écran d’accueil</strong>.
+        {{ $t('BoutonInstaller.aide1') }}<strong>{{ $t('BoutonInstaller.partager') }}</strong>{{ $t('BoutonInstaller.aide2') }}<strong>{{ $t('BoutonInstaller.ecranAccueil') }}</strong>{{ $t('BoutonInstaller.aide3') }}
       </span>
     </span>
   </button>

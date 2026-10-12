@@ -1,4 +1,5 @@
 import { chargerJson, sansAccent, seuilDeTendance, type ChiffreFx, type Prenom } from '~/composables/useCatalogue'
+import { t, locale } from '~/composables/useLangue'
 
 /**
  * Les prénoms dans tous les pays dont les statistiques sont libres et
@@ -191,8 +192,8 @@ export function appliquerPays(liste: Prenom[], codes: readonly string[]) {
 /** « France », « France et Belgique », « vos 4 pays ». */
 export function nomSelection(codes: readonly string[]): string {
   const noms = codes.map(c => paysDe(c)?.nom ?? c)
-  if (noms.length <= 2) return noms.join(' et ')
-  return `vos ${noms.length} pays`
+  if (noms.length <= 2) return noms.join(t('usePays.et'))
+  return t('usePays.vosPays', { n: noms.length })
 }
 
 /**
@@ -210,14 +211,14 @@ export function meilleurPays(p: Prenom): { pays: Pays; sur: string; en: string; 
   }
   if (!mieux) return null
   const m = mieux as { pays: Pays; v: ChiffreFx; part: number; tot: number }
-  const qui = !m.pays.par_sexe ? 'bébé' : p.sexe === 'f' ? 'fille' : p.sexe === 'm' ? 'garçon' : 'bébé'
-  return { pays: m.pays, v: m.v, sur: `1 ${qui} sur ${Math.round(m.tot / m.v.n).toLocaleString('fr-FR')}`,
+  const qui = !m.pays.par_sexe ? 'bebe' : p.sexe === 'f' ? 'fille' : p.sexe === 'm' ? 'garcon' : 'bebe'
+  return { pays: m.pays, v: m.v, sur: t(`useCatalogue.sur_${qui}`, { n: Math.round(m.tot / m.v.n).toLocaleString(locale.value) }),
            en: `${enPays(m.pays)}` }
 }
 
 /** « en Belgique », « au Québec », « aux États-Unis », « en Ontario ». */
 export function enPays(p: Pays): string {
-  if (p.code === 'qc') return 'au Québec'
-  if (p.code === 'us') return 'aux États-Unis'
-  return `en ${p.nom}`
+  if (p.code === 'qc') return t('usePays.auQuebec')
+  if (p.code === 'us') return t('usePays.auxEtatsUnis')
+  return t('usePays.enPays', { nom: p.nom })
 }

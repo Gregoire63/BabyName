@@ -21,6 +21,9 @@ export const EDITEUR = {
   /** Personne physique qui exploite le service (entreprise individuelle). */
   nom: 'Grégoire Raturat',
   forme: 'Entrepreneur individuel',
+  /** La forme, pour la traduction anglaise des textes legaux (affichage
+   *  seulement : la facture Stripe garde `forme`, en francais). */
+  formeEn: 'sole trader',
   /** 14 chiffres — verifie dans l'annuaire des entreprises (EI active, NAF 62.01Z). */
   siret: '920 575 578 00025',
   /** Adresse professionnelle : celle declaree pour l'entreprise (domicile ou domiciliation). */
@@ -55,7 +58,9 @@ export const EDITEUR = {
    * LISEZMOI) : Cloudflare garantit alors qu'elle reste dans l'Union
    * europeenne. A vider si la base etait creee sans.
    */
-  regionDonnees: 'l’Union européenne'
+  regionDonnees: 'l’Union européenne',
+  /** La meme, pour la traduction anglaise (affichage seulement). A vider avec l'autre. */
+  regionDonneesEn: 'the European Union'
 }
 
 /**
@@ -107,6 +112,9 @@ export const HEBERGEUR = {
  * obligations financieres). Cette liste alimente la politique de
  * confidentialite ; un prestataire ajoute a l'app sans etre ajoute ici est
  * un prestataire cache.
+ *
+ * `en` : la traduction anglaise de role, pays et garantie, pour la version
+ * anglaise de la politique (affichage seulement ; aucun usage serveur).
  */
 export const DESTINATAIRES = [
   {
@@ -114,7 +122,12 @@ export const DESTINATAIRES = [
     role: 'Hébergement de l’application, exécution du serveur et base de données (Cloudflare Workers et D1)',
     pays: 'États-Unis (société), base de données conservée dans l’Union européenne ; le serveur s’exécute au plus près de chaque visiteur',
     garantie: 'Certifié Data Privacy Framework entre l’UE et les États-Unis ; clauses contractuelles types de la Commission européenne',
-    lien: 'https://www.cloudflare.com/fr-fr/privacypolicy/'
+    lien: 'https://www.cloudflare.com/fr-fr/privacypolicy/',
+    en: {
+      role: 'Hosting of the application, running of the server and database (Cloudflare Workers and D1)',
+      pays: 'United States (company), database kept in the European Union; the server runs as close as possible to each visitor',
+      garantie: 'Certified under the EU-US Data Privacy Framework; standard contractual clauses of the European Commission'
+    }
   },
   {
     nom: 'OVH SAS',
@@ -123,7 +136,14 @@ export const DESTINATAIRES = [
       : 'Hébergement des sauvegardes chiffrées de la base',
     pays: 'France (Union européenne)',
     garantie: 'Données hébergées et traitées dans l’Union européenne',
-    lien: 'https://www.ovhcloud.com/fr/personal-data-protection/'
+    lien: 'https://www.ovhcloud.com/fr/personal-data-protection/',
+    en: {
+      role: COURRIEL.fournisseur === 'ovh'
+        ? 'Email service of babynamed.fr (sending of sign-up, sign-in and alert emails) and hosting of the encrypted backups of the database'
+        : 'Hosting of the encrypted backups of the database',
+      pays: 'France (European Union)',
+      garantie: 'Data hosted and processed in the European Union'
+    }
   },
   ...(COURRIEL.fournisseur === 'ovh' ? [] : [COURRIEL.fournisseur === 'brevo'
       ? {
@@ -131,14 +151,24 @@ export const DESTINATAIRES = [
           role: 'Envoi des e-mails d’inscription, de connexion et d’alerte',
           pays: 'France (Union européenne)',
           garantie: 'Données traitées dans l’Union européenne',
-          lien: 'https://www.brevo.com/fr/legal/privacypolicy/'
+          lien: 'https://www.brevo.com/fr/legal/privacypolicy/',
+          en: {
+            role: 'Sending of sign-up, sign-in and alert emails',
+            pays: 'France (European Union)',
+            garantie: 'Data processed in the European Union'
+          }
         }
       : {
           nom: 'Resend, Inc.',
           role: 'Envoi des e-mails d’inscription, de connexion et d’alerte',
           pays: 'États-Unis',
           garantie: 'Clauses contractuelles types de la Commission européenne',
-          lien: 'https://resend.com/legal/privacy-policy'
+          lien: 'https://resend.com/legal/privacy-policy',
+          en: {
+            role: 'Sending of sign-up, sign-in and alert emails',
+            pays: 'United States',
+            garantie: 'Standard contractual clauses of the European Commission'
+          }
         }]),
   {
     // La sauvegarde nocturne tourne sur GitHub Actions : la base y passe en
@@ -147,7 +177,12 @@ export const DESTINATAIRES = [
     role: 'Sauvegarde nocturne : la base y est exportée, compressée et chiffrée le temps de la tâche, puis envoyée chez OVH ; rien n’y est conservé',
     pays: 'États-Unis',
     garantie: 'Certifié Data Privacy Framework entre l’UE et les États-Unis ; clauses contractuelles types de la Commission européenne',
-    lien: 'https://docs.github.com/fr/site-policy/privacy-policies/github-general-privacy-statement'
+    lien: 'https://docs.github.com/fr/site-policy/privacy-policies/github-general-privacy-statement',
+    en: {
+      role: 'Nightly backup: the database is exported, compressed and encrypted there for the duration of the task, then sent to OVH; nothing is kept there',
+      pays: 'United States',
+      garantie: 'Certified under the EU-US Data Privacy Framework; standard contractual clauses of the European Commission'
+    }
   },
   {
     // Les apps des stores (dossier mobile/ du dépôt) : le serveur confie le
@@ -158,7 +193,12 @@ export const DESTINATAIRES = [
     role: 'Notifications de l’app iPhone et Android (uniquement si vous les activez) : acheminement du message jusqu’au service de notification d’Apple ou de Google. Expo garde le jeton de notification du téléphone, pas le contenu des messages',
     pays: 'États-Unis',
     garantie: 'Data Privacy Framework entre l’UE et les États-Unis ; clauses contractuelles types de la Commission européenne',
-    lien: 'https://expo.dev/privacy'
+    lien: 'https://expo.dev/privacy',
+    en: {
+      role: 'Notifications of the iPhone and Android app (only if you enable them): routing of the message to Apple’s or Google’s notification service. Expo keeps the phone’s notification token, not the content of the messages',
+      pays: 'United States',
+      garantie: 'EU-US Data Privacy Framework; standard contractual clauses of the European Commission'
+    }
   },
   {
     // Deux rôles. Les notifications : Apple achemine pour notre compte. L'achat
@@ -168,21 +208,36 @@ export const DESTINATAIRES = [
     role: 'Remise des notifications sur iPhone et iPad (uniquement si vous les activez dans l’app) ; encaissement, reçu et remboursement des achats faits dans l’app iPhone (achat intégré de l’App Store)',
     pays: 'Irlande (Union européenne) ; certaines données peuvent être traitées par Apple Inc. aux États-Unis',
     garantie: 'Clauses contractuelles types de la Commission européenne. Pour les achats, Apple est responsable de ses propres traitements.',
-    lien: 'https://www.apple.com/legal/privacy/fr-ww/'
+    lien: 'https://www.apple.com/legal/privacy/fr-ww/',
+    en: {
+      role: 'Delivery of notifications on iPhone and iPad (only if you enable them in the app); collection of payment, receipt and refund for purchases made in the iPhone app (App Store in-app purchase)',
+      pays: 'Ireland (European Union); some data may be processed by Apple Inc. in the United States',
+      garantie: 'Standard contractual clauses of the European Commission. For purchases, Apple is the controller of its own processing.'
+    }
   },
   {
     nom: 'Google Ireland Ltd.',
     role: 'Remise des notifications sur Android, par Firebase Cloud Messaging (uniquement si vous les activez dans l’app)',
     pays: 'Irlande (Union européenne) ; certaines données peuvent être traitées par Google LLC aux États-Unis',
     garantie: 'Data Privacy Framework ; clauses contractuelles types de la Commission européenne',
-    lien: 'https://policies.google.com/privacy?hl=fr'
+    lien: 'https://policies.google.com/privacy?hl=fr',
+    en: {
+      role: 'Delivery of notifications on Android, through Firebase Cloud Messaging (only if you enable them in the app)',
+      pays: 'Ireland (European Union); some data may be processed by Google LLC in the United States',
+      garantie: 'Data Privacy Framework; standard contractual clauses of the European Commission'
+    }
   },
   {
     nom: 'Stripe Payments Europe, Ltd.',
     role: 'Paiement (uniquement si vous débloquez une liste) : encaissement, reçu et facture, lutte contre la fraude',
     pays: 'Irlande (Union européenne) ; certaines données peuvent être traitées par Stripe, Inc. aux États-Unis',
     garantie: 'Data Privacy Framework ; clauses contractuelles types. Stripe est aussi responsable de ses propres traitements.',
-    lien: 'https://stripe.com/fr/privacy'
+    lien: 'https://stripe.com/fr/privacy',
+    en: {
+      role: 'Payment (only if you unlock a list): collection of payment, receipt and invoice, fraud prevention',
+      pays: 'Ireland (European Union); some data may be processed by Stripe, Inc. in the United States',
+      garantie: 'Data Privacy Framework; standard contractual clauses. Stripe is also the controller of its own processing.'
+    }
   }
 ] as const
 
@@ -247,8 +302,16 @@ export function mentionsManquantes(e = EDITEUR): string[] {
   return manque
 }
 
-/** La mention TVA a porter sous un prix et sur la facture. */
-export function mentionTva(e = EDITEUR): string {
+/**
+ * La mention TVA a porter sous un prix et sur la facture. La facture (serveur)
+ * la veut en francais, le defaut ; 'en' sert a l'affichage dans l'app.
+ */
+export function mentionTva(e = EDITEUR, langue: 'fr' | 'en' = 'fr'): string {
+  if (langue === 'en') {
+    return e.tva === 'franchise'
+      ? 'VAT not applicable, art. 293 B of the CGI (French General Tax Code)'
+      : 'French VAT at 20% included'
+  }
   return e.tva === 'franchise'
     ? 'TVA non applicable, art. 293 B du CGI'
     : 'TVA française de 20 % incluse'

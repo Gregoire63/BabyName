@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
+import { t } from '~/composables/useLangue'
+import { prixLocal, mentionTvaLocale } from '~/utils/offre'
 
 /**
  * Offrir babyNamed : une liste débloquée, en cadeau.
@@ -19,8 +21,9 @@ defineProps<{ annule?: boolean }>()
 const emit = defineEmits<{ fermer: [] }>()
 const { ouvrir: ouvrirLegal } = useFeuilleLegale()
 
-const prix = (useRuntimeConfig().public.prixListe as string) || '6 €'
-const tva = mentionTva()
+const prixSite = (useRuntimeConfig().public.prixListe as string) || '6 €'
+const prix = computed(() => prixLocal(prixSite))
+const tva = computed(() => mentionTvaLocale())
 const INCLUS = INCLUS_DEBLOCAGE
 const ans = CONSERVATION.cadeauMois / 12
 
@@ -60,39 +63,38 @@ async function offrir() {
       method: 'POST', body: { consentement: true, de_la_part: deLaPart.value, message: message.value, provenance: provenanceLue() }
     })
     if (r?.url) { window.location.href = r.url; return }
-    erreur.value = 'Le paiement n’a pas pu s’ouvrir.'
+    erreur.value = t('FeuilleOffrir.paiementPasOuvert')
   } catch (e: any) {
     const code = e?.data?.statusMessage
     erreur.value = code === 'paiement_non_configure' || code === 'vente_fermee'
-      ? 'Le paiement n’est pas encore ouvert. Il le sera très bientôt.'
+      ? t('FeuilleOffrir.paiementFerme')
       : code === 'consentement_requis'
-        ? 'Cochez la case d’accord pour continuer.'
+        ? t('FeuilleOffrir.consentement')
         : code === 'trop_d_essais'
-          ? 'Trop d’essais d’un coup : réessayez dans un moment.'
-          : 'Le paiement est momentanément indisponible. Réessayez dans un instant.'
+          ? t('FeuilleOffrir.tropDEssais')
+          : t('FeuilleOffrir.paiementIndispo')
   } finally { envoi.value = false }
 }
 </script>
 
 <template>
-  <Feuille titre="Offrir babyNamed" @fermer="emit('fermer')">
+  <Feuille :titre="$t('FeuilleOffrir.titre')" @fermer="emit('fermer')">
     <p v-if="annule" class="mini note" role="status">
-      Paiement annulé : rien n’a été débité.
+      {{ $t('FeuilleOffrir.annule') }}
     </p>
 
     <p class="prix">
-      <strong>{{ prix }} TTC</strong><span class="doux"> : une liste débloquée pour la vie</span>
+      <strong>{{ $t('FeuilleOffrir.ttc', { prix }) }}</strong><span class="doux">{{ $t('FeuilleOffrir.pourLaVie') }}</span>
     </p>
     <p class="mini doux" style="margin:0">{{ tva }}.</p>
 
     <p class="portee mini">
-      Un <strong>lien et un code</strong> à transmettre à de futurs parents. Ils
-      débloquent <strong>une liste</strong>, déjà commencée ou nouvelle.
-      Valables {{ ans }} ans.
+      {{ $t('FeuilleOffrir.porteeA') }} <strong>{{ $t('FeuilleOffrir.porteeB') }}</strong> {{ $t('FeuilleOffrir.porteeC') }}
+      <strong>{{ $t('FeuilleOffrir.porteeD') }}</strong>{{ $t('FeuilleOffrir.porteeE', { ans }) }}
     </p>
 
     <ul class="inclus">
-      <li v-for="i in INCLUS" :key="i.titre">
+      <li v-for="i in INCLUS" :key="i.id">
         <Etincelles :taille="13" couleur="var(--peche)" une aria-hidden="true" />
         <span>{{ i.titre }}</span>
       </li>
@@ -100,14 +102,14 @@ async function offrir() {
 
     <div class="champs">
       <label class="pile" style="gap:6px">
-        <span class="mini doux">De la part de (facultatif)</span>
+        <span class="mini doux">{{ $t('FeuilleOffrir.deLaPart') }}</span>
         <input v-model="deLaPart" class="champ" maxlength="40" autocomplete="off"
-               placeholder="Mamie, Julie et Tom…">
+               :placeholder="$t('FeuilleOffrir.deLaPartExemple')">
       </label>
       <label class="pile" style="gap:6px">
-        <span class="mini doux">Un mot (facultatif)</span>
+        <span class="mini doux">{{ $t('FeuilleOffrir.unMot') }}</span>
         <textarea v-model="message" class="champ mot" maxlength="200" rows="3"
-                  placeholder="Pour choisir ensemble, sans vous fâcher." />
+                  :placeholder="$t('FeuilleOffrir.unMotExemple')" />
       </label>
     </div>
 
@@ -116,13 +118,11 @@ async function offrir() {
              :aria-invalid="accordManque || undefined"
              :aria-describedby="accordManque ? 'accord-offrir accord-offrir-requis' : 'accord-offrir'">
       <span>
-        J’accepte les
-        <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions générales de vente</a>
-        et je demande que la liste soit débloquée dès l’utilisation du code.
+        {{ $t('FeuilleOffrir.accordA') }}
+        <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">{{ $t('FeuilleOffrir.cgv') }}</a>
+        {{ $t('FeuilleOffrir.accordB') }}
         <span id="accord-offrir" class="doux">
-          Tant qu’il n’a pas servi, je peux me rétracter pendant 14 jours ; son
-          utilisation vaut exécution, et ce droit s’arrête alors (art. L221-28 13° du
-          Code de la consommation).
+          {{ $t('FeuilleOffrir.accordDetail') }}
         </span>
       </span>
     </label>
@@ -133,13 +133,13 @@ async function offrir() {
     <template #pied>
       <p v-if="accordManque" id="accord-offrir-requis" class="mini" role="alert"
          style="color:var(--non);margin:0;text-align:center">
-        Cochez la case d’accord, juste au-dessus, pour payer.
+        {{ $t('FeuilleOffrir.accordRequis') }}
       </p>
       <button type="button" class="btn btn-1" style="width:100%" :disabled="envoi" @click="offrir">
-        {{ envoi ? 'Ouverture…' : `Offrir (${prix})` }}
+        {{ envoi ? $t('FeuilleOffrir.ouverture') : $t('FeuilleOffrir.offrirPrix', { prix }) }}
       </button>
       <p class="mini doux" style="margin:0;text-align:center">
-        Paiement par Stripe. Le code s’affiche juste après, et arrive avec la facture.
+        {{ $t('FeuilleOffrir.pied') }}
       </p>
     </template>
   </Feuille>

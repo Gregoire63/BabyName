@@ -2,6 +2,8 @@
 import { chargerCatalogue, pourcentAn, PAYS_DEFAUT, type Prenom, type ChiffreFx } from '~/composables/useCatalogue'
 import { useGroupeSiPresent } from '~/composables/etatGroupe'
 import { chargerIndexPays, chargerPays, chargerTousLesPays, chiffre, indexPays, totalPour, type Pays } from '~/composables/usePays'
+import { t, nombre } from '~/composables/useLangue'
+import { nomPays, notePays } from '~/utils/nomPays'
 
 /**
  * Le prénom dans chaque pays dont on a les chiffres.
@@ -64,46 +66,50 @@ const autres = computed(() => Math.max(0, indexPays().length - choisis.value.len
 
 function rang(pays: Pays, r: number | null): string | null {
   if (!r || r > 2000) return null
-  const ord = r === 1 ? '1er' : `${r}e`
   const sx = props.p.sexe
-  if (!pays.par_sexe || sx === 'fm') return `${ord} prénom`
-  return `${ord} prénom de ${sx === 'f' ? 'fille' : 'garçon'}`
+  if (!pays.par_sexe || sx === 'fm') return t('DansLeMonde.rang', { r })
+  return t(`DansLeMonde.rang_${sx}`, { r })
 }
 function unSur(pays: Pays, n: number): string {
   const sx = props.p.sexe
-  const qui = !pays.par_sexe || sx === 'fm' ? 'bébé' : sx === 'f' ? 'fille' : 'garçon'
-  return `1 ${qui} sur ${Math.round(totalPour(pays, sx) / n).toLocaleString('fr-FR')}`
+  const qui = !pays.par_sexe || sx === 'fm' ? 'bebe' : sx
+  return t(`DansLeMonde.sur_${qui}`, { n: nombre(Math.round(totalPour(pays, sx) / n)) })
 }
 const court = (pays: Pays) => pays.sigle || pays.organisme
-const titre = (pays: Pays) =>
-  `${pays.organisme} — ${pays.jeu}, ${pays.annees[0]}-${pays.annees[1]}. Licence : ${pays.licence}.`
+const titre = (pays: Pays) => t('DansLeMonde.titreSource', {
+  organisme: pays.organisme, jeu: pays.jeu, debut: pays.annees[0], fin: pays.annees[1], licence: pays.licence })
+const nom = (pays: Pays) => nomPays(pays.code, pays.nom)
+const note = (pays: Pays) => {
+  const n = notePays(pays.code, pays.note)
+  return n[0]!.toUpperCase() + n.slice(1)
+}
 </script>
 
 <template>
   <section v-if="pret && indexPays().length" class="monde">
-    <h3>Dans le monde</h3>
+    <h3>{{ $t('DansLeMonde.titre') }}</h3>
     <ul>
       <li v-for="{ pays, v } in presents" :key="pays.code" class="pays">
         <div class="tete">
-          <b>{{ pays.nom }}</b>
+          <b>{{ nom(pays) }}</b>
           <a class="badge" :href="pays.url" target="_blank" rel="noopener" :title="titre(pays)"
-             :aria-label="`Source : ${titre(pays)}`">{{ court(pays) }} · {{ pays.annees[0] }}-{{ String(pays.annees[1]).slice(2) }}</a>
+             :aria-label="$t('DansLeMonde.source', { titre: titre(pays) })">{{ court(pays) }} · {{ pays.annees[0] }}-{{ String(pays.annees[1]).slice(2) }}</a>
         </div>
         <p class="valeur">
           <span v-if="rang(pays, v!.rang)" class="fort">{{ rang(pays, v!.rang) }}</span>
-          <span>{{ v!.n.toLocaleString('fr-FR') }} bébés en 3 ans</span>
+          <span>{{ $t('DansLeMonde.naissances', { n: nombre(v!.n), c: v!.n }) }}</span>
           <span class="doux">{{ unSur(pays, v!.n) }}</span>
           <span v-if="v!.t !== null" class="tendance" :class="v!.t > 3 ? 'monte' : v!.t < -3 ? 'baisse' : ''">
-            {{ pourcentAn(v!.t) }}/an</span>
+            {{ $t('DansLeMonde.parAn', { pct: pourcentAn(v!.t) }) }}</span>
         </p>
-        <p v-if="pays.note" class="note">{{ pays.note[0]!.toUpperCase() + pays.note.slice(1) }}.</p>
+        <p v-if="pays.note" class="note">{{ note(pays) }}.</p>
       </li>
     </ul>
     <p v-if="absents.length" class="note">
-      Peu ou pas donné (sous le seuil de publication) : {{ absents.map(l => l.pays.nom).join(', ') }}.
+      {{ $t('DansLeMonde.absents', { liste: absents.map(l => nom(l.pays)).join(', ') }) }}
     </p>
     <button v-if="!tout && autres" type="button" class="btn btn-0 mini" :disabled="enCours" @click="voirTout">
-      {{ enCours ? 'Chargement…' : `Voir dans les ${autres} autres pays` }}
+      {{ enCours ? $t('DansLeMonde.chargement') : $t('DansLeMonde.voirTout', { n: autres }) }}
     </button>
   </section>
 </template>

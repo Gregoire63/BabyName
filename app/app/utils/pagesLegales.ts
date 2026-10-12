@@ -11,23 +11,36 @@
  * Le texte de chacun vit dans components/legal/ : la page et la feuille
  * montrent le même.
  */
+import { computed, ref } from 'vue'
+import { t, langue, locale } from '~/composables/useLangue'
+
 export interface DocLegal {
   chemin: string
-  /** Le nom court, pour les liens du bas et les onglets de la feuille. */
-  court: string
-  titre: string
+  /** Le nom court, pour les liens du bas et les onglets de la feuille (traduit). */
+  readonly court: string
+  /** Le titre du texte (traduit). */
+  readonly titre: string
   /** La date de la version en vigueur (VERSIONS_TEXTES), si le texte en a une. */
   version?: string
 }
 
+/**
+ * Le nom et le titre sont lus à l'affichage, dans la langue du moment
+ * (app/textes/pagesLegales.ts) : une constante calculée au chargement ne
+ * changerait pas avec la langue.
+ */
+const docu = (cle: string, chemin: string, version?: string): DocLegal => ({
+  chemin,
+  version,
+  get court() { return t(`pagesLegales.court_${cle}`) },
+  get titre() { return t(`pagesLegales.titre_${cle}`) }
+})
+
 export const DOCS_LEGAUX: DocLegal[] = [
-  { chemin: '/confidentialite', court: 'Confidentialité', titre: 'Confidentialité',
-    version: VERSIONS_TEXTES.confidentialite },
-  { chemin: '/conditions', court: 'Conditions', titre: 'Conditions générales d’utilisation et de vente',
-    version: VERSIONS_TEXTES.conditions },
-  { chemin: '/mentions-legales', court: 'Mentions légales', titre: 'Mentions légales' },
-  { chemin: '/accessibilite', court: 'Accessibilité', titre: 'Déclaration d’accessibilité',
-    version: VERSIONS_TEXTES.accessibilite }
+  docu('confidentialite', '/confidentialite', VERSIONS_TEXTES.confidentialite),
+  docu('conditions', '/conditions', VERSIONS_TEXTES.conditions),
+  docu('mentions', '/mentions-legales'),
+  docu('accessibilite', '/accessibilite', VERSIONS_TEXTES.accessibilite)
 ]
 
 export const PAGES_LEGALES = DOCS_LEGAUX.map(d => d.chemin)
@@ -39,7 +52,17 @@ export const estPageLegale = (chemin: string) => PAGES_LEGALES.includes(normalis
 export const docLegal = (chemin: string): DocLegal =>
   DOCS_LEGAUX.find(d => d.chemin === normaliser(chemin)) ?? DOCS_LEGAUX[0]!
 
-/** « En vigueur depuis le 27 septembre 2026 ». */
+/** « 27 septembre 2026 », dans la langue affichée (« En vigueur depuis le… »). */
 export const dateDeVersion = (version?: string) => version
-  ? new Date(`${version}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  ? new Date(`${version}T12:00:00`).toLocaleDateString(locale.value, { day: 'numeric', month: 'long', year: 'numeric' })
   : ''
+
+/**
+ * LA LANGUE DES TEXTES. Le français fait seul foi : il est montré en
+ * français ; dans toute autre langue, c'est la traduction anglaise
+ * (components/legal/*En.vue) qui s'affiche, avec un lien vers l'original.
+ * Ce choix vaut pour la page comme pour la feuille, le temps de la visite.
+ */
+const originalDemande = ref(false)
+export const legalEnFrancais = computed(() => langue.value === 'fr' || originalDemande.value)
+export function lireLegalEnFrancais(oui = true) { originalDemande.value = oui }

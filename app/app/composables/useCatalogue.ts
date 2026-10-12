@@ -1,4 +1,5 @@
 import { tempetesDuGroupe, type Tempete } from '~/utils/tempetes'
+import { t, locale } from '~/composables/useLangue'
 
 /**
  * Catalogue embarqué : 19 608 prénoms — tout ce que l'INSEE publie sur
@@ -119,8 +120,8 @@ export function meilleurAilleurs(p: Pick<Prenom, 'fx' | 'sexe'>):
   if (!mieux) return null
   const { i, tot } = mieux as { part: number; i: number; tot: number }
   const s = sourcesFx[i]!, v = p.fx[i]!
-  const qui = !s.par_sexe ? 'bébé' : p.sexe === 'f' ? 'fille' : p.sexe === 'm' ? 'garçon' : 'bébé'
-  return { pays: s.pays, sur: `1 ${qui} sur ${Math.round(tot / v.n).toLocaleString('fr-FR')}`,
+  const qui = !s.par_sexe ? 'bebe' : p.sexe === 'f' ? 'fille' : p.sexe === 'm' ? 'garcon' : 'bebe'
+  return { pays: s.pays, sur: t(`useCatalogue.sur_${qui}`, { n: Math.round(tot / v.n).toLocaleString(locale.value) }),
            n: v.n, rang: v.rang, source: s }
 }
 
@@ -451,7 +452,7 @@ export function famille(liste: Prenom[], p: Prenom): string[] {
  * d'oeil et se compare sans calcul. Une seule ecriture partout dans l'app.
  */
 export function frequenceLisible(f: number): string {
-  if (!f || f <= 0) return 'quasi jamais'
+  if (!f || f <= 0) return t('useCatalogue.quasiJamais')
   const n = Math.round(10000 / f)
-  return `1 sur ${n.toLocaleString('fr-FR')}`
+  return t('useCatalogue.unSur', { n: n.toLocaleString(locale.value) })
 }

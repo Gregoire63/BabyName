@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
+import { t } from '~/composables/useLangue'
 
 /**
  * La page d'erreur de l'app : une adresse qui ne mène à rien (404), ou une
@@ -13,7 +14,7 @@ const props = defineProps<{ error: NuxtError }>()
 const introuvable = computed(() => props.error?.statusCode === 404)
 
 useHead({
-  title: () => introuvable.value ? 'Page introuvable' : 'Une erreur est survenue',
+  title: () => introuvable.value ? t('PageErreur.titreIntrouvable') : t('PageErreur.titreErreur'),
   meta: [{ name: 'robots', content: 'noindex' }]
 })
 
@@ -28,26 +29,25 @@ const { dansApp } = useCoquille()
     <Ambiance />
     <div class="haut">
       <img src="/logo.png" alt="" width="66" height="66">
-      <p class="code" aria-hidden="true">{{ introuvable ? '404' : 'Oups' }}</p>
-      <h1>{{ introuvable ? 'Cette page n’existe pas' : 'Une erreur est survenue' }}</h1>
+      <p class="code" aria-hidden="true">{{ introuvable ? '404' : $t('PageErreur.oups') }}</p>
+      <h1>{{ introuvable ? $t('PageErreur.h1Introuvable') : $t('PageErreur.titreErreur') }}</h1>
       <p class="doux">
         <template v-if="introuvable">
-          L’adresse est peut-être mal recopiée, ou la page a changé de place.
+          {{ $t('PageErreur.texteIntrouvable') }}
         </template>
         <template v-else>
-          Ce n’est pas vous. Réessayez dans un instant ; si ça recommence,
-          écrivez-nous à <a class="lien" href="mailto:contact@babynamed.fr">contact@babynamed.fr</a>.
+          {{ $t('PageErreur.texteErreur') }} <a class="lien" href="mailto:contact@babynamed.fr">contact@babynamed.fr</a>{{ $t('PageErreur.point') }}
         </template>
       </p>
     </div>
 
     <div class="carte pile">
       <!-- les pages publiques sont statiques : un vrai lien, pas le routeur -->
-      <a v-if="!dansApp" href="/prenoms/" class="btn btn-1">Parcourir les prénoms</a>
+      <a v-if="!dansApp" href="/prenoms/" class="btn btn-1">{{ $t('PageErreur.parcourir') }}</a>
       <!-- Dans l'app des stores, on y est déjà : « Ouvrir l'app » n'y voudrait
            rien dire, et c'est le seul chemin pour repartir. -->
       <button type="button" class="btn" :class="{ 'btn-1': dansApp }" @click="versApp">
-        {{ dansApp ? 'Revenir à l’accueil' : 'Ouvrir l’app' }}
+        {{ dansApp ? $t('PageErreur.revenir') : $t('PageErreur.ouvrir') }}
       </button>
     </div>
   </main>

@@ -1,3 +1,5 @@
+import { langueDe } from '../../utils/langues'
+
 /**
  * « Recevoir un lien de connexion » : un e-mail avec un lien et un code.
  *
@@ -7,7 +9,7 @@
  */
 export default defineEventHandler(async (e) => {
   await limiter(e, 'lien-ip', ipDe(e), 20, 3600)
-  const { email: brut } = await readBody<{ email?: string }>(e) ?? {}
+  const { email: brut, langue } = await readBody<{ email?: string; langue?: string }>(e) ?? {}
   const email = emailValide(brut)
   await limiter(e, 'lien-email', email, 5, 900)
   // Le compte de démonstration des stores n'a pas de boîte à lire : rien ne
@@ -15,11 +17,13 @@ export default defineEventHandler(async (e) => {
   if (estAdresseDemo(email)) return { ok: true }
   if (!courrielPret()) throw createError({ statusCode: 503, statusMessage: 'courriel_non_configure' })
 
-  const u = await q1<{ id: string; pseudo: string }>(
-    `select id, pseudo from utilisateurs where email = ?1 and email_verifie_le is not null`, [email])
+  const u = await q1<{ id: string; pseudo: string; langue: string | null }>(
+    `select id, pseudo, langue from utilisateurs where email = ?1 and email_verifie_le is not null`, [email])
   if (u) {
     const { jeton, code } = await creerLien({ email, userId: u.id, but: 'connexion' })
-    await envoyerCourriel(courrielConnexion({ a: email, pseudo: u.pseudo, lien: lienDe(e, jeton), code }))
+    await envoyerCourriel(courrielConnexion({ a: email, pseudo: u.pseudo, lien: lienDe(e, jeton), code,
+      // La langue du compte (utilisateurs.langue) ; à défaut, celle de l'app qui demande.
+      langue: u.langue ?? langueDe(langue) }))
   } else {
     // Le meme temps de reponse, a peu pres : un envoi prend quelques
     // centaines de millisecondes, une adresse inconnue n'en prendrait aucune.

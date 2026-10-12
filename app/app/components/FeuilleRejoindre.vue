@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '~/composables/useLangue'
+
 /** Entrer dans la liste de quelqu'un d'autre avec son code (10 caracteres,
  *  ou 8 pour les listes d'avant — voir shared/utils/codes.ts).
  *
@@ -40,29 +42,29 @@ async function entrer() {
   } catch (e: any) {
     const m = e?.data?.statusMessage
     erreur.value = m === 'trop_d_essais'
-      ? 'Trop d’essais : réessayez dans une heure, ou demandez le lien de la liste.'
+      ? t('FeuilleRejoindre.tropDEssais')
       : m === 'code_invalide'
-        ? `Ce code n’a pas le bon format : 10 caractères (8 pour les listes plus anciennes${vente.cadeaux ? ', 12 pour un code cadeau' : ''}).`
-        : 'Code inconnu. Vérifiez-le, ou demandez le lien de la liste.'
+        ? t('FeuilleRejoindre.format', { cadeau: vente.cadeaux })
+        : t('FeuilleRejoindre.inconnu')
     envoi.value = false
   }
 }
 </script>
 
 <template>
-  <Feuille titre="Rejoindre une liste" @fermer="emit('fermer')">
+  <Feuille :titre="$t('FeuilleRejoindre.titre')" @fermer="emit('fermer')">
     <p class="mini doux" style="margin:0 0 12px">
-      {{ vente.cadeaux ? 'Le code d’une liste, ou un code cadeau.' : 'Le code d’une liste.' }}
+      {{ vente.cadeaux ? $t('FeuilleRejoindre.aideCadeau') : $t('FeuilleRejoindre.aide') }}
     </p>
-    <input ref="champ" :value="code" class="champ code" placeholder="Le code"
-           :aria-label="vente.cadeaux ? 'Code d’invitation ou code cadeau' : 'Code d’invitation'"
+    <input ref="champ" :value="code" class="champ code" :placeholder="$t('FeuilleRejoindre.placeholder')"
+           :aria-label="vente.cadeaux ? $t('FeuilleRejoindre.ariaCadeau') : $t('FeuilleRejoindre.aria')"
            autocapitalize="characters" autocorrect="off" spellcheck="false"
            inputmode="latin" @input="saisir" @keyup.enter="entrer">
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:10px 0 0">{{ erreur }}</p>
 
     <template #pied>
       <button class="btn btn-1" :disabled="!pret || envoi" @click="entrer">
-        {{ envoi ? 'Un instant…' : cadeau && vente.cadeaux ? 'Voir le cadeau' : 'Entrer' }}
+        {{ envoi ? $t('FeuilleRejoindre.unInstant') : cadeau && vente.cadeaux ? $t('FeuilleRejoindre.voirCadeau') : $t('FeuilleRejoindre.entrer') }}
       </button>
     </template>
   </Feuille>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '~/composables/useLangue'
 /**
  * Les naissances année par année, en barres : pour les prénoms trop peu
  * donnés pour une courbe (moins de 60 bébés en trois ans, jamais plus de 60
@@ -40,8 +41,7 @@ const resume = computed(() => {
   const v = props.valeurs
   if (!d.value || !v) return ''
   const an1 = props.an0 + v.length - 1
-  return `Naissances par an de ${props.an0} à ${an1}, arrondies à 5 par l’Insee : `
-    + `au plus ${d.value.max}, et ${v[v.length - 1]} en ${an1}.`
+  return t('BarresPrenom.resume', { debut: props.an0, fin: an1, max: d.value.max, dernier: v[v.length - 1] })
 })
 </script>
 

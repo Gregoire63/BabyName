@@ -13,7 +13,14 @@
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#fbfaf9",
     "locales": {
-      "fr": "./langues/fr.json"
+      "fr": "./langues/fr.json",
+      "en": "./langues/en.json",
+      "de": "./langues/de.json",
+      "nl": "./langues/nl.json",
+      "sv": "./langues/sv.json",
+      "nb": "./langues/nb.json",
+      "pl": "./langues/pl.json",
+      "lv": "./langues/lv.json"
     },
     "ios": {
       "bundleIdentifier": "fr.babynamed.app",
@@ -26,7 +33,7 @@
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "CFBundleDevelopmentRegion": "fr"
+        "CFBundleDevelopmentRegion": "en"
       }
     },
     "android": {

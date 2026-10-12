@@ -1,4 +1,6 @@
 import type { H3Event } from 'h3'
+import { langueDe, type LangueCompte } from './langues'
+import { textesPush } from './textesPush'
 
 /**
  * Prévenir les téléphones — les apps des stores seulement.
@@ -28,6 +30,10 @@ import type { H3Event } from 'h3'
  * pas de réclame : une notification qui ne dit rien de neuf apprend à les
  * couper toutes, accords compris.
  *
+ * CHACUN DANS SA LANGUE : celle de son compte (utilisateurs.langue,
+ * migration 0013) ; les textes sont dans textesPush.ts. Un avis se compose
+ * donc pour une langue (`(l) => Avis`), et part par lots d'une même langue.
+ *
  * Tout ici est « au mieux » : un message qui ne part pas ne casse rien, et ne
  * retarde jamais la réponse à celui qui vient de voter (`enFond`).
  */
@@ -50,6 +56,9 @@ export interface Avis {
    */
   canal?: 'accords' | 'activite'
 }
+
+/** Un avis à composer dans la langue de ceux qui le recevront. */
+export type AvisParLangue = (l: LangueCompte) => Avis
 
 /** L'adresse du service d'envoi. NUXT_PUSH_URL la remplace — pour les essais,
  *  qui parlent à un faux service local ; jamais à changer en production. */
@@ -103,17 +112,29 @@ async function envoyer(jetons: string[], avis: Avis): Promise<string[]> {
  * Prévient les AUTRES membres d'une liste — pas celui qui vient d'agir, il a
  * l'écran sous les yeux. Une lecture ; rien de plus si personne n'a l'app.
  * `seul` : ce membre-là seulement (un message qui ne vaut que pour lui).
+ * `avis` : l'avis, ou une lecture qui le rend — tout fait, ou à composer
+ * dans chaque langue (null : rien à dire).
  */
 export async function prevenirListe(groupeId: number, sauf: string | null,
-  avis: Avis | (() => Promise<Avis | null>), seul: string | null = null) {
-  const cibles = await q<{ jeton: string }>(
-    `select a.jeton from membres m join appareils a on a.user_id = m.user_id
+  avis: Avis | (() => Promise<Avis | AvisParLangue | null>), seul: string | null = null) {
+  const cibles = await q<{ jeton: string; langue: string | null }>(
+    `select a.jeton, u.langue from membres m join appareils a on a.user_id = m.user_id
+       join utilisateurs u on u.id = m.user_id
       where m.groupe_id = ?1 and m.user_id <> ?2 and (?3 is null or m.user_id = ?3)`,
     [groupeId, sauf ?? '', seul])
   if (!cibles.length) return
   const a = typeof avis === 'function' ? await avis() : avis
   if (!a) return
-  const perimes = await envoyer(cibles.map(c => c.jeton), a)
+  // Les jetons, par langue : un envoi par langue présente.
+  const parLangue = new Map<LangueCompte, string[]>()
+  for (const c of cibles) {
+    const l = langueDe(c.langue)
+    parLangue.set(l, [...(parLangue.get(l) ?? []), c.jeton])
+  }
+  const perimes: string[] = []
+  for (const [l, jetons] of parLangue) {
+    perimes.push(...await envoyer(jetons, typeof a === 'function' ? a(l) : a))
+  }
   if (perimes.length) await ecrire(`delete from appareils where jeton in ${DANS(1)}`, [perimes])
 }
 
@@ -148,8 +169,8 @@ export function prevenirAccord(groupeId: number, auteur: string, prenom: string)
       `select 1 as x from vetos where groupe_id = ?1 and prenom = ?2
        union all select 1 from deja_pris where groupe_id = ?1 and prenom = ?2 limit 1`, [groupeId, prenom])
     if (retire) return null
-    return { titre: 'Nouvel accord', corps: 'Vous êtes d’accord sur un prénom de plus.',
-             chemin: `/g/${groupeId}/communs` }
+    return (l: LangueCompte): Avis => ({ titre: textesPush(l).accordTitre, corps: textesPush(l).accordCorps,
+                                         chemin: `/g/${groupeId}/communs` })
   })
 }
 
@@ -159,11 +180,11 @@ export function prevenirArrivee(groupeId: number, arrivant: string, observe: boo
     const r = await q1<{ pseudo: string; nom: string }>(
       `select u.pseudo, g.nom from utilisateurs u, groupes g where u.id = ?1 and g.id = ?2`, [arrivant, groupeId])
     if (!r) return null
-    return {
+    return (l: LangueCompte): Avis => ({
       titre: r.nom,
-      corps: observe ? `${r.pseudo} suit maintenant votre liste.` : `${r.pseudo} a rejoint votre liste.`,
+      corps: observe ? textesPush(l).suit(r.pseudo) : textesPush(l).arrivee(r.pseudo),
       chemin: `/g/${groupeId}/reglages`
-    }
+    })
   })
 }
 
@@ -180,12 +201,11 @@ export function prevenirDeblocage(groupeId: number, auteur: string | null) {
          from groupes g where g.id = ?1 and g.paye_le is not null`, [groupeId, auteur])
     // Re-verrouillée entre-temps (un remboursement) : on n'annonce rien.
     if (!r) return null
-    return {
+    return (l: LangueCompte): Avis => ({
       titre: r.nom,
-      corps: r.pseudo ? `${r.pseudo} a débloqué la liste : swipes illimités, pour vous aussi.`
-        : 'Votre liste est débloquée : swipes illimités.',
+      corps: r.pseudo ? textesPush(l).deblocagePar(r.pseudo) : textesPush(l).deblocage,
       chemin: `/g/${groupeId}/swipe`, canal: 'activite'
-    }
+    })
   })
 }
 
@@ -203,8 +223,8 @@ export function prevenirCommentaire(groupeId: number, auteur: string) {
     const r = await q1<{ pseudo: string; nom: string }>(
       `select u.pseudo, g.nom from utilisateurs u, groupes g where u.id = ?1 and g.id = ?2`, [auteur, groupeId])
     if (!r) return null
-    return { titre: r.nom, corps: `${r.pseudo} a laissé un commentaire.`,
-             chemin: `/g/${groupeId}/communs`, canal: 'activite' }
+    return (l: LangueCompte): Avis => ({ titre: r.nom, corps: textesPush(l).commentaire(r.pseudo),
+                                         chemin: `/g/${groupeId}/communs`, canal: 'activite' })
   })
 }
 
@@ -258,11 +278,11 @@ export async function prevenirAvance(groupeId: number, auteur: string, retards: 
       const x = await q1<{ pseudo: string; nom: string }>(
         `select u.pseudo, g.nom from utilisateurs u, groupes g where u.id = ?1 and g.id = ?2`, [auteur, groupeId])
       if (!x) return null
-      return {
+      return (l: LangueCompte): Avis => ({
         titre: x.nom,
-        corps: `${x.pseudo} a jugé ${r.ecart} prénoms de plus que vous. Les accords vous attendent.`,
+        corps: textesPush(l).avance(x.pseudo, r.ecart),
         chemin: `/g/${groupeId}/swipe`, canal: 'activite'
-      }
+      })
     }, r.user_id)
   }
 }

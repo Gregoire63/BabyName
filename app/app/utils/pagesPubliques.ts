@@ -1,3 +1,5 @@
+import { t } from '~/composables/useLangue'
+
 /**
  * Les pages publiques (fiches prénoms, listes, guide, outils) : du HTML
  * statique généré par scripts/seo.mjs, servi par Cloudflare hors de l'app.
@@ -19,11 +21,11 @@ export function retourPublic(referrer: string, slugPrenom: string, prenomAffiche
     if (u.origin === location.origin && CHEMIN_PUBLIC.test(u.pathname)) {
       const fiche = /^\/prenom\//.test(u.pathname)
       return { href: u.pathname + u.search,
-        texte: fiche && prenomAffiche ? `Revenir à ${prenomAffiche}` : 'Revenir aux prénoms' }
+        texte: fiche && prenomAffiche ? t('pagesPubliques.revenirA', { prenom: prenomAffiche }) : t('pagesPubliques.revenirPrenoms') }
     }
   } catch { /* pas de referrer, ou illisible */ }
   if (/^[a-z0-9-]{1,60}$/.test(slugPrenom)) {
-    return { href: `/prenom/${slugPrenom}/`, texte: prenomAffiche ? `Revenir à ${prenomAffiche}` : 'Revenir à la fiche' }
+    return { href: `/prenom/${slugPrenom}/`, texte: prenomAffiche ? t('pagesPubliques.revenirA', { prenom: prenomAffiche }) : t('pagesPubliques.revenirFiche') }
   }
-  return { href: '/prenoms/', texte: 'Parcourir les prénoms' }
+  return { href: '/prenoms/', texte: t('pagesPubliques.parcourir') }
 }

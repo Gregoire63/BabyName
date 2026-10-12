@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { t } from '~/composables/useLangue'
+import { prixLocal } from '~/utils/offre'
+
 /**
  * /offrir : l'adresse publique du cadeau — celle des fiches publiques, et du
  * retour d'un paiement annulé (`?annule=1`).
@@ -8,10 +11,11 @@
  * feuille s'ouvre sur place, depuis l'accueil ou les réglages : pas de page
  * à quitter.
  */
-useHead({ title: 'Offrir babyNamed' })
+useHead({ title: computed(() => t('PageOffrir.titre')) })
 const route = useRoute()
 const annule = computed(() => route.query.annule === '1')
-const prix = (useRuntimeConfig().public.prixListe as string) || '6 €'
+const prixSite = (useRuntimeConfig().public.prixListe as string) || '6 €'
+const prix = computed(() => prixLocal(prixSite))
 const ouvert = ref(false)
 onMounted(() => { ouvert.value = true })
 </script>
@@ -22,16 +26,16 @@ onMounted(() => { ouvert.value = true })
     <!-- en tête : la feuille est fixe, et le pied reste le dernier élément -->
     <FeuilleOffrir v-if="ouvert" :annule="annule" @fermer="ouvert = false" />
     <div class="haut">
-      <NuxtLink to="/" aria-label="babyNamed, accueil">
+      <NuxtLink to="/" :aria-label="$t('PageOffrir.accueil')">
         <img src="/logo.png" alt="" width="66" height="66">
       </NuxtLink>
-      <h1>Offrir babyNamed</h1>
-      <p class="doux">Choisir un prénom à deux, sans s’influencer.</p>
+      <h1>{{ $t('PageOffrir.titre') }}</h1>
+      <p class="doux">{{ $t('PageOffrir.accroche') }}</p>
     </div>
 
     <div class="pile actions">
-      <button type="button" class="btn btn-1" @click="ouvert = true">Offrir ({{ prix }})</button>
-      <NuxtLink to="/" class="btn btn-0 doux">Découvrir babyNamed</NuxtLink>
+      <button type="button" class="btn btn-1" @click="ouvert = true">{{ $t('PageOffrir.offrirPrix', { prix }) }}</button>
+      <NuxtLink to="/" class="btn btn-0 doux">{{ $t('PageOffrir.decouvrir') }}</NuxtLink>
     </div>
 
     <PiedLegal compact />

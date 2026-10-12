@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { sansAccent, type Prenom } from '~/composables/useCatalogue'
+import { t } from '~/composables/useLangue'
 
 /**
  * « Déjà pris » : les prénoms que la liste retire du jeu, en le disant.
@@ -29,8 +30,9 @@ const aConfirmer = ref('')
 const champNom = ref<HTMLInputElement>()
 const champNote = ref<HTMLInputElement>()
 
-/** Ce qui ne passe déjà plus : pas la peine de le proposer. */
-const retire = (nom: string) => g.parDejaPris.value.has(nom) ? 'déjà pris'
+/** Ce qui ne passe déjà plus : pas la peine de le proposer. (Le motif est
+ *  un identifiant ; son libellé : CarteDejaPris.puce_<motif>.) */
+const retire = (nom: string) => g.parDejaPris.value.has(nom) ? 'pris'
   : g.vetos.value.has(nom) ? 'veto' : null
 
 /**
@@ -86,7 +88,7 @@ function entree() {
   if (p) choisir(p)
 }
 
-const nbGraphies = (n: number) => `+ ${n} graphie${n > 1 ? 's' : ''}`
+const nbGraphies = (n: number) => t('CarteDejaPris.graphies', { n })
 
 async function ajouter() {
   const p = choisi.value
@@ -96,18 +98,17 @@ async function ajouter() {
   try {
     await g.ajouterDejaPris(p.l, note.value.trim() || undefined)
     const n = g.graphiesDe(p.l).length
-    statut.value = n ? `${p.l} et ${n > 1 ? `ses ${n} graphies` : 'sa graphie'} ne passeront plus.`
-      : `${p.l} ne passera plus.`
+    statut.value = t('CarteDejaPris.nePasserontPlus', { nom: p.l, n })
     saisie.value = ''
     note.value = ''
     choisi.value = null
     nextTick(() => champNom.value?.focus())
   } catch (e: any) {
     const code = e?.data?.statusMessage
-    erreur.value = code === 'deja_pris' ? `${p.l} est déjà retiré du jeu.`
-      : code === 'deja_pris_plein' ? 'Cette liste a déjà deux cents prénoms « déjà pris ».'
-      : code === 'trop_d_essais' ? 'Beaucoup de prénoms d’un coup : réessayez dans un moment.'
-      : 'Rien n’a pu être enregistré. Réessayez.'
+    erreur.value = code === 'deja_pris' ? t('CarteDejaPris.dejaRetire', { nom: p.l })
+      : code === 'deja_pris_plein' ? t('CarteDejaPris.plein')
+      : code === 'trop_d_essais' ? t('CarteDejaPris.tropDEssais')
+      : t('CarteDejaPris.echec')
   } finally { envoi.value = false }
 }
 
@@ -117,8 +118,8 @@ async function retirer(d: { prenom: string; mien: boolean }) {
   retrait.value = d.prenom
   try {
     await g.retirerDejaPris(d.prenom)
-    statut.value = `${d.prenom} revient dans le tri.`
-  } catch { erreur.value = 'Rien n’a pu être enregistré. Réessayez.' }
+    statut.value = t('CarteDejaPris.revient', { nom: d.prenom })
+  } catch { erreur.value = t('CarteDejaPris.echec') }
   finally { retrait.value = '' }
 }
 </script>
@@ -126,19 +127,19 @@ async function retirer(d: { prenom: string; mien: boolean }) {
 <template>
   <section v-if="!jObserve || g.dejaPris.value.length" class="carte pile"
            aria-labelledby="titre-deja-pris">
-    <h2 id="titre-deja-pris">Déjà pris</h2>
+    <h2 id="titre-deja-pris">{{ $t('CarteDejaPris.titre') }}</h2>
     <p v-if="!jObserve" class="mini doux" style="margin:0">
-      Celui de la cousine, du fils des amis : il sort du tri pour toute la liste.
+      {{ $t('CarteDejaPris.intro') }}
     </p>
 
     <div v-if="!jObserve" class="ajout">
       <!-- Pas de v-model : les propositions suivent chaque lettre, même
            pendant que le clavier compose le mot (utils/frappe.ts). -->
       <input id="champ-deja-pris" ref="champNom" :value="saisie" class="champ"
-             aria-label="Ajouter un prénom déjà pris" placeholder="Ajouter un prénom : Louise, Mathéo…"
+             :aria-label="$t('CarteDejaPris.ajoutAria')" :placeholder="$t('CarteDejaPris.ajoutPlaceholder')"
              autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false"
              enterkeyhint="next" @input="saisie = frappe($event)" @keydown.enter.prevent="entree">
-      <ul v-if="suggestions.length" class="suggestions" aria-label="Prénoms qui correspondent">
+      <ul v-if="suggestions.length" class="suggestions" :aria-label="$t('CarteDejaPris.suggestionsAria')">
         <li v-for="p in suggestions" :key="p.l">
           <button v-if="!retire(p.l)" type="button" class="suggestion" @click="choisir(p)">
             <span class="nom">{{ p.l }}</span>
@@ -146,25 +147,25 @@ async function retirer(d: { prenom: string; mien: boolean }) {
           </button>
           <div v-else class="suggestion inerte">
             <span class="nom">{{ p.l }}</span>
-            <span class="puce">{{ retire(p.l) }}</span>
+            <span class="puce">{{ $t(`CarteDejaPris.puce_${retire(p.l)}`) }}</span>
           </div>
         </li>
       </ul>
       <p v-else-if="!choisi && saisie.trim().length >= 2" class="mini doux" style="margin:0">
-        Aucun prénom du catalogue ne correspond : celui-là ne passera de toute façon pas.
+        {{ $t('CarteDejaPris.aucunCatalogue') }}
       </p>
       <template v-if="choisi">
         <p v-if="choisi.variantes?.length" class="mini doux" style="margin:0">
-          Avec {{ choisi.variantes.length > 1 ? 'ses graphies' : 'sa graphie' }} :
+          {{ $t('CarteDejaPris.avecGraphies', { n: choisi.variantes.length }) }}
           {{ choisi.variantes.slice(0, 6).join(', ') }}{{ choisi.variantes.length > 6 ? '…' : '.' }}
         </p>
         <div class="ligne">
           <input ref="champNote" v-model="note" class="champ" style="flex:1" maxlength="200"
-                 aria-label="Qui le porte ? (facultatif, visible de toute la liste)"
-                 placeholder="Qui le porte ? (facultatif)" enterkeyhint="done"
+                 :aria-label="$t('CarteDejaPris.noteAria')"
+                 :placeholder="$t('CarteDejaPris.notePlaceholder')" enterkeyhint="done"
                  @keyup.enter="ajouter">
           <button class="btn btn-1 mini" :disabled="envoi" @click="ajouter">
-            {{ envoi ? '…' : 'Ajouter' }}
+            {{ envoi ? '…' : $t('CarteDejaPris.ajouter') }}
           </button>
         </div>
       </template>
@@ -173,27 +174,27 @@ async function retirer(d: { prenom: string; mien: boolean }) {
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
     <p class="mini doux statut" role="status">{{ statut }}</p>
 
-    <ul v-if="g.dejaPris.value.length" class="pris" aria-label="Prénoms déjà pris">
+    <ul v-if="g.dejaPris.value.length" class="pris" :aria-label="$t('CarteDejaPris.prisAria')">
       <li v-for="d in g.dejaPris.value" :key="d.prenom" class="rangee">
         <div class="quoi">
           <button type="button" class="nom" @click="g.ouvrirFiche(d.prenom)">{{ d.prenom }}</button>
           <span v-if="d.variantes.length" class="graphies" :title="d.variantes.join(', ')">
             {{ nbGraphies(d.variantes.length) }}</span>
           <span class="qui">
-            <template v-if="d.motif">{{ d.motif }} · </template>{{ d.mien ? 'vous' : (d.auteur ?? 'un ancien membre') }}
+            <template v-if="d.motif">{{ d.motif }} · </template>{{ d.mien ? $t('CarteDejaPris.vous') : (d.auteur ?? $t('CarteDejaPris.ancienMembre')) }}
           </span>
         </div>
         <button v-if="!jObserve" class="btn btn-0 mini" :class="{ doux: aConfirmer !== d.prenom }"
                 :disabled="retrait === d.prenom"
-                :aria-label="aConfirmer === d.prenom ? `Confirmer : remettre ${d.prenom} en jeu`
-                  : `Remettre ${d.prenom} en jeu`"
+                :aria-label="aConfirmer === d.prenom ? $t('CarteDejaPris.confirmerAria', { nom: d.prenom })
+                  : $t('CarteDejaPris.remettreAria', { nom: d.prenom })"
                 @click="retirer(d)">
-          {{ retrait === d.prenom ? '…' : aConfirmer === d.prenom ? 'Confirmer' : 'Retirer' }}
+          {{ retrait === d.prenom ? '…' : aConfirmer === d.prenom ? $t('CarteDejaPris.confirmer') : $t('CarteDejaPris.retirer') }}
         </button>
       </li>
     </ul>
     <p v-else-if="!jObserve" class="mini doux" style="margin:0">
-      Aucun pour l’instant.
+      {{ $t('CarteDejaPris.aucun') }}
     </p>
 
   </section>

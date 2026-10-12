@@ -1,3 +1,6 @@
+import { langueDe } from './langues'
+import { textesCourriel } from './textesCourriel'
+
 /**
  * Envoyer un e-mail — ceux de l'inscription et de la connexion, et rien d'autre.
  *
@@ -142,6 +145,10 @@ export function boiteDev() {
 }
 
 // ---------------------------------------------------------------- messages
+// Les textes, dans chaque langue d'un compte : textesCourriel.ts. `langue` :
+// celle du compte (utilisateurs.langue), sinon celle qu'envoie l'app avec la
+// demande ; inconnue, le français.
+
 const esc = (s: string) => s.replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
@@ -162,73 +169,44 @@ export function lienCopieDuCode(lien: string, code: string): string {
   return `${new URL(lien).origin}/connexion/code#c=${code}`
 }
 
-function gabarit(titre: string, corps: string, bouton: { texte: string; lien: string }, code: string, apres: string) {
+function gabarit(l: string, titre: string, corps: string, bouton: { texte: string; lien: string }, code: string, apres: string) {
+  const x = textesCourriel(l)
   const copie = esc(lienCopieDuCode(bouton.lien, code))
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"></head>
+  return `<!doctype html><html lang="${esc(l)}"><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"></head>
 <body style="margin:0;padding:24px 12px;background:#fbfaf9;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a234e">
 <div style="max-width:460px;margin:0 auto;background:#ffffff;border:1px solid #ece7e3;border-radius:18px;padding:26px 24px">
 <p style="margin:0 0 4px;font-weight:800;font-size:15px">babyNamed</p>
 <h1 style="margin:0 0 14px;font-size:21px;line-height:1.25">${esc(titre)}</h1>
 <p style="margin:0 0 20px;font-size:15px;line-height:1.5">${corps}</p>
 <p style="margin:0 0 22px"><a href="${esc(bouton.lien)}" style="display:inline-block;background:#1a234e;color:#ffffff;text-decoration:none;font-weight:700;padding:13px 22px;border-radius:999px">${esc(bouton.texte)}</a></p>
-<p style="margin:0 0 6px;font-size:14px;color:#5f6480">Ou tapez ce code dans l’app :</p>
+<p style="margin:0 0 6px;font-size:14px;color:#5f6480">${esc(x.ouTapez)}</p>
 <p style="margin:0 0 6px"><a href="${copie}" style="display:inline-block;padding:6px 12px 6px 18px;border:1px solid #ece7e3;border-radius:14px;background:#fbfaf9;color:#1a234e;text-decoration:none;font-size:30px;font-weight:800;letter-spacing:6px">${esc(code)}</a></p>
-<p style="margin:0 0 22px;font-size:13px"><a href="${copie}" style="color:#5f6480">Copier le code</a></p>
-<p style="margin:0;font-size:13px;line-height:1.5;color:#5f6480">${apres}</p>
+<p style="margin:0 0 22px;font-size:13px"><a href="${copie}" style="color:#5f6480">${esc(x.copier)}</a></p>
+<p style="margin:0;font-size:13px;line-height:1.5;color:#5f6480">${esc(apres)}</p>
 </div></body></html>`
 }
 
-export function courrielConnexion(o: { a: string; pseudo: string; lien: string; code: string }): Courriel {
-  const minutes = CONSERVATION.lienMinutes
+type DemandeCode = { a: string; pseudo: string; lien: string; code: string; langue?: string | null }
+
+/** Un e-mail à lien et code, l'un des quatre (connexion, vérification, inscription, déjà inscrit). */
+function courrielACode(sorte: 'connexion' | 'verification' | 'inscription' | 'dejaInscrit', o: DemandeCode): Courriel {
+  const l = langueDe(o.langue)
+  const x = textesCourriel(l)
+  const m = x[sorte]
+  const fin = m.fin(CONSERVATION.lienMinutes)
   return {
     a: o.a,
-    sujet: `Votre code de connexion à babyNamed : ${o.code}`,
-    texte: `Bonjour ${o.pseudo},\n\nPour vous connecter à babyNamed sur cet appareil, ouvrez ce lien :\n${o.lien}\n\nOu tapez ce code dans l’app : ${o.code}\n\nLien et code valent ${minutes} minutes, une seule fois. Si vous n’avez rien demandé, ignorez ce message : personne ne peut entrer sans eux.\n`,
-    html: gabarit(`Bonjour ${o.pseudo}`,
-      'Pour vous connecter à babyNamed sur cet appareil :',
-      { texte: 'Me connecter', lien: o.lien }, o.code,
-      `Lien et code valent ${minutes} minutes, une seule fois. Si vous n’avez rien demandé, ignorez ce message : personne ne peut entrer sans eux.`)
+    sujet: m.sujet(o.code),
+    texte: `${x.salut(o.pseudo)}\n\n${m.texte}\n${o.lien}\n\n${x.ouTapez} ${o.code}\n\n${fin}\n`,
+    html: gabarit(l, m.titre(o.pseudo), m.html(esc(o.pseudo)), { texte: m.bouton, lien: o.lien }, o.code, fin)
   }
 }
 
-export function courrielVerification(o: { a: string; pseudo: string; lien: string; code: string }): Courriel {
-  const minutes = CONSERVATION.lienMinutes
-  return {
-    a: o.a,
-    sujet: `Confirmez votre adresse, code ${o.code}`,
-    texte: `Bonjour ${o.pseudo},\n\nPour pouvoir retrouver votre compte babyNamed avec cette adresse, confirmez-la :\n${o.lien}\n\nOu tapez ce code dans l’app : ${o.code}\n\nValable ${minutes} minutes. Si vous n’avez rien demandé, ignorez ce message : l’adresse ne sera pas enregistrée.\n`,
-    html: gabarit('Confirmez votre adresse',
-      `${esc(o.pseudo)}, pour pouvoir retrouver votre compte babyNamed avec cette adresse :`,
-      { texte: 'Confirmer mon adresse', lien: o.lien }, o.code,
-      `Valable ${minutes} minutes. Si vous n’avez rien demandé, ignorez ce message : l’adresse ne sera pas enregistrée.`)
-  }
-}
-
-export function courrielInscription(o: { a: string; pseudo: string; lien: string; code: string }): Courriel {
-  const minutes = CONSERVATION.lienMinutes
-  const fin = `Valable ${minutes} minutes. Si vous n’avez rien demandé, ignorez ce message : aucun compte ne sera créé.`
-  return {
-    a: o.a,
-    sujet: `Votre code d’inscription à babyNamed : ${o.code}`,
-    texte: `Bonjour ${o.pseudo},\n\nPour créer votre compte babyNamed, ouvrez ce lien :\n${o.lien}\n\nOu tapez ce code dans l’app : ${o.code}\n\n${fin}\n`,
-    html: gabarit(`Bienvenue ${o.pseudo}`, 'Pour créer votre compte babyNamed :',
-      { texte: 'Créer mon compte', lien: o.lien }, o.code, fin)
-  }
-}
-
+export const courrielConnexion = (o: DemandeCode) => courrielACode('connexion', o)
+export const courrielVerification = (o: DemandeCode) => courrielACode('verification', o)
+export const courrielInscription = (o: DemandeCode) => courrielACode('inscription', o)
 /** Une inscription sur une adresse qui a déjà un compte : on y fait entrer. */
-export function courrielDejaInscrit(o: { a: string; pseudo: string; lien: string; code: string }): Courriel {
-  const minutes = CONSERVATION.lienMinutes
-  const fin = `Lien et code valent ${minutes} minutes, une seule fois. Si vous n’avez rien demandé, ignorez ce message : personne ne peut entrer sans eux.`
-  return {
-    a: o.a,
-    sujet: `Vous avez déjà un compte babyNamed, code ${o.code}`,
-    texte: `Bonjour ${o.pseudo},\n\nCette adresse a déjà un compte babyNamed : inutile d’en créer un second. Pour y entrer, ouvrez ce lien :\n${o.lien}\n\nOu tapez ce code dans l’app : ${o.code}\n\n${fin}\n`,
-    html: gabarit(`Bonjour ${o.pseudo}`,
-      'Cette adresse a déjà un compte babyNamed : inutile d’en créer un second. Pour y entrer :',
-      { texte: 'Me connecter', lien: o.lien }, o.code, fin)
-  }
-}
+export const courrielDejaInscrit = (o: DemandeCode) => courrielACode('dejaInscrit', o)
 
 /**
  * Les alertes de sécurité : ce qui permettrait à quelqu'un d'autre de revenir
@@ -236,12 +214,12 @@ export function courrielDejaInscrit(o: { a: string; pseudo: string; lien: string
  * l'adresse du compte. Un cookie volé ne suffit plus à s'installer en
  * silence : le vrai titulaire l'apprend, et « Mon compte » permet de défaire.
  */
-function alerte(a: string, sujet: string, texte: string): Courriel {
-  const suite = 'Si ce n’est pas vous : ouvrez babyNamed, Mon compte → Se connecter, retirez ce que vous ne reconnaissez pas, puis « Déconnecter mes autres appareils ».'
+function alerte(a: string, l: string, sujet: string, texte: string): Courriel {
+  const suite = textesCourriel(l).siPasVous
   return {
     a, sujet,
     texte: `${texte}\n\n${suite}\n`,
-    html: `<!doctype html><html lang="fr"><head><meta charset="utf-8"></head>
+    html: `<!doctype html><html lang="${esc(l)}"><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:24px 12px;background:#fbfaf9;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a234e">
 <div style="max-width:460px;margin:0 auto;background:#ffffff;border:1px solid #ece7e3;border-radius:18px;padding:26px 24px">
 <p style="margin:0 0 4px;font-weight:800;font-size:15px">babyNamed</p>
@@ -252,14 +230,16 @@ function alerte(a: string, sujet: string, texte: string): Courriel {
   }
 }
 
-export function alertePasskey(o: { a: string; pseudo: string; nom: string }): Courriel {
-  return alerte(o.a, 'Une passkey a été ajoutée à votre compte',
-    `${o.pseudo}, une passkey (${o.nom}) vient d’être ajoutée à votre compte babyNamed : elle permet désormais de s’y connecter.`)
+export function alertePasskey(o: { a: string; pseudo: string; nom: string; langue?: string | null }): Courriel {
+  const l = langueDe(o.langue)
+  const x = textesCourriel(l).passkey
+  return alerte(o.a, l, x.sujet, x.texte(o.pseudo, o.nom))
 }
 
-export function alerteAdresse(o: { a: string; pseudo: string; nouvelle: string }): Courriel {
-  return alerte(o.a, 'L’adresse de votre compte a changé',
-    `${o.pseudo}, l’adresse de votre compte babyNamed est désormais ${o.nouvelle}. Les liens de connexion partiront là-bas, plus ici.`)
+export function alerteAdresse(o: { a: string; pseudo: string; nouvelle: string; langue?: string | null }): Courriel {
+  const l = langueDe(o.langue)
+  const x = textesCourriel(l).adresse
+  return alerte(o.a, l, x.sujet, x.texte(o.pseudo, o.nouvelle))
 }
 
 /** Une alerte ne doit jamais faire échouer ce qu'elle signale. */

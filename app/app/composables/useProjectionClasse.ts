@@ -1,4 +1,5 @@
 import { tendanceFiable, type Prenom } from '~/composables/useCatalogue'
+import { t } from '~/composables/useLangue'
 
 /**
  * « Il y en aura combien dans sa classe ? »
@@ -37,7 +38,7 @@ export interface Projection {
   pAuMoinsUn: number
   /** Une classe sur N en aura un deuxieme (null si >= ~1 par classe). */
   uneClasseSur: number | null
-  /** La phrase, deja ecrite. */
+  /** La phrase, deja ecrite (dans la langue affichee : appeler depuis un computed). */
   phrase: string
 }
 
@@ -92,15 +93,15 @@ export function projeter(p: Prenom, complet: boolean): Projection | null {
 
   let phrase: string
   if (autres >= 1.6) {
-    phrase = `Environ ${Math.round(autres)} autres ${p.l} dans sa classe.`
+    phrase = t('useProjectionClasse.autres', { n: Math.round(autres), prenom: p.l })
   } else if (pAuMoinsUn >= 0.5) {
-    phrase = `Il y aura très probablement un autre ${p.l} dans sa classe.`
+    phrase = t('useProjectionClasse.probable', { prenom: p.l })
   } else if (pAuMoinsUn >= 0.25) {
-    phrase = `Une chance sur ${uneClasseSur} qu'il ne soit pas le seul de sa classe.`
+    phrase = t('useProjectionClasse.chance', { n: uneClasseSur })
   } else if (uneClasseSur && uneClasseSur <= 80) {
-    phrase = `Une classe sur ${uneClasseSur} en compte deux. La sienne, probablement pas.`
+    phrase = t('useProjectionClasse.classeSur', { n: uneClasseSur })
   } else {
-    phrase = `Il sera le seul de son école, et sans doute de sa ville.`
+    phrase = t('useProjectionClasse.seul')
   }
 
   return { p10k: arrondi(p10k), autres: arrondi(autres), pAuMoinsUn, uneClasseSur, phrase }
@@ -114,13 +115,13 @@ export function ecart(p: Prenom): Ecart | null {
   const facteur = arrondi(ft * fg, 2)
 
   let evolution: string | null = null
-  if (ft >= 1.2) evolution = `il monte encore (+${Math.round(pente(p))} %/an)`
-  else if (ft <= 0.85) evolution = `il recule (${Math.round(pente(p))} %/an)`
+  if (ft >= 1.2) evolution = t('useProjectionClasse.monte', { n: Math.round(pente(p)) })
+  else if (ft <= 0.85) evolution = t('useProjectionClasse.recule', { n: Math.round(pente(p)) })
 
   let graphies: string | null = null
   if (p.ngp > 1 && fg >= 1.15) {
     const noms = (p.variantes ?? []).slice(0, 2).join(', ')
-    graphies = `il s'écrit aussi autrement${noms ? ` (${noms})` : ''}, et la classe entend pareil`
+    graphies = t('useProjectionClasse.graphies', { noms })
   }
 
   if (!evolution && !graphies) return null

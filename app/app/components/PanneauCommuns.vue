@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
+import { t } from '~/composables/useLangue'
 const g = useGroupeCourant()
 
 // La liste des communs est chargee avec le reste de la liste : l'onglet en a
@@ -31,7 +32,7 @@ async function commenter() {
 }
 
 /** « 1 commentaire », « 3 commentaires » : de quoi savoir qu'il faut déplier. */
-const motsLisibles = (n: number) => `${n} commentaire${n > 1 ? 's' : ''}`
+const motsLisibles = (n: number) => t('PanneauCommuns.nbCommentaires', { n })
 
 /** Un accord qu'on retire après coup — le bébé de la cousine est né entre-
  *  temps. La même feuille que sur la carte : déjà pris, ou autre raison. */
@@ -60,9 +61,9 @@ async function basculerCoeur(c: any) {
 /** « Mamie », « vous et Papi », « Mamie, Papi et Tata Rose ». */
 function coeursLisibles(c: any): string {
   const noms = [...(c.coeurs ?? [])].sort((a: any, b: any) => Number(b.moi) - Number(a.moi))
-    .map((x: any) => x.moi ? 'vous' : x.pseudo)
+    .map((x: any) => x.moi ? t('PanneauCommuns.vous') : x.pseudo)
   if (noms.length <= 1) return noms.join('')
-  return `${noms.slice(0, -1).join(', ')} et ${noms.at(-1)}`
+  return `${noms.slice(0, -1).join(', ')} ${t('PanneauCommuns.et')} ${noms.at(-1)}`
 }
 
 // « Qui traîne » vit dans RappelRetard : il suit le compte de votes de
@@ -79,9 +80,9 @@ function coeursLisibles(c: any): string {
 const nbDecideurs = computed(() =>
   (g.etat.value?.avancement ?? []).filter((x: any) => x.role !== 'observateur').length)
 const ouiDeTous = computed(() =>
-  nbDecideurs.value >= 3 ? 'Oui de tous' : nbDecideurs.value === 2 ? 'Oui à deux' : '')
+  nbDecideurs.value >= 3 ? t('PanneauCommuns.ouiDeTous') : nbDecideurs.value === 2 ? t('PanneauCommuns.ouiADeux') : '')
 const toutOui = (c: any) => !!ouiDeTous.value && c.nb_neutres === 0
-const qui = (v: any) => v.moi ? 'vous' : v.pseudo
+const qui = (v: any) => v.moi ? t('PanneauCommuns.vous') : v.pseudo
 
 // ---------------------------------------------------------------------------
 /**
@@ -225,7 +226,7 @@ function auClavier(e: KeyboardEvent, i: number) {
 let minuteurClavier: any = null
 
 function dire(prenom: string, place: number) {
-  annonceOrdre.value = `${prenom} : ${place + 1} sur ${communs.value.length}`
+  annonceOrdre.value = t('PanneauCommuns.place', { prenom, place: place + 1, n: communs.value.length })
 }
 
 /** L'ordre entier part au serveur ; s'il n'y arrive pas, on revient à celui
@@ -236,7 +237,7 @@ async function enregistrer(l: any[]) {
     await $fetch(`/api/groupes/${g.gid}/ordre-communs`,
       { method: 'PUT', body: { prenoms: l.map((c: any) => c.prenom) } })
   } catch {
-    erreurOrdre.value = 'L’ordre n’a pas pu être enregistré. Réessayez dans un instant.'
+    erreurOrdre.value = t('PanneauCommuns.erreurOrdre')
     await g.rechargerCommuns()
   }
 }
@@ -259,15 +260,14 @@ onUnmounted(() => { cancelAnimationFrame(auto); clearTimeout(minuteurClavier) })
 
     <div v-if="!communs.length" class="vide">
       <Etincelles :taille="34" couleur="var(--menthe)" />
-      <h2>Rien en commun pour l’instant</h2>
-      <p>Les prénoms que vous aimez tous arriveront ici.</p>
-      <button class="btn" @click="g.allerA('swipe')">Aller trier</button>
+      <h2>{{ $t('PanneauCommuns.rien') }}</h2>
+      <p>{{ $t('PanneauCommuns.rienAide') }}</p>
+      <button class="btn" @click="g.allerA('swipe')">{{ $t('PanneauCommuns.allerTrier') }}</button>
     </div>
 
     <p v-if="peutRanger" id="aide-ordre" class="mini doux aide">
-      Rangez-les en tirant <span aria-hidden="true">⠿</span><span class="sr-only">la poignée</span> :
-      le même ordre pour vous {{ nbDecideurs > 2 ? 'tous' : 'deux' }}.
-      <span class="sr-only">Au clavier : la poignée, puis les flèches haut et bas.</span>
+      {{ $t('PanneauCommuns.aideRanger') }} <span aria-hidden="true">⠿</span><span class="sr-only">{{ $t('PanneauCommuns.poignee') }}</span>{{ $t('PanneauCommuns.aideOrdre', { n: nbDecideurs }) }}
+      <span class="sr-only">{{ $t('PanneauCommuns.aideClavier') }}</span>
     </p>
     <p v-if="erreurOrdre" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreurOrdre }}</p>
     <p class="sr-only" aria-live="polite" aria-atomic="true">{{ annonceOrdre }}</p>
@@ -279,7 +279,7 @@ onUnmounted(() => { cancelAnimationFrame(auto); clearTimeout(minuteurClavier) })
              au doigt rien ne change, au clavier l'en-tete devient atteignable. -->
         <div class="ligne entete">
           <button v-if="peutRanger" type="button" class="poignee"
-                  :aria-label="`Déplacer ${c.prenom}, ${i + 1} sur ${communs.length}`"
+                  :aria-label="$t('PanneauCommuns.deplacer', { prenom: c.prenom, place: i + 1, n: communs.length })"
                   aria-describedby="aide-ordre"
                   @pointerdown="saisir($event, i)" @pointermove="bouger"
                   @pointerup="lacher" @pointercancel="lacher" @keydown="auClavier($event, i)">
@@ -307,31 +307,31 @@ onUnmounted(() => { cancelAnimationFrame(auto); clearTimeout(minuteurClavier) })
                 <span v-for="v in c.voix" :key="v.pseudo + v.moi" class="v" :class="v.valeur === 2 ? 'oui' : 'neutre'">
                   <svg v-if="v.valeur === 2" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.2s-8.4-5-8.4-11A5 5 0 0 1 12 7.1a5 5 0 0 1 8.4 3.1c0 6-8.4 11-8.4 11Z" /></svg>
                   <span v-else aria-hidden="true" class="tilde">~</span>
-                  <span class="sr-only">{{ v.valeur === 2 ? 'Oui' : 'Neutre' }} :</span>
+                  <span class="sr-only">{{ v.valeur === 2 ? $t('PanneauCommuns.voixOui') : $t('PanneauCommuns.voixNeutre') }}</span>
                   {{ qui(v) }}
                 </span>
               </template>
               <span v-else class="mini doux">
-                {{ c.nb_oui }} oui<template v-if="c.nb_neutres"> · {{ c.nb_neutres }} neutre</template>
+                {{ $t('PanneauCommuns.nbOui', { n: c.nb_oui }) }}<template v-if="c.nb_neutres"> · {{ $t('PanneauCommuns.nbNeutres', { n: c.nb_neutres }) }}</template>
               </span>
-              <span v-if="c.nouveau" class="v nouveau">nouveau</span>
+              <span v-if="c.nouveau" class="v nouveau">{{ $t('PanneauCommuns.nouveau') }}</span>
             </p>
             </div>
             <p v-if="c.nb_commentaires || g.parNom.value.get(c.prenom)?.m" class="mini doux" style="margin:3px 0 0">
               <span v-if="c.nb_commentaires" class="mots">{{ motsLisibles(c.nb_commentaires) }}</span>
               <template v-if="c.nb_commentaires && g.parNom.value.get(c.prenom)?.m"> · </template>
-              <template v-if="g.parNom.value.get(c.prenom)?.m">« {{ g.parNom.value.get(c.prenom)!.m }} »</template>
+              <template v-if="g.parNom.value.get(c.prenom)?.m">{{ $t('PanneauCommuns.signification', { m: g.parNom.value.get(c.prenom)!.m }) }}</template>
             </p>
             <p v-if="c.coeurs?.length" class="mini coeurs" style="margin:4px 0 0">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.7 4.7 0 0 1 6.6-6.7l.8.8.8-.8a4.7 4.7 0 0 1 6.6 6.7Z" /></svg>
-              <span>Aimé par {{ coeursLisibles(c) }}</span>
+              <span>{{ $t('PanneauCommuns.aimePar', { qui: coeursLisibles(c) }) }}</span>
             </p>
           </div>
           <!-- Au-dessus de l'en-tête dépliable (::after) : le cœur se touche sans
                ouvrir la carte. -->
           <button v-if="jObserve" type="button" class="coeur" :aria-pressed="!!c.j_aime"
                   :disabled="coeurEnCours === c.prenom"
-                  :aria-label="c.j_aime ? `Retirer mon cœur à ${c.prenom}` : `J’aime ${c.prenom}`"
+                  :aria-label="c.j_aime ? $t('PanneauCommuns.retirerCoeur', { prenom: c.prenom }) : $t('PanneauCommuns.jAime', { prenom: c.prenom })"
                   @click="basculerCoeur(c)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.7 4.7 0 0 1 6.6-6.7l.8.8.8-.8a4.7 4.7 0 0 1 6.6 6.7Z" /></svg>
           </button>
@@ -341,18 +341,18 @@ onUnmounted(() => { cancelAnimationFrame(auto); clearTimeout(minuteurClavier) })
           <div v-for="m in commentaires" :key="m.id" class="mini">
             <strong>{{ m.pseudo }}</strong> : {{ m.texte }}
           </div>
-          <p v-if="!commentaires.length" class="mini doux" style="margin:0">Aucun commentaire.</p>
+          <p v-if="!commentaires.length" class="mini doux" style="margin:0">{{ $t('PanneauCommuns.aucunCommentaire') }}</p>
           <div class="ligne">
-            <input v-model="brouillon" class="champ mini" placeholder="Votre avis…"
-                   :aria-label="`Votre avis sur ${c.prenom}`"
+            <input v-model="brouillon" class="champ mini" :placeholder="$t('PanneauCommuns.votreAvis')"
+                   :aria-label="$t('PanneauCommuns.votreAvisSur', { prenom: c.prenom })"
                    @keyup.enter="commenter">
-            <button class="btn mini" @click="commenter">Dire</button>
+            <button class="btn mini" @click="commenter">{{ $t('PanneauCommuns.dire') }}</button>
           </div>
           <div class="ligne" style="justify-content:space-between">
-            <button class="btn btn-0 mini" @click="g.ouvrirFiche(c.prenom)">Plus d’informations</button>
+            <button class="btn btn-0 mini" @click="g.ouvrirFiche(c.prenom)">{{ $t('PanneauCommuns.plusInfos') }}</button>
             <button v-if="!jObserve" class="btn btn-0 mini" style="color:var(--non)"
-                    :aria-label="`Veto sur ${c.prenom}`" @click="ecarterPour = c.prenom">
-              Veto
+                    :aria-label="$t('PanneauCommuns.vetoSur', { prenom: c.prenom })" @click="ecarterPour = c.prenom">
+              {{ $t('PanneauCommuns.veto') }}
             </button>
           </div>
         </div>

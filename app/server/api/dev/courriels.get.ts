@@ -9,7 +9,8 @@ export default defineEventHandler(() => {
   return boiteDev().map(c => ({
     a: c.a, sujet: c.sujet, le: c.le,
     lien: c.texte.match(/https?:\/\/\S+/)?.[0] ?? null,
-    code: c.texte.match(/code dans l’app : (\d{6})/)?.[1] ?? null,
+    // La ligne du code, dans toutes les langues : « … : 123456 » (textesCourriel.ts).
+    code: c.texte.match(/:\s*(\d{6})$/m)?.[1] ?? null,
     // Dans le message mis en forme : le code est un lien, vers la page qui
     // le copie (pages/connexion/code.vue).
     copie: c.html.match(/<a href="([^"]+\/connexion\/code#c=\d{6})"[^>]*>\d{6}<\/a>/)?.[1] ?? null

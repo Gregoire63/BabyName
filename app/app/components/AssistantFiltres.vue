@@ -2,6 +2,8 @@
 import { chargerCatalogue, filtrer, filtresParDefaut, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
 import { appliquerPays, chargerIndexPays, chargerPays, indexPays, type Pays } from '~/composables/usePays'
+import { t, nombre } from '~/composables/useLangue'
+import { groupePays, nomPays } from '~/utils/nomPays'
 
 const emit = defineEmits<{ fermer: []; valider: [f: Filtres] }>()
 /** Le prénom demandé depuis une fiche (`?prenom=`) : il ouvrira la liste,
@@ -59,7 +61,7 @@ function basculerPays(code: string) {
   else if (f.value.pays.length > 1) f.value.pays.splice(i, 1)
   appliquerSelection()
 }
-const nomsPays = computed(() => indexPays().filter(x => f.value.pays.includes(x.code)).map(x => x.nom))
+const nomsPays = computed(() => indexPays().filter(x => f.value.pays.includes(x.code)).map(x => nomPays(x.code, x.nom)))
 
 function sexe(v: 'f' | 'm' | 'tous') {
   f.value.sexe = v === 'tous' ? ['f', 'm', 'fm'] : [v, 'fm']
@@ -96,126 +98,125 @@ function sansFiltre() {
 
 const selection = computed(() => {
   const s = f.value.sexe
-  const q = s.length === 3 ? 'fille ou garçon' : s.includes('f') ? 'fille' : 'garçon'
+  const q = s.length === 3 ? t('AssistantFiltres.filleOuGarcon') : s.includes('f') ? t('Sexe.f') : t('Sexe.m')
   return q
 })
 </script>
 
 <template>
-  <Feuille plein titre="Créer une liste" @fermer="emit('fermer')">
+  <Feuille plein :titre="$t('AssistantFiltres.titre')" @fermer="emit('fermer')">
     <template #action>
       <div class="points">
         <i v-for="(e, i) in ETAPES" :key="e" :class="{ on: i <= etape }" />
       </div>
-      <button class="btn btn-0 mini doux" :disabled="etape === 0" @click="retour">Retour</button>
+      <button class="btn btn-0 mini doux" :disabled="etape === 0" @click="retour">{{ $t('AssistantFiltres.retour') }}</button>
     </template>
 
     <div class="corps">
       <template v-if="etape === 0">
-        <h1>Vous cherchez un prénom pour…</h1>
-        <p class="doux">On peut tout changer plus tard, rien n’est figé.</p>
+        <h1>{{ $t('AssistantFiltres.pourQui') }}</h1>
+        <p class="doux">{{ $t('AssistantFiltres.rienNestFige') }}</p>
         <p v-if="premier" class="premier">
-          <strong>{{ premier }}</strong> sera votre première carte, quels que soient vos choix.
+          <strong>{{ premier }}</strong>{{ $t('AssistantFiltres.premier') }}
         </p>
         <div class="choix">
-          <button class="carte opt" @click="sexe('f')"><strong>Une fille</strong></button>
-          <button class="carte opt" @click="sexe('m')"><strong>Un garçon</strong></button>
+          <button class="carte opt" @click="sexe('f')"><strong>{{ $t('AssistantFiltres.uneFille') }}</strong></button>
+          <button class="carte opt" @click="sexe('m')"><strong>{{ $t('AssistantFiltres.unGarcon') }}</strong></button>
           <button class="carte opt" @click="sexe('tous')">
-            <strong>On ne sait pas encore</strong>
-            <span class="mini doux">Les deux, et les mixtes</span>
+            <strong>{{ $t('AssistantFiltres.onNeSaitPas') }}</strong>
+            <span class="mini doux">{{ $t('AssistantFiltres.lesDeux') }}</span>
           </button>
         </div>
       </template>
 
       <template v-else-if="etape === 1">
-        <h1>Où grandira votre enfant ?</h1>
+        <h1>{{ $t('AssistantFiltres.ou') }}</h1>
         <p class="doux">
-          Les prénoms donnés dans ces pays, et leur fréquence là-bas. Plusieurs
-          choix possibles : la carte montrera leur moyenne.
+          {{ $t('AssistantFiltres.ouAide') }}
         </p>
         <div v-for="[nom, liste] in groupes" :key="nom" class="groupe-pays">
-          <p class="mini doux">{{ nom }}</p>
+          <p class="mini doux">{{ groupePays(nom) }}</p>
           <div class="nuage">
             <button v-for="x in liste" :key="x.code" class="jeton"
                     :class="{ in: f.pays.includes(x.code) }" :aria-pressed="f.pays.includes(x.code)"
                     @click="basculerPays(x.code)">
-              {{ x.nom }}
+              {{ nomPays(x.code, x.nom) }}
             </button>
           </div>
         </div>
-        <button class="btn btn-1" @click="suite">Continuer</button>
+        <button class="btn btn-1" @click="suite">{{ $t('AssistantFiltres.continuer') }}</button>
       </template>
 
       <template v-else-if="etape === 2">
-        <h1>Plutôt répandu, ou plutôt rare ?</h1>
+        <h1>{{ $t('AssistantFiltres.style') }}</h1>
         <p class="doux">
-          « Rare » écarte aussi les prénoms rares qui montent vite.
+          {{ $t('AssistantFiltres.styleAide') }}
         </p>
         <div class="choix">
           <button class="carte opt" @click="style('repandu')">
-            <strong>Répandu, assumé</strong>
-            <span class="mini doux">Il sera porté par d’autres, et c’est très bien</span>
+            <strong>{{ $t('AssistantFiltres.repandu') }}</strong>
+            <span class="mini doux">{{ $t('AssistantFiltres.repanduAide') }}</span>
           </button>
           <button class="carte opt" @click="style('milieu')">
-            <strong>Connu sans être partout</strong>
-            <span class="mini doux">Le compromis le plus fréquent</span>
+            <strong>{{ $t('AssistantFiltres.milieu') }}</strong>
+            <span class="mini doux">{{ $t('AssistantFiltres.milieuAide') }}</span>
           </button>
           <button class="carte opt" @click="style('rare')">
-            <strong>Rare, et qui le reste</strong>
-            <span class="mini doux">Rare aujourd’hui et sans signe d’explosion</span>
+            <strong>{{ $t('AssistantFiltres.rare') }}</strong>
+            <span class="mini doux">{{ $t('AssistantFiltres.rareAide') }}</span>
           </button>
         </div>
       </template>
 
       <template v-else-if="etape === 3">
-        <h1>Court ou long ?</h1>
-        <p class="doux">À dire dix fois par jour pendant vingt ans.</p>
+        <h1>{{ $t('AssistantFiltres.forme') }}</h1>
+        <p class="doux">{{ $t('AssistantFiltres.formeAide') }}</p>
         <div class="choix">
           <button class="carte opt" @click="forme('court')">
-            <strong>Court</strong><span class="mini doux">1 ou 2 syllabes</span>
+            <strong>{{ $t('AssistantFiltres.court') }}</strong><span class="mini doux">{{ $t('AssistantFiltres.courtAide') }}</span>
           </button>
           <button class="carte opt" @click="forme('moyen')">
-            <strong>Moyen</strong><span class="mini doux">2 ou 3 syllabes</span>
+            <strong>{{ $t('AssistantFiltres.moyen') }}</strong><span class="mini doux">{{ $t('AssistantFiltres.moyenAide') }}</span>
           </button>
           <button class="carte opt" @click="forme('libre')">
-            <strong>Peu importe</strong>
+            <strong>{{ $t('AssistantFiltres.libre') }}</strong>
           </button>
         </div>
       </template>
 
       <template v-else>
-        <h1>Une origine en tête ?</h1>
+        <h1>{{ $t('AssistantFiltres.origine') }}</h1>
         <p class="doux">
-          Facultatif. Choisir une origine écarte les prénoms sans origine connue.
+          {{ $t('AssistantFiltres.origineAide') }}
         </p>
         <div class="nuage">
           <button v-for="o in origines" :key="o" class="jeton"
                   :class="{ in: f.origines_in.includes(o) }" @click="basculerOrigine(o)">
-            {{ o }}
+            {{ $t(`Origines.${o}`) }}
           </button>
         </div>
         <label class="ligne mini" style="margin-top:6px">
           <input type="checkbox" :checked="f.compose === false"
                  @change="f.compose = f.compose === false ? null : false">
-          Pas de prénoms composés
+          {{ $t('AssistantFiltres.composes') }}
         </label>
       </template>
     </div>
 
     <template #pied>
       <p class="compte">
-        <strong>{{ nb.toLocaleString('fr-FR') }}</strong> prénoms : {{ selection }}<template v-if="etape >= 1 && nomsPays.length">,
-        {{ nomsPays.length <= 3 ? nomsPays.join(', ') : `${nomsPays.length} pays` }}</template>
+        <strong>{{ nombre(nb) }}</strong> {{ $t('AssistantFiltres.prenoms', { sel: selection, c: nb }) }}<template v-if="etape >= 1 && nomsPays.length">,
+        {{ nomsPays.length <= 3 ? nomsPays.join(', ') : $t('AssistantFiltres.nbPays', { n: nomsPays.length }) }}</template>
       </p>
       <p v-if="nb < 40 && catalogue.length" class="mini" style="color:var(--non);margin:0">
-        C’est très peu. Vous aurez fait le tour en une séance.
+        {{ $t('AssistantFiltres.tresPeu') }}
       </p>
       <button v-if="etape === ETAPES.length - 1" class="btn btn-1" :disabled="envoi || !nb"
               @click="valider">
-        {{ envoi ? 'Création…' : 'Créer la liste' }}
+        {{ envoi ? $t('AssistantFiltres.creation') : $t('AssistantFiltres.creer') }}
       </button>
       <button v-else class="btn btn-0 mini doux" @click="sansFiltre">
-        Passer, je filtrerai après
+        {{ $t('AssistantFiltres.passer') }}
       </button>
     </template>
   </Feuille>

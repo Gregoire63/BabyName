@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { anneesBarres, bebesParAn, frequenceLisible, meilleurAilleurs, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
+import { t, langue, nombre } from '~/composables/useLangue'
+import { nomPays } from '~/utils/nomPays'
 
 /**
  * Les autres façons d'écrire le prénom de la carte, chiffres à l'appui.
@@ -64,7 +66,7 @@ function choisir(j: number, focus = false) {
   })
 }
 
-const sexe = (x: Prenom) => x.sexe === 'fm' ? 'mixte' : x.sexe === 'f' ? 'fille' : 'garçon'
+const sexe = (x: Prenom) => t(`Sexe.${x.sexe}`)
 const pic = (x: Prenom) => {
   const s = x.sr
   if (!s?.length) return null
@@ -74,18 +76,26 @@ const pic = (x: Prenom) => {
 const tendance = (t: number) => t > 8 ? 'monte' : t < -5 ? 'baisse' : ''
 // Sous une vingtaine de bebes par an, pas de pente : le bruit de l'arrondi.
 const lecture = (x: Prenom) => !tendanceFiable(x) ? ''
-  : x.t > 15 ? 'grimpe vite' : x.t > 5 ? 'monte doucement' : x.t < -10 ? 'recule nettement'
-    : x.t < -3 ? 's’efface lentement' : 'stable'
+  : t(`FeuilleGraphies.${x.t > 15 ? 'grimpe' : x.t > 5 ? 'monte' : x.t < -10 ? 'recule'
+    : x.t < -3 ? 'efface' : 'stable'}`)
+/** Un prénom d'ailleurs : le pays où il pèse le plus (« au Québec », « in Quebec »). */
+const ailleurs = computed(() => {
+  const a = meilleurAilleurs(courant.value)
+  if (!a) return null
+  const dans = langue.value === 'fr' ? `${a.source.id === 'qc' ? 'au' : 'en'} ${a.pays}`
+    : t('Pays.dans', { pays: nomPays(a.source.id, a.pays), code: a.source.id })
+  return { dans, sur: a.sur }
+})
 const barres = anneesBarres()
 </script>
 
 <template>
-  <Feuille :titre="`Les ${graphies.length} façons d’écrire ${p.l}`" @fermer="emit('fermer')">
+  <Feuille :titre="$t('FeuilleGraphies.titre', { n: graphies.length, nom: p.l })" @fermer="emit('fermer')">
     <p class="mini doux" style="margin:0">
-      Ils se disent pareil : votre vote vaut pour les {{ graphies.length }}.
+      {{ $t('FeuilleGraphies.intro', { n: graphies.length }) }}
     </p>
 
-    <div ref="rangee" class="onglets-graphies" role="tablist" aria-label="Graphies"
+    <div ref="rangee" class="onglets-graphies" role="tablist" :aria-label="$t('FeuilleGraphies.graphies')"
          @keydown="auClavier">
       <button v-for="(x, i) in graphies" :id="`${id}-o${i}`" :key="x.l" type="button" role="tab"
               :aria-selected="choisi === i" :aria-controls="`${id}-panneau`"
@@ -101,44 +111,41 @@ const barres = anneesBarres()
       <header class="tete">
         <h3 class="nom">{{ courant.l }}</h3>
         <span class="puce">{{ sexe(courant) }}</span>
-        <span v-if="courant.hf" class="puce">d’ailleurs</span>
-        <span v-else-if="courant.q" class="puce rare">rare</span>
+        <span v-if="courant.hf" class="puce">{{ $t('FeuilleGraphies.ailleurs') }}</span>
+        <span v-else-if="courant.q" class="puce rare">{{ $t('FeuilleGraphies.rare') }}</span>
       </header>
 
       <p v-if="courant.hf" class="phrase">
-        Pas donné en France de 2023 à 2025<template v-if="meilleurAilleurs(courant)"> ;
-        {{ meilleurAilleurs(courant)!.source.id === 'qc' ? 'au' : 'en' }} {{ meilleurAilleurs(courant)!.pays }},
-        <strong>{{ meilleurAilleurs(courant)!.sur }}</strong></template>.
+        {{ $t('FeuilleGraphies.pasDonne') }}<template v-if="ailleurs">{{ $t('FeuilleGraphies.ailleursDans', { dans: ailleurs.dans }) }}<strong>{{ ailleurs.sur }}</strong></template>.
       </p>
       <p v-else class="phrase">
-        <strong>{{ courant.n.toLocaleString('fr-FR') }}</strong>
-        naissance{{ courant.n > 1 ? 's' : '' }} en trois ans<template v-if="part(courant)">,
-        soit {{ part(courant) }} des bébés qui portent ce prénom à l’oral</template>.
+        <strong>{{ nombre(courant.n) }}</strong>
+        {{ $t('FeuilleGraphies.naissances', { n: courant.n }) }}<template v-if="part(courant)">{{ $t('FeuilleGraphies.soit', { part: part(courant) }) }}</template>.
       </p>
 
       <dl v-if="!courant.hf" class="chiffres">
-        <div><dt>des naissances</dt><dd>{{ frequenceLisible(courant.f) }}</dd></div>
-        <div v-if="tendanceFiable(courant)"><dt>par an</dt>
+        <div><dt>{{ $t('FeuilleGraphies.desNaissances') }}</dt><dd>{{ frequenceLisible(courant.f) }}</dd></div>
+        <div v-if="tendanceFiable(courant)"><dt>{{ $t('FeuilleGraphies.parAn') }}</dt>
           <dd :class="tendance(courant.t)">{{ pourcentAn(courant.t) }}</dd></div>
-        <div v-else><dt>bébé{{ bebesParAn(courant) > 1 ? 's' : '' }} par an</dt>
+        <div v-else><dt>{{ $t('FeuilleGraphies.bebesParAn', { n: bebesParAn(courant) }) }}</dt>
           <dd>≈ {{ bebesParAn(courant) }}</dd></div>
-        <div><dt>pic historique</dt><dd>{{ courant.p || 'inconnu' }}</dd></div>
+        <div><dt>{{ $t('FeuilleGraphies.pic') }}</dt><dd>{{ courant.p || $t('FeuilleGraphies.inconnu') }}</dd></div>
       </dl>
 
       <div v-if="courant.sr" class="graphe">
         <p class="graphe-tete">
-          <span>Naissances depuis 1986<template v-if="lecture(courant)"> · {{ lecture(courant) }}</template></span>
-          <span v-if="pic(courant)">au plus haut en {{ pic(courant)!.an }}</span>
+          <span>{{ $t('FeuilleGraphies.depuis', { an: 1986 }) }}<template v-if="lecture(courant)"> · {{ lecture(courant) }}</template></span>
+          <span v-if="pic(courant)">{{ $t('FeuilleGraphies.auPlusHaut', { an: pic(courant)!.an }) }}</span>
         </p>
         <CourbePrenom :key="courant.l" :serie="courant.sr" :hauteur="96" pic />
         <p class="graphe-axe" aria-hidden="true"><span>1986</span><span>2025</span></p>
       </div>
       <div v-else-if="courant.nb" class="graphe">
-        <p class="graphe-tete"><span>Naissances par an</span></p>
+        <p class="graphe-tete"><span>{{ $t('FeuilleGraphies.naissancesParAn') }}</span></p>
         <BarresPrenom :key="courant.l" :valeurs="courant.nb" :an0="barres[0]" :hauteur="110" />
       </div>
       <p v-else class="mini doux" style="margin:0">
-        Trop peu de naissances chaque année pour tracer une courbe.
+        {{ $t('FeuilleGraphies.tropPeu') }}
       </p>
 
       <p v-if="courant.m" class="sens">« {{ courant.m }} »</p>
@@ -146,7 +153,7 @@ const barres = anneesBarres()
 
     <template #pied="{ fermer }">
       <button type="button" class="btn" @click="g.ouvrirFiche(courant.l); fermer()">
-        Toute la fiche de {{ courant.l }}
+        {{ $t('FeuilleGraphies.fiche', { nom: courant.l }) }}
       </button>
     </template>
   </Feuille>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '~/composables/useLangue'
+
 /**
  * Le lien reçu par e-mail arrive ici : /connexion/lien#t=<jeton> — ou
  * /connexion/app#t=<jeton> quand il a été demandé depuis l'app des stores :
@@ -26,7 +28,7 @@
  * comment entrer dans l'app : par le code du même e-mail.
  */
 definePageMeta({ alias: ['/connexion/app'] })
-useHead({ title: 'Connexion par lien' })
+useHead({ title: () => t('PageConnexionLien.titrePage') })
 
 const horsDeLApp = useRoute().path === '/connexion/app' && !useCoquille().dansApp
 
@@ -85,42 +87,39 @@ onMounted(async () => {
 
     <div class="carte pile">
       <template v-if="etat === 'pret' || etat === 'envoi' || etat === 'lecture'">
-        <h2>{{ horsDeLApp ? 'Continuer dans ce navigateur ?' : 'Continuer sur cet appareil ?' }}</h2>
+        <h2>{{ horsDeLApp ? $t('PageConnexionLien.continuerNavigateur') : $t('PageConnexionLien.continuerAppareil') }}</h2>
         <p v-if="horsDeLApp" class="mini" style="margin:0">
-          Pour entrer dans l’app, tapez-y le code reçu par e-mail.
+          {{ $t('PageConnexionLien.horsApp') }}
         </p>
         <button type="button" class="btn btn-1" :disabled="etat !== 'pret'" @click="valider">
-          {{ etat === 'envoi' ? 'Un instant…' : 'Continuer' }}
+          {{ etat === 'envoi' ? $t('PageConnexionLien.instant') : $t('PageConnexionLien.continuer') }}
         </button>
       </template>
 
       <ProposerPasskey v-else-if="etat === 'passkey'" @fini="continuer" />
 
       <template v-else-if="etat === 'verifie'">
-        <h2>Adresse confirmée</h2>
+        <h2>{{ $t('PageConnexionLien.confirmee') }}</h2>
         <p class="mini" style="margin:0" role="status">
-          <strong>{{ email }}</strong> est maintenant l’adresse de votre compte : un
-          lien de connexion pourra y partir.
+          <strong>{{ email }}</strong> {{ $t('PageConnexionLien.confirmeeTexte') }}
         </p>
-        <NuxtLink to="/" class="btn btn-1" style="text-align:center">Ouvrir babyNamed</NuxtLink>
+        <NuxtLink to="/" class="btn btn-1" style="text-align:center">{{ $t('PageConnexionLien.ouvrir') }}</NuxtLink>
       </template>
 
       <template v-else-if="etat === 'invalide'">
-        <h2>Ce lien ne marche plus</h2>
+        <h2>{{ $t('PageConnexionLien.invalide') }}</h2>
         <p class="mini" style="margin:0" role="alert">
-          Il a déjà servi, ses 15 minutes sont passées, ou un e-mail plus
-          récent l’a remplacé. Demandez-en un nouveau.
+          {{ $t('PageConnexionLien.invalideTexte') }}
         </p>
-        <NuxtLink to="/connexion" class="btn btn-1" style="text-align:center">Recevoir un nouveau lien</NuxtLink>
+        <NuxtLink to="/connexion" class="btn btn-1" style="text-align:center">{{ $t('PageConnexionLien.nouveau') }}</NuxtLink>
       </template>
 
       <template v-else>
-        <h2>Lien incomplet</h2>
+        <h2>{{ $t('PageConnexionLien.incomplet') }}</h2>
         <p class="mini" style="margin:0" role="alert">
-          L’adresse s’est coupée en route. Ouvrez le lien de l’e-mail en entier,
-          ou tapez le code reçu dans l’app.
+          {{ $t('PageConnexionLien.incompletTexte') }}
         </p>
-        <NuxtLink to="/connexion" class="btn" style="text-align:center">Aller à la connexion</NuxtLink>
+        <NuxtLink to="/connexion" class="btn" style="text-align:center">{{ $t('PageConnexionLien.allerConnexion') }}</NuxtLink>
       </template>
     </div>
 

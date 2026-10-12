@@ -17,8 +17,11 @@ const { join } = require('node:path')
  * avec sa propre version de @expo/config, qui ne savait pas lire `import type`
  * (« Unexpected token '{' », 10/10/2026).
  *
- * Les traductions de langues/fr.json (CFBundleDisplayName) sont des clés iOS :
- * sur Android, prebuild en fait une chaîne res/values-b+fr sans valeur par
+ * Les langues de l'app (app.json « locales », langues/<code>.json) : sur
+ * iPhone, elles disent à iOS quelles langues l'app parle — la vue web reçoit
+ * celle qu'il retient (une autre que celles-là : l'anglais,
+ * CFBundleDevelopmentRegion). Leur seul contenu, CFBundleDisplayName, est une
+ * clé iOS : sur Android, prebuild en fait des chaînes res/values-b+<code> sans valeur par
  * défaut, et lint bloque le build release (ExtraTranslation, 11/10/2026).
  * EAS_BUILD_PLATFORM est posé par EAS sur la machine de build.
  *

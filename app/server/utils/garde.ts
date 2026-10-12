@@ -59,8 +59,8 @@ export async function exigerUtilisateur(e: H3Event): Promise<string> {
 /** Le compte, sa generation, et ce dont les routes de connexion ont besoin. */
 export async function exigerCompte(e: H3Event) {
   const s = sessionOuRefus(e)
-  const u = await avecActivite<{ id: string; pseudo: string; email: string | null; gen: number; webauthn_id: string | null }>(s.u,
-    `select id, pseudo, email, session_gen as gen, webauthn_id from utilisateurs where id = ?1`, [s.u])
+  const u = await avecActivite<{ id: string; pseudo: string; email: string | null; gen: number; webauthn_id: string | null; langue: string | null }>(s.u,
+    `select id, pseudo, email, session_gen as gen, webauthn_id, langue from utilisateurs where id = ?1`, [s.u])
   if (!u) sessionMorte(e, 'compte_inexistant')
   if (u.gen !== s.g) sessionMorte(e, 'session_revoquee')
   return u

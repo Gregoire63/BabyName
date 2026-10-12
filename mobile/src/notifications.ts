@@ -3,6 +3,7 @@ import type { NotificationResponse } from 'expo-notifications'
 import { Platform } from 'react-native'
 
 import { EXPO_GO, PROJET_EAS } from './site'
+import { textes } from './textes'
 
 /**
  * Les notifications : « Nouvel accord », « Alice a rejoint votre liste », et
@@ -25,8 +26,8 @@ import { EXPO_GO, PROJET_EAS } from './site'
  *    deux canaux plutôt qu'un.
  */
 const CANAUX = [
-  { id: 'accords', nom: 'Accords et invitations', sonne: true },
-  { id: 'activite', nom: 'Activité de vos listes', sonne: false }
+  { id: 'accords', nom: 'canalAccords', sonne: true },
+  { id: 'activite', nom: 'canalActivite', sonne: false }
 ] as const
 
 /**
@@ -61,10 +62,13 @@ export async function etatPush(demander: boolean): Promise<EtatPush> {
     if (!Notifications || !Device.isDevice || !PROJET_EAS) return { ok: false }
     // Android 13 et après ne pose sa question que s'il existe un canal.
     if (Platform.OS === 'android') {
+      // Leur nom, dans la langue du téléphone (textes.ts) : redonné à chaque
+      // fois, il suit un changement de langue.
+      const t = textes()
       for (const c of CANAUX) {
         await Notifications.setNotificationChannelAsync(c.id, c.sonne
-          ? { name: c.nom, importance: Notifications.AndroidImportance.HIGH }
-          : { name: c.nom, importance: Notifications.AndroidImportance.DEFAULT, sound: null })
+          ? { name: t[c.nom], importance: Notifications.AndroidImportance.HIGH }
+          : { name: t[c.nom], importance: Notifications.AndroidImportance.DEFAULT, sound: null })
       }
     }
     let p = await Notifications.getPermissionsAsync()

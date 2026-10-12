@@ -94,14 +94,14 @@ defineExpose({ fermer, remonter })
                :style="styleCorps"
                role="dialog" aria-modal="true" tabindex="-1"
                :aria-labelledby="props.titre ? idTitre : undefined"
-               :aria-label="props.titre ? undefined : 'Fenêtre'">
+               :aria-label="props.titre ? undefined : $t('Feuille.fenetre')">
         <div class="feuille-prise" @pointerdown="geste.debut" @pointermove="geste.bouge"
              @pointerup="geste.fin" @pointercancel="geste.fin">
           <div class="feuille-poignee" />
           <div v-if="props.titre || $slots.action" class="ligne feuille-tete">
             <h2 :id="idTitre" style="flex:1;min-width:0">{{ props.titre }}</h2>
             <slot name="action" :fermer="fermer" />
-            <button type="button" class="feuille-x" aria-label="Fermer" @click="fermer">
+            <button type="button" class="feuille-x" :aria-label="$t('Feuille.fermer')" @click="fermer">
               <span aria-hidden="true">✕</span>
             </button>
           </div>

@@ -18,6 +18,10 @@ import { AppState, BackHandler, Platform, Share, useColorScheme } from 'react-na
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 
 import { Coquille } from '../src/Coquille'
+import { textes } from '../src/textes'
+
+/** Le titre de l'écran hors ligne, dans la langue de la machine (« Pas de connexion » en français). */
+const PANNE = textes().panneTitre
 
 // ----------------------------------------------------------- les doublures --
 // (jest n'admet, dans la fabrique d'une doublure, que des variables « mock… ».)
@@ -788,10 +792,10 @@ test('une page du dehors dans la vue web : on ne lui confie pas un lien, on le c
 // ======================================================================= la panne
 test('pas de réseau à l’ouverture : un écran pour le dire, et « Réessayer » repart d’une vue web neuve', async () => {
   await monter()
-  expect(texteAffiche()).not.toContain('Pas de connexion')
+  expect(texteAffiche()).not.toContain(PANNE)
   const erreur = echec(`${SITE}/`)
   await act(async () => { mockVueWeb.props.onError(erreur) })
-  expect(texteAffiche()).toContain('Pas de connexion')
+  expect(texteAffiche()).toContain(PANNE)
   expect(SplashScreen.hide).toHaveBeenCalled()
   // La vue web ne passe pas à son propre écran d'erreur : c'est le nôtre qui se montre.
   expect(erreur.preventDefault).toHaveBeenCalled()
@@ -803,7 +807,7 @@ test('pas de réseau à l’ouverture : un écran pour le dire, et « Réessayer
   const montages = mockVueWeb.montages
   const bouton = rendu.root.find(n => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function')
   await act(async () => { bouton.props.onPress() })
-  expect(texteAffiche()).not.toContain('Pas de connexion')
+  expect(texteAffiche()).not.toContain(PANNE)
   expect(mockVueWeb.montages).toBe(montages + 1)
   expect(cache(dessous())).toBe(false)
 })
@@ -815,7 +819,7 @@ test('iPhone, sans réseau à l’ouverture : l’erreur arrive sans adresse, et
   await monter()
   await act(async () => { mockVueWeb.props.onNavigationStateChange({ url: '', canGoBack: false, loading: false }) })
   await act(async () => { mockVueWeb.props.onError(echec('')) })
-  expect(texteAffiche()).toContain('Pas de connexion')
+  expect(texteAffiche()).toContain(PANNE)
   // … de la page demandée, pas de nulle part.
   const bouton = rendu.root.find(n => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function')
   await act(async () => { bouton.props.onPress() })
@@ -829,13 +833,13 @@ test('en panne, le retour au premier plan retente tout seul ; un lien touché au
   await act(async () => { mockVueWeb.props.onError(echec(`${SITE}/rejoindre/K7QMX3XPD9`)) })
   await agir(() => changerDEtat()('active'))
   expect(mockVueWeb.montages).toBe(2)
-  expect(texteAffiche()).not.toContain('Pas de connexion')
+  expect(texteAffiche()).not.toContain(PANNE)
 
   // La même invitation, touchée de nouveau depuis l'écran de panne.
   await act(async () => { mockVueWeb.props.onError(echec(`${SITE}/rejoindre/K7QMX3XPD9`)) })
   await agir(() => recevoirUnLien()({ url: `${SITE}/rejoindre/K7QMX3XPD9` }))
   expect(mockVueWeb.montages).toBe(3)
-  expect(texteAffiche()).not.toContain('Pas de connexion')
+  expect(texteAffiche()).not.toContain(PANNE)
 
   // Une page qui écoutait, puis une panne (un rechargement sans réseau) : on
   // ne confie plus rien à ce qu'il en reste, on charge.
@@ -851,16 +855,16 @@ test('en panne, le retour au premier plan retente tout seul ; un lien touché au
 test('le site en panne (erreur 500) : le même écran ; une page introuvable, non', async () => {
   await monter()
   await act(async () => { mockVueWeb.props.onHttpError({ nativeEvent: { url: `${SITE}/g/1/swipe`, statusCode: 404 } }) })
-  expect(texteAffiche()).not.toContain('Pas de connexion')
+  expect(texteAffiche()).not.toContain(PANNE)
   await act(async () => { mockVueWeb.props.onHttpError({ nativeEvent: { url: `${SITE}/`, statusCode: 503 } }) })
-  expect(texteAffiche()).toContain('Pas de connexion')
+  expect(texteAffiche()).toContain(PANNE)
 })
 
 test('l’erreur d’une page du dehors n’est pas notre panne', async () => {
   await monter()
   const erreur = echec('https://www.cnil.fr/', -2)
   await act(async () => { mockVueWeb.props.onError(erreur) })
-  expect(texteAffiche()).not.toContain('Pas de connexion')
+  expect(texteAffiche()).not.toContain(PANNE)
   expect(erreur.preventDefault).toHaveBeenCalled()
 })
 
@@ -879,8 +883,9 @@ describe('les notifications d’Android', () => {
     const canaux = doublure(Notifications.setNotificationChannelAsync).mock.calls
     // Les noms que le serveur écrit dans ses messages (app/server/utils/push.ts).
     expect(canaux.map(c => c[0])).toEqual(['accords', 'activite'])
-    expect(canaux[0]![1]).toEqual({ name: 'Accords et invitations', importance: 4 })
-    expect(canaux[1]![1]).toEqual({ name: 'Activité de vos listes', importance: 3, sound: null })
+    // Leur nom, dans la langue du téléphone (src/textes.ts).
+    expect(canaux[0]![1]).toEqual({ name: textes().canalAccords, importance: 4 })
+    expect(canaux[1]![1]).toEqual({ name: textes().canalActivite, importance: 3, sound: null })
   })
 })
 

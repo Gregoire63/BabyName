@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
-import { portraits, divergence, MIN_OUI } from '~/composables/usePortrait'
+import { portraits, divergence, MIN_OUI, type Trait } from '~/composables/usePortrait'
+import { t } from '~/composables/useLangue'
 
 /**
  * Ce que vos oui disent de vous.
@@ -23,6 +24,9 @@ const moi = computed(() => tous.value.find(p => p.userId === moiId.value) ?? nul
 const autres = computed(() => tous.value.filter(p => p.userId !== moiId.value))
 const ecart = computed(() => divergence(g.votes.value as any, g.parNom.value))
 
+/** Le trait de quelqu'un d'autre : la même phrase, à son nom. */
+const traitDe = (tr: Trait, pseudo: string) => t(`usePortrait.${tr.cle}`, { ...tr.p, qui: pseudo })
+
 /** Ce qu'il reste a juger avant que le portrait veuille dire quelque chose. */
 const manquants = computed(() => Math.max(0, MIN_OUI - (moi.value?.nOui ?? 0)))
 </script>
@@ -31,44 +35,39 @@ const manquants = computed(() => Math.max(0, MIN_OUI - (moi.value?.nOui ?? 0)))
   <div class="pile">
     <template v-if="!paye">
       <section v-if="vente.ouverte" class="carte pile">
-        <h2>Ce que vos oui disent de vous</h2>
+        <h2>{{ $t('PanneauPortrait.titreOffre') }}</h2>
         <p class="mini" style="margin:0">
-          Une époque, une longueur, des origines qui reviennent, et
-          <strong>là où vous n'êtes pas d'accord</strong>.
+          {{ $t('PanneauPortrait.offreDebut') }}
+          <strong>{{ $t('PanneauPortrait.offreFort') }}</strong>{{ $t('PanneauPortrait.offreFin') }}
         </p>
         <p class="exemple mini">
-          « Vos oui ont eu leur heure vers 1948, une génération avant le reste
-          de votre liste. »
+          {{ $t('PanneauPortrait.exemple') }}
         </p>
         <button class="btn btn-1" @click="g.ouvrirDebloquer()">
-          Voir ce que ça ouvre
+          {{ $t('PanneauPortrait.voirOuvre') }}
         </button>
       </section>
     </template>
 
     <template v-else-if="!moi || !moi.assez">
       <section class="carte pile">
-        <h2>Encore {{ manquants }} oui</h2>
+        <h2>{{ $t('PanneauPortrait.encore', { n: manquants }) }}</h2>
         <p class="mini doux" style="margin:0">
-          Un portrait sur {{ moi?.nOui ?? 0 }} prénom{{ (moi?.nOui ?? 0) > 1 ? 's' : '' }}
-          gardés ne dirait rien de vrai : il dirait ce que le hasard a laissé
-          passer. À partir de {{ MIN_OUI }}, les écarts tiennent.
+          {{ $t('PanneauPortrait.tropTot', { n: moi?.nOui ?? 0, min: MIN_OUI }) }}
         </p>
-        <button class="btn btn-1" @click="g.allerA('swipe')">Continuer à trier</button>
+        <button class="btn btn-1" @click="g.allerA('swipe')">{{ $t('PanneauPortrait.continuer') }}</button>
       </section>
     </template>
 
     <template v-else>
       <section class="carte pile">
-        <h2>Vous</h2>
+        <h2>{{ $t('PanneauPortrait.vous') }}</h2>
         <p class="mini doux" style="margin:0">
-          Sur {{ moi.nOui }} oui, parmi {{ moi.nJuges }} prénoms jugés.
+          {{ $t('PanneauPortrait.surMoi', { oui: moi.nOui, juges: moi.nJuges }) }}
         </p>
-        <p v-for="t in moi.traits" :key="t.axe" class="trait">{{ t.texte }}</p>
+        <p v-for="tr in moi.traits" :key="tr.axe" class="trait">{{ tr.texte }}</p>
         <p v-if="!moi.traits.length" class="mini doux" style="margin:0">
-          Vos oui ressemblent à ce qu'on vous a montré : pas de penchant
-          marqué. Ce n'est pas un défaut : ça veut dire que vos filtres font
-          déjà le travail.
+          {{ $t('PanneauPortrait.rienMoi') }}
         </p>
       </section>
 
@@ -76,26 +75,25 @@ const manquants = computed(() => Math.max(0, MIN_OUI - (moi.value?.nOui ?? 0)))
         <h2>{{ a.pseudo }}</h2>
         <template v-if="a.assez">
           <p class="mini doux" style="margin:0">
-            Sur {{ a.nOui }} oui parmi les prénoms que vous avez jugés tous les deux.
+            {{ $t('PanneauPortrait.surAutre', { oui: a.nOui }) }}
           </p>
-          <p v-for="t in a.traits" :key="t.axe" class="trait">
-            {{ t.texte.replace(/^Vous /, `${a.pseudo} `).replace(/^Vos /, `Les oui de ${a.pseudo} `) }}
+          <p v-for="tr in a.traits" :key="tr.axe" class="trait">
+            {{ traitDe(tr, a.pseudo) }}
           </p>
           <p v-if="!a.traits.length" class="mini doux" style="margin:0">
-            Rien de marqué de son côté.
+            {{ $t('PanneauPortrait.rienAutre') }}
           </p>
         </template>
         <p v-else class="mini doux" style="margin:0">
-          Pas encore assez de prénoms jugés par vous deux pour en dire quelque
-          chose d'honnête.
+          {{ $t('PanneauPortrait.pasAssez') }}
         </p>
       </section>
 
       <section v-if="ecart" class="carte pile ecart">
-        <h2>Là où ça coince</h2>
+        <h2>{{ $t('PanneauPortrait.coince') }}</h2>
         <p class="trait" style="margin:0">{{ ecart }}</p>
         <p class="mini doux" style="margin:0">
-          Ça ne se règle pas en votant plus : ça se règle en le sachant.
+          {{ $t('PanneauPortrait.seRegle') }}
         </p>
       </section>
 

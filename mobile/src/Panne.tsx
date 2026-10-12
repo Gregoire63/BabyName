@@ -1,22 +1,23 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { textes } from './textes'
 
 /**
  * Le seul écran que l'app dessine elle-même : quand le site n'a pas pu
  * s'afficher (pas de réseau à l'ouverture, serveur en panne). Sans lui, une
- * page blanche. Les couleurs sont celles du site, clair ou sombre.
+ * page blanche. Les couleurs sont celles du site, clair ou sombre ; les
+ * mots, ceux de la langue du téléphone (textes.ts).
  */
 export function Panne({ sombre, fond, reessayer }: { sombre: boolean; fond: string; reessayer: () => void }) {
   const encre = sombre ? '#eef0f7' : '#1a234e'
   const doux = sombre ? '#9298b2' : '#5f6480'
+  const t = textes()
   return (
     <View style={[styles.plein, { backgroundColor: fond }]} accessibilityViewIsModal accessibilityLiveRegion="polite">
-      <Text style={[styles.titre, { color: encre }]} accessibilityRole="header">Pas de connexion</Text>
-      <Text style={[styles.texte, { color: doux }]}>
-        babyNamed n’a pas pu s’ouvrir. Vérifiez votre connexion, puis réessayez.
-      </Text>
+      <Text style={[styles.titre, { color: encre }]} accessibilityRole="header">{t.panneTitre}</Text>
+      <Text style={[styles.texte, { color: doux }]}>{t.panneTexte}</Text>
       <Pressable accessibilityRole="button" onPress={reessayer}
                  style={({ pressed }) => [styles.bouton, { backgroundColor: encre, opacity: pressed ? 0.8 : 1 }]}>
-        <Text style={[styles.libelle, { color: fond }]}>Réessayer</Text>
+        <Text style={[styles.libelle, { color: fond }]}>{t.reessayer}</Text>
       </Pressable>
     </View>
   )

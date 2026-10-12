@@ -1,0 +1,60 @@
+import type { Textes } from '../composables/useLangue'
+
+export default {
+  fr: {
+    titre: 'Votre cadeau',
+    accueil: 'babyNamed, accueil',
+    mot: '« {message} »',
+    partage: (p) => `${p.qui ? `${p.qui} vous offre` : 'Je vous offre'} babyNamed : une liste débloquée pour choisir le prénom de votre bébé à deux, ` +
+      `sans vous influencer. Ouvrez le lien, ou tapez le code ${p.code} sur babynamed.fr.`,
+    partageTitre: 'Un cadeau babyNamed',
+    introuvable: 'Cette page ne correspond à aucun achat de cadeau.',
+    relecture: 'Le cadeau n’a pas pu être relu. Rechargez la page dans un instant : rien n’est perdu, le code figure aussi sur la facture envoyée par e-mail.',
+    offrir: 'Offrir babyNamed',
+    statut_pret: 'Merci ! Le code à transmettre',
+    statut_en_attente: 'Paiement en cours d’encaissement',
+    statut_utilise: 'Ce cadeau a déjà été ouvert',
+    statut_annule: 'Ce cadeau a été annulé',
+    codeCadeau: 'Code cadeau',
+    enAttente: 'Le code vaudra dès que le paiement sera encaissé (un prélèvement prend quelques jours). Il figure déjà sur la facture envoyée par e-mail.',
+    valable: 'Valable jusqu’au {date}. Il figure aussi sur la facture.',
+    liront: 'Ils liront :',
+    quelquun: 'Quelqu’un',
+    offre: 'vous offre babyNamed',
+    motApres: ' : « {message} »',
+    envoyer: 'Envoyer le lien',
+    copie: 'Copié',
+    copierLien: 'Copier le message et le lien',
+    copierCode: 'Copier le code seul',
+    aide: 'Le code seul se tape sur babynamed.fr, sous « Rejoindre une liste ».',
+    autre: 'Offrir un autre cadeau'
+  },
+  en: {
+    titre: 'Your gift',
+    accueil: 'babyNamed, home',
+    mot: '“{message}”',
+    partage: (p) => `${p.qui ? `${p.qui} is giving you` : 'I’m giving you'} babyNamed: an unlocked list for choosing your baby’s name together, ` +
+      `without swaying each other. Open the link, or enter the code ${p.code} at babynamed.fr.`,
+    partageTitre: 'A babyNamed gift',
+    introuvable: 'This page doesn’t match any gift purchase.',
+    relecture: 'The gift couldn’t be loaded. Reload the page in a moment: nothing is lost, and the code is also on the invoice sent by email.',
+    offrir: 'Give babyNamed',
+    statut_pret: 'Thank you! The code to pass on',
+    statut_en_attente: 'Payment being processed',
+    statut_utilise: 'This gift has already been opened',
+    statut_annule: 'This gift has been cancelled',
+    codeCadeau: 'Gift code',
+    enAttente: 'The code will work as soon as the payment clears (a direct debit takes a few days). It’s already on the invoice sent by email.',
+    valable: 'Valid until {date}. It’s also on the invoice.',
+    liront: 'They’ll read:',
+    quelquun: 'Someone',
+    offre: 'is giving you babyNamed',
+    motApres: ': “{message}”',
+    envoyer: 'Send the link',
+    copie: 'Copied',
+    copierLien: 'Copy the message and link',
+    copierCode: 'Copy just the code',
+    aide: 'The code on its own can be entered at babynamed.fr, under “Join a list”.',
+    autre: 'Give another gift'
+  }
+} satisfies Textes

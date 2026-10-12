@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { sansAccent, type Prenom } from '~/composables/useCatalogue'
-import { useVerdicts, MOT } from '~/composables/useVerdicts'
+import { useVerdicts } from '~/composables/useVerdicts'
+import { t } from '~/composables/useLangue'
 
 /**
  * Chercher un prénom précis, depuis le tri — et l'amener en haut de la pile.
@@ -78,15 +79,15 @@ watch(cle, () => feuille.value?.remonter(), { flush: 'post' })
 
 /** Retiré du jeu : « Déjà pris » se dit (c'est tout son principe), un
  *  veto ne dit que « Veto », jamais de qui. */
-const retire = (nom: string) => g.parDejaPris.value.has(nom) ? 'Déjà pris'
-  : g.vetos.value.has(nom) ? 'Veto' : null
+const retire = (nom: string) => g.parDejaPris.value.has(nom) ? t('FeuilleRecherche.dejaPris')
+  : g.vetos.value.has(nom) ? t('FeuilleRecherche.veto') : null
 
 const etat = (nom: string) => {
   const r = retire(nom)
   if (r) return { t: r, c: 'veto' }
   const v = parPrenom.value.get(nom)?.mien
   if (v === undefined || v === null) return null
-  return { t: MOT[v], c: `v${v}` }
+  return { t: t(`FeuilleRecherche.vote${v}`), c: `v${v}` }
 }
 
 /** Un prénom retiré du jeu n'y revient pas : la ligne le dit, sans bouton. */
@@ -117,10 +118,10 @@ function doigtGlisse(e: TouchEvent) {
 </script>
 
 <template>
-  <Feuille ref="feuille" haute titre="Chercher un prénom" @fermer="emit('fermer')">
+  <Feuille ref="feuille" haute :titre="$t('FeuilleRecherche.titre')" @fermer="emit('fermer')">
     <template #fixe>
       <input ref="champ" :value="recherche" class="champ chercher" type="search"
-             placeholder="Louise, Gabriel…" aria-label="Chercher un prénom dans le catalogue"
+             placeholder="Louise, Gabriel…" :aria-label="$t('FeuilleRecherche.champ')"
              aria-describedby="recherche-aide" enterkeyhint="search"
              autocapitalize="off" autocorrect="off" spellcheck="false"
              @input="recherche = frappe($event)"
@@ -129,25 +130,25 @@ function doigtGlisse(e: TouchEvent) {
     <template #default="{ fermer }">
       <!-- v-show : le champ s'y réfère (aria-describedby), elle reste dans la page -->
       <p v-show="!trouves.length" id="recherche-aide" class="mini doux" style="margin:0">
-        Tout le catalogue, sans vos filtres.
+        {{ $t('FeuilleRecherche.aide') }}
       </p>
 
       <p v-if="cle.length >= 2 && !trouves.length" class="mini doux" role="status"
          style="margin:0">
-        Aucun prénom ne correspond.
+        {{ $t('FeuilleRecherche.aucun') }}
       </p>
 
-      <ul v-if="trouves.length" ref="liste" class="resultats" aria-label="Résultats"
+      <ul v-if="trouves.length" ref="liste" class="resultats" :aria-label="$t('FeuilleRecherche.resultats')"
           @touchstart.passive="doigtPose" @touchmove.passive="doigtGlisse">
         <li v-for="p in trouves" :key="p.l">
           <button v-if="!g.vetos.value.has(p.l)" type="button" class="trouve"
-                  :aria-label="`${p.l}${p.q ? ', rare' : ''} : mettre en première carte${etat(p.l) ? ` (déjà jugé : ${etat(p.l)!.t.toLowerCase()})` : ''}`"
+                  :aria-label="$t('FeuilleRecherche.choisir', { nom: p.l, rare: p.q, etat: etat(p.l)?.t.toLowerCase() })"
                   @click="choisir(p, fermer)">
             <span class="nom">
               {{ p.l }}
               <Etincelles v-if="g.favoris.value.has(p.l)" :taille="12" couleur="var(--peche)" une />
             </span>
-            <span v-if="p.q" class="puce rare" :title="`${p.n} naissances en trois ans`">rare</span>
+            <span v-if="p.q" class="puce rare" :title="$t('FeuilleRecherche.naissances', { n: p.n })">{{ $t('FeuilleRecherche.rare') }}</span>
             <span v-if="etat(p.l)" class="puce" :class="etat(p.l)!.c">{{ etat(p.l)!.t }}</span>
             <svg class="fleche" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
           </button>

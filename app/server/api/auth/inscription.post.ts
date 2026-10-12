@@ -1,3 +1,5 @@
+import { langueDe } from '../../utils/langues'
+
 /**
  * S'inscrire : un prénom et une adresse e-mail.
  *
@@ -19,7 +21,7 @@
  */
 export default defineEventHandler(async (e) => {
   await limiter(e, 'inscription', ipDe(e), 12, 3600)
-  const corps = await readBody<{ pseudo?: string; email?: string }>(e) ?? {}
+  const corps = await readBody<{ pseudo?: string; email?: string; langue?: string }>(e) ?? {}
   const pseudo = pseudoValide(corps.pseudo)
   const email = emailValide(corps.email)
   await limiter(e, 'lien-email', email, 5, 900)
@@ -27,14 +29,15 @@ export default defineEventHandler(async (e) => {
   if (estAdresseDemo(email)) return { ok: true }
   if (!courrielPret()) throw createError({ statusCode: 503, statusMessage: 'courriel_non_configure' })
 
-  const compte = await q1<{ id: string; pseudo: string }>(
-    `select id, pseudo from utilisateurs where email = ?1`, [email])
+  const compte = await q1<{ id: string; pseudo: string; langue: string | null }>(
+    `select id, pseudo, langue from utilisateurs where email = ?1`, [email])
   if (compte) {
     const { jeton, code } = await creerLien({ email, userId: compte.id, but: 'connexion' })
-    await envoyerCourriel(courrielDejaInscrit({ a: email, pseudo: compte.pseudo, lien: lienDe(e, jeton), code }))
+    await envoyerCourriel(courrielDejaInscrit({ a: email, pseudo: compte.pseudo, lien: lienDe(e, jeton), code,
+      langue: compte.langue ?? langueDe(corps.langue) }))
   } else {
     const { jeton, code } = await creerLien({ email, pseudo, but: 'inscription' })
-    await envoyerCourriel(courrielInscription({ a: email, pseudo, lien: lienDe(e, jeton), code }))
+    await envoyerCourriel(courrielInscription({ a: email, pseudo, lien: lienDe(e, jeton), code, langue: langueDe(corps.langue) }))
   }
   return { ok: true }
 })

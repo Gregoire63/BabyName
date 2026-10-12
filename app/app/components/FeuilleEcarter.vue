@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
+import { t } from '~/composables/useLangue'
 
 /**
  * « Mettre un veto » — deux raisons, deux gestes.
@@ -37,15 +38,15 @@ const graphies = computed(() => g.graphiesDe(props.prenom))
 const graphiesLisibles = computed(() => {
   const v = graphies.value
   if (v.length <= 4) return v.join(', ')
-  return `${v.slice(0, 3).join(', ')} et ${v.length - 3} autres`
+  return t('FeuilleEcarter.etAutres', { liste: v.slice(0, 3).join(', '), n: v.length - 3 })
 })
 const max = computed(() => g.etat.value?.groupe?.nb_vetos_max ?? BLOCAGES_SECRETS)
 const restants = computed(() => Math.max(0, max.value - g.mesVetos.value.length))
 
-const bouton = computed(() => envoi.value ? 'Un instant…'
-  : nature.value === 'pris' ? `Ajouter ${props.prenom} aux déjà pris`
-  : nature.value === 'secret' ? `Mettre un veto sur ${props.prenom}`
-  : 'Choisissez une raison')
+const bouton = computed(() => envoi.value ? t('FeuilleEcarter.unInstant')
+  : nature.value === 'pris' ? t('FeuilleEcarter.ajouterPris', { nom: props.prenom })
+  : nature.value === 'secret' ? t('FeuilleEcarter.poserVeto', { nom: props.prenom })
+  : t('FeuilleEcarter.choisirRaison'))
 
 async function confirmer(fermer: () => void) {
   if (!nature.value || envoi.value) return
@@ -60,14 +61,14 @@ async function confirmer(fermer: () => void) {
   } catch (e: any) {
     const code = e?.data?.statusMessage
     erreur.value = code === 'quota_veto_atteint'
-      ? `Vos ${max.value} vetos sont utilisés : retirez-en un dans Classement › Mes choix, ou dites-le : « déjà pris » n’a pas de limite.`
+      ? t('FeuilleEcarter.quotaErreur', { max: max.value })
       : code === 'deja_veto' || code === 'deja_pris'
-        ? `${props.prenom} est déjà retiré du jeu.`
+        ? t('FeuilleEcarter.dejaRetire', { nom: props.prenom })
         : code === 'deja_pris_plein'
-          ? 'Cette liste a déjà deux cents prénoms « déjà pris ».'
+          ? t('FeuilleEcarter.plein')
           : code === 'trop_d_essais'
-            ? 'Beaucoup de prénoms retirés d’un coup : réessayez dans un moment.'
-            : 'Rien n’a pu être enregistré. Réessayez.'
+            ? t('FeuilleEcarter.tropDEssais')
+            : t('FeuilleEcarter.echec')
   } finally { envoi.value = false }
 }
 </script>
@@ -77,47 +78,45 @@ async function confirmer(fermer: () => void) {
        cédé la place à « Bloquer », qui se confondait avec « Débloquer la
        liste » — l'achat. Deux façons d'en poser un : « déjà pris », dit à
        tous et sans limite, ou pour une autre raison, compté. -->
-  <Feuille titre="Mettre un veto" @fermer="emit('fermer')">
+  <Feuille :titre="$t('FeuilleEcarter.titre')" @fermer="emit('fermer')">
     <p style="margin:0 0 2px">
       <strong style="font-size:1.35rem">{{ prenom }}</strong>
     </p>
     <p v-if="graphies.length" class="mini doux" style="margin:0 0 12px">
-      Avec {{ graphies.length > 1 ? 'ses graphies' : 'sa graphie' }} :
-      {{ graphiesLisibles }}. Même son, même sort.
+      {{ $t('FeuilleEcarter.avecGraphies', { n: graphies.length }) }}
+      {{ graphiesLisibles }}. {{ $t('FeuilleEcarter.memeSon') }}
     </p>
     <p v-else class="mini doux" style="margin:0 0 12px">
-      Il ne sera jamais dans vos accords, quoi que votent les autres.
+      {{ $t('FeuilleEcarter.jamais') }}
     </p>
 
     <fieldset class="raisons">
-      <legend class="mini doux">Pourquoi ?</legend>
+      <legend class="mini doux">{{ $t('FeuilleEcarter.pourquoi') }}</legend>
       <label class="raison" :class="{ choisie: nature === 'pris' }">
         <input v-model="nature" type="radio" name="raison" value="pris">
         <span class="texte">
-          <strong>Déjà pris</strong>
-          <span>La famille, des amis, quelqu’un qu’on connaît trop. Toute la
-            liste le voit, avec votre note, sans limite.</span>
+          <strong>{{ $t('FeuilleEcarter.pris') }}</strong>
+          <span>{{ $t('FeuilleEcarter.prisAide') }}</span>
         </span>
       </label>
       <label class="raison" :class="{ choisie: nature === 'secret' }">
         <input v-model="nature" type="radio" name="raison" value="secret">
         <span class="texte">
-          <strong>Autre raison</strong>
-          <span>Personne ne saura que c’est vous, ni pourquoi. Il vous en reste
-            <b>{{ restants }}</b> sur {{ max }}.</span>
+          <strong>{{ $t('FeuilleEcarter.autre') }}</strong>
+          <span>{{ $t('FeuilleEcarter.autreAideA') }}
+            <b>{{ restants }}</b> {{ $t('FeuilleEcarter.autreAideB', { max }) }}</span>
         </span>
       </label>
     </fieldset>
 
     <input v-if="nature === 'pris'" v-model="note" class="champ" maxlength="200"
-           aria-label="Qui le porte ? (facultatif, visible de toute la liste)"
-           placeholder="Qui le porte ? La cousine, le fils de Paul…">
+           :aria-label="$t('FeuilleEcarter.notePrisAria')"
+           :placeholder="$t('FeuilleEcarter.notePrisPlaceholder')">
     <input v-else-if="nature === 'secret'" v-model="note" class="champ" maxlength="200"
-           aria-label="Pourquoi ce veto ? (facultatif, visible de vous seul)"
-           placeholder="Pourquoi ? (pour vous seul, facultatif)">
+           :aria-label="$t('FeuilleEcarter.noteVetoAria')"
+           :placeholder="$t('FeuilleEcarter.noteVetoPlaceholder')">
     <p v-if="nature === 'secret' && !restants" class="mini" style="margin:8px 0 0">
-      Vos {{ max }} vetos sont utilisés : retirez-en un dans
-      Classement › Mes choix, ou choisissez « déjà pris ».
+      {{ $t('FeuilleEcarter.quotaAtteint', { max }) }}
     </p>
     <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:8px 0 0">
       {{ erreur }}

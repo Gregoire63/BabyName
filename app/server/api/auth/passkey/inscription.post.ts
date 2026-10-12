@@ -34,6 +34,6 @@ export default defineEventHandler(async (e) => {
     [credential.id, moi.id, Buffer.from(credential.publicKey).toString('base64url'),
      credential.counter, credential.transports ?? [], nom, credentialBackedUp])
   // Une porte de plus sur le compte : son adresse, s'il en a une, l'apprend.
-  if (moi.email) await prevenir(alertePasskey({ a: moi.email, pseudo: moi.pseudo, nom }))
+  if (moi.email) await prevenir(alertePasskey({ a: moi.email, pseudo: moi.pseudo, nom, langue: moi.langue }))
   return { ok: true, passkey: { id: credential.id, nom, synchronisee: credentialBackedUp } }
 })

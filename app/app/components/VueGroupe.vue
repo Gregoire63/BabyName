@@ -4,6 +4,7 @@ import { chargerCatalogue, filtrer, filtresParDefaut, PAYS_DEFAUT, type Prenom, 
 import { appliquerPays, chargerPays } from '~/composables/usePays'
 import { marquerListeCourante } from '~/composables/useListeCourante'
 import { CLE_GROUPE, type EtatGroupe, type EntreeDejaPris, type StatutPaiement } from '~/composables/etatGroupe'
+import { t } from '~/composables/useLangue'
 
 const props = defineProps<{ depart?: string; segmentDepart?: string }>()
 
@@ -23,11 +24,9 @@ const props = defineProps<{ depart?: string; segmentDepart?: string }>()
  * « La liste » plutot que « Parametres » : ces reglages-la sont ceux de CETTE
  * liste. Ce qui concerne le compte vit sur l'accueil, sous son propre nom.
  */
-const ONGLETS = [
-  { id: 'swipe', t: 'Swipe' },
-  { id: 'classement', t: 'Classement' },
-  { id: 'reglages', t: 'La liste' }
-]
+const ONGLETS = [{ id: 'swipe' }, { id: 'classement' }, { id: 'reglages' }]
+/** Le nom affiché d'un onglet (app/textes/VueGroupe). */
+const nomOnglet = (i: number) => ONGLETS[i] ? t(`VueGroupe.onglet_${ONGLETS[i]!.id}`) : ''
 
 const gid = useRoute().params.id as string
 const pager = ref<HTMLElement>()
@@ -309,7 +308,7 @@ function allerA(onglet: string, seg?: string) {
 useHead({
   title: computed(() => {
     const nom = etat.value?.groupe?.nom
-    const onglet = ONGLETS[index.value]?.t ?? ''
+    const onglet = nomOnglet(index.value)
     return nom ? `${onglet} · ${nom}` : onglet
   })
 })
@@ -524,25 +523,25 @@ async function attendrePaiement() {
          d'ecran les lit a la suite et la tabulation s'y perd. -->
     <main id="contenu" ref="pager" class="pager" tabindex="-1"
           @scroll.passive="auDefilement" @keydown="flechesPager">
-      <section :aria-label="ONGLETS[0]!.t" :inert="index !== 0 || undefined">
+      <section :aria-label="nomOnglet(0)" :inert="index !== 0 || undefined">
         <SectionTrier v-if="vues.has(0)" :actif="index === 0" />
       </section>
       <!-- Hors de vue, ces deux-là ne suivent plus les votes (EnVeille) : le
            tri ne paie pas, à chaque geste, des écrans qu'on ne regarde pas. -->
-      <section :aria-label="ONGLETS[1]!.t" :inert="index !== 1 || undefined">
+      <section :aria-label="nomOnglet(1)" :inert="index !== 1 || undefined">
         <EnVeille v-if="vues.has(1)" :actif="index === 1">
           <SectionClassement :actif="index === 1"
                              :segment="segment" @segment="segment = $event" />
         </EnVeille>
       </section>
-      <section :aria-label="ONGLETS[2]!.t" :inert="index !== 2 || undefined">
+      <section :aria-label="nomOnglet(2)" :inert="index !== 2 || undefined">
         <EnVeille v-if="vues.has(2)" :actif="index === 2">
           <SectionReglages :actif="index === 2" />
         </EnVeille>
       </section>
     </main>
 
-    <nav class="onglets" aria-label="Navigation dans la liste">
+    <nav class="onglets" :aria-label="$t('VueGroupe.navigation')">
       <!-- la sortie, pas un onglet : elle quitte la liste -->
       <NuxtLink to="/" class="sortie">
         <span class="picto">
@@ -550,7 +549,7 @@ async function attendrePaiement() {
             <path d="M4 11 12 4l8 7M6.5 9.6V19h11V9.6" />
           </svg>
         </span>
-        Accueil
+        {{ $t('VueGroupe.accueil') }}
       </NuxtLink>
 
       <!-- La pastille des nouveaux accords est un dessin : son sens passe dans
@@ -558,7 +557,7 @@ async function attendrePaiement() {
       <button v-for="(o, i) in ONGLETS" :key="o.id" type="button" :class="{ on: index === i }"
               :aria-current="index === i ? 'page' : undefined"
               :aria-label="o.id === 'classement' && nouveaux
-                ? `${o.t}, ${nouveaux > 1 ? `${nouveaux} nouveaux accords` : '1 nouvel accord'}`
+                ? $t('VueGroupe.nouveaux', { onglet: nomOnglet(i), n: nouveaux })
                 : undefined"
               @click="glisserVers(i)">
         <span class="picto">
@@ -580,7 +579,7 @@ async function attendrePaiement() {
           </svg>
           <i v-if="o.id === 'classement' && nouveaux" class="pastille" aria-hidden="true">{{ nouveaux }}</i>
         </span>
-        {{ o.t }}
+        {{ nomOnglet(i) }}
       </button>
     </nav>
 
@@ -597,34 +596,28 @@ async function attendrePaiement() {
     <div v-if="confirmation" class="paiement" :class="confirmation"
          role="status" aria-live="polite" @click="confirmation = null">
       <template v-if="confirmation === 'attente'">
-        Paiement reçu, on débloque la liste…
+        {{ $t('VueGroupe.attente') }}
       </template>
       <template v-else-if="confirmation === 'ok'">
-        C’est débloqué, pour vous et pour tout le monde sur cette liste.
+        {{ $t('VueGroupe.ok') }}
       </template>
       <template v-else-if="confirmation === 'partenaire'">
-        {{ payeParAutre ?? 'Quelqu’un' }} vient de débloquer la liste : swipes illimités pour vous
-        aussi.
+        {{ $t('VueGroupe.partenaire', { qui: payeParAutre ?? $t('VueGroupe.quelquun') }) }}
       </template>
       <template v-else-if="confirmation === 'doublon'">
-        {{ payeParAutre ?? 'Quelqu’un' }} avait débloqué la liste juste avant vous. Votre paiement
-        est remboursé automatiquement, en entier (quelques jours sur votre relevé).
+        {{ $t('VueGroupe.doublon', { qui: payeParAutre ?? $t('VueGroupe.quelquun') }) }}
       </template>
       <template v-else-if="confirmation === 'avance'">
-        {{ payeParAutre ?? 'Quelqu’un' }} avait débloqué la liste juste avant vous. Votre achat
-        n’est pas perdu : il débloquera une autre de vos listes.
+        {{ $t('VueGroupe.avance', { qui: payeParAutre ?? $t('VueGroupe.quelquun') }) }}
       </template>
       <template v-else-if="confirmation === 'lent-app'">
-        L’achat est passé, mais la confirmation tarde. Elle se fera d’elle-même à la prochaine
-        ouverture de l’app : rien n’est perdu.
+        {{ $t('VueGroupe.lentApp') }}
       </template>
       <template v-else-if="confirmation === 'cadeau'">
-        C’est débloqué{{ cadeauDe ? `, un cadeau de ${cadeauDe}` : ', un beau cadeau' }}, pour vous
-        et pour tout le monde sur cette liste.
+        {{ $t('VueGroupe.cadeau', { de: cadeauDe }) }}
       </template>
       <template v-else>
-        Le paiement est passé, mais la confirmation tarde. Rechargez la page
-        dans une minute ; si rien ne change, écrivez-nous, rien n’est perdu.
+        {{ $t('VueGroupe.lent') }}
       </template>
     </div>
   </div>

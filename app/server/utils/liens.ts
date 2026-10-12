@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
+import { langueDe } from './langues'
 
 /**
  * Les liens reçus par e-mail, et leur code à 6 chiffres : pour se connecter,
@@ -125,8 +126,8 @@ export function lienDe(e: Parameters<typeof partieConfiante>[0], jeton: string):
  * d'un compte, c'est pouvoir y revenir par lien — son titulaire doit le savoir.
  */
 export async function enregistrerEmail(userId: string, email: string) {
-  const avant = await q1<{ email: string | null; pseudo: string }>(
-    `select email, pseudo from utilisateurs where id = ?1`, [userId])
+  const avant = await q1<{ email: string | null; pseudo: string; langue: string | null }>(
+    `select email, pseudo, langue from utilisateurs where id = ?1`, [userId])
   try {
     await ecrire(`update utilisateurs set email = ?2, email_verifie_le = ${MAINTENANT} where id = ?1`, [userId, email])
   } catch (err: any) {
@@ -134,7 +135,7 @@ export async function enregistrerEmail(userId: string, email: string) {
     throw err
   }
   if (avant?.email && avant.email !== email) {
-    await prevenir(alerteAdresse({ a: avant.email, pseudo: avant.pseudo, nouvelle: email }))
+    await prevenir(alerteAdresse({ a: avant.email, pseudo: avant.pseudo, nouvelle: email, langue: avant.langue }))
   }
 }
 
@@ -145,8 +146,12 @@ export async function enregistrerEmail(userId: string, email: string) {
  * jour, sur un autre appareil) : on entre alors dans CELUI-LÀ. La boîte mail
  * est prouvée, c'est la sienne ; en créer un second serait impossible
  * (adresse unique) et inutile.
+ *
+ * `langue` : celle de l'app qui confirme (migration 0013) — celle des
+ * e-mails et des notifications du compte qui naît. Un compte retrouvé garde
+ * la sienne.
  */
-export async function ouvrirCompteInscrit(email: string, pseudo: string) {
+export async function ouvrirCompteInscrit(email: string, pseudo: string, langue?: unknown) {
   type Compte = { id: string; pseudo: string; gen: number }
   const retrouver = () => q1<Compte>(
     `update utilisateurs set vu_le = ${MAINTENANT} where email = ?1
@@ -155,8 +160,8 @@ export async function ouvrirCompteInscrit(email: string, pseudo: string) {
   if (deja) return { ...deja, nouveau: false }
   try {
     const u = await q1<Compte>(
-      `insert into utilisateurs (pseudo, email, email_verifie_le) values (?1, ?2, ${MAINTENANT})
-       returning id, pseudo, session_gen as gen`, [pseudo, email])
+      `insert into utilisateurs (pseudo, email, email_verifie_le, langue) values (?1, ?2, ${MAINTENANT}, ?3)
+       returning id, pseudo, session_gen as gen`, [pseudo, email, langueDe(langue)])
     if (!u) throw createError({ statusCode: 500, statusMessage: 'creation_impossible' })
     return { ...u, nouveau: true }
   } catch (err: any) {

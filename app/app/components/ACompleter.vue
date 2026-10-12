@@ -11,7 +11,7 @@ defineProps<{ v?: string | null; quoi: string }>()
 
 <template>
   <span v-if="v && v.trim()">{{ v }}</span>
-  <mark v-else class="a-completer">[à compléter : {{ quoi }}]</mark>
+  <mark v-else class="a-completer">{{ $t('ACompleter.trou', { quoi }) }}</mark>
 </template>
 
 <style scoped>

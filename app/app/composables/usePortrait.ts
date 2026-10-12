@@ -1,5 +1,6 @@
 import type { Prenom } from '~/composables/useCatalogue'
 import { bords, estVoyelle } from '~/composables/usePhonetique'
+import { t, nombre, type Parametres } from '~/composables/useLangue'
 
 /**
  * « Qu'est-ce qu'on aime, en fait ? »
@@ -35,6 +36,10 @@ export interface Trait {
   /** Clé stable, sert aussi à comparer deux personnes sur le même axe. */
   axe: 'origine' | 'longueur' | 'rarete' | 'epoque' | 'finale' | 'genre'
   texte: string
+  /** Le texte (app/textes/usePortrait) et ses paramètres : de quoi le
+   *  réécrire pour quelqu'un d'autre (`qui`, voir PanneauPortrait). */
+  cle: string
+  p: Parametres
   /** Force du trait, pour trier. */
   poids: number
 }
@@ -56,16 +61,17 @@ export interface VoteVisible {
 const moyenne = (xs: number[]) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0
 
 /**
- * Un nombre ecrit en francais.
+ * Un nombre ecrit dans la langue affichee.
  *
  * `toFixed` rend « 1.8 » et « 3.0 » : un point anglais et un zero inutile, au
- * milieu de phrases qu'on lit comme une conversation. Une virgule, et rien
- * apres l'entier quand il n'y a rien a dire.
+ * milieu de phrases qu'on lit comme une conversation. Une virgule en francais,
+ * et rien apres l'entier quand il n'y a rien a dire.
  */
-const nb = (x: number, d = 1) => {
-  const s = x.toFixed(d)
-  return (s.endsWith('.0') ? s.slice(0, -2) : s).replace('.', ',')
-}
+const nb = (x: number, d = 1) => nombre(Number(x.toFixed(d)), { maximumFractionDigits: d })
+
+/** Un trait : son texte pour « vous », et de quoi le réécrire pour un autre. */
+const trait = (axe: Trait['axe'], poids: number, cle: string, p: Parametres): Trait =>
+  ({ axe, poids, cle, p, texte: t(`usePortrait.${cle}`, p) })
 
 /** Finale entendue : une voyelle ou une consonne — l'oreille trie la-dessus. */
 function finaleVocalique(nom: string): boolean {
@@ -95,35 +101,24 @@ function traitsDe(oui: Prenom[], juges: Prenom[]): Trait[] {
   }
   origines.sort((a, b) => b.lift * b.k - a.lift * a.k)
   if (origines.length) {
-    const noms = origines.slice(0, 2).map(x => x.o).join(' et ')
-    out.push({
-      axe: 'origine', poids: origines[0]!.lift,
-      texte: `Vos oui penchent ${origines.length > 1 ? 'vers les origines' : "vers l'origine"} ${noms}, nettement plus que ce qu'on vous a montré.`
-    })
+    out.push(trait('origine', origines[0]!.lift, 'origine',
+      { o1: origines[0]!.o, o2: origines[1]?.o ?? '' }))
   }
 
   // --- longueur ------------------------------------------------------------
   const syOui = moyenne(oui.map(p => p.y)), syVu = moyenne(juges.map(p => p.y))
   if (syVu > 0 && Math.abs(syOui - syVu) >= 0.28) {
     const court = syOui < syVu
-    out.push({
-      axe: 'longueur', poids: Math.abs(syOui - syVu) * 2,
-      texte: court
-        ? `Vous dites oui plus court : ${nb(syOui)} syllabes en moyenne, contre ${nb(syVu)} pour ce que vous avez vu.`
-        : `Vous dites oui plus long : ${nb(syOui)} syllabes en moyenne, contre ${nb(syVu)} pour ce que vous avez vu.`
-    })
+    out.push(trait('longueur', Math.abs(syOui - syVu) * 2, court ? 'court' : 'long',
+      { oui: nb(syOui), vu: nb(syVu) }))
   }
 
   // --- rarete --------------------------------------------------------------
   const oOui = moyenne(oui.map(p => p.o)), oVu = moyenne(juges.map(p => p.o))
   if (oVu > 0 && Math.abs(oOui - oVu) >= 7) {
     const rare = oOui > oVu
-    out.push({
-      axe: 'rarete', poids: Math.abs(oOui - oVu) / 10,
-      texte: rare
-        ? `Vous allez vers ce qui s'entend peu (originalité ${nb(oOui, 0)} contre ${nb(oVu, 0)} en moyenne vue).`
-        : `Vous allez vers ce qui se porte (originalité ${nb(oOui, 0)} contre ${nb(oVu, 0)} en moyenne vue).`
-    })
+    out.push(trait('rarete', Math.abs(oOui - oVu) / 10, rare ? 'rare' : 'courant',
+      { oui: nb(oOui, 0), vu: nb(oVu, 0) }))
   }
 
   // --- epoque : le pic historique, c'est le grand-pere ou le voisin de CP ---
@@ -140,13 +135,8 @@ function traitsDe(oui: Prenom[], juges: Prenom[]): Trait[] {
     if (d >= 6) {
       // Huit ans ne sont pas « une generation ». On calibre le mot sur
       // l'ecart : une phrase qui sur-vend se retourne contre le reste.
-      const ampleur = d >= 22 ? 'une génération' : d >= 12 ? 'une bonne décennie' : 'quelques années'
-      out.push({
-        axe: 'epoque', poids: d / 12,
-        texte: a < b
-          ? `Vos oui ont eu leur heure vers ${Math.round(a)}, ${ampleur} avant le reste de votre liste.`
-          : `Vos oui sont plus récents que le reste de votre liste : leur sommet est vers ${Math.round(a)}, ${ampleur} après.`
-      })
+      const ampleur = t(`usePortrait.ampleur_${d >= 22 ? 'generation' : d >= 12 ? 'decennie' : 'annees'}`)
+      out.push(trait('epoque', d / 12, a < b ? 'ancien' : 'recent', { an: Math.round(a), ampleur }))
     }
   }
 
@@ -154,12 +144,9 @@ function traitsDe(oui: Prenom[], juges: Prenom[]): Trait[] {
   const vOui = oui.filter(p => finaleVocalique(p.l)).length / n
   const vVu = juges.filter(p => finaleVocalique(p.l)).length / Math.max(1, juges.length)
   if (Math.abs(vOui - vVu) >= 0.14) {
-    out.push({
-      axe: 'finale', poids: Math.abs(vOui - vVu) * 3,
-      texte: vOui > vVu
-        ? `${Math.round(vOui * 100)} % de vos oui finissent sur une voyelle : c'est une préférence d'oreille, elle ne se voit pas à l'écrit.`
-        : `Vos oui finissent sur une consonne (${Math.round((1 - vOui) * 100)} %) : des prénoms qui s'arrêtent net plutôt qu'ils ne s'ouvrent.`
-    })
+    out.push(vOui > vVu
+      ? trait('finale', Math.abs(vOui - vVu) * 3, 'voyelle', { pct: Math.round(vOui * 100) })
+      : trait('finale', Math.abs(vOui - vVu) * 3, 'consonne', { pct: Math.round((1 - vOui) * 100) }))
   }
 
   return out.sort((a, b) => b.poids - a.poids)
@@ -212,20 +199,21 @@ export function divergence(
   const [a, b] = gens.slice(0, 2) as [typeof gens[0], typeof gens[0]]
 
   const axes: { nom: string; va: number; vb: number; unite: (x: number) => string; seuil: number }[] = [
-    { nom: 'la longueur', va: moyenne(a.oui.map(p => p.y)), vb: moyenne(b.oui.map(p => p.y)),
-      unite: x => `${nb(x)} syllabes`, seuil: 0.35 },
-    { nom: 'la rareté', va: moyenne(a.oui.map(p => p.o)), vb: moyenne(b.oui.map(p => p.o)),
-      unite: x => `${nb(x, 0)}/100 d'originalité`, seuil: 9 },
-    { nom: "l'époque", va: moyenne(a.oui.map(p => p.p).filter(x => x >= 1900)),
+    { nom: t('usePortrait.axe_longueur'), va: moyenne(a.oui.map(p => p.y)), vb: moyenne(b.oui.map(p => p.y)),
+      unite: x => t('usePortrait.unite_longueur', { n: nb(x) }), seuil: 0.35 },
+    { nom: t('usePortrait.axe_rarete'), va: moyenne(a.oui.map(p => p.o)), vb: moyenne(b.oui.map(p => p.o)),
+      unite: x => t('usePortrait.unite_rarete', { n: nb(x, 0) }), seuil: 9 },
+    { nom: t('usePortrait.axe_epoque'), va: moyenne(a.oui.map(p => p.p).filter(x => x >= 1900)),
       vb: moyenne(b.oui.map(p => p.p).filter(x => x >= 1900)),
-      unite: x => `un sommet vers ${Math.round(x)}`, seuil: 8 }
+      unite: x => t('usePortrait.unite_epoque', { n: Math.round(x) }), seuil: 8 }
   ]
   const pires = axes
     .filter(x => Number.isFinite(x.va) && Number.isFinite(x.vb) && Math.abs(x.va - x.vb) >= x.seuil)
     .sort((x, y) => Math.abs(y.va - y.vb) / y.seuil - Math.abs(x.va - x.vb) / x.seuil)
   const d = pires[0]
   if (!d) return null
-  return `Vous divergez surtout sur ${d.nom} : ${a.pseudo} à ${d.unite(d.va)}, ${b.pseudo} à ${d.unite(d.vb)}.`
+  return t('usePortrait.divergence',
+    { axe: d.nom, a: a.pseudo, va: d.unite(d.va), b: b.pseudo, vb: d.unite(d.vb) })
 }
 
 /**
@@ -263,15 +251,16 @@ export interface Explication {
 }
 
 interface Axe {
-  nom: string
+  /** Son nom et son unité : app/textes/usePortrait (axe_…, unite_…). */
+  id: 'longueur' | 'rarete' | 'epoque'
   valeur: (p: Prenom) => number | null
   dire: (x: number) => string
 }
 
 const AXES: Axe[] = [
-  { nom: 'la longueur', valeur: p => p.y, dire: x => `${nb(x)} syllabes` },
-  { nom: 'la rareté', valeur: p => p.o, dire: x => `${nb(x, 0)}/100 d'originalité` },
-  { nom: "l'époque", valeur: p => (p.p >= 1900 ? p.p : null), dire: x => `un sommet vers ${Math.round(x)}` }
+  { id: 'longueur', valeur: p => p.y, dire: x => t('usePortrait.unite_longueur', { n: nb(x) }) },
+  { id: 'rarete', valeur: p => p.o, dire: x => t('usePortrait.unite_rarete', { n: nb(x, 0) }) },
+  { id: 'epoque', valeur: p => (p.p >= 1900 ? p.p : null), dire: x => t('usePortrait.unite_epoque', { n: Math.round(x) }) }
 ]
 
 /**
@@ -349,7 +338,8 @@ export function expliquerDesaccords(
     const { axe, m, x } = meilleur
     explications.set(prenom, {
       pseudo: refus.pseudo,
-      texte: `Ce n'est peut-être pas ${p.l} : c'est ${axe.nom}. ${refus.pseudo} garde des prénoms à ${axe.dire(m)} en moyenne, ${p.l} est à ${axe.dire(x)}.`
+      texte: t('usePortrait.explication',
+        { prenom: p.l, axe: t(`usePortrait.axe_${axe.id}`), qui: refus.pseudo, m: axe.dire(m), x: axe.dire(x) })
     })
   }
   return explications

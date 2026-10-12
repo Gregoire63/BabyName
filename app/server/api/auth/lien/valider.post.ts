@@ -10,7 +10,7 @@
  */
 export default defineEventHandler(async (e) => {
   await limiter(e, 'lien-valider', ipDe(e), 30, 600)
-  const { jeton } = await readBody<{ jeton?: string }>(e) ?? {}
+  const { jeton, langue } = await readBody<{ jeton?: string; langue?: string }>(e) ?? {}
   const l = await consommerJeton(String(jeton ?? ''))
   if (!l) throw createError({ statusCode: 400, statusMessage: 'lien_invalide' })
 
@@ -19,7 +19,7 @@ export default defineEventHandler(async (e) => {
     return { but: 'verification', email: l.email }
   }
   if (l.but === 'inscription') {
-    const u = await ouvrirCompteInscrit(l.email, l.pseudo ?? '')
+    const u = await ouvrirCompteInscrit(l.email, l.pseudo ?? '', langue)
     poserSession(e, u.id, u.gen)
     return { but: 'inscription', nouveau: u.nouveau, utilisateur: { id: u.id, pseudo: u.pseudo } }
   }

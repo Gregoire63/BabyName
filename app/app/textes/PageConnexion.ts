@@ -1,0 +1,52 @@
+import type { Textes } from '../composables/useLangue'
+
+export default {
+  fr: {
+    titrePage: 'babyNamed : choisir le prénom de bébé à deux',
+    compteSupprime: 'Votre compte et vos données ont été supprimés.',
+    accroche: 'Choisir un prénom à deux, sans s’influencer.',
+    prenomAvant: 'Votre liste commencera par',
+    prenomApres: '.',
+    invitation: 'Une liste vous a été partagée : vous y entrez juste après.',
+    cadeauDe: '{nom} vous offre babyNamed',
+    cadeau: 'Un cadeau vous attend',
+    cadeauSuite: ' : une liste débloquée.',
+    onglets: 'Inscription ou connexion',
+    inscription: 'Inscription',
+    connexion: 'Connexion',
+    votrePrenom: 'Votre prénom',
+    exemplePrenom: 'Camille',
+    rgpdAvant: 'En créant un compte, vous acceptez les',
+    conditions: 'conditions',
+    rgpdPoint: '.',
+    vosDonnees: 'Vos données',
+    rgpdApres: 'ne servent qu’à faire marcher l’app.',
+    fermees: 'Les inscriptions ne sont pas encore ouvertes.',
+    avecPasskey: 'Se connecter avec une passkey',
+    sansPasskey: 'Ce navigateur ne sait pas se servir d’une passkey. Ouvrez babyNamed sur le téléphone où vous l’avez créée.'
+  },
+  en: {
+    titrePage: 'babyNamed: choose your baby’s name together',
+    compteSupprime: 'Your account and your data have been deleted.',
+    accroche: 'Choose a name together, without swaying each other.',
+    prenomAvant: 'Your list will start with',
+    prenomApres: '.',
+    invitation: 'A list has been shared with you: you’ll go straight into it.',
+    cadeauDe: '{nom} is giving you babyNamed',
+    cadeau: 'A gift is waiting for you',
+    cadeauSuite: ': one list unlocked.',
+    onglets: 'Sign up or log in',
+    inscription: 'Sign up',
+    connexion: 'Log in',
+    votrePrenom: 'Your first name',
+    exemplePrenom: 'Alex',
+    rgpdAvant: 'By creating an account, you accept the',
+    conditions: 'terms',
+    rgpdPoint: '.',
+    vosDonnees: 'Your data',
+    rgpdApres: 'is only used to make the app work.',
+    fermees: 'Sign-ups are not open yet.',
+    avecPasskey: 'Log in with a passkey',
+    sansPasskey: 'This browser can’t use a passkey. Open babyNamed on the phone where you created it.'
+  }
+} satisfies Textes

@@ -2,6 +2,7 @@
 import { defineAsyncComponent } from 'vue'
 import { signalerNom, signalerPasskeysRestantes } from '~/composables/usePasskey'
 import { useEnregistrementDiffere, type OptionsEnvoi } from '~/composables/useEnregistrementDiffere'
+import { t } from '~/composables/useLangue'
 
 /**
  * Le compte, au meme endroit que le nom sur lequel on a tape.
@@ -38,7 +39,7 @@ async function renommer(o: OptionsEnvoi = {}) {
     await $fetch('/api/auth/pseudo', { method: 'POST', body: { pseudo: p }, keepalive: o.keepalive })
   } catch {
     envoye = ''
-    if (!o.keepalive) erreur.value = 'Ce nom n’a pas pu être enregistré.'
+    if (!o.keepalive) erreur.value = t('FeuilleCompte.nomRate')
     return
   }
   if (o.keepalive) { rafraichirMoi().then(() => signalerNom()).catch(() => {}); return }
@@ -121,7 +122,13 @@ const demandeSuppression = ref(false)
 const confirmation = ref('')
 const suppressionEnCours = ref(false)
 const erreurSuppression = ref('')
-const confirme = computed(() => confirmation.value.trim().toUpperCase() === 'SUPPRIMER')
+// Le mot à taper suit la langue ; « SUPPRIMER » reste accepté partout, et
+// c'est lui qui part au serveur.
+const motConfirmation = computed(() => t('FeuilleCompte.motConfirmation'))
+const confirme = computed(() => {
+  const m = confirmation.value.trim().toUpperCase()
+  return m === 'SUPPRIMER' || m === motConfirmation.value
+})
 
 function annulerSuppression() {
   demandeSuppression.value = false
@@ -151,7 +158,7 @@ async function supprimerCompte() {
     moi.value = null
     await navigateTo('/connexion?compte=supprime')
   } catch {
-    erreurSuppression.value = 'La suppression n’a pas abouti. Rien n’a été effacé ; réessayez dans un instant.'
+    erreurSuppression.value = t('FeuilleCompte.suppressionRatee')
   } finally {
     suppressionEnCours.value = false
   }
@@ -159,11 +166,11 @@ async function supprimerCompte() {
 </script>
 
 <template>
-  <Feuille titre="Mon compte" @fermer="emit('fermer')">
+  <Feuille :titre="$t('FeuilleCompte.titre')" @fermer="emit('fermer')">
     <section class="pile">
       <div class="ligne">
-        <label for="compte-nom" class="etiquette" style="flex:1">Nom affiché</label>
-        <span class="mini doux" role="status">{{ enregistre ? 'Enregistré' : '' }}</span>
+        <label for="compte-nom" class="etiquette" style="flex:1">{{ $t('FeuilleCompte.nomAffiche') }}</label>
+        <span class="mini doux" role="status">{{ enregistre ? $t('FeuilleCompte.enregistre') : '' }}</span>
       </div>
       <!-- enregistré en quittant le champ (ou par Entrée) : pas de bouton -->
       <input id="compte-nom" v-model="nom" class="champ" maxlength="40"
@@ -173,14 +180,14 @@ async function supprimerCompte() {
     </section>
 
     <section class="pile" aria-labelledby="compte-connexion">
-      <h3 id="compte-connexion" class="etiquette">Se connecter</h3>
+      <h3 id="compte-connexion" class="etiquette">{{ $t('FeuilleCompte.seConnecter') }}</h3>
       <MoyensConnexion />
     </section>
 
     <section class="pile" aria-labelledby="compte-theme">
-      <h3 id="compte-theme" class="etiquette">Apparence</h3>
+      <h3 id="compte-theme" class="etiquette">{{ $t('FeuilleCompte.apparence') }}</h3>
       <ChoixTheme />
-      <p class="mini doux" style="margin:0">Sur cet appareil.</p>
+      <p class="mini doux" style="margin:0">{{ $t('FeuilleCompte.surCetAppareil') }}</p>
     </section>
 
     <section class="pile" aria-labelledby="compte-langue">
@@ -190,43 +197,40 @@ async function supprimerCompte() {
 
     <section v-if="push.etat.value !== 'absent'" class="pile" aria-labelledby="compte-push">
       <div class="ligne">
-        <h3 id="compte-push" class="etiquette" style="flex:1">Notifications</h3>
-        <span class="mini doux" role="status">{{ push.etat.value === 'actif' ? 'Activées' : '' }}</span>
+        <h3 id="compte-push" class="etiquette" style="flex:1">{{ $t('FeuilleCompte.notifications') }}</h3>
+        <span class="mini doux" role="status">{{ push.etat.value === 'actif' ? $t('FeuilleCompte.activees') : '' }}</span>
       </div>
       <button v-if="push.etat.value === 'actif'" type="button" class="btn btn-0 mini" style="align-self:flex-start"
               :disabled="pushOccupe" @click="reglerPush(push.couper)">
-        Ne plus me prévenir
+        {{ $t('FeuilleCompte.couper') }}
       </button>
       <button v-else type="button" class="btn" :disabled="pushOccupe" @click="reglerPush(push.activer)">
-        {{ push.etat.value === 'refuse' ? 'Autoriser dans les réglages du téléphone' : 'Me prévenir' }}
+        {{ push.etat.value === 'refuse' ? $t('FeuilleCompte.autoriser') : $t('FeuilleCompte.activer') }}
       </button>
     </section>
 
     <section class="pile" aria-labelledby="compte-donnees">
-      <h3 id="compte-donnees" class="etiquette">Mes données</h3>
+      <h3 id="compte-donnees" class="etiquette">{{ $t('FeuilleCompte.mesDonnees') }}</h3>
       <p class="mini doux" style="margin:0">
-        <a href="/confidentialite" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/confidentialite')">Ce qu’on garde, et pourquoi</a>.
+        <a href="/confidentialite" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/confidentialite')">{{ $t('FeuilleCompte.ceQuOnGarde') }}</a>.
       </p>
       <a class="btn mini telecharger" href="/api/moi/donnees" download :aria-busy="exportEnCours || undefined"
-         @click="exporter">Télécharger mes données</a>
+         @click="exporter">{{ $t('FeuilleCompte.telecharger') }}</a>
       <p v-if="exportRate" class="mini" role="alert" style="color:var(--non);margin:0">
-        Le fichier n’a pas pu être préparé. Réessayez dans un instant.
+        {{ $t('FeuilleCompte.exportRate') }}
       </p>
 
       <button v-if="!demandeSuppression" type="button" class="btn btn-0 mini danger"
               style="align-self:flex-start" @click="demandeSuppression = true">
-        Supprimer mon compte
+        {{ $t('FeuilleCompte.supprimer') }}
       </button>
 
       <div v-else class="pile suppression" role="group" aria-labelledby="titre-suppression">
         <p id="titre-suppression" class="mini" style="margin:0">
-          <strong>Suppression définitive et immédiate</strong> de votre compte, de vos votes,
-          vetos, favoris et commentaires, dans toutes vos listes. Les listes où vous êtes
-          seul(e) disparaissent aussi, même débloquées. Les autres membres gardent leurs
-          listes et leurs votes.
+          <strong>{{ $t('FeuilleCompte.suppressionTitre') }}</strong> {{ $t('FeuilleCompte.suppressionTexte') }}
         </p>
         <label for="compte-confirmation" class="mini">
-          Pour confirmer, tapez <strong>SUPPRIMER</strong>
+          {{ $t('FeuilleCompte.pourConfirmer') }} <strong>{{ motConfirmation }}</strong>
         </label>
         <!-- Pas de v-model : le bouton se dégrise dès le mot écrit (utils/frappe.ts). -->
         <input id="compte-confirmation" :value="confirmation" class="champ" autocomplete="off"
@@ -238,9 +242,9 @@ async function supprimerCompte() {
         <div class="ligne">
           <button type="button" class="btn mini btn-danger" :disabled="!confirme || suppressionEnCours"
                   @click="supprimerCompte">
-            {{ suppressionEnCours ? 'Suppression…' : 'Supprimer définitivement' }}
+            {{ suppressionEnCours ? $t('FeuilleCompte.suppressionEnCours') : $t('FeuilleCompte.supprimerDefinitivement') }}
           </button>
-          <button type="button" class="btn btn-0 mini doux" @click="annulerSuppression">Annuler</button>
+          <button type="button" class="btn btn-0 mini doux" @click="annulerSuppression">{{ $t('FeuilleCompte.annuler') }}</button>
         </div>
       </div>
     </section>
@@ -248,7 +252,7 @@ async function supprimerCompte() {
     <component :is="OutilsDev" v-if="OutilsDev" />
 
     <template #pied>
-      <button type="button" class="btn btn-0 doux" @click="sortir">Se déconnecter</button>
+      <button type="button" class="btn btn-0 doux" @click="sortir">{{ $t('FeuilleCompte.deconnecter') }}</button>
       <PiedLegal compact />
     </template>
   </Feuille>

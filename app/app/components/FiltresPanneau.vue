@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { filtresParDefaut, PAYS_DEFAUT, type Filtres } from '~/composables/useCatalogue'
 import { chargerIndexPays, type Pays } from '~/composables/usePays'
+import { nombre } from '~/composables/useLangue'
+import { nomPays } from '~/utils/nomPays'
 const modele = defineModel<Filtres>({ required: true })
 const props = defineProps<{ origines: string[]; nb: number; nbRares: number }>()
 const emit = defineEmits<{ fermer: [] }>()
@@ -41,10 +43,10 @@ function cycler(o: string) {
 </script>
 
 <template>
-  <Feuille titre="Filtres" @fermer="emit('fermer')">
+  <Feuille :titre="$t('FiltresPanneau.titre')" @fermer="emit('fermer')">
     <template #action>
       <button class="btn btn-0 mini doux" @click="modele = filtresParDefaut()">
-        Remettre à zéro
+        {{ $t('FiltresPanneau.raz') }}
       </button>
     </template>
 
@@ -53,26 +55,26 @@ function cycler(o: string) {
     <div class="blocs">
       <section v-if="pays.length" class="bloc" aria-labelledby="f-pays">
         <div class="tete">
-          <h3 id="f-pays" class="titre">Pays</h3>
-          <span class="valeur">{{ choisis.length }} choisi{{ choisis.length > 1 ? 's' : '' }}</span>
+          <h3 id="f-pays" class="titre">{{ $t('FiltresPanneau.pays') }}</h3>
+          <span class="valeur">{{ $t('FiltresPanneau.choisis', { n: choisis.length }) }}</span>
         </div>
-        <p class="mini doux" style="margin:0">Les prénoms donnés dans ces pays ; la carte montre leur fréquence moyenne.</p>
+        <p class="mini doux" style="margin:0">{{ $t('FiltresPanneau.paysAide') }}</p>
         <div class="nuage">
           <button v-for="x in pays" :key="x.code" type="button" class="jeton petit"
                   :class="{ in: choisis.includes(x.code) }" :aria-pressed="choisis.includes(x.code)"
                   :title="`${x.organisme}, ${x.annees[0]}-${x.annees[1]}`"
-                  @click="basculerPays(x.code)">{{ x.nom }}</button>
+                  @click="basculerPays(x.code)">{{ nomPays(x.code, x.nom) }}</button>
         </div>
       </section>
 
       <section class="bloc" aria-labelledby="f-sexe">
-        <h3 id="f-sexe" class="titre">Sexe</h3>
+        <h3 id="f-sexe" class="titre">{{ $t('FiltresPanneau.sexe') }}</h3>
         <div class="trois">
           <button v-for="s in (['f','m','fm'] as const)" :key="s" type="button" class="jeton tuile"
                   :class="{ in: modele.sexe.includes(s) }"
                   :aria-pressed="modele.sexe.includes(s)"
                   @click="bascule(modele.sexe as string[], s)">
-            {{ s === 'f' ? 'fille' : s === 'm' ? 'garçon' : 'mixte' }}
+            {{ $t(`Sexe.${s}`) }}
           </button>
         </div>
       </section>
@@ -82,50 +84,50 @@ function cycler(o: string) {
            le minimum. -->
       <section class="bloc" aria-labelledby="f-long">
         <div class="tete">
-          <h3 id="f-long" class="titre">Longueur</h3>
-          <span class="valeur">{{ modele.car[0] }} à {{ modele.car[1] }} lettres</span>
+          <h3 id="f-long" class="titre">{{ $t('FiltresPanneau.longueur') }}</h3>
+          <span class="valeur">{{ $t('FiltresPanneau.lettres', { min: modele.car[0], max: modele.car[1] }) }}</span>
         </div>
         <label class="borne">
-          <span>au moins</span>
+          <span>{{ $t('FiltresPanneau.auMoins') }}</span>
           <input v-model.number="modele.car[0]" type="range" min="2" :max="modele.car[1]"
-                 aria-label="Longueur minimale, en lettres">
+                 :aria-label="$t('FiltresPanneau.longueurMin')">
           <b>{{ modele.car[0] }}</b>
         </label>
         <label class="borne">
-          <span>au plus</span>
+          <span>{{ $t('FiltresPanneau.auPlus') }}</span>
           <input v-model.number="modele.car[1]" type="range" :min="modele.car[0]" max="14"
-                 aria-label="Longueur maximale, en lettres">
+                 :aria-label="$t('FiltresPanneau.longueurMax')">
           <b>{{ modele.car[1] }}</b>
         </label>
       </section>
 
       <section class="bloc" aria-labelledby="f-syl">
         <div class="tete">
-          <h3 id="f-syl" class="titre">Syllabes</h3>
+          <h3 id="f-syl" class="titre">{{ $t('FiltresPanneau.syllabes') }}</h3>
           <span class="valeur">{{ modele.syllabes[0] === modele.syllabes[1] ? modele.syllabes[0]
-            : `${modele.syllabes[0]} à ${modele.syllabes[1]}` }}</span>
+            : $t('FiltresPanneau.intervalle', { min: modele.syllabes[0], max: modele.syllabes[1] }) }}</span>
         </div>
         <label class="borne">
-          <span>au moins</span>
+          <span>{{ $t('FiltresPanneau.auMoins') }}</span>
           <input v-model.number="modele.syllabes[0]" type="range" min="1" :max="modele.syllabes[1]"
-                 aria-label="Nombre minimal de syllabes">
+                 :aria-label="$t('FiltresPanneau.syllabesMin')">
           <b>{{ modele.syllabes[0] }}</b>
         </label>
         <label class="borne">
-          <span>au plus</span>
+          <span>{{ $t('FiltresPanneau.auPlus') }}</span>
           <input v-model.number="modele.syllabes[1]" type="range" :min="modele.syllabes[0]" max="6"
-                 aria-label="Nombre maximal de syllabes">
+                 :aria-label="$t('FiltresPanneau.syllabesMax')">
           <b>{{ modele.syllabes[1] }}</b>
         </label>
       </section>
 
       <section class="bloc" aria-labelledby="f-orig">
         <div class="tete">
-          <h3 id="f-orig" class="titre">Origines</h3>
+          <h3 id="f-orig" class="titre">{{ $t('FiltresPanneau.origines') }}</h3>
           <!-- la légende tient lieu de mode d'emploi -->
           <span class="legende" aria-hidden="true">
-            <span class="jeton mini-jeton in">incluse</span>
-            <span class="jeton mini-jeton out">exclue</span>
+            <span class="jeton mini-jeton in">{{ $t('FiltresPanneau.incluse') }}</span>
+            <span class="jeton mini-jeton out">{{ $t('FiltresPanneau.exclue') }}</span>
           </span>
         </div>
         <div class="nuage">
@@ -133,69 +135,69 @@ function cycler(o: string) {
                dit pas à un lecteur d'écran, le texte caché si. -->
           <button v-for="o in props.origines" :key="o" type="button" class="jeton"
                   :class="etatOrigine(o)" @click="cycler(o)">
-            {{ o }}<span class="sr-only">{{ etatOrigine(o) === 'in' ? ' : incluse'
-              : etatOrigine(o) === 'out' ? ' : exclue' : ' : indifférente' }}</span>
+            {{ $t(`Origines.${o}`) }}<span class="sr-only">{{ etatOrigine(o) === 'in' ? $t('FiltresPanneau.srIncluse')
+              : etatOrigine(o) === 'out' ? $t('FiltresPanneau.srExclue') : $t('FiltresPanneau.srIndifferente') }}</span>
           </button>
         </div>
         <p v-if="modele.origines_in.length" class="mini doux" style="margin:10px 0 0">
-          Les prénoms sans origine connue sont écartés.
+          {{ $t('FiltresPanneau.sansOrigine') }}
         </p>
       </section>
 
-      <section class="bloc interrupteurs" aria-label="Autres filtres">
+      <section class="bloc interrupteurs" :aria-label="$t('FiltresPanneau.autres')">
         <label class="inter">
-          <span>Pas de prénoms composés</span>
+          <span>{{ $t('FiltresPanneau.composes') }}</span>
           <input type="checkbox" role="switch" :checked="modele.compose === false"
                  @change="modele.compose = modele.compose === false ? null : false">
         </label>
         <label class="inter">
-          <span>Seulement ceux dont on connaît le sens</span>
+          <span>{{ $t('FiltresPanneau.sens') }}</span>
           <input v-model="modele.sens_requis" type="checkbox" role="switch">
         </label>
         <label class="inter">
-          <span>Écarter ceux qui sont aussi un objet ou une marque</span>
+          <span>{{ $t('FiltresPanneau.objet') }}</span>
           <input v-model="modele.exclure_objet" type="checkbox" role="switch">
         </label>
         <label class="inter">
           <span>
-            Inclure les prénoms très rares<template v-if="props.nbRares"> (+ {{ props.nbRares.toLocaleString('fr-FR') }})</template>
-            <small>Moins de 20 naissances en trois ans</small>
+            {{ $t('FiltresPanneau.rares') }}<template v-if="props.nbRares">{{ $t('FiltresPanneau.raresNb', { n: nombre(props.nbRares) }) }}</template>
+            <small>{{ $t('FiltresPanneau.raresAide') }}</small>
           </span>
           <input v-model="modele.inclure_rares" type="checkbox" role="switch">
         </label>
       </section>
 
       <button type="button" class="deplier" :aria-expanded="avance" @click="avance = !avance">
-        <span>Options fines</span>
+        <span>{{ $t('FiltresPanneau.fines') }}</span>
         <svg viewBox="0 0 24 24" aria-hidden="true" :class="{ ouvert: avance }"><path d="m6 9 6 6 6-6" /></svg>
       </button>
 
       <template v-if="avance">
         <section class="bloc">
           <label class="regle">
-            <span class="tete"><span class="titre">Originalité minimale</span>
+            <span class="tete"><span class="titre">{{ $t('FiltresPanneau.originaliteMin') }}</span>
               <span class="valeur">{{ modele.originalite[0] }}/100</span></span>
             <input v-model.number="modele.originalite[0]" type="range" min="0" max="100">
           </label>
           <label class="regle" style="margin-top:12px">
-            <span class="tete"><span class="titre">Risque d’explosion maximal</span>
+            <span class="tete"><span class="titre">{{ $t('FiltresPanneau.risqueMax') }}</span>
               <span class="valeur">{{ modele.risque_max }}/100</span></span>
             <input v-model.number="modele.risque_max" type="range" min="0" max="100">
           </label>
         </section>
         <section class="bloc" aria-labelledby="f-init">
-          <h3 id="f-init" class="titre">Initiales à éviter</h3>
+          <h3 id="f-init" class="titre">{{ $t('FiltresPanneau.initiales') }}</h3>
           <div class="nuage">
             <button v-for="l in LETTRES" :key="l" type="button" class="jeton petit"
                     :class="{ out: modele.initiales_out.includes(l) }"
                     :aria-pressed="modele.initiales_out.includes(l)"
-                    :aria-label="`Éviter l’initiale ${l}`"
+                    :aria-label="$t('FiltresPanneau.eviterInitiale', { l })"
                     @click="bascule(modele.initiales_out, l)">{{ l }}</button>
           </div>
         </section>
         <section class="bloc interrupteurs">
           <label class="inter">
-            <span>Seulement les prénoms d’avant 1970 qui remontent</span>
+            <span>{{ $t('FiltresPanneau.revival') }}</span>
             <input v-model="modele.revival_seulement" type="checkbox" role="switch">
           </label>
         </section>
@@ -204,7 +206,7 @@ function cycler(o: string) {
 
     <template #pied="{ fermer }">
       <button class="btn btn-1" style="width:100%" @click="fermer">
-        Voir les {{ props.nb.toLocaleString('fr-FR') }} prénoms
+        {{ $t('FiltresPanneau.voir', { n: nombre(props.nb), c: props.nb }) }}
       </button>
     </template>
   </Feuille>

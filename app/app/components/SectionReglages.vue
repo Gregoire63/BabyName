@@ -2,6 +2,7 @@
 import { paysDe } from '~/composables/usePays'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { useEnregistrementDiffere, type OptionsEnvoi } from '~/composables/useEnregistrementDiffere'
+import { t, locale } from '~/composables/useLangue'
 
 /**
  * Les réglages DE LA LISTE, et rien d'autre : son nom, son déblocage, qui en
@@ -58,7 +59,7 @@ const quitter = (e: KeyboardEvent) => (e.target as HTMLInputElement).blur()
 async function partager() {
   // La feuille de partage du téléphone — dans l'app des stores, c'est le
   // natif qui l'ouvre (partagerLien, useCoquille) ; à défaut, le lien copié.
-  const r = await partagerLien({ titre: 'babyNamed', texte: 'Aide-moi à choisir un prénom', url: lien.value })
+  const r = await partagerLien({ titre: 'babyNamed', texte: t('SectionReglages.partageTexte'), url: lien.value })
   if (!r.copie) return
   copie.value = true; setTimeout(() => copie.value = false, 1800)
 }
@@ -136,7 +137,7 @@ const cadeau = computed(() => !!(g.etat.value?.groupe as any)?.cadeau)
 const cadeauDe = computed(() => (g.etat.value?.groupe as any)?.cadeau_de as string | null)
 const debloqueeLe = computed(() => {
   const d = (g.etat.value?.groupe as any)?.paye_le
-  return d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+  return d ? new Date(d).toLocaleDateString(locale.value, { day: 'numeric', month: 'long', year: 'numeric' }) : ''
 })
 const nomFamille = ref('')
 const enregistre = ref(false)
@@ -202,7 +203,7 @@ async function creerCodeObs() {
 async function partagerObs() {
   if (!codeObs.value) return
   const url = `${location.origin}/rejoindre/${codeObs.value}`
-  const texte = `Viens donner ton avis sur nos prénoms, et mettre un cœur sur ceux qu’on a en commun (tu n’as pas de veto) : ${url}`
+  const texte = t('SectionReglages.partageObs', { url })
   const r = await partagerLien({ texte, url })
   if (!r.copie) return
   copieObs.value = true
@@ -212,19 +213,19 @@ async function partagerObs() {
 const filtresActifs = computed(() => {
   const f = g.filtres.value
   const out: string[] = []
-  if (f.sexe.length < 3) out.push(f.sexe.map(s => s === 'f' ? 'fille' : s === 'm' ? 'garçon' : 'mixte').join(' + '))
-  if (f.origines_in.length) out.push('origines : ' + f.origines_in.join(', '))
-  if (f.origines_out.length) out.push('sans ' + f.origines_out.join(', '))
-  if (f.compose === false) out.push('pas de composés')
-  if (f.syllabes[0] > 1 || f.syllabes[1] < 6) out.push(`${f.syllabes[0]} à ${f.syllabes[1]} syllabes`)
-  if (f.car[0] > 2 || f.car[1] < 14) out.push(`${f.car[0]} à ${f.car[1]} lettres`)
-  if (f.originalite[0] > 0) out.push(`originalité ≥ ${f.originalite[0]}`)
-  if (f.risque_max < 100) out.push(`risque ≤ ${f.risque_max}`)
-  if (f.sens_requis) out.push('sens connu')
-  if (f.exclure_objet) out.push('sans homonyme objet')
-  if (f.revival_seulement) out.push('revivals seulement')
-  if (f.inclure_rares) out.push('prénoms très rares inclus')
-  if (f.pays?.length && f.pays.join() !== 'fr') out.push(`pays : ${f.pays.map(c => paysDe(c)?.nom ?? c).join(', ')}`)
+  if (f.sexe.length < 3) out.push(f.sexe.map(s => t(`SectionReglages.sexe_${s}`)).join(' + '))
+  if (f.origines_in.length) out.push(t('SectionReglages.fOrigines', { liste: f.origines_in.join(', ') }))
+  if (f.origines_out.length) out.push(t('SectionReglages.fSans', { liste: f.origines_out.join(', ') }))
+  if (f.compose === false) out.push(t('SectionReglages.fPasComposes'))
+  if (f.syllabes[0] > 1 || f.syllabes[1] < 6) out.push(t('SectionReglages.fSyllabes', { a: f.syllabes[0], b: f.syllabes[1] }))
+  if (f.car[0] > 2 || f.car[1] < 14) out.push(t('SectionReglages.fLettres', { a: f.car[0], b: f.car[1] }))
+  if (f.originalite[0] > 0) out.push(t('SectionReglages.fOriginalite', { n: f.originalite[0] }))
+  if (f.risque_max < 100) out.push(t('SectionReglages.fRisque', { n: f.risque_max }))
+  if (f.sens_requis) out.push(t('SectionReglages.fSens'))
+  if (f.exclure_objet) out.push(t('SectionReglages.fObjet'))
+  if (f.revival_seulement) out.push(t('SectionReglages.fRevivals'))
+  if (f.inclure_rares) out.push(t('SectionReglages.fRares'))
+  if (f.pays?.length && f.pays.join() !== 'fr') out.push(t('SectionReglages.fPays', { liste: f.pays.map(c => paysDe(c)?.nom ?? c).join(', ') }))
   return out
 })
 
@@ -241,12 +242,13 @@ const demandeSuppression = ref(false)
 const confirmation = ref('')
 const suppressionEnCours = ref(false)
 const erreurSuppression = ref('')
-const confirme = computed(() => confirmation.value.trim().toUpperCase() === 'SUPPRIMER')
+// Le mot se tape dans la langue affichée ; le serveur reçoit toujours SUPPRIMER.
+const confirme = computed(() => confirmation.value.trim().toUpperCase() === t('SectionReglages.motSupprimer'))
 const autresMembres = computed(() => {
   const noms = (g.etat.value?.membres ?? [])
     .filter((m: any) => m.user_id !== g.etat.value?.moi?.user_id)
     .map((m: any) => m.pseudo as string)
-  return noms.length > 1 ? `${noms.slice(0, -1).join(', ')} et ${noms.at(-1)}` : (noms[0] ?? '')
+  return noms.length > 1 ? t('SectionReglages.etListe', { debut: noms.slice(0, -1).join(', '), fin: noms.at(-1) }) : (noms[0] ?? '')
 })
 
 function annulerSuppression() {
@@ -265,8 +267,8 @@ async function supprimerListe() {
     await navigateTo('/')
   } catch (err: any) {
     erreurSuppression.value = err?.statusMessage === 'reserve_au_proprietaire'
-      ? 'Seul le propriétaire de la liste peut la supprimer.'
-      : 'La suppression n’a pas abouti. Rien n’a été effacé ; réessayez dans un instant.'
+      ? t('SectionReglages.erreurProprietaire')
+      : t('SectionReglages.erreurSuppression')
     suppressionEnCours.value = false
     await g.recharger().catch(() => null)
   }
@@ -306,7 +308,7 @@ async function quitterListe() {
     oublierListe(String(g.gid))
     await navigateTo('/')
   } catch {
-    erreurQuitter.value = 'Ça n’a pas marché : vous êtes toujours dans la liste. Réessayez dans un instant.'
+    erreurQuitter.value = t('SectionReglages.erreurQuitter')
     quitterEnCours.value = false
   }
 }
@@ -325,14 +327,14 @@ async function quitterListe() {
     </template>
 
     <template v-else>
-      <TeteListe onglet="Réglages de cette liste" />
+      <TeteListe :onglet="$t('SectionReglages.onglet')" />
 
       <section class="carte pile">
         <div class="ligne">
-          <h2 style="flex:1">Nom</h2>
-          <span class="mini doux" role="status">{{ renomme ? 'Enregistré' : '' }}</span>
+          <h2 style="flex:1">{{ $t('SectionReglages.nom') }}</h2>
+          <span class="mini doux" role="status">{{ renomme ? $t('SectionReglages.enregistre') : '' }}</span>
         </div>
-        <input v-if="!jObserve" ref="champNom" v-model="nouveauNom" class="champ" aria-label="Nom de la liste"
+        <input v-if="!jObserve" ref="champNom" v-model="nouveauNom" class="champ" :aria-label="$t('SectionReglages.nomListe')"
                maxlength="60" @input="nomListe.planifier" @blur="nomListe.maintenant()" @keyup.enter="quitter">
         <p v-else style="margin:0;font-weight:700">{{ g.etat.value.groupe.nom }}</p>
       </section>
@@ -340,57 +342,55 @@ async function quitterListe() {
       <section v-if="montrerPayant" class="carte pile achat" :class="{ debloquee: paye }" aria-labelledby="titre-achat">
         <template v-if="!paye">
           <div class="ligne" style="align-items:baseline">
-            <h2 id="titre-achat" style="flex:1">Débloquer cette liste</h2>
+            <h2 id="titre-achat" style="flex:1">{{ $t('SectionReglages.debloquer') }}</h2>
             <strong class="prix">{{ prix }}</strong>
           </div>
           <p class="mini" style="margin:0">
-            <strong>Débloque cette liste pour la vie</strong>, pour tous ses
-            membres.
+            <strong>{{ $t('SectionReglages.pourLaVie') }}</strong>{{ $t('SectionReglages.pourTous') }}
           </p>
           <p class="quota-compare">
-            <span>Gratuit : {{ quota?.limite_jour ?? 15 }} swipes par jour</span>
-            <strong>Débloquée : illimité</strong>
+            <span>{{ $t('SectionReglages.gratuit', { n: quota?.limite_jour ?? 15 }) }}</span>
+            <strong>{{ $t('SectionReglages.illimite') }}</strong>
           </p>
           <ul class="inclus-court">
             <li v-for="i in INCLUS" :key="i.titre">{{ i.titre }}</li>
           </ul>
           <button v-if="!jObserve" class="btn btn-1" @click="g.ouvrirDebloquer()">
-            Voir le détail ({{ prix }})
+            {{ $t('SectionReglages.voirDetail', { prix }) }}
           </button>
           <p v-else class="mini doux" style="margin:0">
-            Un membre de la liste peut la débloquer.
+            {{ $t('SectionReglages.unMembre') }}
           </p>
         </template>
         <template v-else>
-          <h2 id="titre-achat">Liste débloquée</h2>
+          <h2 id="titre-achat">{{ $t('SectionReglages.listeDebloquee') }}</h2>
           <p v-if="cadeau" class="mini" style="margin:0">
-            <strong>{{ cadeauDe ? `Un cadeau de ${cadeauDe}` : 'Un cadeau' }}.</strong>
+            <strong>{{ cadeauDe ? $t('SectionReglages.cadeauDe', { nom: cadeauDe }) : $t('SectionReglages.cadeau') }}.</strong>
           </p>
           <p class="mini doux" style="margin:0">
-            {{ offerte || cadeau ? 'Offerte' : 'Débloquée' }}<template v-if="debloqueeLe"> le {{ debloqueeLe }}</template>,
-            pour tous ses membres.
+            {{ $t('SectionReglages.etatDeblocage', { offerte: offerte || cadeau, date: debloqueeLe }) }}
           </p>
           <!-- Le moment où l'on est content de ce qu'on a payé est celui où
                l'on pense aux amis qui attendent un bébé. -->
           <button v-if="vente.cadeaux" type="button" class="lien mini lien-bouton" style="align-self:flex-start"
                   @click="offrirOuvert = true">
-            Offrir babyNamed à d’autres futurs parents
+            {{ $t('SectionReglages.offrir') }}
           </button>
         </template>
       </section>
 
       <section v-if="!jObserve" class="carte pile invit" aria-labelledby="titre-invit">
-        <h2 id="titre-invit">Inviter quelqu’un</h2>
-        <div v-if="montrerPayant" class="deux-facons" role="group" aria-label="Type d’invitation">
+        <h2 id="titre-invit">{{ $t('SectionReglages.inviter') }}</h2>
+        <div v-if="montrerPayant" class="deux-facons" role="group" :aria-label="$t('SectionReglages.typeInvit')">
           <button type="button" class="facon" :aria-pressed="typeInvit === 'membre'"
                   @click="typeInvit = 'membre'">
-            <strong>Pour choisir avec vous</strong>
-            <span>juge les prénoms, compte dans les accords</span>
+            <strong>{{ $t('SectionReglages.membreTitre') }}</strong>
+            <span>{{ $t('SectionReglages.membreAide') }}</span>
           </button>
           <button type="button" class="facon" :aria-pressed="typeInvit === 'lecture'"
                   @click="typeInvit = 'lecture'">
-            <strong>En lecture seule</strong>
-            <span>donne son avis, met des cœurs ; ne compte pas dans vos accords, n’a pas de veto</span>
+            <strong>{{ $t('SectionReglages.lectureTitre') }}</strong>
+            <span>{{ $t('SectionReglages.lectureAide') }}</span>
           </button>
         </div>
 
@@ -399,19 +399,17 @@ async function quitterListe() {
           <div class="lien-invit degrade">
             <strong class="code">{{ codeLisible(g.etat.value.groupe.code_invitation) }}</strong>
             <button class="btn" @click="partager">
-              {{ copie ? 'Lien copié' : 'Partager le lien' }}
+              {{ copie ? $t('SectionReglages.lienCopie') : $t('SectionReglages.partagerLien') }}
             </button>
           </div>
           <!-- Dit avant le partage, pas découvert après. -->
           <div v-if="nbMembres >= 2" class="avert pile">
             <p class="mini" style="margin:0">
-              <strong>Une troisième personne compterait dans les accords</strong> :
-              vos {{ nbCommuns }} accord{{ nbCommuns > 1 ? 's' : '' }} attendraient
-              son avis, et un « non » de sa part suffirait à défaire chacun d’eux.
+              <strong>{{ $t('SectionReglages.troisieme') }}</strong>{{ $t('SectionReglages.troisiemeSuite', { n: nbCommuns }) }}
             </p>
             <button v-if="montrerPayant" type="button" class="btn btn-0 mini" style="align-self:flex-start;padding-left:0"
                     @click="typeInvit = 'lecture'">
-              Pour un simple avis : l’inviter en lecture seule
+              {{ $t('SectionReglages.simpleAvis') }}
             </button>
           </div>
         </template>
@@ -423,101 +421,98 @@ async function quitterListe() {
               <div class="lien-invit degrade">
                 <strong class="code">{{ codeLisible(codeObs) }}</strong>
                 <button class="btn" @click="partagerObs">
-                  {{ copieObs ? 'Lien copié' : 'Partager le lien' }}
+                  {{ copieObs ? $t('SectionReglages.lienCopie') : $t('SectionReglages.partagerLien') }}
                 </button>
               </div>
             </template>
             <button v-else class="btn" :disabled="demandeObs" @click="creerCodeObs">
-              {{ demandeObs ? 'Un instant…' : 'Créer le lien en lecture seule' }}
+              {{ demandeObs ? $t('SectionReglages.unInstant') : $t('SectionReglages.creerLienLecture') }}
             </button>
           </template>
           <template v-else>
-            <p class="mini doux" style="margin:0">Compris dans le déblocage de la liste.</p>
+            <p class="mini doux" style="margin:0">{{ $t('SectionReglages.compris') }}</p>
             <button class="btn btn-1" @click="g.ouvrirDebloquer()">
-              Voir ce que ça ouvre
+              {{ $t('SectionReglages.voirCeQueCaOuvre') }}
             </button>
           </template>
         </template>
 
         <p v-if="observateurs.length" class="mini doux" style="margin:0">
-          En lecture seule : {{ observateurs.map((o: any) => o.pseudo).join(', ') }}
-          {{ observateurs.length > 1 ? 'observent' : 'observe' }} cette liste.
+          {{ $t('SectionReglages.observateurs', { noms: observateurs.map((o: any) => o.pseudo).join(', '), n: observateurs.length }) }}
         </p>
       </section>
 
       <CarteDejaPris />
 
       <section v-if="montrerPayant" class="carte pile">
-        <h2>Avec votre nom de famille</h2>
+        <h2>{{ $t('SectionReglages.nomFamilleTitre') }}</h2>
 
         <template v-if="paye">
-          <input id="champ-nom-famille" ref="champFamille" v-model="nomFamille" class="champ" aria-label="Nom de famille"
-                 placeholder="Votre nom" autocapitalize="words" maxlength="60"
+          <input id="champ-nom-famille" ref="champFamille" v-model="nomFamille" class="champ" :aria-label="$t('SectionReglages.nomFamille')"
+                 :placeholder="$t('SectionReglages.votreNom')" autocapitalize="words" maxlength="60"
                  autocorrect="off" spellcheck="false"
                  @input="nomFamilleAuto.planifier" @blur="nomFamilleAuto.maintenant()" @keyup.enter="quitter">
           <p class="mini doux" style="margin:0" role="status">
-            {{ enregistre ? 'Enregistré : chaque carte le montre avec le prénom.' : 'Chaque carte montre le prénom avec votre nom.' }}
+            {{ enregistre ? $t('SectionReglages.familleEnregistre') : $t('SectionReglages.familleAide') }}
           </p>
         </template>
 
         <template v-else>
           <p class="mini" style="margin:0">
-            <span class="exemple">Léa Arnaud</span> accroche,
-            <span class="exemple">Léa Bernard</span> coule : chaque prénom, essayé
-            avec votre nom.
+            <span class="exemple">Léa Arnaud</span>{{ $t('SectionReglages.exemple1') }}
+            <span class="exemple">Léa Bernard</span>{{ $t('SectionReglages.exemple2') }}
           </p>
           <button class="btn btn-1" @click="g.ouvrirDebloquer()">
-            Voir ce que ça ouvre
+            {{ $t('SectionReglages.voirCeQueCaOuvre') }}
           </button>
         </template>
       </section>
 
       <section class="carte pile">
-        <h2>Qui en est</h2>
+        <h2>{{ $t('SectionReglages.quiEnEst') }}</h2>
         <div v-for="m in g.etat.value.avancement" :key="m.user_id" class="ligne">
           <span style="flex:1">{{ m.pseudo }}</span>
-          <span v-if="m.user_id === proprietaireId" class="puce">propriétaire</span>
-          <span v-if="m.role === 'observateur'" class="puce">observe</span>
-          <span class="mini doux">{{ m.votes }} {{ pluriel(m.votes, 'jugé', 'jugés') }}</span>
+          <span v-if="m.user_id === proprietaireId" class="puce">{{ $t('SectionReglages.proprietaire') }}</span>
+          <span v-if="m.role === 'observateur'" class="puce">{{ $t('SectionReglages.observe') }}</span>
+          <span class="mini doux">{{ m.votes }} {{ pluriel(m.votes, $t('SectionReglages.juge'), $t('SectionReglages.juges')) }}</span>
         </div>
         <p v-if="retardataire" class="mini doux" style="margin:0">
-          Les accords attendent {{ retardataire.pseudo }}.
+          {{ $t('SectionReglages.attendent', { nom: retardataire.pseudo }) }}
         </p>
       </section>
 
       <section class="carte pile">
         <div class="ligne">
-          <h2 style="flex:1">Filtres</h2>
-          <button v-if="!jObserve" class="btn btn-0 mini" @click="g.ouvrirFiltres()">Modifier</button>
+          <h2 style="flex:1">{{ $t('SectionReglages.filtres') }}</h2>
+          <button v-if="!jObserve" class="btn btn-0 mini" @click="g.ouvrirFiltres()">{{ $t('SectionReglages.modifier') }}</button>
         </div>
         <div v-if="filtresActifs.length" class="ligne" style="flex-wrap:wrap;gap:6px">
           <span v-for="f in filtresActifs" :key="f" class="puce">{{ f }}</span>
         </div>
-        <p v-else class="mini doux" style="margin:0">Aucun filtre.</p>
+        <p v-else class="mini doux" style="margin:0">{{ $t('SectionReglages.aucunFiltre') }}</p>
       </section>
 
-      <section class="carte pile" aria-label="Quitter ou supprimer cette liste">
+      <section class="carte pile" :aria-label="$t('SectionReglages.quitterOuSupprimer')">
         <template v-if="peutQuitter">
           <button v-if="!demandeQuitter" type="button" class="btn btn-0 mini danger"
                   style="align-self:flex-start" @click="demandeQuitter = true; demandeSuppression = false">
-            Quitter cette liste
+            {{ $t('SectionReglages.quitterCette') }}
           </button>
           <div v-else class="pile suppression" role="group" aria-labelledby="titre-quitter-liste">
             <p id="titre-quitter-liste" class="mini" style="margin:0">
-              <strong>Vous quittez « {{ g.etat.value.groupe.nom }} »</strong> : ce que vous y avez donné
-              (votes, vetos, favoris, commentaires) est effacé. Les autres membres gardent la liste<template
-                v-if="jeSuisProprietaire && successeur">, et {{ successeur }} en devient propriétaire</template>.
-              <template v-if="mesDejaPris">Les prénoms « déjà pris » que vous avez ajoutés y restent, sans votre nom.</template>
+              <strong>{{ $t('SectionReglages.vousQuittez', { nom: g.etat.value.groupe.nom }) }}</strong>{{ $t('SectionReglages.quitterSuite') }}<template
+                v-if="jeSuisProprietaire && successeur">{{ $t('SectionReglages.successeur', { nom: successeur }) }}</template>.
+              <template v-if="mesDejaPris">{{ $t('SectionReglages.dejaPrisRestent') }}</template>
             </p>
             <p v-if="erreurQuitter" class="mini" role="alert" style="color:var(--non);margin:0">
               {{ erreurQuitter }}
             </p>
             <div class="ligne">
               <button type="button" class="btn mini btn-danger" :disabled="quitterEnCours" @click="quitterListe">
-                {{ quitterEnCours ? 'Un instant…' : 'Quitter la liste' }}
+                {{ quitterEnCours ? $t('SectionReglages.unInstant') : $t('SectionReglages.quitterLa') }}
               </button>
               <button type="button" class="btn btn-0 mini doux"
-                      @click="demandeQuitter = false; erreurQuitter = ''">Annuler</button>
+                      @click="demandeQuitter = false; erreurQuitter = ''">{{ $t('SectionReglages.annuler') }}</button>
             </div>
           </div>
         </template>
@@ -525,18 +520,16 @@ async function quitterListe() {
         <template v-if="jeSuisProprietaire">
         <button v-if="!demandeSuppression" type="button" class="btn btn-0 mini danger"
                 style="align-self:flex-start" @click="demandeSuppression = true; demandeQuitter = false">
-          Supprimer cette liste
+          {{ $t('SectionReglages.supprimerCette') }}
         </button>
 
         <div v-else class="pile suppression" role="group" aria-labelledby="titre-suppression-liste">
           <p id="titre-suppression-liste" class="mini" style="margin:0">
-            <strong>Suppression définitive et immédiate</strong> de « {{ g.etat.value.groupe.nom }} »,
-            pour tous ses membres<template v-if="autresMembres">, {{ autresMembres }} compris</template> :
-            tous les votes, vetos, favoris et commentaires, et les prénoms « déjà pris ».
-            <template v-if="paye">Son déblocage part avec elle : il ne se reporte sur aucune autre liste.</template>
+            <strong>{{ $t('SectionReglages.suppDebut') }}</strong>{{ $t('SectionReglages.suppDe', { nom: g.etat.value.groupe.nom }) }}<template v-if="autresMembres">{{ $t('SectionReglages.suppCompris', { noms: autresMembres }) }}</template>{{ $t('SectionReglages.suppFin') }}
+            <template v-if="paye">{{ $t('SectionReglages.suppPaye') }}</template>
           </p>
           <label for="liste-confirmation" class="mini">
-            Pour confirmer, tapez <strong>SUPPRIMER</strong>
+            {{ $t('SectionReglages.pourConfirmer') }}<strong>{{ $t('SectionReglages.motSupprimer') }}</strong>
           </label>
           <!-- Pas de v-model : le bouton se dégrise dès le mot écrit (utils/frappe.ts). -->
           <input id="liste-confirmation" :value="confirmation" class="champ" autocomplete="off"
@@ -548,9 +541,9 @@ async function quitterListe() {
           <div class="ligne">
             <button type="button" class="btn mini btn-danger" :disabled="!confirme || suppressionEnCours"
                     @click="supprimerListe">
-              {{ suppressionEnCours ? 'Suppression…' : 'Supprimer définitivement' }}
+              {{ suppressionEnCours ? $t('SectionReglages.suppressionEnCours') : $t('SectionReglages.supprimerDef') }}
             </button>
-            <button type="button" class="btn btn-0 mini doux" @click="annulerSuppression">Annuler</button>
+            <button type="button" class="btn btn-0 mini doux" @click="annulerSuppression">{{ $t('SectionReglages.annuler') }}</button>
           </div>
         </div>
         </template>

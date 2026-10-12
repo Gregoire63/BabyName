@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
 import type { StatutPaiement } from '~/composables/etatGroupe'
+import { t, locale, aTexte } from '~/composables/useLangue'
+import { prixLocal, mentionTvaLocale } from '~/utils/offre'
 /**
  * Ce que l'achat apporte, dit en entier avant de payer.
  *
@@ -31,7 +33,8 @@ const { ouvrir: ouvrirLegal } = useFeuilleLegale()
 
 const vente = useVente()
 const parApple = computed(() => vente.moyen === 'apple')
-const prix = computed(() => vente.prix)
+// Le prix du site à la manière de la langue ; celui d'Apple tel qu'Apple le formule.
+const prix = computed(() => parApple.value ? vente.prix : prixLocal(vente.prix))
 
 const envoi = ref(false)
 const erreur = ref('')
@@ -46,7 +49,7 @@ const erreur = ref('')
  * confirme ensuite par e-mail.
  */
 const accord = ref(false)
-const tva = mentionTva()
+const tva = computed(() => mentionTvaLocale())
 
 /**
  * LE BOUTON DE PAIEMENT N'EST JAMAIS GRISÉ.
@@ -65,17 +68,17 @@ watch(accord, (v) => { if (v) accordManque.value = false })
 const membres = computed(() => g.etat.value?.avancement?.length ?? 1)
 
 const INCLUS = INCLUS_DEBLOCAGE
-const nomListe = computed(() => g.etat.value?.groupe?.nom ?? 'cette liste')
+const nomListe = computed(() => g.etat.value?.groupe?.nom ?? t('FeuilleDebloquer.cetteListe'))
 // Les chiffres du gratuit viennent de la liste elle-meme : une liste offerte
 // plus large ne doit pas afficher les limites par defaut.
 const quota = computed(() => g.etat.value?.quota)
 const GRATUIT = computed(() => [
-  `${quota.value?.depart?.limite ?? 150} swipes pour commencer, puis ${quota.value?.limite_jour ?? 15} swipes par jour`,
-  'Les 21 197 prénoms et la recherche complète',
-  'Les accords et le classement',
-  'L’origine, la signification et la courbe sur chaque fiche',
-  'Le veto sur un prénom',
-  'Le deuxième parent'
+  t('FeuilleDebloquer.gratuitSwipes', { depart: quota.value?.depart?.limite ?? 150, jour: quota.value?.limite_jour ?? 15 }),
+  t('FeuilleDebloquer.gratuitPrenoms'),
+  t('FeuilleDebloquer.gratuitAccords'),
+  t('FeuilleDebloquer.gratuitFiche'),
+  t('FeuilleDebloquer.gratuitVeto'),
+  t('FeuilleDebloquer.gratuitParent')
 ])
 
 /**
@@ -102,24 +105,20 @@ function ouvrirCadeau() {
 }
 async function utiliserCadeau(fermer: () => void) {
   const code = normaliserCodeCadeau(codeCadeau.value)
-  if (!code) { erreurCadeau.value = 'Douze caractères, comme K7QM-X3PD-9RTA.'; return }
+  if (!code) { erreurCadeau.value = t('FeuilleDebloquer.cadeauFormat'); return }
   if (envoiCadeau.value) return
   envoiCadeau.value = true; erreurCadeau.value = ''
   try {
     await $fetch('/api/cadeaux/utiliser', { method: 'POST', body: { code, groupe: Number(g.gid) } })
     await g.recharger()
     const de = g.etat.value?.groupe?.cadeau_de
-    merciCadeau.value = de ? `C’est débloqué, un cadeau de ${de}.` : 'C’est débloqué, un beau cadeau.'
+    merciCadeau.value = de ? t('FeuilleDebloquer.merciDe', { de }) : t('FeuilleDebloquer.merci')
     setTimeout(fermer, 1600)
   } catch (e: any) {
     const m = e?.data?.statusMessage
-    erreurCadeau.value = m === 'cadeau_utilise' ? 'Ce code cadeau a déjà servi.'
-      : m === 'cadeau_annule' ? 'Ce code cadeau a été annulé (l’achat a été remboursé).'
-      : m === 'cadeau_expire' ? 'Ce code cadeau a expiré.'
-      : m === 'cadeau_inconnu' ? 'Code inconnu. Vérifiez-le : douze caractères, sans I, L, O, U, 0 ni 1.'
-      : m === 'liste_deja_debloquee' ? 'Cette liste est déjà débloquée : le code n’a pas été utilisé.'
-      : m === 'trop_d_essais' ? 'Trop d’essais d’un coup : réessayez dans un moment.'
-      : 'Le code n’a pas pu être utilisé. Réessayez dans un instant.'
+    erreurCadeau.value = m && aTexte(`FeuilleDebloquer.erreurCadeau_${m}`)
+      ? t(`FeuilleDebloquer.erreurCadeau_${m}`)
+      : t('FeuilleDebloquer.erreurCadeau')
   } finally { envoiCadeau.value = false }
 }
 
@@ -136,7 +135,7 @@ const autreEnCours = computed(() => statut.value?.en_cours && !statut.value.en_c
 /** J'ai un déblocage déjà payé qui attend une liste : celle-ci le prendra. */
 const avance = computed(() => !!statut.value?.avance && !payeeParAutre.value)
 const heure = (iso: string | null | undefined) => iso
-  ? new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''
+  ? new Date(iso).toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit' }) : ''
 async function relireStatut() {
   const s = await g.verifierPaiement()
   if (!s) return
@@ -185,15 +184,15 @@ async function acheterDansLApp() {
     } else if (r.etat === 'en_cours') {
       await relireStatut()
     } else if (r.etat === 'en_suspens') {
-      erreur.value = 'Un achat précédent attend encore sa confirmation. Réessayez dans un instant.'
+      erreur.value = t('FeuilleDebloquer.enSuspens')
     } else if (r.etat === 'attente') {
       attenteAccord.value = true
     } else if (r.etat === 'erreur') {
       erreur.value = r.code === 'paiement_non_configure' || r.code === 'vente_fermee'
-        ? 'L’achat n’est pas encore ouvert. Il le sera très bientôt.'
+        ? t('FeuilleDebloquer.achatFerme')
         : r.code === 'achat_refuse'
-          ? 'L’achat n’a pas pu se faire. Réessayez dans un instant.'
-          : 'L’achat est momentanément indisponible. Réessayez dans un instant.'
+          ? t('FeuilleDebloquer.achatRefuse')
+          : t('FeuilleDebloquer.achatIndispo')
     }
     // (« annule » : la feuille d'Apple refermée — rien à dire.)
   } finally {
@@ -222,7 +221,7 @@ async function payer() {
     }
     if (r?.deja) { await relireStatut(); return }
     if (r?.url) { window.location.href = r.url; return }
-    erreur.value = 'Le paiement n’a pas pu s’ouvrir.'
+    erreur.value = t('FeuilleDebloquer.paiementPasOuvert')
   } catch (e: any) {
     const code = e?.statusMessage ?? e?.data?.statusMessage
     if (code === 'paiement_en_cours') { await relireStatut(); return }
@@ -230,10 +229,10 @@ async function payer() {
     // l'état relu ne la montre plus, et la case d'accord revient.
     if (code === 'consentement_requis') await relireStatut()
     erreur.value = code === 'paiement_non_configure' || code === 'vente_fermee'
-      ? 'Le paiement n’est pas encore ouvert. Il le sera très bientôt.'
+      ? t('FeuilleDebloquer.paiementFerme')
       : code === 'consentement_requis'
-        ? 'Cochez la case d’accord pour continuer.'
-        : 'Le paiement est momentanément indisponible. Réessayez dans un instant.'
+        ? t('FeuilleDebloquer.consentement')
+        : t('FeuilleDebloquer.paiementIndispo')
   } finally {
     envoi.value = false
   }
@@ -241,25 +240,23 @@ async function payer() {
 </script>
 
 <template>
-  <Feuille titre="Débloquer cette liste" @fermer="emit('fermer')">
+  <Feuille :titre="$t('FeuilleDebloquer.titre')" @fermer="emit('fermer')">
     <!-- Le prix d'Apple se montre tel qu'Apple le formule : il sait, lui, si
          ce pays affiche ses prix taxes comprises. -->
     <p style="margin:0 0 4px">
-      <strong style="font-size:1.3rem">{{ avance ? 'Déjà payé' : parApple ? prix : `${prix} TTC` }}</strong>
-      <span class="doux"> : débloque cette liste pour la vie</span>
+      <strong style="font-size:1.3rem">{{ avance ? $t('FeuilleDebloquer.dejaPaye') : parApple ? prix : $t('FeuilleDebloquer.ttc', { prix }) }}</strong>
+      <span class="doux">{{ $t('FeuilleDebloquer.pourLaVie') }}</span>
     </p>
     <p v-if="!parApple && !avance" class="mini doux" style="margin:0 0 6px">{{ tva }}.</p>
     <!-- Ce qu'on achète, sans ambiguïté : UNE liste, pas l'app. Quelqu'un qui
          croit tout débloquer, puis crée une seconde liste, se sent floué. -->
     <p class="portee mini" style="margin:0 0 16px">
-      Ça débloque <strong>« {{ nomListe }} »</strong>, pour
-      {{ membres > 1 ? `ses ${membres} membres` : 'vous et la personne que vous inviterez' }}.
-      Pas toute l’application : <strong>chaque liste se débloque à part</strong>,
-      et vos autres listes restent gratuites.
+      {{ $t('FeuilleDebloquer.porteeA') }} <strong>{{ $t('FeuilleDebloquer.porteeNom', { nom: nomListe }) }}</strong>{{ $t('FeuilleDebloquer.porteePour', { n: membres }) }}
+      {{ $t('FeuilleDebloquer.porteeB') }} <strong>{{ $t('FeuilleDebloquer.porteeC') }}</strong>{{ $t('FeuilleDebloquer.porteeD') }}
     </p>
-    <h3 class="titre-bloc">Ce que ça débloque</h3>
+    <h3 class="titre-bloc">{{ $t('FeuilleDebloquer.titreInclus') }}</h3>
     <ul class="inclus">
-      <li v-for="i in INCLUS" :key="i.titre" class="item">
+      <li v-for="i in INCLUS" :key="i.id" class="item">
         <Etincelles :taille="15" couleur="var(--peche)" une aria-hidden="true" />
         <div>
           <strong>{{ i.titre }}</strong>
@@ -268,7 +265,7 @@ async function payer() {
       </li>
     </ul>
 
-    <h3 class="titre-bloc">Ce qui reste gratuit, avec ou sans</h3>
+    <h3 class="titre-bloc">{{ $t('FeuilleDebloquer.titreGratuit') }}</h3>
     <ul class="gratuit">
       <li v-for="t in GRATUIT" :key="t" class="mini doux">{{ t }}</li>
     </ul>
@@ -278,31 +275,27 @@ async function payer() {
          ce texte au clavier (une zone qui défile sans rien de focalisable est
          fermée à qui n'a pas de souris). -->
     <p v-if="avance" class="mini doux" style="margin:16px 0 0">
-      <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">Conditions de vente</a>
+      <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">{{ $t('FeuilleDebloquer.conditionsVente') }}</a>
     </p>
     <template v-else>
-      <h3 class="titre-bloc">Comment ça se passe</h3>
+      <h3 class="titre-bloc">{{ $t('FeuilleDebloquer.titreComment') }}</h3>
       <p v-if="parApple" class="mini doux" style="margin:0">
-        Achat par l’App Store, avec votre compte Apple : babyNamed ne voit jamais votre carte.
-        La liste se débloque aussitôt, et le reçu vient d’Apple. Le reste est dans les
-        <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions de vente</a>.
+        {{ $t('FeuilleDebloquer.commentApple') }}
+        <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">{{ $t('FeuilleDebloquer.lienConditions') }}</a>.
       </p>
       <p v-else class="mini doux" style="margin:0">
-        Paiement sur la page sécurisée de Stripe : babyNamed ne voit jamais votre carte.
-        La liste se débloque aussitôt, et la facture arrive par e-mail. Le reste est dans les
-        <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions de vente</a>.
+        {{ $t('FeuilleDebloquer.commentStripe') }}
+        <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">{{ $t('FeuilleDebloquer.lienConditions') }}</a>.
       </p>
     </template>
 
     <template #pied="{ fermer }">
       <p v-if="payeeParAutre" class="annonce ok" role="status">
-        {{ statut?.par ?? 'Quelqu’un' }} vient de débloquer la liste : swipes illimités pour vous
-        aussi. Rien à payer.
+        {{ $t('FeuilleDebloquer.payeeParAutre', { qui: statut?.par ?? $t('FeuilleDebloquer.quelquun') }) }}
       </p>
       <p v-else-if="autreEnCours" class="annonce" role="status">
-        <strong>{{ autreEnCours.par ?? 'Un membre de la liste' }} est en train de payer cette
-        liste.</strong> Inutile de payer deux fois : elle se débloquera ici toute seule.
-        En cas d’abandon, vous pourrez payer à partir de {{ heure(autreEnCours.jusqu) }}.
+        <strong>{{ $t('FeuilleDebloquer.autreEnCours', { qui: autreEnCours.par ?? $t('FeuilleDebloquer.unMembre') }) }}</strong>
+        {{ $t('FeuilleDebloquer.autreEnCoursSuite', { heure: heure(autreEnCours.jusqu) }) }}
       </p>
 
       <!-- La case juste au-dessus du bouton, toujours sous les yeux : c'est
@@ -310,7 +303,7 @@ async function payer() {
       <!-- Repliée quand on tape un code cadeau (rien à payer, et le clavier
            mange la place) ; elle revient si l'on touche quand même le bouton. -->
       <p v-if="avance && !autreEnCours" class="annonce" role="status">
-        Votre achat précédent n’avait servi à aucune liste : il débloque celle-ci, sans rien payer.
+        {{ $t('FeuilleDebloquer.avance') }}
       </p>
       <label v-if="!parApple && !avance && !autreEnCours && !payeeParAutre && (!cadeauOuvert || accord || accordManque)"
              class="accord" :class="{ manque: accordManque }">
@@ -318,36 +311,35 @@ async function payer() {
                :aria-invalid="accordManque || undefined"
                :aria-describedby="accordManque ? 'accord-detail accord-requis' : 'accord-detail'">
         <span>
-          J’accepte les
-          <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">conditions générales de vente</a>
-          et je demande l’accès immédiat à la liste débloquée.
+          {{ $t('FeuilleDebloquer.accordA') }}
+          <a href="/conditions" class="lien" aria-haspopup="dialog" @click.prevent="ouvrirLegal('/conditions')">{{ $t('FeuilleDebloquer.cgv') }}</a>
+          {{ $t('FeuilleDebloquer.accordB') }}
           <span id="accord-detail" class="doux">
-            Je renonce ainsi à mon droit de rétractation de 14 jours
-            (art. L221-28 13° du Code de la consommation).
+            {{ $t('FeuilleDebloquer.accordDetail') }}
           </span>
         </span>
       </label>
       <p v-if="accordManque" id="accord-requis" class="mini" role="alert" style="color:var(--non);margin:0">
-        Cochez cette case pour payer.
+        {{ $t('FeuilleDebloquer.accordRequis') }}
       </p>
       <p v-if="erreur" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreur }}</p>
       <p v-if="attenteAccord" class="annonce" role="status">
-        Achat en attente d’un accord. La liste se débloquera d’elle-même dès qu’il sera donné.
+        {{ $t('FeuilleDebloquer.attenteAccord') }}
       </p>
 
       <button type="button" class="btn btn-1" style="width:100%"
               :disabled="envoi || !!autreEnCours || payeeParAutre" @click="payer">
-        {{ envoi ? (parApple || avance ? 'Un instant…' : 'Ouverture…')
-          : avance ? 'Débloquer cette liste' : `Débloquer cette liste (${prix})` }}
+        {{ envoi ? (parApple || avance ? $t('FeuilleDebloquer.unInstant') : $t('FeuilleDebloquer.ouverture'))
+          : avance ? $t('FeuilleDebloquer.titre') : $t('FeuilleDebloquer.debloquerPrix', { prix }) }}
       </button>
       <!-- Côte à côte : la case est montée dans le pied, il doit rester de la
            place au texte sur un petit écran. -->
       <div v-if="!cadeauOuvert" class="liens">
         <button v-if="vente.cadeaux" type="button" class="btn btn-0 mini" @click="ouvrirCadeau">
-          Vous avez un code cadeau ?
+          {{ $t('FeuilleDebloquer.codeCadeauQ') }}
         </button>
         <button type="button" class="btn btn-0 mini doux" @click="fermer">
-          Plus tard
+          {{ $t('FeuilleDebloquer.plusTard') }}
         </button>
       </div>
       <div v-else class="cadeau">
@@ -355,18 +347,18 @@ async function payer() {
         <template v-else>
           <div class="ligne">
             <input ref="champCadeau" v-model="codeCadeau" class="champ" style="flex:1"
-                   aria-label="Code cadeau" placeholder="K7QM-X3PD-9RTA"
+                   :aria-label="$t('FeuilleDebloquer.codeCadeau')" placeholder="K7QM-X3PD-9RTA"
                    autocapitalize="characters" autocorrect="off" spellcheck="false"
                    @keyup.enter="utiliserCadeau(fermer)">
             <button type="button" class="btn mini" :disabled="envoiCadeau" @click="utiliserCadeau(fermer)">
-              {{ envoiCadeau ? '…' : 'Utiliser' }}
+              {{ envoiCadeau ? '…' : $t('FeuilleDebloquer.utiliser') }}
             </button>
           </div>
           <p v-if="erreurCadeau" class="mini" role="alert" style="color:var(--non);margin:0">{{ erreurCadeau }}</p>
         </template>
       </div>
       <button v-if="cadeauOuvert" type="button" class="btn btn-0 mini doux" style="width:100%" @click="fermer">
-        Plus tard
+        {{ $t('FeuilleDebloquer.plusTard') }}
       </button>
       <component :is="OutilsDev" v-if="OutilsDev" :gid="Number(g.gid)"
                  @fait="g.recharger().then(fermer)" />

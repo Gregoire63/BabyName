@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from '~/composables/useLangue'
+
 onMounted(() => { rafraichirMoi() })
 
 // Les textes légaux, dans une feuille qui monte du bas : une pour toute l'app,
@@ -7,8 +9,11 @@ const { ouverte: texteLegal, oublier: fermerTexteLegal } = useFeuilleLegale()
 
 // Chaque page donne son titre ; le nom de l'app suit (RGAA 8.6).
 useHead({
-  // Le titre par defaut (nuxt.config) commence deja par le nom : on ne le
-  // redouble pas.
+  // Le titre par defaut, dans la langue affichee (celui de nuxt.config, en
+  // francais, ne sert qu'avant le montage). Une page qui donne le sien
+  // l'emporte.
+  title: computed(() => t('App.titre')),
+  // Le titre par defaut commence deja par le nom : on ne le redouble pas.
   titleTemplate: (t?: string) => (t && !t.startsWith('babyNamed') ? `${t} · babyNamed` : (t || 'babyNamed'))
 })
 
@@ -26,7 +31,7 @@ function allerAuContenu() {
 </script>
 
 <template>
-  <a href="#contenu" class="evitement" @click.prevent="allerAuContenu">Aller au contenu</a>
+  <a href="#contenu" class="evitement" @click.prevent="allerAuContenu">{{ $t('App.evitement') }}</a>
   <!-- Annonce le titre de chaque nouvelle page aux lecteurs d'ecran : dans
        une application d'une seule page, rien d'autre ne leur dit qu'on a
        change d'ecran. -->

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ilYA, leNom, memeEcriture, phraseOreille, siteSource, titreTempete, type Tempete } from '~/utils/tempetes'
+import { bilanTempete, ilYA, leNom, memeEcriture, ouTempete, phraseOreille, quandTempete, recitTempete, siteSource, titreTempete, type Tempete } from '~/utils/tempetes'
 
 /**
  * Une tempête racontée en quelques lignes : quand, où, il y a combien de
@@ -22,15 +22,15 @@ withDefaults(defineProps<{
 <template>
   <div class="tempete">
     <p v-if="titre" class="titre"><strong>{{ titreTempete(t) }}</strong></p>
-    <p class="quand">{{ t.quand }} · {{ t.ou }} · {{ ilYA(t.an) }}</p>
+    <p class="quand">{{ quandTempete(t) }} · {{ ouTempete(t) }} · {{ ilYA(t.an) }}</p>
     <p v-if="!memeEcriture(prenom, t)" class="oreille">{{ phraseOreille(prenom, t) }}</p>
-    <p class="bilan">{{ t.bilan }}</p>
-    <p v-if="t.recit" class="recit">{{ t.recit }}</p>
+    <p class="bilan">{{ bilanTempete(t) }}</p>
+    <p v-if="recitTempete(t)" class="recit">{{ recitTempete(t) }}</p>
     <p v-if="t.retire" class="retire">
-      Nom rayé des listes : plus aucune tempête de l’Atlantique ne s’appellera {{ t.nom }}.
+      {{ $t('DetailTempete.retire', { nom: t.nom }) }}
     </p>
     <a class="source" :href="t.source" target="_blank" rel="noopener noreferrer">
-      En savoir plus sur {{ siteSource(t.source) }}<span class="sr-only"> : {{ leNom(t) }}, nouvel onglet</span>
+      {{ $t('DetailTempete.enSavoirPlus', { site: siteSource(t.source) }) }}<span class="sr-only">{{ $t('DetailTempete.nouvelOnglet', { nom: leNom(t) }) }}</span>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4" /></svg>
     </a>
   </div>

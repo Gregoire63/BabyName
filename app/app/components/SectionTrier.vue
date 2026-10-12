@@ -2,6 +2,7 @@
 import { filtrer, filtresParDefaut, premiers, trouverPrenom, sansAccent, type Prenom }
   from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
+import { nombre, t } from '~/composables/useLangue'
 
 const props = defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
@@ -225,7 +226,7 @@ function epinglerChoisi(nom: string) {
   // son tour en tete.
   if (quotaAtteint.value) {
     g.ouvrirFiche(p.l)
-    dire(`${p.l} passera en premier dès que vous pourrez trier à nouveau.`)
+    dire(t('SectionTrier.passeraEnPremier', { nom: p.l }))
   }
 }
 
@@ -248,8 +249,6 @@ function dire(texte: string) {
 }
 onUnmounted(() => clearTimeout(minuteurInfo))
 
-const DEJA_DIT = ['dit non à', 'voté neutre pour', 'dit oui à'] as const
-
 /**
  * Déjà jugé, déjà en accord, sous veto : on ne le remet pas en jeu — on le
  * dit. Un veto se dit sans son auteur, comme partout ailleurs dans l'app.
@@ -267,14 +266,14 @@ function epingler(demande: string, depuisAdresse: boolean) {
     const v = g.votes.value.find((x: any) => x.user_id === moi && x.prenom === p.l)?.valeur
     const pris = g.parDejaPris.value.get(p.l)
     dire(g.communs.value.some((c: any) => c.prenom === p.l)
-      ? `${p.l} est déjà dans vos accords.`
+      ? t('SectionTrier.dejaAccords', { nom: p.l })
       : pris
-        ? `${p.l} est déjà pris${pris.motif ? ` (${pris.motif})` : ''} : la liste l’a retiré du jeu.`
+        ? t('SectionTrier.dejaPris', { nom: p.l, motif: pris.motif })
       : g.vetos.value.has(p.l)
-        ? `${p.l} a reçu un veto dans cette liste.`
+        ? t('SectionTrier.dejaVeto', { nom: p.l })
         : v === 0 || v === 1 || v === 2
-          ? `Vous avez déjà ${DEJA_DIT[v]} ${p.l} dans cette liste.`
-          : `Vous avez déjà jugé ${p.l} dans cette liste.`)
+          ? t(`SectionTrier.dejaDit${v}`, { nom: p.l })
+          : t('SectionTrier.dejaJuge', { nom: p.l }))
     return
   }
   const groupe = dispo.value.find(c => c.gp === p.gp)
@@ -432,10 +431,10 @@ function demanderVeto() {
 /** La ligne de contexte sous le nom de la liste : ou j'en suis, ce qui reste. */
 const contexte = computed(() => g.pret.value
   ? (paye.value
-      ? `${faits.value}/${plafond.value} jugés · ${nbPossibles.value.toLocaleString('fr-FR')} possibles`
+      ? t('SectionTrier.contexteJuges', { faits: faits.value, plafond: plafond.value, possibles: nombre(nbPossibles.value) })
       : reste.value === 1
-        ? `Dernier swipe pour aujourd’hui · ${nbPossibles.value.toLocaleString('fr-FR')} possibles`
-        : `${reste.value ?? '…'} swipes restants · ${nbPossibles.value.toLocaleString('fr-FR')} possibles`)
+        ? t('SectionTrier.contexteDernier', { possibles: nombre(nbPossibles.value) })
+        : t('SectionTrier.contexteRestants', { reste: reste.value ?? '…', possibles: nombre(nbPossibles.value) }))
   : '…')
 
 onMounted(() => {
@@ -586,7 +585,7 @@ watch(carte, (c, avant) => {
   if (avant && avant.l === c.l) return
   const n = c.variantes?.length ?? 0
   annonce.value = n
-    ? `${c.l}, et ${n} autre${n > 1 ? 's' : ''} graphie${n > 1 ? 's' : ''}`
+    ? t('SectionTrier.annonceGraphies', { nom: c.l, n })
     : c.l
 })
 
@@ -820,10 +819,10 @@ async function confirmerFamille() {
 <template>
   <div class="ecran">
     <div class="haut">
-      <TeteListe class="titre" onglet="Swipe" compact :info="contexte" />
+      <TeteListe class="titre" :onglet="$t('SectionTrier.onglet')" compact :info="contexte" />
       <!-- Une icone, comme la loupe : un entonnoir (les curseurs sont deja
            l'onglet « La liste »). Le point dit que des filtres sont actifs. -->
-      <button type="button" class="loupe" :aria-label="filtresActifs ? 'Filtres (actifs)' : 'Filtres'"
+      <button type="button" class="loupe" :aria-label="filtresActifs ? $t('SectionTrier.filtresActifs') : $t('SectionTrier.filtres')"
               aria-haspopup="dialog" @click="g.ouvrirFiltres()">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 5.5h16l-6.3 7.3v5.7l-3.4 1.9v-7.6Z" />
@@ -832,7 +831,7 @@ async function confirmerFamille() {
       </button>
       <!-- La recherche vit ici, sous la loupe : c'est pendant le tri qu'on
            pense au prénom entendu la veille, pas dans les réglages. -->
-      <button type="button" class="loupe" aria-label="Chercher un prénom"
+      <button type="button" class="loupe" :aria-label="$t('SectionTrier.chercher')"
               aria-haspopup="dialog" @click="rechercheOuverte = true">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="10.5" cy="10.5" r="6.2" /><path d="m15.2 15.2 4.8 4.8" />
@@ -876,9 +875,9 @@ async function confirmerFamille() {
     <template v-else>
       <div v-if="quotaAtteint && paye" class="vide">
         <Etincelles :taille="34" couleur="var(--peche)" />
-        <h2>C’est assez pour aujourd’hui</h2>
-        <p>{{ plafond }} prénoms jugés : les suivants seront mieux jugés demain.</p>
-        <button class="btn" @click="encore">Encore {{ PAS_BONUS }} quand même</button>
+        <h2>{{ $t('SectionTrier.assezTitre') }}</h2>
+        <p>{{ $t('SectionTrier.assezTexte', { n: plafond }) }}</p>
+        <button class="btn" @click="encore">{{ $t('SectionTrier.encore', { n: PAS_BONUS }) }}</button>
       </div>
 
       <!-- Le mur de la version gratuite. Il tombe apres le depart, donc
@@ -887,42 +886,37 @@ async function confirmerFamille() {
            pas. -->
       <div v-else-if="quotaAtteint" class="vide">
         <Etincelles :taille="34" couleur="var(--peche)" />
-        <h2>C’est tout pour aujourd’hui</h2>
+        <h2>{{ $t('SectionTrier.toutTitre') }}</h2>
         <p v-if="departListeEpuise">
-          Cette liste a déjà utilisé ses {{ quotaServeur?.depart?.liste_limite }} prénoms
-          de départ, et vos {{ quotaServeur?.limite_jour }} du jour sont jugés.
+          {{ $t('SectionTrier.departListe', { liste: quotaServeur?.depart?.liste_limite ?? '', jour: quotaServeur?.limite_jour ?? '' }) }}
         </p>
         <p v-else>
-          Vos {{ quotaServeur?.depart?.limite }} prénoms de départ sont jugés, et les
-          {{ quotaServeur?.limite_jour }} du jour aussi.
+          {{ $t('SectionTrier.departSoi', { depart: quotaServeur?.depart?.limite ?? '', jour: quotaServeur?.limite_jour ?? '' }) }}
         </p>
         <p style="margin:0">
-          {{ quotaServeur?.limite_jour }} de plus demain matin<template v-if="vente.ouverte"> : la version gratuite ne
-          s’arrête jamais</template>.
+          {{ $t(vente.ouverte ? 'SectionTrier.demainMatinGratuit' : 'SectionTrier.demainMatin', { n: quotaServeur?.limite_jour ?? '' }) }}
         </p>
         <p v-if="nbAccords" class="bilan">
-          <strong>{{ nbAccords }}</strong> accord{{ nbAccords > 1 ? 's' : '' }} déjà dans
-          cette liste.
+          <strong>{{ nbAccords }}</strong> {{ $t('SectionTrier.accordsDeja', { n: nbAccords }) }}
         </p>
         <template v-if="vente.ouverte">
           <p class="mini doux" style="margin:0">
-            Débloquer cette liste pour la vie ({{ prixListe }}) : swipes illimités chaque
-            jour, pour tous ses membres.
+            {{ $t('SectionTrier.debloquerTexte', { prix: prixListe }) }}
           </p>
-          <button v-if="!jObserve" class="btn btn-1" @click="g.ouvrirDebloquer()">Swipes illimités ({{ prixListe }})</button>
+          <button v-if="!jObserve" class="btn btn-1" @click="g.ouvrirDebloquer()">{{ $t('SectionTrier.swipesIllimites', { prix: prixListe }) }}</button>
         </template>
         <!-- App Android : Google laisse DIRE où cela se débloque, sans lien
              ni bouton. App iOS : l'offre ci-dessus, par l'App Store — et rien
              du tout tant qu'elle n'est pas prête (voir useVente). -->
         <p v-else-if="vente.mention" class="mini doux mention-site" style="margin:0">
-          Swipes illimités : sur le site babynamed.fr.
+          {{ $t('SectionTrier.mentionSite') }}
         </p>
       </div>
 
       <div v-else-if="!carte" class="vide">
-        <h2>Plus rien à trier</h2>
-        <p>Vos filtres ne laissent passer aucun prénom non jugé.</p>
-        <button class="btn" @click="g.ouvrirFiltres()">Élargir les filtres</button>
+        <h2>{{ $t('SectionTrier.plusRienTitre') }}</h2>
+        <p>{{ $t('SectionTrier.plusRienTexte') }}</p>
+        <button class="btn" @click="g.ouvrirFiltres()">{{ $t('SectionTrier.elargir') }}</button>
       </div>
 
       <div v-else class="zone">
@@ -947,7 +941,7 @@ async function confirmerFamille() {
                  @pointerup="fin" @pointercancel="fin">
           <div v-if="intention" class="verdict" :class="intention">
             <Etincelles v-if="intention === 'oui'" :taille="16" />
-            {{ intention === 'oui' ? 'Oui' : intention === 'non' ? 'Non' : 'Neutre' }}
+            {{ $t(`SectionTrier.${intention}`) }}
           </div>
 
           <ContenuCarte :p="carte" :famille="familleCarte" :deja-dit="dejaDit"
@@ -961,15 +955,15 @@ async function confirmerFamille() {
 
         <p class="sr-only" aria-live="polite" aria-atomic="true">{{ annonce }}</p>
         <div class="boutons">
-          <button type="button" class="rond non" :aria-label="`Non à ${carte.l}`"
+          <button type="button" class="rond non" :aria-label="$t('SectionTrier.nonA', { nom: carte.l })"
                   aria-keyshortcuts="ArrowLeft" @click="voter(0)">
             <span aria-hidden="true">✕</span>
           </button>
-          <button type="button" class="rond neutre" :aria-label="`Neutre pour ${carte.l}`"
+          <button type="button" class="rond neutre" :aria-label="$t('SectionTrier.neutrePour', { nom: carte.l })"
                   aria-keyshortcuts="ArrowDown" @click="voter(1)">
             <span aria-hidden="true">~</span>
           </button>
-          <button type="button" class="rond oui" :aria-label="`Oui à ${carte.l}`"
+          <button type="button" class="rond oui" :aria-label="$t('SectionTrier.ouiA', { nom: carte.l })"
                   aria-keyshortcuts="ArrowRight" @click="voter(2)">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 21.2s-8.4-5-8.4-11A5 5 0 0 1 12 7.1a5 5 0 0 1 8.4 3.1c0 6-8.4 11-8.4 11Z" />
@@ -982,8 +976,7 @@ async function confirmerFamille() {
     <Transition name="fondu">
       <div v-if="bascule" class="retour carte" role="status">
         <span class="mini">
-          Départ terminé : {{ quotaServeur?.limite_jour }} prénoms par jour désormais<template v-if="vente.ouverte">,
-          ou sans limite en débloquant la liste</template>.
+          {{ $t(vente.ouverte ? 'SectionTrier.basculeVente' : 'SectionTrier.bascule', { n: quotaServeur?.limite_jour ?? '' }) }}
         </span>
       </div>
     </Transition>
@@ -999,7 +992,7 @@ async function confirmerFamille() {
         <Etincelles :taille="16" couleur="var(--peche)" une />
         <strong>{{ retour.prenom }}</strong>
         <span class="mini doux">
-          {{ retour.qui.join(', ') }} aussi
+          {{ $t('SectionTrier.aussi', { noms: retour.qui.join(', ') }) }}
         </span>
       </div>
     </Transition>
@@ -1018,20 +1011,18 @@ async function confirmerFamille() {
     <div v-if="familleAEcarter" class="voile-confirme" @click.self="familleAEcarter = null">
       <div ref="boiteFamille" class="carte pile confirme" role="alertdialog" aria-modal="true"
            aria-labelledby="titre-famille" aria-describedby="texte-famille" tabindex="-1">
-        <h2 id="titre-famille">Non à tous les « {{ prefixeBalayage }}… » ?</h2>
+        <h2 id="titre-famille">{{ $t('SectionTrier.familleTitre', { prefixe: prefixeBalayage }) }}</h2>
         <p id="texte-famille" class="mini doux" style="margin:0">
-          Les {{ familleAEcarter.length }} prénoms qui commencent par
-          « {{ prefixeBalayage }} » passent en « non » d’un coup. Ils se remettent
-          en jeu dans Classement › Mes choix.
+          {{ $t('SectionTrier.familleTexte', { n: familleAEcarter.length, prefixe: prefixeBalayage }) }}
         </p>
         <div class="ligne noms">
           <span v-for="f in familleAEcarter" :key="f.l" class="puce">{{ f.l }}</span>
         </div>
         <div class="ligne" style="gap:8px">
           <button class="btn btn-1" style="flex:1" @click="confirmerFamille">
-            Non aux {{ familleAEcarter.length }}
+            {{ $t('SectionTrier.nonAuxN', { n: familleAEcarter.length }) }}
           </button>
-          <button class="btn btn-0 doux" @click="familleAEcarter = null">Annuler</button>
+          <button class="btn btn-0 doux" @click="familleAEcarter = null">{{ $t('SectionTrier.annuler') }}</button>
         </div>
       </div>
     </div>

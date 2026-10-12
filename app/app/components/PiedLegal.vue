@@ -13,7 +13,7 @@ const { ouvrir } = useFeuilleLegale()
 </script>
 
 <template>
-  <nav class="pied-legal" :class="{ compact }" aria-label="Informations légales">
+  <nav class="pied-legal" :class="{ compact }" :aria-label="$t('PiedLegal.nav')">
     <ul>
       <li v-for="d in DOCS_LEGAUX" :key="d.chemin">
         <a :href="d.chemin" class="lien" aria-haspopup="dialog" @click.prevent="ouvrir(d.chemin)">{{ d.court }}</a>

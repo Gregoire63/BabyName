@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { legalEnFrancais, lireLegalEnFrancais } from '~/utils/pagesLegales'
+
 /**
  * Le gabarit des pages legales : barre de retour, texte lisible, liens du bas.
  * Dans l'app, ces textes s'ouvrent plutot en feuille (FeuilleLegale) ; les
@@ -19,6 +21,8 @@ function retour() {
 }
 
 const depuis = computed(() => dateDeVersion(props.version))
+/** Le texte est en français (seul à faire foi) ou dans sa traduction anglaise. */
+const enFrancais = legalEnFrancais
 </script>
 
 <template>
@@ -27,7 +31,7 @@ const depuis = computed(() => dateDeVersion(props.version))
     <header class="barre">
       <button type="button" class="retour" @click="retour">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" /></svg>
-        Retour
+        {{ $t('PageLegale.retour') }}
       </button>
       <NuxtLink to="/" class="marque">
         <img src="/logo.png" alt="" width="26" height="26">
@@ -37,8 +41,13 @@ const depuis = computed(() => dateDeVersion(props.version))
 
     <main id="contenu" class="texte texte-legal" tabindex="-1">
       <h1>{{ titre }}</h1>
-      <p v-if="version" class="maj">En vigueur depuis le {{ depuis }}.</p>
-      <slot />
+      <p v-if="version" class="maj">{{ $t('pagesLegales.enVigueur', { date: depuis }) }}</p>
+      <p v-if="$langue !== 'fr' && enFrancais" class="maj">
+        <button type="button" class="lien-langue" @click="lireLegalEnFrancais(false)">{{ $t('pagesLegales.lireTraduction') }}</button>
+      </p>
+      <div :lang="enFrancais ? 'fr' : 'en'">
+        <slot />
+      </div>
     </main>
 
     <footer class="bas">
@@ -63,6 +72,8 @@ const depuis = computed(() => dateDeVersion(props.version))
 .texte:focus { outline: none; }
 .texte h1 { font-size: 1.6rem; margin: 10px 0 4px; }
 .maj { color: var(--doux); font-size: .85rem; margin: 0 0 18px; }
+.lien-langue { border: 0; background: none; padding: 0; font: inherit; color: inherit;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 /* La typographie des textes eux-mêmes : .texte-legal, dans app.vue — la
    feuille des textes légaux la partage. */
 .bas { max-width: 680px; margin: 34px auto 0; padding-top: 16px; border-top: 1px solid var(--trait); }

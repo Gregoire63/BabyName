@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useGroupeCourant } from '~/composables/etatGroupe'
-import { useVerdicts, MOT } from '~/composables/useVerdicts'
+import { useVerdicts } from '~/composables/useVerdicts'
 
 /**
  * Tout ce que j'ai juge, range par verdict, et modifiable sur place.
@@ -13,11 +13,8 @@ const props = defineProps<{ actif: boolean }>()
 const g = useGroupeCourant()
 const { miens } = useVerdicts()
 
-const GROUPES = [
-  { v: 2 as const, t: 'Oui', d: 'Ceux qui vous plaisent.' },
-  { v: 1 as const, t: 'Neutre', d: 'Ni oui ni non : ils restent en jeu.' },
-  { v: 0 as const, t: 'Non', d: 'Écartés. Un autre avis peut les faire revenir.' }
-]
+// Titre et description : app/textes/PanneauMesChoix (titre<v>, desc<v>).
+const GROUPES = [{ v: 2 as const }, { v: 1 as const }, { v: 0 as const }]
 
 // Les favoris et les vetos ne sont pas des verdicts : ils se superposent aux
 // oui / neutre / non. Ils meritent donc leurs propres blocs, sans quoi on ne
@@ -85,16 +82,16 @@ async function remettre(prenoms: string[]) {
     <section v-for="grp in GROUPES" :key="grp.v" class="carte pile groupe">
       <button class="entete" @click="bascule(grp.v)">
         <span class="pastille" :class="`v${grp.v}`" />
-        <strong style="flex:1;text-align:left">{{ grp.t }}</strong>
+        <strong style="flex:1;text-align:left">{{ $t(`PanneauMesChoix.titre${grp.v}`) }}</strong>
         <span class="puce">{{ listes[grp.v].value.length }}</span>
         <span class="doux">{{ ouvert === grp.v ? '−' : '+' }}</span>
       </button>
 
       <template v-if="ouvert === grp.v">
-        <p class="mini doux" style="margin:0">{{ grp.d }}</p>
+        <p class="mini doux" style="margin:0">{{ $t(`PanneauMesChoix.desc${grp.v}`) }}</p>
 
         <p v-if="!listes[grp.v].value.length" class="mini doux" style="margin:0">
-          Rien ici pour l’instant.
+          {{ $t('PanneauMesChoix.rienIci') }}
         </p>
 
         <div v-for="p in visible(grp.v)" :key="p.prenom" class="rangee">
@@ -106,9 +103,9 @@ async function remettre(prenoms: string[]) {
           <!-- Un oui qui n'aboutira pas : sans ce mot, on cherchait pourquoi
                il avait quitté les accords. -->
           <span v-if="g.parDejaPris.value.has(p.prenom)" class="puce pris"
-                :title="g.parDejaPris.value.get(p.prenom)?.motif ?? undefined">déjà pris</span>
+                :title="g.parDejaPris.value.get(p.prenom)?.motif ?? undefined">{{ $t('PanneauMesChoix.dejaPris') }}</span>
           <span v-for="a in p.autres" :key="a.pseudo" class="puce" :class="`a${a.valeur}`">
-            {{ a.pseudo }} · {{ MOT[a.valeur] }}
+            {{ a.pseudo }} · {{ $t(`PanneauMesChoix.verdict${a.valeur}`) }}
           </span>
           <BoutonsVerdict :valeur="p.mien" :occupe="occupe === p.prenom"
                           @choisir="changer(p.prenom, $event)" />
@@ -117,18 +114,18 @@ async function remettre(prenoms: string[]) {
         <button v-if="!tout.has(grp.v) && listes[grp.v].value.length > PALIER"
                 class="btn btn-0 mini doux" style="align-self:flex-start"
                 @click="montrerTout(grp.v)">
-          Voir les {{ listes[grp.v].value.length }}
+          {{ $t('PanneauMesChoix.voirTout', { n: listes[grp.v].value.length }) }}
         </button>
 
         <template v-if="grp.v === 0 && familles.length">
-          <p class="etiquette">Écartés en groupe (même début de prénom)</p>
+          <p class="etiquette">{{ $t('PanneauMesChoix.ecartesGroupe') }}</p>
           <div v-for="f in familles" :key="f.racine" class="famille">
             <div class="ligne" style="flex-wrap:wrap;gap:6px;flex:1">
               <span v-for="n in f.prenoms" :key="n" class="puce">{{ n }}</span>
             </div>
             <button class="btn btn-0 mini" :disabled="remise === f.prenoms[0]"
                     @click="remettre(f.prenoms)">
-              {{ remise === f.prenoms[0] ? '…' : `Remettre les ${f.prenoms.length}` }}
+              {{ remise === f.prenoms[0] ? '…' : $t('PanneauMesChoix.remettre', { n: f.prenoms.length }) }}
             </button>
           </div>
         </template>
@@ -138,21 +135,20 @@ async function remettre(prenoms: string[]) {
     <section class="carte pile groupe">
       <button class="entete" @click="bascule(-1)">
         <Etincelles :taille="14" couleur="var(--peche)" une />
-        <strong style="flex:1;text-align:left">Favoris</strong>
+        <strong style="flex:1;text-align:left">{{ $t('PanneauMesChoix.favoris') }}</strong>
         <span class="puce">{{ mesFavoris.length }}</span>
         <span class="doux">{{ ouvert === -1 ? '−' : '+' }}</span>
       </button>
       <template v-if="ouvert === -1">
         <p class="mini doux" style="margin:0">
-          Ceux que vous marquez « Favoris » sur la carte de tri, en plus de votre
-          vote. Vous seul les voyez.
+          {{ $t('PanneauMesChoix.favorisAide') }}
         </p>
         <p v-if="!mesFavoris.length" class="mini doux" style="margin:0">
-          Aucun pour l’instant.
+          {{ $t('PanneauMesChoix.aucun') }}
         </p>
         <div v-for="p in mesFavoris" :key="p" class="rangee">
           <button class="nom" @click="g.ouvrirFiche(p)">{{ p }}</button>
-          <button class="btn btn-0 mini doux" @click="g.basculerFavori(p)">Retirer</button>
+          <button class="btn btn-0 mini doux" @click="g.basculerFavori(p)">{{ $t('PanneauMesChoix.retirer') }}</button>
         </div>
       </template>
     </section>
@@ -160,33 +156,33 @@ async function remettre(prenoms: string[]) {
     <section class="carte pile groupe">
       <button class="entete" @click="bascule(-2)">
         <span class="pastille veto" />
-        <strong style="flex:1;text-align:left">Veto</strong>
+        <strong style="flex:1;text-align:left">{{ $t('PanneauMesChoix.veto') }}</strong>
         <span class="puce">{{ vetos.length }}</span>
         <span class="doux">{{ ouvert === -2 ? '−' : '+' }}</span>
       </button>
       <template v-if="ouvert === -2">
         <p class="mini doux" style="margin:0">
-          Il vous en reste {{ vetosRestants }} sur {{ vetosMax }}.
+          {{ $t('PanneauMesChoix.reste', { n: vetosRestants, max: vetosMax }) }}
         </p>
         <p v-if="!vetos.length" class="mini doux" style="margin:0">
-          Aucun pour l’instant.
+          {{ $t('PanneauMesChoix.aucun') }}
         </p>
         <div v-for="v in vetos" :key="v.prenom" class="rangee">
           <button class="nom" @click="g.ouvrirFiche(v.prenom)">
             {{ v.prenom }}
             <span v-if="v.variantes?.length" class="graphies"
-                  :title="v.variantes.join(', ')">+ {{ v.variantes.length }} graphie{{ v.variantes.length > 1 ? 's' : '' }}</span>
+                  :title="v.variantes.join(', ')">{{ $t('PanneauMesChoix.graphies', { n: v.variantes.length }) }}</span>
             <em v-if="v.motif" class="motif">{{ v.motif }}</em>
           </button>
           <button class="btn btn-0 mini doux" :disabled="retrait === v.prenom"
                   @click="retirerVeto(v.prenom)">
-            {{ retrait === v.prenom ? '…' : 'Retirer' }}
+            {{ retrait === v.prenom ? '…' : $t('PanneauMesChoix.retirer') }}
           </button>
         </div>
         <!-- L'autre façon de retirer un prénom, celle qu'on dit : elle vit
              dans les réglages de la liste, puisqu'elle est à tout le monde. -->
         <button class="btn btn-0 mini vers-pris" @click="g.allerA('reglages')">
-          Déjà pris dans la liste{{ nbDejaPris ? ` (${nbDejaPris})` : '' }} : visibles de tous, sans limite
+          {{ $t('PanneauMesChoix.versPris', { n: nbDejaPris }) }}
         </button>
       </template>
     </section>

@@ -1,3 +1,5 @@
+import { t, langue, locale } from '~/composables/useLangue'
+
 /**
  * Ce que débloque l'achat d'une liste — une seule source pour les deux écrans
  * qui le disent (la feuille « Débloquer cette liste » et la carte des
@@ -5,30 +7,39 @@
  * précisément ce qu'on ne peut pas se permettre sur ce qui est vendu.
  *
  * `court` : le titre seul, pour la carte des réglages.
+ *
+ * Les textes sont dans app/textes/utilOffre.ts ; `titre` et `texte` sont lus
+ * à l'affichage (des accesseurs), pour suivre la langue choisie.
  */
-export const INCLUS_DEBLOCAGE = [
-  {
-    titre: 'Swipes illimités, chaque jour',
-    texte: 'Fini le quota du jour et la limite de départ, pour vous deux. Le rappel d’hygiène reste (juger deux cents prénoms d’affilée donne de moins bonnes décisions), mais il se passe.'
-  },
-  {
-    titre: 'L’essai avec votre nom de famille',
-    texte: 'Chaque prénom confronté au vôtre : les voyelles qui se télescopent, les consonnes qui butent, les rimes, la longueur, les initiales involontaires. Ça se calcule sur la prononciation, pas sur l’orthographe.'
-  },
-  {
-    titre: 'Combien dans sa classe',
-    texte: 'Le nombre d’enfants qui porteront ce prénom dans une classe de 25, aujourd’hui et projeté à l’entrée en maternelle.'
-  },
-  {
-    titre: 'Ce que vos oui disent de vous',
-    texte: 'Les origines qui reviennent, la longueur que vous préférez, le degré de rareté, pour chacun de vous, et là où vous divergez.'
-  },
-  {
-    titre: 'Pourquoi vous n’êtes pas d’accord',
-    texte: 'Sur chaque désaccord, ce qui le cause vraiment : « ce n’est peut-être pas Marius, c’est la longueur ». Calculé sur vos votes, et tu par honnêteté quand il n’y a pas encore de quoi le dire.'
-  },
-  {
-    titre: 'Les invités en lecture seule',
-    texte: 'Inviter les grands-parents pour qu’ils voient, commentent et mettent un cœur sur vos prénoms en commun, sans droit de veto, et sans retarder vos accords.'
-  }
-] as const
+const ELEMENTS = ['illimites', 'nomFamille', 'classe', 'profil', 'desaccord', 'invites'] as const
+
+export const INCLUS_DEBLOCAGE = ELEMENTS.map(id => ({
+  id,
+  get titre() { return t(`utilOffre.${id}_titre`) },
+  get texte() { return t(`utilOffre.${id}_texte`) }
+}))
+
+/**
+ * La mention TVA sous un prix, dans la langue affichée (mentionTva, dans
+ * shared/utils/editeur.ts, reste en français : la facture et le serveur).
+ */
+export function mentionTvaLocale(): string {
+  return t(`utilOffre.tva_${EDITEUR.tva}`)
+}
+
+/**
+ * Le prix du site (« 6 € ») écrit à la manière de la langue affichée, en
+ * euros toujours (« €6 » en anglais). En français, tel quel. Un prix qui ne se
+ * lit pas (celui d'Apple, formulé par Apple) est rendu tel quel.
+ */
+export function prixLocal(prix: string): string {
+  if (langue.value === 'fr') return prix
+  const m = /^\s*(\d+(?:[.,]\d{1,2})?)\s*€\s*$/.exec(prix ?? '')
+  if (!m) return prix
+  const n = Number(m[1]!.replace(',', '.'))
+  const entier = Number.isInteger(n)
+  return n.toLocaleString(locale.value, {
+    style: 'currency', currency: 'EUR',
+    minimumFractionDigits: entier ? 0 : 2, maximumFractionDigits: 2
+  })
+}
