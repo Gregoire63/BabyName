@@ -13,7 +13,7 @@ export default defineEventHandler(async (e) => {
   const s = sessionOuNull(e)
   if (!s) return { connecte: false }
   const u = await avecActivite<any>(s.u,
-    `select u.id, u.pseudo, u.email, u.session_gen as gen,
+    `select u.id, u.pseudo, u.email, u.session_gen as gen, u.langue, u.langue_choix,
             (select count(*) from passkeys p where p.user_id = u.id) as passkeys
        from utilisateurs u where u.id = ?1`, [s.u])
   if (!u || u.gen !== s.g) { retirerSession(e); return { connecte: false } }
@@ -22,6 +22,7 @@ export default defineEventHandler(async (e) => {
     utilisateur: {
       id: u.id, pseudo: u.pseudo, email: u.email,
       passkeys: u.passkeys,
+      langue: u.langue, langue_choix: u.langue_choix ?? null,
       moyens: (u.email ? 1 : 0) + (u.passkeys > 0 ? 1 : 0)
     }
   }

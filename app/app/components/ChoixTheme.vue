@@ -11,22 +11,18 @@ import { useTheme, type Theme } from '~/composables/useTheme'
 const { choix, choisir } = useTheme()
 const nom = useId()
 
-const OPTIONS: { v: Theme; t: string; aide: string }[] = [
-  { v: 'clair', t: 'Clair', aide: 'toujours clair' },
-  { v: 'systeme', t: 'Système', aide: 'comme le téléphone' },
-  { v: 'sombre', t: 'Sombre', aide: 'toujours sombre' }
-]
+const OPTIONS: Theme[] = ['clair', 'systeme', 'sombre']
 </script>
 
 <template>
   <fieldset class="theme">
-    <legend class="sr-only">Thème de l’application</legend>
-    <label v-for="o in OPTIONS" :key="o.v" class="option" :class="{ on: choix === o.v }">
-      <input type="radio" :name="nom" :value="o.v" :checked="choix === o.v"
-             @change="choisir(o.v)">
-      <span class="apercu" :class="o.v" aria-hidden="true"><i /><i /></span>
-      <strong>{{ o.t }}</strong>
-      <span class="aide">{{ o.aide }}</span>
+    <legend class="sr-only">{{ $t('ChoixTheme.legende') }}</legend>
+    <label v-for="o in OPTIONS" :key="o" class="option" :class="{ on: choix === o }">
+      <input type="radio" :name="nom" :value="o" :checked="choix === o"
+             @change="choisir(o)">
+      <span class="apercu" :class="o" aria-hidden="true"><i /><i /></span>
+      <strong>{{ $t(`ChoixTheme.${o}`) }}</strong>
+      <span class="aide">{{ $t(`ChoixTheme.${o}Aide`) }}</span>
     </label>
   </fieldset>
 </template>

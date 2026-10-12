@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",
-    "build": "node scripts/verifier-migrations.mjs && node scripts/seo.mjs && node scripts/seo-plus.mjs && nuxt build",
+    "build": "node scripts/verifier-migrations.mjs && node scripts/verifier-textes.mjs && node scripts/seo.mjs && node scripts/seo-plus.mjs && nuxt build",
     "preview": "nuxt build && wrangler dev",
     "deploy": "npm run build && wrangler deploy && node scripts/indexnow.mjs",
     "indexnow": "node scripts/indexnow.mjs",

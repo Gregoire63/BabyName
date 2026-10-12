@@ -94,7 +94,9 @@ export default defineEventHandler(async (e) => {
         // Les codes cadeaux (migration 0003).
         'cadeaux': a('cadeaux', 'code_hash') && a('cadeaux', 'expire_le'),
         // L'achat dans l'app iOS (migration 0012).
-        'achats_apple': a('achats_apple', 'transaction_id') && a('achats_apple', 'jeton')
+        'achats_apple': a('achats_apple', 'transaction_id') && a('achats_apple', 'jeton'),
+        // La langue du compte (migration 0013).
+        'langue': a('utilisateurs', 'langue') && a('utilisateurs', 'langue_choix')
       }
       // Pas de compte des listes vendues ici : meme reservee, cette route n'a
       // pas a porter le nombre de clients. Il se lit dans la console D1.

@@ -183,6 +183,11 @@ async function supprimerCompte() {
       <p class="mini doux" style="margin:0">Sur cet appareil.</p>
     </section>
 
+    <section class="pile" aria-labelledby="compte-langue">
+      <h3 id="compte-langue" class="etiquette">{{ $t('ChoixLangue.titre') }}</h3>
+      <ChoixLangue />
+    </section>
+
     <section v-if="push.etat.value !== 'absent'" class="pile" aria-labelledby="compte-push">
       <div class="ligne">
         <h3 id="compte-push" class="etiquette" style="flex:1">Notifications</h3>
