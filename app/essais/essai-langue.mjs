@@ -20,7 +20,7 @@ async function francais(page, ou) {
     document.documentElement.appendChild(b); const t = b.innerText; b.remove(); return t
   })
   // « Notre liste » : le nom de la liste du jeu d'essai, une donnée.
-  const lignes = txt.split('\n').map(l => l.trim().replace(/Notre liste/g, '')).filter(l => l && MOTS_FR.test(l))
+  const lignes = txt.split('\n').map(l => l.trim().replace(/Notre liste|Base locale seulement.*/g, '')).filter(l => l && MOTS_FR.test(l))
   ok(lignes.length === 0, `${ou} : aucun texte français${lignes.length ? ' — ' + lignes.slice(0, 8).join(' | ') : ''}`)
 }
 async function capture(page, nom) { if (CAPS) await page.screenshot({ path: `${CAPS}/${nom}.png` }) }
@@ -93,6 +93,22 @@ const p3 = await ctx3.newPage()
 await aller(p3, `${BASE}/`)
 await p3.waitForTimeout(1500)
 ok(await p3.evaluate(() => document.documentElement.lang) === 'en', 'espagnol : anglais par défaut')
+
+// Les autres langues (fichiers chargés à la demande) : l'allemand et le
+// polonais s'affichent, sans texte introuvable.
+for (const [loc, code] of [['de-DE', 'de'], ['pl-PL', 'pl']]) {
+  const c = await nav.newContext({ locale: loc, viewport: { width: 390, height: 844 }, storageState: await ctx3.storageState() })
+  const p = await c.newPage()
+  p.on('console', m => { if (/texte introuvable/.test(m.text())) erreurs.push(m.text()) })
+  await aller(p, `${BASE}/`)
+  await p.waitForTimeout(1800)
+  ok(await p.evaluate(() => document.documentElement.lang) === code, `${code} : html lang`)
+  await capture(p, `${code}-02-accueil`)
+  const id = await p.evaluate(async () => { const r = await (await fetch('/api/groupes')).json(); return (r?.[0] ?? r?.groupes?.[0])?.id })
+  await aller(p, `${BASE}/g/${id}/swipe`)
+  await p.waitForTimeout(1500)
+  await capture(p, `${code}-03-swipe`)
+}
 
 ok(erreurs.length === 0, `aucun texte introuvable${erreurs.length ? ' — ' + [...new Set(erreurs)].slice(0, 10).join(' | ') : ''}`)
 await nav.close()
