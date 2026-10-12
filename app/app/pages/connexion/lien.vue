@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { t } from '~/composables/useLangue'
+import { t, langue } from '~/composables/useLangue'
 
 /**
  * Le lien reçu par e-mail arrive ici : /connexion/lien#t=<jeton> — ou
@@ -45,7 +45,7 @@ async function valider() {
   if (!jeton.value || etat.value === 'envoi') return
   etat.value = 'envoi'
   try {
-    const r = await $fetch<any>('/api/auth/lien/valider', { method: 'POST', body: { jeton: jeton.value } })
+    const r = await $fetch<any>('/api/auth/lien/valider', { method: 'POST', body: { jeton: jeton.value, langue: langue.value } })
     jeton.value = ''
     if (r?.but === 'verification') {
       email.value = r.email

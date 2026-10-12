@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { prixLocal } from '~/utils/offre'
 import { paysDe } from '~/composables/usePays'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { useEnregistrementDiffere, type OptionsEnvoi } from '~/composables/useEnregistrementDiffere'
@@ -130,7 +131,7 @@ const montrerPayant = computed(() => paye.value || vente.ouverte)
  * autres listes restent gratuites.
  */
 // Le prix du site, ou celui qu'annonce l'App Store dans l'app iOS (useVente).
-const prix = computed(() => vente.prix)
+const prix = computed(() => prixLocal(vente.prix))
 const INCLUS = INCLUS_DEBLOCAGE
 const offerte = computed(() => !!(g.etat.value?.groupe as any)?.offert)
 const cadeau = computed(() => !!(g.etat.value?.groupe as any)?.cadeau)
@@ -214,8 +215,8 @@ const filtresActifs = computed(() => {
   const f = g.filtres.value
   const out: string[] = []
   if (f.sexe.length < 3) out.push(f.sexe.map(s => t(`SectionReglages.sexe_${s}`)).join(' + '))
-  if (f.origines_in.length) out.push(t('SectionReglages.fOrigines', { liste: f.origines_in.join(', ') }))
-  if (f.origines_out.length) out.push(t('SectionReglages.fSans', { liste: f.origines_out.join(', ') }))
+  if (f.origines_in.length) out.push(t('SectionReglages.fOrigines', { liste: f.origines_in.map(o => t(`Origines.${o}`)).join(', ') }))
+  if (f.origines_out.length) out.push(t('SectionReglages.fSans', { liste: f.origines_out.map(o => t(`Origines.${o}`)).join(', ') }))
   if (f.compose === false) out.push(t('SectionReglages.fPasComposes'))
   if (f.syllabes[0] > 1 || f.syllabes[1] < 6) out.push(t('SectionReglages.fSyllabes', { a: f.syllabes[0], b: f.syllabes[1] }))
   if (f.car[0] > 2 || f.car[1] < 14) out.push(t('SectionReglages.fLettres', { a: f.car[0], b: f.car[1] }))

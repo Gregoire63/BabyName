@@ -2,6 +2,7 @@ import type { Textes } from '../composables/useLangue'
 
 export default {
   fr: {
+    nomListeDefaut: 'Notre liste',
     titrePage: 'Accueil',
     accesRefuse: 'Accès refusé.',
     serveurKo: (p) => `Le serveur n’a pas répondu correctement${p.code ? ` (erreur ${p.code})` : ''}.`,
@@ -50,6 +51,7 @@ export default {
     revenirDans: 'Revenir dans {nom}'
   },
   en: {
+    nomListeDefaut: 'Our list',
     titrePage: 'Home',
     accesRefuse: 'Access denied.',
     serveurKo: (p) => `The server didn’t respond properly${p.code ? ` (error ${p.code})` : ''}.`,

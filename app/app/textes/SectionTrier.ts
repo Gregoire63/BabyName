@@ -82,7 +82,7 @@ export default {
     basculeVente: 'Starter names done: {n} names a day from now on, or no limit if you unlock the list.',
     aussi: '{noms} too',
     familleTitre: 'No to all the “{prefixe}…” names?',
-    familleTexte: 'The {n} names starting with “{prefixe}” all go to “no” at once. You can put them back in play under Ranking › My choices.',
+    familleTexte: 'The {n} names starting with “{prefixe}” all go to “no” at once. You can put them back in play under Ranking › My picks.',
     nonAuxN: 'No to all {n}',
     annuler: 'Cancel'
   }

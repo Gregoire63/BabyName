@@ -205,7 +205,9 @@ export const seuilDeTendance = () => seuilTendance
 /** « +14 % », « −3 % », et « 0 % » plutôt que « -0 % » pour une pente de -0,3. */
 export function pourcentAn(t: number): string {
   const r = Math.round(t)
-  return r > 0 ? `+${r} %` : r < 0 ? `−${-r} %` : '0 %'
+  // L'espace avant % est française ; l'anglais l'accole.
+  const pc = locale.value.startsWith('fr') ? ' %' : '%'
+  return r > 0 ? `+${r}${pc}` : r < 0 ? `−${-r}${pc}` : `0${pc}`
 }
 /** Bébés par an, en moyenne sur les trois dernières années publiées. */
 export const bebesParAn = (p: Pick<Prenom, 'n'>) => Math.max(1, Math.round(p.n / 3))

@@ -110,7 +110,7 @@ const nomFamille = computed(() => {
   const gr = g.etat.value?.groupe as any
   return gr?.paye && typeof gr?.nom_famille === 'string' ? gr.nom_famille.trim() : ''
 })
-const essai = computed(() => nomFamille.value ? tester(props.p.l, nomFamille.value) : null)
+const essai = computed(() => nomFamille.value ? tester(props.p.l, nomFamille.value, t) : null)
 const niveau = computed(() => !essai.value ? ''
   : essai.value.accroche ? 'accroche'
   : essai.value.remarques.some(r => r.gravite === 'attention') ? 'attention' : 'bien')
@@ -141,7 +141,7 @@ const niveau = computed(() => !essai.value ? ''
             <path d="m12.6 11.6-2.6 4.6h3.6L11 20.8" />
           </svg>
         </button>
-        <span v-for="o in p.g" :key="o" class="puce origine">{{ o }}</span>
+        <span v-for="o in p.g" :key="o" class="puce origine">{{ $t(`Origines.${o}`) }}</span>
       </span>
       <button type="button" class="etoile" :class="{ on: g.favoris.value.has(p.l) }"
               :aria-pressed="g.favoris.value.has(p.l)" @click.stop="emit('favori')">

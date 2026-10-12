@@ -1,5 +1,6 @@
 import { chargerJson, sansAccent, seuilDeTendance, type ChiffreFx, type Prenom } from '~/composables/useCatalogue'
 import { t, locale } from '~/composables/useLangue'
+import { nomPays } from '~/utils/nomPays'
 
 /**
  * Les prénoms dans tous les pays dont les statistiques sont libres et
@@ -191,7 +192,7 @@ export function appliquerPays(liste: Prenom[], codes: readonly string[]) {
 
 /** « France », « France et Belgique », « vos 4 pays ». */
 export function nomSelection(codes: readonly string[]): string {
-  const noms = codes.map(c => paysDe(c)?.nom ?? c)
+  const noms = codes.map(c => nomPays(c, paysDe(c)?.nom ?? c))
   if (noms.length <= 2) return noms.join(t('usePays.et'))
   return t('usePays.vosPays', { n: noms.length })
 }
@@ -220,5 +221,5 @@ export function meilleurPays(p: Prenom): { pays: Pays; sur: string; en: string; 
 export function enPays(p: Pays): string {
   if (p.code === 'qc') return t('usePays.auQuebec')
   if (p.code === 'us') return t('usePays.auxEtatsUnis')
-  return t('usePays.enPays', { nom: p.nom })
+  return t('usePays.enPays', { nom: nomPays(p.code, p.nom) })
 }

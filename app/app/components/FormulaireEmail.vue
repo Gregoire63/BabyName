@@ -92,7 +92,7 @@ async function valider() {
   envoi.value = true
   try {
     await $fetch('/api/auth/code', { method: 'POST',
-      body: { email: envoye.value, code: code.value, but: props.but } })
+      body: { email: envoye.value, code: code.value, but: props.but, langue: langue.value } })
     // Prévenir AVANT de rafraîchir : le parent peut retirer ce formulaire dès
     // que le compte a une adresse, et un composant démonté n'émet plus rien.
     emit('fait', envoye.value)

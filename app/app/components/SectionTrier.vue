@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { prixLocal } from '~/utils/offre'
 import { filtrer, filtresParDefaut, premiers, trouverPrenom, sansAccent, type Prenom }
   from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
@@ -365,7 +366,7 @@ const bloqueGratuit = computed(() => quotaAtteint.value && !paye.value && !jObse
 // n'a pas donné son prix), pas d'offre qui s'ouvre, et le mur ne dit que
 // « à demain » (useVente). Le prix est celui du site, ou celui d'Apple.
 const vente = useVente()
-const prixListe = computed(() => vente.prix)
+const prixListe = computed(() => prixLocal(vente.prix))
 const OFFRE_MAX_JOUR = 2
 const jourLocal = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}` }
 const cleOffre = () => `pr_offre_${g.gid}_${jourLocal()}`

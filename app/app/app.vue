@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { t } from '~/composables/useLangue'
+import { t, langue } from '~/composables/useLangue'
 
 onMounted(() => { rafraichirMoi() })
 
@@ -13,6 +13,9 @@ useHead({
   // francais, ne sert qu'avant le montage). Une page qui donne le sien
   // l'emporte.
   title: computed(() => t('App.titre')),
+  // La langue du document : celle affichée (useLangue), pas le « fr » de
+  // nuxt.config — sinon unhead le remet à chaque navigation.
+  htmlAttrs: { lang: langue },
   // Le titre par defaut commence deja par le nom : on ne le redouble pas.
   titleTemplate: (t?: string) => (t && !t.startsWith('babyNamed') ? `${t} · babyNamed` : (t || 'babyNamed'))
 })

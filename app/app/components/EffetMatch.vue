@@ -87,7 +87,7 @@ const nomFamille = computed(() => {
   const n = (g.etat.value?.groupe as any)?.nom_famille
   return paye.value && typeof n === 'string' ? n.trim() : ''
 })
-const essai = computed(() => nomFamille.value ? tester(props.prenom, nomFamille.value) : null)
+const essai = computed(() => nomFamille.value ? tester(props.prenom, nomFamille.value, t) : null)
 const niveau = computed(() => !essai.value ? ''
   : essai.value.accroche ? 'accroche'
   : essai.value.remarques.some(r => r.gravite === 'attention') ? 'attention' : 'bien')

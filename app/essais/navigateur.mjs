@@ -50,8 +50,10 @@ export async function lancer() {
   })
   // Chaque contexte ouvert par l'essai est suivi, d'où qu'il l'ouvre.
   const ouvrir = nav.newContext.bind(nav)
-  nav.newContext = async (...options) => {
-    const ctx = await ouvrir(...options)
+  // Les essais lisent les textes français : le navigateur parle français,
+  // sauf si l'essai demande une autre langue (app/composables/useLangue.ts).
+  nav.newContext = async (o = {}, ...reste) => {
+    const ctx = await ouvrir({ locale: 'fr-FR', ...o }, ...reste)
     ctx.on('request', r => enVol.set(r, { le: Date.now(), quoi: `${r.method()} ${r.url().replace(BASE, '')}` }))
     ctx.on('requestfinished', r => enVol.delete(r))
     ctx.on('requestfailed', r => enVol.delete(r))

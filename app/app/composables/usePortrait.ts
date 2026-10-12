@@ -102,7 +102,7 @@ function traitsDe(oui: Prenom[], juges: Prenom[]): Trait[] {
   origines.sort((a, b) => b.lift * b.k - a.lift * a.k)
   if (origines.length) {
     out.push(trait('origine', origines[0]!.lift, 'origine',
-      { o1: origines[0]!.o, o2: origines[1]?.o ?? '' }))
+      { o1: t(`Origines.${origines[0]!.o}`), o2: origines[1] ? t(`Origines.${origines[1].o}`) : '' }))
   }
 
   // --- longueur ------------------------------------------------------------

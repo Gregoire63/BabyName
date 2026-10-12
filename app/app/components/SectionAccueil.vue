@@ -87,7 +87,7 @@ async function creer(filtres: Filtres) {
     cadeauPourNouvelle.value = ''
     try {
       const r = await $fetch<any>('/api/cadeaux/utiliser',
-        { method: 'POST', body: { code, nouvelle: true, filtres } })
+        { method: 'POST', body: { code, nouvelle: true, filtres, nom: t('SectionAccueil.nomListeDefaut') } })
       oublierCadeauEnAttente()
       premier.value = ''
       return navigateTo({ path: `/g/${r.groupe}/swipe`, query: { ...query, offerte: '1' } })
@@ -97,7 +97,7 @@ async function creer(filtres: Filtres) {
       return
     }
   }
-  const g = await $fetch<any>('/api/groupes', { method: 'POST', body: { filtres } })
+  const g = await $fetch<any>('/api/groupes', { method: 'POST', body: { filtres, nom: t('SectionAccueil.nomListeDefaut') } })
   premier.value = ''
   await navigateTo({ path: `/g/${g.id}/swipe`, query: Object.keys(query).length ? query : undefined })
 }

@@ -35,7 +35,7 @@ export default {
     ajouterPris: 'Add {nom} to already taken',
     poserVeto: 'Veto {nom}',
     choisirRaison: 'Choose a reason',
-    quotaErreur: 'All {max} of your vetoes are used: remove one in Ranking › My choices, or say why: “already taken” has no limit.',
+    quotaErreur: 'All {max} of your vetoes are used: remove one in Ranking › My picks, or say why: “already taken” has no limit.',
     dejaRetire: '{nom} is already out of play.',
     plein: 'This list already has two hundred “already taken” names.',
     tropDEssais: 'Lots of names removed at once: try again in a moment.',
@@ -53,6 +53,6 @@ export default {
     notePrisPlaceholder: 'Who has this name? Your cousin, Paul’s son…',
     noteVetoAria: 'Why this veto? (optional, visible only to you)',
     noteVetoPlaceholder: 'Why? (just for you, optional)',
-    quotaAtteint: 'All {max} of your vetoes are used: remove one in Ranking › My choices, or choose “already taken”.'
+    quotaAtteint: 'All {max} of your vetoes are used: remove one in Ranking › My picks, or choose “already taken”.'
   }
 } satisfies Textes
