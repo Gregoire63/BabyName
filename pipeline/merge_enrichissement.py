@@ -35,6 +35,12 @@ SOURCES = [("manuel", "enrich_manuel.jsonl"),
            # mot source du Wiktionnaire (Nicolas « Nicolaus ») : voir
            # enrich_wiktionary.py, glose()
            ("claude", "enrich_claude_complement.jsonl"),
+           # 14 octobre 2026 : les prenoms portes par des centaines de milliers
+           # de Francais que les deux passes avaient laisses sans sens, parce
+           # qu'on ne les donne presque plus (Martine, Pascal, Josette) ; relu
+           # de facon adversariale avant publication. Il sert aussi aux prenoms
+           # que le catalogue n'a pas (pipeline/historiques.py).
+           ("claude", "enrich_claude_classiques.jsonl"),
            ("llm", "enrich_llm.jsonl")]
 # Exception pour le SENS : Claude passe devant le Wiktionnaire francais.
 # La glose du Wiktionnaire est celle du MOT SOURCE (Vincentius -> « vainquant »,
@@ -58,9 +64,9 @@ def vide(v) -> bool:
     return v is None or v == "" or v == [] or (isinstance(v, float) and pd.isna(v))
 
 
-def main() -> None:
-    d = pd.read_csv(BUILD / "prenoms_enrichi.csv")
-
+def fusionner() -> tuple[dict, dict, dict]:
+    """Superpose les sources, champ par champ : {slug: {champ: (valeur, source)}},
+    la confiance de chaque source par prenom, et le nombre d'entrees lues."""
     # {slug: {champ: (valeur, source)}}
     fusion: dict[str, dict] = {}
     confiances: dict[tuple[str, str], str] = {}
@@ -95,10 +101,13 @@ def main() -> None:
                            for e in par_source.get(nom, ()) if not vide(e.get(c))), None)
             if valeur:
                 cible[c] = valeur
+    return fusion, confiances, compte
 
-    # Repli pour les prenoms composes absents des sources (Jean-Baptiste, Marie-Rose) :
-    # on prend l'union des origines de leurs parties.
-    for lab in d["label"].astype(str):
+
+def completer_composes(labels, fusion: dict, confiances: dict) -> None:
+    """Repli pour les prenoms composes absents des sources (Jean-Baptiste,
+    Marie-Rose) : on prend l'union des origines de leurs parties."""
+    for lab in labels:
         sl = slugify(lab)
         if fusion.get(sl, {}).get("origines"):
             continue
@@ -127,6 +136,12 @@ def main() -> None:
                     confiances[(sl, "composé")] = min(connus, key=lambda c: rang[c])
                 else:
                     confiances[(sl, "composé")] = "moyenne"
+
+
+def main() -> None:
+    d = pd.read_csv(BUILD / "prenoms_enrichi.csv")
+    fusion, confiances, compte = fusionner()
+    completer_composes(d["label"].astype(str), fusion, confiances)
 
     def prendre(label, champ, defaut=None):
         e = fusion.get(slugify(label), {}).get(champ)

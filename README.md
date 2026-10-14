@@ -10,6 +10,8 @@ python3 pipeline/enrich_wiktionary_en.py   # Wiktionnaire EN : origine     GRATU
 python3 pipeline/merge_enrichissement.py   # -> data/build/prenoms_final.csv
 python3 pipeline/export_catalogue.py       # -> app/public/data/catalogue.json(.gz)
                                            #    + Québec, Belgique, Suisse (pipeline/francophonie.py)
+python3 pipeline/historiques.py            # -> app/scripts/donnees/historiques.json : sens et origine
+                                           #    des prénoms INSEE hors catalogue (Josette, Ginette…)
 python3 pipeline/pays.py                   # -> app/public/data/pays/ : 17 pays, un fichier chacun
 python3 pipeline/test_syllabes.py          # 65/65 attendus
 python3 pipeline/test_phonetique.py        # 47/47 attendus
@@ -51,6 +53,18 @@ Philippe « chevaux]] ») ou le mot source pris pour un sens (Nicolas
 « Nicolaus », Éric « Eiríkr », Céline « Coelina »). 46 d'entre eux restent
 sans sens, exprès : étymologie discutée (Sofiane, Corentin) ou création
 moderne (Anaé).
+
+`data/cache/enrich_claude_classiques.jsonl` (14 octobre 2026, 574 prénoms)
+comble le trou que la Search Console a montré : les prénoms portés par des
+centaines de milliers de Français, qu'on ne donne presque plus (Martine,
+Pascal, Josette, Ginette), n'avaient ni sens ni page. Tous ceux qui comptent
+au moins 1 000 naissances depuis 1900 et qu'aucune passe n'avait jugés ;
+ceux qu'une passe avait laissés sans sens exprès (Monique, Serge) le
+restent. Écrit comme les deux autres, puis relu de façon adversariale
+(60 corrections sur 574). Il sert au catalogue (318 prénoms gagnent un sens)
+et aux prénoms que le catalogue n'a pas : `pipeline/historiques.py` passe les
+mêmes sources, dans le même ordre, sur les prénoms INSEE absents du catalogue
+(les composés, Marie-Christine, reçoivent le sens de leurs parties).
 
 ## Une carte par prononciation
 
@@ -116,8 +130,9 @@ renseigne gagne :
    sens du modèle (`sens=` ou 3e paramètre de `{{étyl}}`), jamais le mot source
    ni sa translittération, et seulement la ligne « prénom » d'une page qui
    décrit aussi une commune ou un sigle (Olaf). Voir `pipeline/wikitexte.py`.
-4. **claude** — `data/cache/enrich_claude.jsonl` (6 189 prénoms) et
-   `enrich_claude_complement.jsonl` (372), écrits en session par Claude, sans
+4. **claude** — `data/cache/enrich_claude.jsonl` (6 189 prénoms),
+   `enrich_claude_complement.jsonl` (372) et `enrich_claude_classiques.jsonl`
+   (574, les prénoms d'avant 1986), écrits en session par Claude, sans
    clé API. Placé **après** les deux wiktionnaires pour l'origine : le
    Wiktionnaire est citable, Claude est un jugement. **Sauf pour le sens** :
    la glose du Wiktionnaire est celle du mot source (Vincentius → « vainquant »),

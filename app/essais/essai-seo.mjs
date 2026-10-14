@@ -11,6 +11,14 @@
  *  - le bouton des fiches est en nofollow, et chaque page mène aux mentions
  *    légales ;
  *  - un titre ne promet pas de signification quand il n'y en a pas ;
+ *  - une fiche mince (ni sens, ni origine, ni 1 000 naissances depuis 1900)
+ *    est en noindex et hors du sitemap, et TOUTES les autres sont indexées ;
+ *  - l'histoire depuis 1900, chiffres recalculés ici depuis le fichier de
+ *    l'INSEE : Martine (rare aujourd'hui) et Josette (hors du catalogue de
+ *    l'app) ont leur fiche indexée, leur génération et des proches de leur
+ *    époque ; Fabienne n'est plus « d'ailleurs » ; la courbe de Louise part
+ *    de 1900 ; chaque décennie commence par son vrai premier, et chaque
+ *    prénom rétro avait son record avant 1950 ;
  *  - le lastmod du sitemap ne change pas à chaque build ;
  *  - la coquille « / » dit ce qu'est l'app à qui n'exécute pas le JavaScript ;
  *  - le service worker ne met pas ces pages à la place de la coquille ;
@@ -92,17 +100,114 @@ for (const m of sitemap.matchAll(/<loc>[^<]*\/prenom\/([a-z-]+)\/<\/loc>/g)) {
 }
 dit(!!sansSens && !/<title>[^<]*signification/.test(sansSens),
   'une fiche sans sens établi ne promet pas de « signification » dans son titre')
-// Ni sens ni origine : la fiche existe, mais n'est ni indexée ni au sitemap.
+// Ni sens, ni origine, ni histoire : la fiche existe, mais n'est ni indexée
+// ni au sitemap. Une histoire de 1 000 naissances depuis 1900, elle, suffit :
+// la règle se vérifie sur TOUTES les fiches, dans les deux sens.
 const { readdirSync } = await import('node:fs')
-let mince = null
+const SEUIL_HISTOIRE = 1000
+const ecarts = []
+let minces = 0, parHistoire = null
 for (const s of readdirSync(join(sortie, 'prenom'))) {
   const h = lire(`prenom/${s}/index.html`)
-  if (h.includes('ne sont pas établies de façon fiable')) { mince = s; break }
+  const sansRien = h.includes('ne sont pas établies de façon fiable')
+  const compte = Number((h.match(/L’INSEE compte <b>([\d\u202f\u00a0 ]+)<\/b>/)?.[1] ?? '0').replace(/\D/g, ''))
+  const noindex = /<meta name="robots" content="noindex, follow">/.test(h)
+  const auSitemap = sitemap.includes(`/prenom/${s}/<`)
+  const attendu = sansRien && compte < SEUIL_HISTOIRE ? 'mince' : 'pleine'
+  if (attendu === 'mince') minces++
+  if (sansRien && compte >= SEUIL_HISTOIRE && !parHistoire) parHistoire = s
+  if ((attendu === 'mince') !== noindex || noindex === auSitemap) ecarts.push(`${s} (${compte})`)
 }
-dit(!!mince && /<meta name="robots" content="noindex, follow">/.test(lire(`prenom/${mince}/index.html`))
-    && !sitemap.includes(`/prenom/${mince}/<`),
-  `une fiche mince (ni sens ni origine : ${mince}) est en noindex et hors du sitemap`)
+dit(minces > 100 && ecarts.length === 0,
+  `les fiches minces (ni sens, ni origine, moins de ${SEUIL_HISTOIRE} naissances depuis 1900 : ${minces}) sont en noindex et hors du sitemap, toutes les autres indexées et au sitemap (${ecarts.slice(0, 5).join(', ') || 'aucun écart'})`)
+dit(!!parHistoire, `une fiche sans sens ni origine mais avec son histoire est indexée (${parHistoire})`)
 dit(!/noindex/.test(louise), 'une fiche pleine reste indexable')
+
+// ---------- l'histoire depuis 1900 ------------------------------------------
+// Les chiffres attendus sont recalculés ici, depuis le fichier de l'INSEE,
+// sans rien emprunter à scripts/seo.mjs.
+const brut = readFileSync(join(RACINE, '../data/raw/prenoms_insee_2025_packed.csv'), 'utf8').split('\n').slice(1).filter(Boolean)
+  .map(l => { const [sx, nom, y0, v] = l.split(';'); return { sx: sx === '2' ? 'f' : 'm', nom, y0: Number(y0), v: v.split(',').map(x => Number(x) * 5) } })
+const sansAcc = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '')
+const totAn = { f: {}, m: {} }
+for (const r of brut) r.v.forEach((x, k) => { totAn[r.sx][r.y0 + k] = (totAn[r.sx][r.y0 + k] ?? 0) + x })
+function insee(slug, sx) {
+  const an = {}
+  for (const r of brut) if (r.sx === sx && sansAcc(r.nom) === slug) r.v.forEach((x, k) => { if (x) an[r.y0 + k] = (an[r.y0 + k] ?? 0) + x })
+  const total = Object.values(an).reduce((a, b) => a + b, 0)
+  const tous = a => totAn.f[a] + totAn.m[a]
+  const record = Object.keys(an).map(Number).sort((a, b) => an[b] / tous(b) - an[a] / tous(a))[0]
+  return { total, record, dernier: Math.max(...Object.keys(an).map(Number)) }
+}
+const nombre = n => n.toLocaleString('fr-FR').replace(/\s/g, '[\\s  ]')
+const fiche = slug => existsSync(join(sortie, 'prenom', slug, 'index.html')) ? lire(`prenom/${slug}/index.html`) : ''
+const indexee = (slug, h) => !!h && !/noindex/.test(h) && sitemap.includes(`/prenom/${slug}/<`)
+
+// Martine : rare aujourd'hui, 320 130 filles depuis 1900. Elle n'avait pas de page.
+const martine = fiche('martine'), iM = insee('martine', 'f')
+dit(indexee('martine', martine) && new RegExp(`L’INSEE compte <b>${nombre(iM.total)}</b> filles prénommées Martine`).test(martine)
+    && martine.includes(`Son année record : ${iM.record}`),
+  `Martine a sa fiche, indexée : ${iM.total.toLocaleString('fr-FR')} filles depuis 1900, record en ${iM.record}, comme dans le fichier de l’INSEE`)
+dit(/<title>Martine : signification/.test(martine) && martine.includes('<p class="sens">« voué à Mars »')
+    && martine.includes('est la forme féminine de Martin, qui signifie « voué à Mars »'),
+  'son sens est dit comme on le dirait : la forme féminine de Martin, qui signifie « voué à Mars »')
+dit(/Un prénom des <a href="\/prenoms\/annees-1950\/filles\/">années 50<\/a>/.test(martine),
+  'et sa génération mène à sa décennie (les années 50)')
+
+// Josette : absente du catalogue de l'app (plus donnée depuis 2013).
+const josette = fiche('josette'), iJ = insee('josette', 'f')
+const tranche = readdirSync(join(sortie, 'statique')).filter(f => /^fiche-jo\.[0-9a-f]+\.txt$/.test(f))
+  .map(f => readFileSync(join(sortie, 'statique', f), 'utf8')).join('\n')
+dit(indexee('josette', josette) && new RegExp(`<b>${nombre(iJ.total)}</b> filles prénommées Josette`).test(josette)
+    && josette.includes(`Dernières naissances recensées par l’INSEE : ${iJ.dernier}`),
+  `Josette, hors du catalogue de l’app, a sa fiche indexée (${iJ.total.toLocaleString('fr-FR')} naissances, dernières en ${iJ.dernier})`)
+dit(!!tranche && !/^josette\t/m.test(tranche), 'et le Worker ne la rend plus : sa page statique fait foi')
+dit(!josette.includes('prenom=josette') && josette.includes('<a class="b" rel="nofollow" href="/?ref=seo">'),
+  'son bouton ouvre l’app sans lui demander un prénom qu’elle ne connaît pas')
+const prochesJ = [...(josette.match(/<ul class="noms-grands">(.*?)<\/ul>/s)?.[1] ?? '').matchAll(/href="\/prenom\/([a-z-]+)\/"/g)].map(m => m[1])
+const epoque = prochesJ.filter(s => /Un prénom des <a href="\/prenoms\/annees-19[345]0\//.test(fiche(s))).length
+dit(prochesJ.length >= 8 && epoque >= prochesJ.length - 2,
+  `ses prénoms proches sont de son époque (${epoque} sur ${prochesJ.length} des années 30 à 50)`)
+const index = readdirSync(join(sortie, 'statique')).filter(f => /^recherche\.[0-9a-f]+\.txt$/.test(f)).map(f => readFileSync(join(sortie, 'statique', f), 'utf8')).join('\n')
+dit(/^Josette\t/m.test(index), 'la recherche la propose quand on tape « Jos… »')
+
+// Fabienne : plus donnée depuis 2022, mais pas « d'ailleurs ».
+const fabienne = fiche('fabienne'), iF = insee('fabienne', 'f')
+dit(!!fabienne && !/d’ailleurs/.test(fabienne.match(/<title>(.*?)<\/title>/)?.[1] ?? 'd’ailleurs') && !fabienne.includes('originalité en France')
+    && new RegExp(`<b>${nombre(iF.total)}</b> filles prénommées Fabienne`).test(fabienne),
+  `Fabienne (${iF.total.toLocaleString('fr-FR')} naissances en France) n’est plus présentée comme un prénom d’ailleurs`)
+
+// Louise : la courbe part de 1900, où commence son histoire.
+dit(/<svg class="courbe"[^>]*aria-label="Naissances de Louise pour 10 000 bébés, de 1900 à \d{4}"/.test(louise)
+    && louise.includes('Popularité de Louise depuis 1900'),
+  'la courbe de Louise part de 1900 : son premier règne et son creux avant son retour')
+const marie = fiche('marie')
+dit((marie.match(/des prénoms de filles des années/g) ?? []).length === 2,
+  'Marie, dans le top 100 de chaque décennie, n’en cite que ses deux meilleures')
+
+// Les décennies : le premier de chaque tableau est le vrai premier de l'INSEE.
+const premiers = {}
+for (const [d, sx] of [[1950, 'f'], [1980, 'm']]) {
+  const t = {}
+  for (const r of brut) if (r.sx === sx) r.v.forEach((x, k) => { const a = r.y0 + k; if (a >= d && a <= d + 9) t[sansAcc(r.nom)] = (t[sansAcc(r.nom)] ?? 0) + x })
+  premiers[`${d}${sx}`] = Object.entries(t).sort((a, b) => b[1] - a[1])[0]
+}
+const dec50 = lire('prenoms/annees-1950/filles/index.html'), dec80 = lire('prenoms/annees-1980/garcons/index.html')
+const premier = h => h.match(/<td class="rg">1<\/td><td><a href="\/prenom\/([a-z-]+)\/"><b>[^<]+<\/b><\/a><\/td><td class="o">[^<]*<\/td><td class="n">([^<]+)</)
+dit(premier(dec50)?.[1] === premiers['1950f'][0] && premier(dec50)?.[2].replace(/\D/g, '') === String(premiers['1950f'][1])
+    && premier(dec80)?.[1] === premiers['1980m'][0],
+  `les années 50 (filles) commencent par ${premiers['1950f'][0]}, les années 80 (garçons) par ${premiers['1980m'][0]}, comme dans le fichier de l’INSEE`)
+const hub = lire('prenoms/annees/index.html')
+dit([1900, 1950, 2020].every(d => hub.includes(`href="/prenoms/annees-${d}/filles/"`)) && sitemap.includes('/prenoms/annees/<')
+    && sitemap.includes('/prenoms/annees-1950/filles/<'),
+  'la page des décennies mène à chacune, de 1900 à 2020, et toutes sont au sitemap')
+
+// Le rétro : chaque prénom de la liste avait son record avant 1950, et on le donne encore.
+const retroF = lire('prenoms/retro/filles/index.html')
+const lignesRetro = [...retroF.matchAll(/<small>record en (\d{4})<\/small><\/td><td class="o">[^<]*<\/td><td class="n">([^<]+)</g)]
+dit(lignesRetro.length >= 20 && lignesRetro.every(m => Number(m[1]) < 1950 && Number(m[2].replace(/\D/g, '')) >= 150)
+    && sitemap.includes('/prenoms/retro/filles/<'),
+  `les prénoms rétro (${lignesRetro.length} filles) ont tous leur record avant 1950 et au moins 150 naissances récentes`)
 
 // ---------- la mise en page -------------------------------------------------
 // Aucun script EN LIGNE : la politique de contenu des pages statiques n'en
@@ -138,8 +243,8 @@ dit(/1<sup>er<\/sup><\/b><span>des prénoms de filles les plus donnés<\/span>/.
   'la fiche de Louise mène au classement où elle est 1re')
 const portail = lire('prenoms/index.html')
 const cartes = [...portail.matchAll(/<article class="carte classement r">(.*?)<\/article>/gs)].map(m => m[1])
-dit(cartes.length === 3 && cartes.every(c => (c.match(/<a href="\/prenom\//g) ?? []).length === 6),
-  'l’accueil montre chaque classement par ses trois premiers prénoms, filles et garçons')
+dit(cartes.length === 4 && cartes.every(c => (c.match(/<a href="\/prenom\//g) ?? []).length === 6),
+  'l’accueil montre chaque classement (rétro compris) par ses trois premiers prénoms, filles et garçons')
 const origines = lire('prenoms/origines/index.html')
 const totaux = [...origines.matchAll(/<span>([\d\u202f\u00a0 ]+) prénoms<\/span>/g)].map(m => Number(m[1].replace(/\D/g, '')))
 dit(totaux.length >= 20 && totaux.every((n, i) => i === 0 || n <= totaux[i - 1]) && sitemap.includes('/prenoms/origines/<'),
@@ -162,7 +267,8 @@ const ctx = await nav.newContext({ viewport: { width: 360, height: 780 } })
 const onglet = await ctx.newPage()
 const debords = []
 for (const chemin of ['/prenoms/', '/prenoms/tendance/filles/', '/prenoms/rares/garcons/', '/prenoms/populaires/filles/',
-  '/prenoms/origine/arabe/', '/prenoms/origines/', '/prenoms/lettre/l/', '/prenom/louise/', '/choisir-un-prenom-a-deux/']) {
+  '/prenoms/origine/arabe/', '/prenoms/origines/', '/prenoms/lettre/l/', '/prenom/louise/', '/choisir-un-prenom-a-deux/',
+  '/prenoms/annees/', '/prenoms/annees-1950/filles/', '/prenoms/retro/garcons/', '/prenom/martine/', '/prenom/marie-christine/']) {
   await onglet.goto(`http://127.0.0.1:${port}${chemin}`, { waitUntil: 'networkidle' })
   const d = await onglet.evaluate(() => [document.documentElement, ...document.querySelectorAll('.tableau, nav.rubriques ul')]
     .map(e => e.scrollWidth - e.clientWidth).reduce((a, b) => Math.max(a, b), 0))

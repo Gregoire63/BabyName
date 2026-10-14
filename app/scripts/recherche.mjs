@@ -16,8 +16,8 @@
  * Le moteur est dans recherche-client.js (sans dépendance, pas de script en
  * ligne : la politique de contenu des pages statiques l'interdit).
  */
-import { readFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { lireInsee } from './insee.mjs'
 
 export function construireRecherche({ tous, pages, slugDe, racine }) {
   // L'index : chaque graphie qui a une fiche, ou dont la graphie principale
@@ -40,21 +40,17 @@ export function construireRecherche({ tous, pages, slugDe, racine }) {
   const index = lignes.join('\n')
 
   // L'INSEE complet, par première lettre du prénom sans accent.
-  const brut = resolve(racine, '../data/raw/prenoms_insee_2025_packed.csv')
+  const I = lireInsee(racine)
   const lettres = new Map()
-  if (existsSync(brut)) {
+  if (I) {
     const tot = new Map()
-    const txt = readFileSync(brut, 'utf8').split('\n')
-    for (let i = 1; i < txt.length; i++) {
-      if (!txt[i]) continue
-      const [, prenom, first, vals] = txt[i].split(';')
-      const v = vals.split(',').map(x => Number(x) * 5)
+    for (const { prenom, premier, v } of I.lignes) {
       let e = tot.get(prenom)
       if (!e) tot.set(prenom, e = { n: 0, a: 9999, b: 0 })
       v.forEach((x, k) => {
         if (!x) return
         e.n += x
-        const an = Number(first) + k
+        const an = premier + k
         if (an < e.a) e.a = an
         if (an > e.b) e.b = an
       })

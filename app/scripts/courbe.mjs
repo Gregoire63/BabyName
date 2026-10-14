@@ -10,8 +10,10 @@
  *   sr     la série, de an0 à an1
  *   aria   le libellé accessible, DÉJÀ échappé
  *   pic    (max, année) -> l'étiquette du point le plus haut, déjà échappée
+ *   graduations  les années écrites sous l'axe (par défaut : an0, 2000,
+ *          2010, an1 — la courbe de l'app, 1986-2025)
  */
-export function dessinerCourbe(sr, { an0, an1, aria, pic }) {
+export function dessinerCourbe(sr, { an0, an1, aria, pic, graduations: grad = null }) {
   if (!sr || !sr.some(v => v > 0)) return ''
   const W = 400, H = 200, G = 8, D = 8, B = 26, T = 34
   const max = Math.max(...sr)
@@ -19,7 +21,7 @@ export function dessinerCourbe(sr, { an0, an1, aria, pic }) {
   const y = v => T + (1 - v / max) * (H - T - B)
   const pts = sr.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`)
   const iMax = sr.indexOf(max)
-  const graduations = [an0, 2000, 2010, an1].filter(a => a >= an0 && a <= an1)
+  const graduations = (grad ?? [an0, 2000, 2010, an1]).filter(a => a >= an0 && a <= an1)
   return `<svg class="courbe" viewBox="0 0 ${W} ${H}" role="img" aria-label="${aria}">
 <path class="aire" d="M${x(0).toFixed(1)},${H - B} L${pts.join(' L')} L${x(sr.length - 1).toFixed(1)},${H - B} Z"/>
 <line x1="${G}" x2="${W - D}" y1="${H - B}" y2="${H - B}" style="stroke:var(--texte);stroke-opacity:.3" stroke-width="1.5"/>

@@ -19,8 +19,7 @@
  * naissances par an divisées par 5 (arrondi INSEE), prénoms proches qui ont
  * une page (slug:Libellé, séparés par « ; »).
  */
-import { readFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { lireInsee } from './insee.mjs'
 
 /** « MARIE-LOU » → « Marie-Lou » (même règle que joli, recherche-client.js). */
 export const joli = s => s.toLowerCase().replace(/(^|[\s'’-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase())
@@ -40,28 +39,23 @@ function levenshtein(a, b) {
 }
 
 export function construireFichesInsee({ pages, slugDe, racine }) {
-  const brut = resolve(racine, '../data/raw/prenoms_insee_2025_packed.csv')
-  if (!existsSync(brut)) return { tranches: new Map(), total: 0, an1: 0 }
+  const I = lireInsee(racine)
+  if (!I) return { tranches: new Map(), total: 0, an1: 0 }
 
   // 1. Tous les prénoms INSEE, regroupés par slug (Maëlys et Maelys, filles
-  //    et garçons : une seule fiche), séries alignées sur 1900.
-  const AN0 = 1900
-  let an1 = AN0
+  //    et garçons : une seule fiche), séries alignées sur 1900, en unités de
+  //    5 naissances (celles de l'INSEE).
+  const AN0 = I.an0
   const parSlug = new Map()
-  const lignes = readFileSync(brut, 'utf8').split('\n')
-  for (let i = 1; i < lignes.length; i++) {
-    if (!lignes[i]) continue
-    const [sexe, prenom, premier, vals] = lignes[i].split(';')
+  for (const { sexe, prenom, premier, v } of I.lignes) {
     const slug = slugDe(prenom)
     if (!slug || pages.has(slug)) continue
-    const v = vals.split(',').map(Number)
-    const debut = Number(premier) - AN0
-    an1 = Math.max(an1, Number(premier) + v.length - 1)
+    const debut = premier - AN0
     let e = parSlug.get(slug)
     if (!e) parSlug.set(slug, e = { slug, graphies: new Map(), f: 0, m: 0, serie: [] })
     let tot = 0
-    v.forEach((x, k) => { if (x) { e.serie[debut + k] = (e.serie[debut + k] ?? 0) + x; tot += x } })
-    if (sexe === '2') e.f += tot; else e.m += tot
+    v.forEach((n, k) => { const x = n / 5; if (x) { e.serie[debut + k] = (e.serie[debut + k] ?? 0) + x; tot += x } })
+    if (sexe === 'f') e.f += tot; else e.m += tot
     e.graphies.set(prenom, (e.graphies.get(prenom) ?? 0) + tot)
   }
 
@@ -108,6 +102,6 @@ export function construireFichesInsee({ pages, slugDe, racine }) {
   return {
     tranches: new Map([...tranches].map(([k, t]) => [k, t.sort().join('\n')])),
     total: parSlug.size,
-    an1
+    an1: I.an1
   }
 }

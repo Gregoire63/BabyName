@@ -332,11 +332,13 @@ for (const s of ['f', 'm', 'fm']) {
 const groupes = new Map()
 for (const p of tous) { const g = groupes.get(p.gp); g ? g.push(p) : groupes.set(p.gp, [p]) }
 for (const g of groupes.values()) g.sort((a, b) => b.n - a.n)
-// Les fiches françaises, telles que seo.mjs les a écrites (même règle, et
-// le fichier doit exister : on ne lie jamais vers une page absente).
+// Les fiches françaises, telles que seo.mjs les a écrites : celles dont le
+// fichier existe. Recopier sa règle (sens, histoire depuis 1900…) ferait
+// diverger les deux scripts au premier changement ; le fichier ne ment pas,
+// et on ne lie jamais vers une page absente.
 const pages = new Map()
 for (const p of tous) {
-  if ((p.q && !p.m) || !p.slug) continue
+  if (!p.slug) continue
   const e = pages.get(p.slug); e ? e.push(p) : pages.set(p.slug, [p])
 }
 for (const [slug, e] of pages) {

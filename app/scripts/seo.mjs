@@ -25,7 +25,8 @@ import { createHash } from 'node:crypto'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { construireRecherche, CLIENT as RECHERCHE_CLIENT } from './recherche.mjs'
-import { construireFichesInsee } from './fiches-insee.mjs'
+import { construireFichesInsee, joli } from './fiches-insee.mjs'
+import { lireInsee } from './insee.mjs'
 import { dessinerCourbe } from './courbe.mjs'
 import { alternatesAccueil, liensAlternate, chargerSensEn, aFicheEn, cheminFicheEn } from './langues.mjs'
 
@@ -41,7 +42,7 @@ const MARQUE = 'babyNamed'
  * apprend vite a ignorer un lastmod qui ment. A monter quand les donnees ou
  * les gabarits changent vraiment.
  */
-const MAJ = '2026-10-09'
+const MAJ = '2026-10-14'
 /** La page qui presente l'application elle-meme, statique : c'est elle que
  *  lisent les robots et les IA, la racine « / » n'etant qu'une coquille JS. */
 const APP = '/choisir-un-prenom-a-deux/'
@@ -125,23 +126,143 @@ const groupes = new Map()
 for (const p of tous) { const g = groupes.get(p.gp); g ? g.push(p) : groupes.set(p.gp, [p]) }
 for (const g of groupes.values()) g.sort((a, b) => b.n - a.n)
 
-// Qui a une page, et sous quelle URL.
+// ---------------------------------------------------------------- histoire
+/**
+ * L'histoire de chaque prénom depuis 1900, lue dans le fichier de l'INSEE
+ * (scripts/insee.mjs). Le catalogue de l'app ne garde que 1986-2025 et les
+ * trois dernières années : Martine (320 170 naissances, record en 1954) n'y
+ * était qu'un « prénom rare, sans sens connu », sans page — alors que la
+ * Search Console montrait qu'on cherche ces prénoms-là. Une fiche dit
+ * désormais d'où vient un prénom, pas seulement où il en est.
+ *
+ * Par fiche (Léa et Lea ensemble) et par sexe : une fiche de fille compte les
+ * filles. Sauf quand l'autre sexe l'emporte dans l'histoire (Daniele, des
+ * garçons aujourd'hui, 84 595 Danièle depuis 1900) : la fiche compte alors
+ * les deux, et le dit.
+ */
+const INSEE = lireInsee(RACINE)
+if (!INSEE) console.warn('[seo] data/raw/prenoms_insee_2025_packed.csv introuvable : fiches sans leur histoire depuis 1900')
+const H0 = INSEE?.an0 ?? 1900
+const H1 = INSEE?.an1 ?? AN1
+const NA = H1 - H0 + 1
+const HIST = new Map()                         // slug -> { f, m : naissances par an (Int32Array), graphies }
+for (const { sexe, prenom, premier, v } of INSEE?.lignes ?? []) {
+  const s = slugDe(prenom)
+  if (!s) continue
+  let e = HIST.get(s)
+  if (!e) HIST.set(s, e = { f: null, m: null, graphies: new Map() })
+  const serie = e[sexe] ??= new Int32Array(NA)
+  let t = 0
+  v.forEach((x, k) => { if (x) { serie[premier - H0 + k] += x; t += x } })
+  e.graphies.set(prenom, (e.graphies.get(prenom) ?? 0) + t)
+}
+const somme = a => { let t = 0; for (const x of a ?? []) t += x; return t }
+/**
+ * Un prénom qu'on ne donne presque plus a sa fiche, indexée, s'il compte au
+ * moins SEUIL_HISTOIRE naissances depuis 1900 : sa courbe et ses chiffres
+ * racontent alors une génération. En dessous, l'arrondi à 5 de l'INSEE pèse
+ * trop : sa fiche reste celle du Worker, noindex (scripts/fiches-insee.mjs).
+ */
+const SEUIL_HISTOIRE = 1000
+const histoires = new Map()
+function histoireDe(slug, sexe) {
+  const cle = `${slug}|${sexe}`
+  if (histoires.has(cle)) return histoires.get(cle)
+  const e = HIST.get(slug)
+  let h = null
+  if (e) {
+    let sx = sexe
+    let autrefois = null
+    if (sexe !== 'fm') {
+      const autre = sexe === 'f' ? 'm' : 'f'
+      const [tm, ta] = [somme(e[sexe]), somme(e[autre])]
+      if (ta >= SEUIL_HISTOIRE && ta > tm) { sx = 'fm'; autrefois = autre }
+    }
+    const n = new Array(NA).fill(0)
+    for (const s of sx === 'fm' ? ['f', 'm'] : [sx]) if (e[s]) e[s].forEach((x, k) => { n[k] += x })
+    const total = somme(n)
+    if (total) {
+      const premier = n.findIndex(x => x > 0)
+      let dernier = NA - 1
+      while (!n[dernier]) dernier--
+      // Deux parts : pour 10 000 bébés, tous sexes (l'unité de la courbe de
+      // l'app), et « 1 fille sur N » parmi les naissances du même sexe.
+      const tousAn = k => INSEE.totaux.f[k] + INSEE.totaux.m[k]
+      const memeAn = k => sx === 'fm' ? tousAn(k) : INSEE.totaux[sx][k]
+      const p10k = n.map((x, k) => tousAn(k) ? x / tousAn(k) * 10000 : 0)
+      let kPic = premier
+      for (let k = premier; k <= dernier; k++) if (p10k[k] > p10k[kPic]) kPic = k
+      // Les années où l'on atteint le quart, la moitié, les trois quarts des
+      // naissances : la génération du prénom.
+      const quantile = q => { let c = 0; for (let k = 0; k < NA; k++) { c += n[k]; if (c >= q * total) return H0 + k } return H1 }
+      h = {
+        sx, autrefois, total, n, p10k,
+        premier: H0 + premier, dernier: H0 + dernier,
+        pic: { an: H0 + kPic, n: n[kPic], part: n[kPic] / memeAn(kPic), partTous: n[kPic] / tousAn(kPic), p10k: p10k[kPic] },
+        q1: quantile(0.25), mediane: quantile(0.5), q3: quantile(0.75)
+      }
+    }
+  }
+  histoires.set(cle, h)
+  return h
+}
+const totalHistoire = p => histoireDe(p.slug, p.sexe)?.total ?? 0
+/**
+ * Un prénom CLASSIQUE : la moitié de ses porteurs sont nés avant 1986, et on
+ * ne le donne presque plus (moins de SEUIL_TENDANCE naissances en trois ans).
+ * Sa fiche raconte une génération, pas une tendance : ses prénoms proches
+ * sont ceux de la même époque, pas des raretés d'aujourd'hui.
+ */
+const classique = p => { const h = histoireDe(p.slug, p.sexe); return !!h && h.total >= SEUIL_HISTOIRE && h.mediane < AN0 && p.n < SEUIL_TENDANCE }
+
+// Qui a une page, et sous quelle URL. Un prénom rare sans sens connu n'en a
+// pas — des chiffres d'arrondi ne font pas une page —, sauf s'il a une
+// histoire : Monique, rare aujourd'hui, a 400 060 naissances depuis 1900.
 const pages = new Map()                        // slug -> [entrées, la plus fréquente d'abord]
 for (const p of tous) {
-  if (p.q && !p.m) continue
+  if (p.q && !p.m && totalHistoire(p) < SEUIL_HISTOIRE) continue
   if (!p.slug) continue
   const e = pages.get(p.slug); e ? e.push(p) : pages.set(p.slug, [p])
+}
+/**
+ * Les prénoms que l'INSEE a comptés mais que le catalogue n'a pas : plus
+ * donnés depuis 2023 (Josette, Ginette, Marie-Christine). Pas de place dans
+ * la pile d'un couple qui choisit aujourd'hui, mais une fiche : on cherche
+ * « Josette signification ». L'origine et le sens viennent du pipeline
+ * (pipeline/historiques.py, mêmes sources que le catalogue) ; sans eux, la
+ * fiche le dit.
+ */
+const HISTORIQUES_FICHIER = resolve(RACINE, 'scripts/donnees/historiques.json')
+const HISTORIQUES = existsSync(HISTORIQUES_FICHIER) ? JSON.parse(readFileSync(HISTORIQUES_FICHIER, 'utf8')) : {}
+const auCatalogue = new Set(tous.map(p => p.slug))
+const horsCatalogue = []
+for (const [slug, e] of HIST) {
+  if (auCatalogue.has(slug) || !/^[a-z]/.test(slug)) continue
+  const [tf, tm] = [somme(e.f), somme(e.m)]
+  if (tf + tm < SEUIL_HISTOIRE) continue
+  const sexe = tf >= (tf + tm) * 0.9 ? 'f' : tm >= (tf + tm) * 0.9 ? 'm' : 'fm'
+  const x = HISTORIQUES[slug] ?? {}
+  const l = x.l ?? joli([...e.graphies].sort((a, b) => b[1] - a[1])[0][0])
+  const p = {
+    k: -1, l, slug, sexe, f: 0, n: 0, t: 0, p: histoireDe(slug, sexe).pic.an, o: 100, q: true, y: 0,
+    i: sansAccent(l)[0].toUpperCase(), gp: `insee:${slug}`, g: x.g ?? [], m: x.m ?? null, cf: x.cf ?? null,
+    dm: [], sr: null, rv: false, nb: null, fx: null, hf: false, horsCatalogue: true,
+    rang: { f: Infinity, m: Infinity, fm: Infinity }
+  }
+  horsCatalogue.push(p)
+  pages.set(slug, [p])
 }
 for (const e of pages.values()) e.sort((a, b) => b.n - a.n)
 const aPage = p => pages.has(p.slug)
 /**
- * Fiche MINCE : ni sens ni origine connus. Il ne reste que des chiffres (859
- * fiches, 35 naissances en trois ans en mediane) : la page existe pour qui y
- * arrive par un lien, mais on ne la presente pas a Google (noindex, follow)
- * et elle sort du sitemap. Des centaines de pages presque vides pesent sur
- * tout le site ; on elargira quand le domaine aura fait ses preuves.
+ * Fiche MINCE : ni sens, ni origine, ni histoire. Il ne reste que des
+ * chiffres (35 naissances en trois ans en médiane) : la page existe pour qui
+ * y arrive par un lien, mais on ne la présente pas à Google (noindex, follow)
+ * et elle sort du sitemap. Des centaines de pages presque vides pèsent sur
+ * tout le site. Une histoire de SEUIL_HISTOIRE naissances, elle, est une
+ * page : la courbe d'une génération et ses chiffres.
  */
-const mince = p => !p.m && !p.g.length
+const mince = p => !p.m && !p.g.length && totalHistoire(p) < SEUIL_HISTOIRE
 /**
  * Ouverture PROGRESSIVE a Google. Un domaine neuf qui pousse 6 600 fiches d'un
  * coup est crawle lentement, et la plupart restent « detectees, non
@@ -320,7 +441,9 @@ const enStatique = (nom, ext, contenu) => {
   writeFileSync(resolve(SORTIE, 'statique', f), contenu)
   return `/statique/${f}`
 }
-const RECH = construireRecherche({ tous, pages, slugDe, racine: RACINE })
+// Josette et les autres prénoms hors catalogue sont aussi proposés en tapant :
+// derniers de la liste (aucune naissance récente), mais trouvables.
+const RECH = construireRecherche({ tous: [...tous, ...horsCatalogue], pages, slugDe, racine: RACINE })
 const RECHERCHE_JS = enStatique('recherche', 'js', RECHERCHE_CLIENT
   .replace("'__INDEX__'", () => JSON.stringify(enStatique('recherche', 'txt', RECH.index)))
   .replace('__INSEE__', () => JSON.stringify(Object.fromEntries([...RECH.lettres].map(([l, t]) => [l, enStatique(`insee-${l}`, 'txt', t)])))))
@@ -412,6 +535,7 @@ h1.nom{font-size:clamp(46px,var(--t,24vw),132px);line-height:.95;letter-spacing:
 .hero .sous{margin:12px 0 0;max-width:34em;font-size:17px;line-height:1.55}
 .sens{margin:14px 0 0;font-size:clamp(21px,6vw,27px);line-height:1.25;font-weight:800}
 .sens small,.arabe small{display:inline-block;vertical-align:middle;margin-left:8px;padding:2px 10px;border-radius:999px;border:1.5px solid color-mix(in srgb,var(--texte) 35%,var(--champ));font-size:13px;font-weight:800;letter-spacing:0}
+.relation{margin:6px 0 0;font-size:17px;font-weight:800;color:color-mix(in srgb,var(--texte) 80%,var(--champ))}
 .arabe{margin:8px 0 0;font-size:clamp(24px,7vw,32px);line-height:1.3;font-weight:700}
 .qui{margin:8px 0 0;font-size:17px;color:color-mix(in srgb,var(--texte) 80%,var(--champ))}
 .hero .b{margin-top:22px}
@@ -569,7 +693,7 @@ ul.noms a.courant{font-weight:800}
 .duo .genre{margin:0 0 4px;font-size:14px;font-weight:800;color:var(--doux)}
 ol.apercu{display:grid;gap:2px;margin:0 0 10px;padding:0;list-style:none}
 ol.apercu li{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-family:var(--serif);font-size:22px;line-height:1.3}
-ol.apercu a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}
+ol.apercu a{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}
 ol.apercu a:hover{text-decoration:underline;text-decoration-thickness:1px}
 ol.apercu small{flex:none;font-family:Nunito,system-ui,sans-serif;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--doux)}
 a.suite{font-size:15px;font-weight:800}
@@ -680,7 +804,7 @@ const champOrigine = o => {
   for (const ch of o) h = (h * 31 + ch.codePointAt(0)) >>> 0
   return CHAMPS[h % (CHAMPS.length - 1)]
 }
-const CHAMP_LISTE = { tendance: 'peche', populaires: 'lavande', rares: 'miel', monde: 'menthe', lettres: 'sable' }
+const CHAMP_LISTE = { tendance: 'peche', populaires: 'lavande', rares: 'miel', monde: 'menthe', lettres: 'sable', retro: 'sauge', annees: 'sable' }
 /** La barre d'adresse du téléphone prend la couleur de la bande. */
 const TEINTES = {
   menthe: ['#cae1d9', '#1f3c37'], peche: ['#efc9c3', '#45292e'], sable: ['#e5d9d1', '#372f33'], lavande: ['#d9dcf0', '#2a2e52'],
@@ -693,6 +817,11 @@ const TEINTES = {
  * le fil d'Ariane, et un pied de page en colonnes. Les classements gardent le
  * genre en cours : depuis les garçons qui montent, « Top 100 » mène aux
  * garçons les plus donnés.
+ *
+ * Cinq rubriques, pas une de plus : à 360 px elles tiennent sur la ligne, une
+ * sixième la ferait défiler et cacherait la dernière. Le rétro et les
+ * décennies passent par le pied de page (sur toutes les pages), le portail
+ * et les fiches.
  */
 const genreDe = s => s === 'm' ? 'garcons' : 'filles'
 const RUBRIQUES = g => [
@@ -705,8 +834,8 @@ const RUBRIQUES = g => [
 const actuel = oui => oui ? ' aria-current="page"' : ''
 const PLAN = `<nav class="plan" aria-label="Plan du site">
 ${[['filles', 'Filles'], ['garcons', 'Garçons']].map(([g, t]) => `<div><p class="t">${t}</p><ul>
-<li><a href="/prenoms/tendance/${g}/">Qui montent</a></li><li><a href="/prenoms/populaires/${g}/">Les plus donnés</a></li><li><a href="/prenoms/rares/${g}/">Rares</a></li></ul></div>`).join('\n')}
-<div><p class="t">Explorer</p><ul><li><a href="${CHERCHER}">Chercher un prénom</a></li><li><a href="/prenoms/">Tous les prénoms</a></li><li><a href="/prenoms/origines/">Par origine</a></li><li><a href="/prenoms/monde/">Dans le monde</a></li><li><a href="/prenoms/#lettres">Par lettre</a></li></ul></div>
+<li><a href="/prenoms/tendance/${g}/">Qui montent</a></li><li><a href="/prenoms/populaires/${g}/">Les plus donnés</a></li><li><a href="/prenoms/rares/${g}/">Rares</a></li><li><a href="/prenoms/retro/${g}/">Rétro</a></li></ul></div>`).join('\n')}
+<div><p class="t">Explorer</p><ul><li><a href="${CHERCHER}">Chercher un prénom</a></li><li><a href="/prenoms/">Tous les prénoms</a></li><li><a href="/prenoms/origines/">Par origine</a></li><li><a href="/prenoms/annees/">Par décennie</a></li><li><a href="/prenoms/monde/">Dans le monde</a></li><li><a href="/prenoms/#lettres">Par lettre</a></li></ul></div>
 <div><p class="t">${MARQUE}</p><ul><li><a href="${APP}">L’application</a></li><li><a href="/offrir" rel="nofollow">Offrir ${MARQUE}</a></li></ul></div>
 </nav>`
 
@@ -749,7 +878,7 @@ ${corps}
 </main>
 <footer><div class="l">
 ${PLAN}
-<p>Chiffres : INSEE, fichier des prénoms (naissances en France de ${AN0} à ${AN1}). Origines et significations : Wiktionnaire et relecture ; quand le sens est incertain, la fiche le dit.</p>
+<p>Chiffres : INSEE, fichier des prénoms (naissances en France de ${H0} à ${AN1}). Origines et significations : Wiktionnaire et relecture ; quand le sens est incertain, la fiche le dit.</p>
 <p><a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/conditions">Conditions</a> · <a href="/accessibilite">Accessibilité</a></p>
 </div></footer>
 <script src="${RECHERCHE_JS}" defer></script>${sommaire ? `
@@ -780,6 +909,62 @@ function courbe(p) {
   })
 }
 
+/**
+ * La courbe depuis la première naissance (1900 au plus tôt), quand l'histoire
+ * d'un prénom s'est jouée avant 1986 : celle de 1986-2025 ne montrait que la
+ * fin de Corinne (record en 1963), et le seul retour de Louise, pas son
+ * premier règne ni son creux des années 1970. Même unité que celle de l'app :
+ * pour 10 000 bébés, tous sexes.
+ */
+function courbeHistoire(p, h) {
+  const a0 = h.premier
+  const sr = h.p10k.slice(a0 - H0).map(x => Math.round(x * 10) / 10)
+  // Une année tous les 25 ans, sans en coller une à la première ou à la dernière.
+  const grad = [a0, 1925, 1950, 1975, 2000, H1].filter((a, i, t) => i === 0 || i === t.length - 1 || (a - a0 >= 15 && H1 - a >= 15))
+  return dessinerCourbe(sr, {
+    an0: a0, an1: H1, graduations: grad,
+    aria: `Naissances de ${esc(p.l)} pour 10 000 bébés, de ${a0} à ${H1}`,
+    pic: (max, annee) => `${dec(max)} / 10 000 en ${annee}`
+  })
+}
+/** L'histoire avant 1986 compte-t-elle ? Oui si le prénom y a connu au
+ *  moins le tiers de son plus haut niveau. Noah (né en 1976) garde la courbe
+ *  de l'app ; Louise, Jeanne, Marcel, Corinne prennent celle depuis 1900. */
+function avant1986(h) {
+  if (!h || h.premier >= AN0) return false
+  let avant = 0, tout = 0
+  h.p10k.forEach((x, k) => { if (x > tout) tout = x; if (H0 + k < AN0 && x > avant) avant = x })
+  return avant >= tout / 3
+}
+
+/**
+ * Le nom d'une décennie tel qu'on le cherche : « années 50 », mais « années
+ * 1900 », « années 2000 » (les « années 00 » ne se disent pas, et les
+ * « années 20 » ou « 10 » sont ambiguës depuis 2010).
+ */
+const decennieDe = a => Math.floor(a / 10) * 10
+const nomDecennie = d => d >= 1930 && d <= 1990 ? `années ${String(d).slice(2)}` : `années ${d}`
+const cheminDecennie = (d, s) => `/prenoms/annees-${d}/${s === 'm' ? 'garcons' : 'filles'}/`
+
+/**
+ * Un sens qui commence par une relation (« forme féminine de Martin : voué à
+ * Mars », « diminutif de Geneviève ») se lit mal après « signifie » : il se
+ * dit comme on le dirait. Un composé (« Marie : amertume ou aimée +
+ * Christine : chrétienne ») réunit deux prénoms.
+ */
+const RELATION = /^((?:variante|forme|diminutif|dérivé|contraction|féminin|masculin|abrégé|graphie|ancienne graphie|apocope)\b[^:]*?)(?: : (.+))?$/
+const ARTICLE_RELATION = r => /^forme/.test(r) ? 'la' : /^(féminin|masculin)/.test(r) ? 'le'
+  : /^(variante|contraction|graphie|ancienne graphie|apocope)/.test(r) ? 'une' : 'un'
+function lireSens(m) {
+  if (!m) return null
+  const morceaux = m.split(' + ')
+  if (morceaux.length > 1 && morceaux.every(x => x.includes(' : '))) {
+    return { parties: morceaux.map(x => { const i = x.indexOf(' : '); return { nom: x.slice(0, i), sens: x.slice(i + 3) } }) }
+  }
+  const r = m.match(RELATION)
+  return r ? { relation: r[1], sens: r[2] ?? null } : { sens: m }
+}
+
 // Les petits prénoms, sans courbe : leurs naissances année par année.
 function barres(p) {
   if (!p.nb || !p.nb.some(v => v > 0)) return ''
@@ -800,12 +985,33 @@ ${annees.map(a => `<text x="${cx(a - B0)}" y="${H - 6}" font-size="13" font-weig
 }
 
 // Prénoms proches : même sexe, origine commune, rareté et longueur voisines.
+// Ceux d'un prénom classique sont de sa génération (Josette : Ginette,
+// Paulette…) ; et un classique ne se glisse pas parmi les proches d'un
+// prénom d'aujourd'hui, qu'un parent regarde pour son bébé.
 const parSexe = { f: [], m: [], fm: [] }
-for (const e of pages.values()) parSexe[e[0].sexe].push(e[0])
+const classiquesParSexe = { f: [], m: [], fm: [] }
+for (const e of pages.values()) (classique(e[0]) ? classiquesParSexe : parSexe)[e[0].sexe].push(e[0])
 function proches(p, n = 12) {
   const vus = new Set((groupes.get(p.gp) ?? []).map(x => x.slug))
-  const cands = p.sexe === 'fm' ? [...parSexe.fm, ...parSexe.f, ...parSexe.m] : [...parSexe[p.sexe], ...parSexe.fm]
   const og = new Set(p.g)
+  if (classique(p)) {
+    const c = classiquesParSexe
+    const hp = histoireDe(p.slug, p.sexe)
+    return (p.sexe === 'fm' ? [...c.fm, ...c.f, ...c.m] : [...c[p.sexe], ...c.fm])
+      .filter(x => !vus.has(x.slug) && x.slug !== p.slug)
+      .map(x => {
+        const hx = histoireDe(x.slug, x.sexe)
+        // La même génération d'abord ; à époque égale, les plus portés (ceux
+        // qu'on reconnaît : Monique avant Annic), puis l'origine. Un composé
+        // (Marie-Claude) ne répond qu'à un composé.
+        let s = -Math.abs(hx.mediane - hp.mediane) / 3 + Math.log10(hx.total)
+        for (const o of x.g) if (og.has(o)) s += 0.5
+        if (x.slug.includes('-') !== p.slug.includes('-')) s -= 2
+        return [s, x]
+      })
+      .sort((a, b) => b[0] - a[0]).slice(0, n).map(([, x]) => x)
+  }
+  const cands = p.sexe === 'fm' ? [...parSexe.fm, ...parSexe.f, ...parSexe.m] : [...parSexe[p.sexe], ...parSexe.fm]
   return cands.filter(x => !vus.has(x.slug) && x.slug !== p.slug)
     .map(x => {
       let s = 0
@@ -1001,6 +1207,18 @@ ${absents.length ? `<p class="doute">Peu ou pas donné (sous le seuil de publica
 <p class="doute">Chiffres officiels de chaque pays, sur leurs trois dernières années publiées.</p></section>`
 }
 
+/**
+ * Un prénom « d'ailleurs » (hf : donné au Québec, en Belgique, en Suisse, pas
+ * en France de 2023 à 2025) ne l'est plus s'il a une histoire ici : Fabienne,
+ * 105 275 naissances en France depuis 1900, n'était plus donnée depuis 2022 ;
+ * sa fiche la présentait comme un prénom étranger, avec « 100/100
+ * d'originalité en France ».
+ */
+const SEUIL_HF = 100
+/** Le sexe qui l'emporte dans l'histoire d'un prénom : celui de sa décennie. */
+const sexeDominant = p => { const e = HIST.get(p.slug); return somme(e?.f) >= somme(e?.m) ? 'f' : 'm' }
+const ordinal = r => r === 1 ? '1<sup>er</sup>' : `${r}<sup>e</sup>`
+
 function fiche(entrees) {
   const p = entrees[0]
   const autresGraphies = entrees.slice(1)
@@ -1010,11 +1228,23 @@ function fiche(entrees) {
   const rang = p.sexe === 'fm' ? p.rang.fm : p.rang[p.sexe]
   const origines = p.g.map(ORIGINE_F)
   const genre = GENRE[p.sexe]
+  const h = histoireDe(p.slug, p.sexe)
+  const ail = p.hf && !(h && h.total >= SEUIL_HF)
+  // PASSÉ : on ne le donne (presque) plus. La fiche raconte son histoire
+  // plutôt qu'une tendance faite de zéros.
+  const passe = !ail && !!h && (classique(p) || p.n === 0)
+  const nes = p.sexe === 'f' && !h?.autrefois ? 'nées' : 'nés'
+  const quiSur = s => s === 'f' ? 'fille' : s === 'm' ? 'garçon' : 'bébé'
 
   const enArabe = arabeDe(p)
-  const phraseSens = (p.m
-    ? `${esc(p.l)} ${p.cf === 2 ? 'signifie' : 'signifierait'} « ${esc(p.m)} »${origines.length ? `, d’origine ${esc(liste(origines))}` : ''}.`
-    : origines.length ? `${esc(p.l)} est un prénom d’origine ${esc(liste(origines))} ; sa signification n’est pas établie de façon fiable.` : `L’origine et la signification de ${esc(p.l)} ne sont pas établies de façon fiable : nous préférons ne rien inventer.`)
+  const S = lireSens(p.m)
+  const verbe = p.cf === 2 ? 'signifie' : 'signifierait'
+  const dOrigine = origines.length ? `, d’origine ${esc(liste(origines))},` : ''
+  const phraseSens = (!S
+    ? origines.length ? `${esc(p.l)} est un prénom d’origine ${esc(liste(origines))} ; sa signification n’est pas établie de façon fiable.` : `L’origine et la signification de ${esc(p.l)} ne sont pas établies de façon fiable : nous préférons ne rien inventer.`
+    : S.parties ? `${esc(p.l)}${dOrigine} réunit ${liste(S.parties.map(x => `${esc(x.nom)} (« ${esc(x.sens)} »)`))}.`
+    : S.relation ? `${esc(p.l)}${dOrigine} est ${ARTICLE_RELATION(S.relation)} ${esc(S.relation)}${S.sens ? `, qui ${verbe} « ${esc(S.sens)} »` : ''}.`
+    : `${esc(p.l)} ${verbe} « ${esc(S.sens)} »${origines.length ? `, d’origine ${esc(liste(origines))}` : ''}.`)
     + (enArabe ? ` En arabe, il s’écrit <span lang="ar" dir="rtl">${esc(enArabe)}</span>.` : '')
   const doute = p.m && p.cf !== 2
     ? `<p class="doute">${p.cf === 1 ? 'Sens probable : les sources concordent en partie.' : 'Sens incertain : les sources divergent ou sont rares.'}</p>` : ''
@@ -1023,11 +1253,16 @@ function fiche(entrees) {
   const phraseClasse = ecole >= 1
     ? `Dans une école de 200 enfants nés ces années-là, on compterait en moyenne <b>${dec(ecole)}</b> ${esc(p.l)}${groupe.length ? ' en comptant les graphies qui se prononcent pareil' : ''}.`
     : `Dans des écoles de 200 enfants nés ces années-là, on trouverait en moyenne un${p.sexe === 'f' ? 'e' : ''} ${esc(p.l)} toutes les <b>${1 / ecole < 10 ? dec(1 / ecole) : nf(1 / ecole)}</b> écoles${groupe.length ? ', toutes graphies confondues' : ''}.`
+  // L'école de son année record, pour un prénom qu'on ne donne plus.
+  const ecolePic = h ? h.pic.partTous * 200 : 0
+  const phraseClassePic = !h ? '' : ecolePic >= 1
+    ? `En ${h.pic.an}, son année record, une école de 200 enfants nés cette année-là aurait compté en moyenne <b>${dec(ecolePic)}</b> ${esc(p.l)}.`
+    : `En ${h.pic.an}, son année record, on trouvait un${p.sexe === 'f' ? 'e' : ''} ${esc(p.l)} toutes les <b>${1 / ecolePic < 10 ? dec(1 / ecolePic) : nf(1 / ecolePic)}</b> écoles de 200 enfants nés cette année-là.`
 
-  const pic = p.p && p.p < AN0 ? `Son record, dans les chiffres de l’INSEE qui remontent à 1900, date de ${p.p}.` : p.p ? `Ce prénom a atteint son pic en ${p.p}.` : ''
+  const pic = h ? '' : p.p && p.p < AN0 ? `Son record, dans les chiffres de l’INSEE qui remontent à 1900, date de ${p.p}.` : p.p ? `Ce prénom a atteint son pic en ${p.p}.` : ''
   const ar = arabeDe(p)
-  const best = p.hf ? meilleurPays(p) : null
-  const titre = p.hf
+  const best = ail ? meilleurPays(p) : null
+  const titre = ail
     ? `${p.l} : prénom ${genre} d’ailleurs${p.m ? ', signification et origine' : ''}${best ? `, donné ${best.en}` : ''}`
     : p.m
     ? `${p.l}${ar ? ` (${ar})` : ''} : signification, origine et popularité du prénom`
@@ -1036,26 +1271,50 @@ function fiche(entrees) {
   const parAn = Math.max(1, Math.round(p.n / 3))
   const description = descriptionFiche({
     nom: p.l, genre, origines, sens: p.m,
-    chiffre: p.hf
+    chiffre: ail
       ? `Pas donné en France de ${AN1 - 2} à ${AN1}${best ? `, mais ${best.sur} ${best.en}` : ''}`
+      : passe
+      ? `${nf(h.total)} naissances en France depuis ${h.premier}, record en ${h.pic.an}`
       : `${nf(nTot)} naissances en France de ${AN1 - 2} à ${AN1}`,
-    tendance: fiable && !p.hf ? `, tendance ${tendanceMot(p.t)}` : ''
+    tendance: fiable && !ail && !passe ? `, tendance ${tendanceMot(p.t)}` : ''
   })
 
   // L'essentiel d'abord, en haut : le sens, le genre, l'origine. Les phrases
   // longues restent plus bas, pour qui veut le détail.
-  const sensTete = (p.m
-    ? `<p class="sens">« ${esc(p.m)} »${p.cf === 2 ? '' : `<small>${p.cf === 1 ? 'sens probable' : 'sens incertain'}</small>`}</p>` : '')
+  const marqueDoute = p.cf === 2 ? '' : `<small>${p.cf === 1 ? 'sens probable' : 'sens incertain'}</small>`
+  const sensTete = (!S ? ''
+    : S.parties ? `<p class="sens">${S.parties.map(x => esc(x.nom)).join(' + ')}</p>`
+    : S.relation && !S.sens ? `<p class="sens">${esc(majuscule(S.relation))}</p>`
+    : `<p class="sens">« ${esc(S.sens)} »${marqueDoute}</p>${S.relation ? `<p class="relation">${esc(majuscule(S.relation))}</p>` : ''}`)
     + (ar ? `<p class="arabe"><span lang="ar" dir="rtl">${esc(ar)}</span><small>en arabe</small></p>` : '')
-  // Qui il est, en une phrase : le genre, l'origine (qui mène à sa liste).
+  // Qui il est, en une phrase : le genre, l'origine (qui mène à sa liste),
+  // et, pour un classique, sa génération (qui mène à sa décennie).
   const lienOrigine = o => { const L = listes.find(x => x.origine === o); return L ? `<a href="${L.chemin}">${esc(ORIGINE_F(o))}</a>` : esc(ORIGINE_F(o)) }
-  const qui = `Prénom ${genre}${p.g.length ? `, d’origine ${liste(p.g.map(lienOrigine))}` : ''}.`
-    + (p.hf ? ' Donné ailleurs, pas en France.' : '') + (p.rv ? ' Un prénom rétro qui revient.' : '')
-  // La popularité en trois faits, pas en un paragraphe.
-  const faits = [pic, fiable
-    ? `Sur les dernières années, ${esc(p.l)} est ${tendanceMot(p.t)} (${pctTendance(p.t)} % par an).`
-    : `Avec environ ${nf(parAn)} bébé${parAn > 1 ? 's' : ''} par an, ${esc(p.l)} reste trop peu donné pour dessiner une tendance fiable : l’INSEE arrondit chaque année à 5.`,
-  phraseClasse].filter(Boolean)
+  const autrefois = h?.autrefois ? `, surtout donné aux ${h.autrefois === 'f' ? 'filles' : 'garçons'} autrefois` : ''
+  const generation = h && classique(p) ? (() => {
+    const d = decennieDe(h.mediane)
+    const L = listes.find(x => x.type === 'annees' && x.decennie === d && x.sexe === sexeDominant(p))
+    return ` Un prénom des ${L ? `<a href="${L.chemin}">${nomDecennie(d)}</a>` : nomDecennie(d)}.`
+  })() : ''
+  const qui = `Prénom ${genre}${autrefois}${p.g.length ? `, d’origine ${liste(p.g.map(lienOrigine))}` : ''}.`
+    + (ail ? ' Donné ailleurs, pas en France.' : '') + (p.rv ? ' Un prénom rétro qui revient.' : '') + generation
+  // La popularité en quelques faits, pas en un paragraphe.
+  // « L'INSEE compte » et pas « ont reçu » : avant 1946, son fichier ne
+  // connaît que les personnes encore en vie cette année-là.
+  const prenommes = h?.sx === 'f' ? 'filles prénommées' : h?.sx === 'm' ? 'garçons prénommés' : 'bébés prénommés'
+  const faitsHistoire = h ? [
+    `L’INSEE compte <b>${nf(h.total)}</b> ${prenommes} ${esc(p.l)} ${h.sx === 'f' ? 'nées' : 'nés'} en France depuis ${h.premier}. Son année record : ${h.pic.an}, avec ${nf(h.pic.n)} naissances, soit 1 ${quiSur(h.sx)} sur ${nf(1 / h.pic.part)}.`,
+    // La génération, quand elle en est une : Louise, donnée en 1910 puis en
+    // 2007, n'a pas de « moitié » qui veuille dire quelque chose.
+    h.total >= 100 && h.q3 - h.q1 <= 25 ? `La moitié des ${esc(p.l)} sont ${nes} entre ${h.q1} et ${h.q3}.` : ''
+  ] : []
+  const faits = [...faitsHistoire, pic,
+    passe
+      ? p.n ? `Aujourd’hui, il n’est plus donné qu’à environ ${nf(parAn)} bébé${parAn > 1 ? 's' : ''} par an.` : `Dernières naissances recensées par l’INSEE : ${h.dernier}.`
+      : fiable
+      ? `Sur les dernières années, ${esc(p.l)} est ${tendanceMot(p.t)} (${pctTendance(p.t)} % par an).`
+      : `Avec environ ${nf(parAn)} bébé${parAn > 1 ? 's' : ''} par an, ${esc(p.l)} reste trop peu donné pour dessiner une tendance fiable : l’INSEE arrondit chaque année à 5.`,
+    passe ? phraseClassePic : phraseClasse].filter(Boolean)
   const graphies = [...autresGraphies, ...groupe.filter(x => !autresGraphies.includes(x))].slice(0, 20)
   const lettre = lettreDe(p)
   // Les classements où il figure (avec son rang), puis ses origines et sa
@@ -1069,27 +1328,44 @@ function fiche(entrees) {
   ]
 
   // La courbe en bas du haut de page : le dessin propre à chaque prénom.
-  const graphe = p.sr || p.nb ? `<figure class="graphe">${p.sr ? courbe(p) : barres(p)}
-<figcaption>${p.sr ? `Naissances pour 10 000 bébés nés en France, de ${AN0} à ${AN1} (INSEE).${p.hf ? ` Aucune de ${AN1 - 2} à ${AN1}.` : ''}` : 'Naissances par an en France, arrondies à 5 par l’INSEE.'}</figcaption></figure>` : ''
+  // Depuis 1900 quand l'histoire s'est jouée avant 1986 (ou quand il n'y a
+  // qu'elle) ; sinon celle de l'app, ou les naissances année par année.
+  const depuis1900 = h && (avant1986(h) || (passe && !p.sr))
+  const finie = h && h.dernier < AN1 - 2 ? ` Dernières naissances recensées : ${h.dernier}.` : ''
+  const graphe = depuis1900
+    ? `<figure class="graphe">${courbeHistoire(p, h)}
+<figcaption>Naissances pour 10 000 bébés nés en France, de ${h.premier} à ${H1} (INSEE).${finie}</figcaption></figure>`
+    : p.sr || p.nb ? `<figure class="graphe">${p.sr ? courbe(p) : barres(p)}
+<figcaption>${p.sr ? `Naissances pour 10 000 bébés nés en France, de ${AN0} à ${AN1} (INSEE).${ail ? ` Aucune de ${AN1 - 2} à ${AN1}.` : ''}` : 'Naissances par an en France, arrondies à 5 par l’INSEE.'}</figcaption></figure>` : ''
   const chiffre = (b, t) => `<div><dt>${t}</dt><dd>${b}</dd></div>`
-  const monde = ailleurs(p, p.hf ? null : rang)
-  const sommaire = [['sens', 'Sens'], ...(p.hf ? [] : [['popularite', 'Popularité']]), ...(monde ? [['monde', 'Dans le monde']] : []),
+  const monde = ailleurs(p, ail ? null : rang)
+  const sommaire = [['sens', 'Sens'], ...(ail ? [] : [['popularite', 'Popularité']]), ...(monde ? [['monde', 'Dans le monde']] : []),
     ...(graphies.length ? [['graphies', 'Graphies']] : []), ['proches', 'Prénoms proches']]
   const liensSommaire = sommaire.map(([id, t]) => `<li><a href="#${id}">${t}</a></li>`).join('')
+  // Les naissances depuis la première : un chiffre de plus pour un prénom
+  // qui existait avant les trois dernières années.
+  const depuisTout = h && h.premier < AN1 - 2 && h.total > nTot ? chiffre(nf(h.total), `naissances depuis <span class="nw">${h.premier}</span>`) : ''
 
   const corps = `
 <section class="hero fiche">${h1Nom(p.l)}${sensTete}
 <p class="qui">${qui}</p>
 ${graphe}</section>
 
-${p.hf ? `<dl class="chiffres">
+${ail ? `<dl class="chiffres">
 ${chiffre('0', `naissance en France en <span class="nw">${AN1 - 2}-${AN1}</span>`)}
 ${best ? chiffre(best.sur, esc(best.en)) : ''}
-${best && best.v[1] && best.v[1] <= 1500 ? chiffre(best.v[1] === 1 ? '1<sup>er</sup>' : `${best.v[1]}<sup>e</sup>`, `prénom ${esc(best.en)}`) : ''}
+${best && best.v[1] && best.v[1] <= 1500 ? chiffre(ordinal(best.v[1]), `prénom ${esc(best.en)}`) : ''}
 ${chiffre('100/100', 'originalité en France')}
+</dl>` : passe ? `<dl class="chiffres">
+${chiffre(nf(h.total), `naissances en France depuis <span class="nw">${h.premier}</span>`)}
+${chiffre(String(h.pic.an), `année record : ${nf(h.pic.n)} naissances`)}
+${chiffre(`1 sur ${nf(1 / h.pic.part)}`, `${h.sx === 'f' ? 'filles nées' : h.sx === 'm' ? 'garçons nés' : 'bébés nés'} en ${h.pic.an}`)}
+${h.total >= 100 && h.q3 - h.q1 <= 25 ? chiffre(`${h.q1}<span class="nw">–${h.q3}</span>`, `la moitié des ${esc(p.l)} y sont ${nes}`) : ''}
+${p.n ? chiffre(`≈ ${nf(parAn)}`, `bébé${parAn > 1 ? 's' : ''} par an aujourd’hui`) : chiffre(String(h.dernier), 'dernières naissances recensées')}
 </dl>` : `<dl class="chiffres">
-${rang <= 2000 ? chiffre(`${rang}<sup>${rang === 1 ? 'er' : 'e'}</sup>`, `prénom ${p.sexe === 'fm' ? 'le plus donné' : p.sexe === 'f' ? 'féminin' : 'masculin'}`) : ''}
+${rang <= 2000 ? chiffre(ordinal(rang), `prénom ${p.sexe === 'fm' ? 'le plus donné' : p.sexe === 'f' ? 'féminin' : 'masculin'}`) : ''}
 ${chiffre(nf(nTot), `naissances en <span class="nw">${AN1 - 2}-${AN1}</span>`)}
+${depuisTout}
 ${chiffre(unSur(p.f), 'en France, filles et garçons')}
 ${fiable ? chiffre(majuscule(tendanceMot(p.t)), `${pctTendance(p.t)} % par an récemment`) : chiffre(`≈ ${nf(parAn)}`, `bébé${parAn > 1 ? 's' : ''} par an`)}
 ${chiffre(`${nf(p.o)}/100`, 'originalité')}
@@ -1100,7 +1376,7 @@ ${chiffre(`${nf(p.o)}/100`, 'originalité')}
 <section class="bloc" id="sens"><h2>Signification et origine de ${esc(p.l)}</h2>
 <div class="carte"><p>${phraseSens}</p>${doute}</div></section>
 
-${p.hf ? '' : `<section class="bloc" id="popularite"><h2>Popularité de ${esc(p.l)} depuis ${p.sr || !p.nb ? AN0 : B0}</h2>
+${ail ? '' : `<section class="bloc" id="popularite"><h2>Popularité de ${esc(p.l)} depuis ${h ? h.premier : p.sr || !p.nb ? AN0 : B0}</h2>
 <ul class="faits">${faits.map(f => `<li>${f}</li>`).join('')}</ul></section>`}
 
 ${monde}
@@ -1114,7 +1390,7 @@ ${graphies.length ? `<section class="bloc" id="graphies"><h2>Même prononciation
 
 ${p.dm.length ? `<section class="bloc"><h2>Diminutifs</h2><ul class="puces">${p.dm.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ul></section>` : ''}
 
-${cta(p)}
+${cta(p.horsCatalogue ? null : p)}
 
 <section class="bloc" id="proches"><h2>Prénoms proches de ${esc(p.l)}</h2>
 <ul class="noms-grands">${proches(p).map(x => `<li><a href="${url(x)}">${esc(x.l)}</a></li>`).join('')}</ul></section>
@@ -1147,7 +1423,7 @@ const offrir = `<aside class="offrir r" aria-label="Offrir ${MARQUE}"><div><b>Un
  * (« Naissances 2023-2025 » débordait à droite sur téléphone) : les années
  * et l'unité sont dans la légende, lue avant le tableau.
  */
-function tableau(xs, colonne = 'tendance') {
+function tableau(xs, colonne = 'tendance', ligne = null) {
   // Sur un écran étroit, on affiche l'entier arrondi (« +53 % » pour 52,6) :
   // la décimale faisait déborder la dernière colonne. Les deux formes sont
   // dans la page, le CSS choisit.
@@ -1156,7 +1432,7 @@ function tableau(xs, colonne = 'tendance') {
     ? ' ; tendance : évolution moyenne par an sur les dernières années.' : ' ; originalité sur 100 : plus elle est haute, plus le prénom est rare.'}`
   return `<div class="tableau r"><table><caption>${legende}</caption>
 <thead><tr><th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="o">Origine</th><th scope="col" class="n"><span class="long">Naissances</span><abbr class="court" title="Naissances">Naiss.</abbr></th><th scope="col" class="n">${colonne === 'tendance' ? 'Tendance' : '<span class="long">Originalité</span><abbr class="court" title="Originalité sur 100">Orig.</abbr>'}</th></tr></thead><tbody>
-${xs.map((x, i) => `<tr><td class="rg">${i + 1}</td><td><a href="${url(x)}"><b>${esc(x.l)}</b></a></td><td class="o">${esc(liste(x.g.map(ORIGINE_LIB)))}</td><td class="n">${x.hf ? '<small title="Donné au Québec, en Belgique ou en Suisse, pas en France">ailleurs</small>' : nf(x.n)}</td><td class="n">${x.hf ? '' : colonne === 'tendance' ? tend(x.t) : `${nf(x.o)}<span class="v-long">/100</span>`}</td></tr>`).join('')}
+${xs.map((x, i) => `<tr><td class="rg">${i + 1}</td><td><a href="${url(x)}"><b>${esc(x.l)}</b></a>${ligne ? `<small>${esc(ligne(x))}</small>` : ''}</td><td class="o">${esc(liste(x.g.map(ORIGINE_LIB)))}</td><td class="n">${x.hf ? '<small title="Donné au Québec, en Belgique ou en Suisse, pas en France">ailleurs</small>' : nf(x.n)}</td><td class="n">${x.hf ? '' : colonne === 'tendance' ? tend(x.t) : `${nf(x.o)}<span class="v-long">/100</span>`}</td></tr>`).join('')}
 </tbody></table></div>`
 }
 
@@ -1206,9 +1482,12 @@ for (const [s, mot] of [['f', 'filles'], ['m', 'garcons']]) {
   })
 }
 
-const origines = [...new Set(tetes.flatMap(x => x.g))].sort((a, b) => a.localeCompare(b, 'fr'))
+// Les prénoms hors catalogue (Josette…) n'y entrent pas : une liste d'origine
+// dit ce qu'on donne en France, eux ont leurs décennies.
+const tetesDonnes = tetes.filter(x => !x.horsCatalogue)
+const origines = [...new Set(tetesDonnes.flatMap(x => x.g))].sort((a, b) => a.localeCompare(b, 'fr'))
 for (const o of origines) {
-  const xs = tetes.filter(x => x.g.includes(o)).sort((a, b) => b.n - a.n).slice(0, 150)
+  const xs = tetesDonnes.filter(x => x.g.includes(o)).sort((a, b) => b.n - a.n).slice(0, 150)
   if (xs.length < 8) continue
   const lib = ORIGINE_F(o)
   listes.push({
@@ -1221,8 +1500,105 @@ for (const o of origines) {
     intro: `Classés par naissances de ${AN1 - 2} à ${AN1}. L’origine indiquée est la racine la plus ancienne connue, pas la langue par laquelle le prénom est arrivé en France.`,
     xs, col: 'tendance', origine: o,
     // Pour la page des origines : combien de prénoms en tout, pas seulement les 150 de la liste.
-    total: tetes.filter(x => x.g.includes(o)).length
+    total: tetesDonnes.filter(x => x.g.includes(o)).length
   })
+}
+
+// ---------------------------------------------------------------- rétro
+/**
+ * Les prénoms rétro qui reviennent, dans les chiffres plutôt qu'au goût du
+ * jour : donnés aujourd'hui (au moins RETRO_NAISSANCES fois de 2023 à 2025),
+ * à leur sommet avant 1950, tombés ensuite sous le quart de ce sommet, et
+ * remontés depuis au double de leur creux au moins. Louise, Léon, Jeanne en
+ * sont ; Pierre ou Jean, jamais vraiment partis, non.
+ */
+const RETRO_NAISSANCES = 150
+const retro = p => {
+  if (p.n < RETRO_NAISSANCES) return null
+  const h = histoireDe(p.slug, p.sexe)
+  if (!h || h.pic.an >= 1950) return null
+  let creux = Infinity
+  for (let a = h.pic.an; a <= 2010; a++) creux = Math.min(creux, h.p10k[a - H0])
+  const maintenant = (h.p10k[NA - 1] + h.p10k[NA - 2] + h.p10k[NA - 3]) / 3
+  return creux <= h.pic.p10k / 4 && maintenant >= 2 * creux ? { pic: h.pic.an, creux } : null
+}
+for (const [s, mot] of [['f', 'filles'], ['m', 'garcons']]) {
+  const nom = genreNom[s]
+  const xs = unParSon(tetes.filter(x => sexeOk(x, s) && !x.hf && retro(x)).sort((a, b) => b.n - a.n)).slice(0, 60)
+  listes.push({
+    chemin: `/prenoms/retro/${mot}/`, type: 'retro', sexe: s,
+    titre: `Prénoms rétro de ${nom} : les ${xs.length} prénoms anciens qui reviennent`,
+    description: `Les prénoms de ${nom} à leur sommet avant 1950, presque oubliés, de nouveau donnés en France : record, naissances et tendance (INSEE).`,
+    h1: `Prénoms rétro de ${nom} qui reviennent`,
+    sous: `${xs.length} prénoms de ${nom} d’avant 1950, oubliés puis revenus, du plus donné aujourd’hui au moins donné.`,
+    phrase: `des prénoms rétro de ${nom} qui reviennent`,
+    intro: `À leur sommet avant 1950 (en part des naissances), tombés ensuite sous le quart de ce sommet, remontés depuis au double de leur creux au moins, et donnés au moins ${RETRO_NAISSANCES} fois de ${AN1 - 2} à ${AN1}. Naissances INSEE.`,
+    xs, col: 'tendance', ligne: x => `record en ${histoireDe(x.slug, x.sexe).pic.an}`
+  })
+}
+
+// ---------------------------------------------------------------- décennies
+/**
+ * Les prénoms de chaque décennie depuis 1900, filles et garçons : on cherche
+ * « prénoms années 50 », « prénom des années 80 garçon ». Les naissances de
+ * la décennie, et ce que chaque prénom est devenu (ses naissances de 2023 à
+ * 2025). C'est aussi là que mène la fiche d'un prénom classique (« un
+ * prénom des années 50 »).
+ */
+const DECENNIES = []
+if (INSEE) for (let dd = decennieDe(H0); dd <= decennieDe(H1); dd += 10) DECENNIES.push(dd)
+const parDecennie = new Map()                  // `${décennie}|${sexe}` -> [{ slug, n }]
+for (const [slug, e] of HIST) {
+  if (!/^[a-z]/.test(slug)) continue
+  for (const s of ['f', 'm']) {
+    if (!e[s]) continue
+    for (const dd of DECENNIES) {
+      let t = 0
+      for (let a = Math.max(dd, H0); a <= Math.min(dd + 9, H1); a++) t += e[s][a - H0]
+      if (t) { const k = `${dd}|${s}`; (parDecennie.get(k) ?? parDecennie.set(k, []).get(k)).push({ slug, n: t }) }
+    }
+  }
+}
+for (const dd of DECENNIES) {
+  const fin = Math.min(dd + 9, H1)
+  for (const [s, mot] of [['f', 'filles'], ['m', 'garcons']]) {
+    const nom = genreNom[s]
+    const rows = (parDecennie.get(`${dd}|${s}`) ?? []).sort((a, b) => b.n - a.n).slice(0, 100).map(r => {
+      const t = pages.get(r.slug)?.[0] ?? null
+      const e = HIST.get(r.slug)
+      // La graphie de la fiche si elle est de ce sexe ; sinon celle que
+      // l'INSEE écrit le plus (la fiche de Daniele est celle des garçons
+      // d'aujourd'hui, la décennie compte les Danièle).
+      const l = t && sexeOk(t, s) ? t.l : joli([...e.graphies].sort((a, b) => b[1] - a[1])[0][0])
+      return { ...r, l, tete: t }
+    })
+    if (rows.length < 20) continue
+    const nes = s === 'f' ? 'nées' : 'nés'
+    listes.push({
+      chemin: cheminDecennie(dd, s), type: 'annees', sexe: s, decennie: dd,
+      // « Prénoms de filles des années 50 : le top 100 (1950-1959) » : moins
+      // de 60 signes, la requête d'abord, les années pour qui les tape.
+      titre: `Prénoms de ${nom} des ${nomDecennie(dd)} : le top ${rows.length} (${dd}-${fin})`,
+      description: `Les ${rows.length} prénoms les plus donnés aux ${nom} ${nes} en France de ${dd} à ${fin}, d’après l’INSEE, et ce que chacun est devenu aujourd’hui.`,
+      h1: `Prénoms de ${nom} des ${nomDecennie(dd)}`,
+      sous: `Les ${rows.length} prénoms les plus donnés aux ${nom} ${nes} en France de ${dd} à ${fin}.`,
+      phrase: `des prénoms de ${nom} des ${nomDecennie(dd)}`,
+      intro: `Naissances en France de ${dd} à ${fin} (INSEE) ; les graphies qui ne diffèrent que par les accents sont réunies. « Aujourd’hui » : naissances de ${AN1 - 2} à ${AN1}.`,
+      xs: rows.map(r => r.tete), rows
+    })
+  }
+}
+
+/** Le tableau d'une décennie : ses naissances d'alors, et celles d'aujourd'hui. */
+function tableauAnnees(L) {
+  return `<div class="tableau r"><table><caption>${esc(L.intro)}</caption>
+<thead><tr><th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="o">Origine</th><th scope="col" class="n"><span class="long">Naissances</span><abbr class="court" title="Naissances">Naiss.</abbr></th><th scope="col" class="n"><span class="long">Aujourd’hui</span><abbr class="court" title="Naissances de ${AN1 - 2} à ${AN1}">Auj.</abbr></th></tr></thead><tbody>
+${L.rows.map((r, i) => {
+  const t = r.tete
+  const auj = t && !t.horsCatalogue && !t.hf ? (pages.get(r.slug) ?? []).reduce((a, x) => a + x.n, 0) : 0
+  return `<tr><td class="rg">${i + 1}</td><td>${t ? `<a href="${url(t)}"><b>${esc(r.l)}</b></a>` : `<b>${esc(r.l)}</b>`}</td><td class="o">${t ? esc(liste(t.g.map(ORIGINE_LIB))) : ''}</td><td class="n">${nf(r.n)}</td><td class="n">${auj ? nf(auj) : '<small>—</small>'}</td></tr>`
+}).join('')}
+</tbody></table></div>`
 }
 
 // ---------------------------------------------------------------- écriture
@@ -1240,12 +1616,19 @@ rmSync(resolve(SORTIE, 'prenoms'), { recursive: true, force: true })
 rmSync(resolve(SORTIE, '.' + APP), { recursive: true, force: true })
 
 /** Où chaque prénom figure, et à quel rang : la fiche le dit, et y mène. */
-const ORDRE = { populaires: 0, tendance: 1, rares: 2, origine: 3 }
+const ORDRE = { populaires: 0, tendance: 1, rares: 2, retro: 3, annees: 4, origine: 5 }
 const rangs = new Map()
 for (const L of listes) {
-  L.xs.forEach((x, i) => { const r = rangs.get(x.slug) ?? []; r.push({ L, rang: i + 1 }); rangs.set(x.slug, r) })
+  // Une décennie peut citer un prénom sans fiche statique : le rang reste celui du tableau.
+  L.xs.forEach((x, i) => { if (!x) return; const r = rangs.get(x.slug) ?? []; r.push({ L, rang: i + 1 }); rangs.set(x.slug, r) })
 }
-for (const r of rangs.values()) r.sort((a, b) => ORDRE[a.L.type] - ORDRE[b.L.type] || a.rang - b.rang)
+for (const [slug, r] of rangs) {
+  r.sort((a, b) => ORDRE[a.L.type] - ORDRE[b.L.type] || a.rang - b.rang)
+  // Marie figure dans les 100 de chaque décennie : la fiche n'en garde que
+  // ses deux meilleures, sinon la liste des classements ne finit plus.
+  const decennies = r.filter(x => x.L.type === 'annees').sort((a, b) => a.rang - b.rang || b.L.decennie - a.L.decennie).slice(0, 2)
+  rangs.set(slug, r.filter(x => x.L.type !== 'annees' || decennies.includes(x)))
+}
 
 const urls = []
 for (const e of pages.values()) {
@@ -1258,20 +1641,24 @@ for (const e of pages.values()) {
 const listesOrigines = listes.filter(L => L.origine).sort((a, b) => b.total - a.total)
 const carteOrigine = L => `<li><a href="${L.chemin}" style="--champ:var(--${champOrigine(L.origine)})"><b>${esc(majuscule(ORIGINE_F(L.origine)))}</b><span>${nf(L.total)} prénoms</span><small>${L.xs.slice(0, 3).map(x => esc(x.l)).join(', ')}</small></a></li>`
 
+const listesDecennies = s => listes.filter(L => L.type === 'annees' && L.sexe === s)
 for (const L of listes) {
-  // Filles ou garçons : le même classement, d'un geste.
+  // Filles ou garçons : le même classement (la même décennie), d'un geste.
   const bascule = L.sexe ? `<nav class="bascule" aria-label="Filles ou garçons">${[['f', 'Filles'], ['m', 'Garçons']].map(([s, t]) =>
-    `<a href="${listes.find(x => x.type === L.type && x.sexe === s).chemin}"${actuel(s === L.sexe)}>${t}</a>`).join('')}</nav>` : ''
+    `<a href="${listes.find(x => x.type === L.type && x.sexe === s && x.decennie === L.decennie).chemin}"${actuel(s === L.sexe)}>${t}</a>`).join('')}</nav>` : ''
   const autresOrigines = L.origine ? `<section class="bloc r"><h2>Autres origines</h2><ul class="puces">${listesOrigines.filter(x => x !== L)
     .map(x => `<li><a href="${x.chemin}">${esc(ORIGINE_LIB(x.origine))} <small>${nf(x.total)}</small></a></li>`).join('')}</ul></section>` : ''
+  const autresDecennies = L.type === 'annees' ? `<section class="bloc r"><h2>Les autres décennies</h2><ul class="puces">${listesDecennies(L.sexe).filter(x => x !== L)
+    .map(x => `<li><a href="${x.chemin}">${esc(majuscule(nomDecennie(x.decennie)))}</a></li>`).join('')}</ul></section>` : ''
   ecrire(L.chemin, page({
     chemin: L.chemin, titre: L.titre, description: L.description,
     rubrique: L.origine ? 'origines' : L.type, genre: genreDe(L.sexe), champ: L.origine ? champOrigine(L.origine) : CHAMP_LISTE[L.type],
-    fil: L.origine ? [{ n: 'Origines', u: '/prenoms/origines/' }, { n: L.h1, u: L.chemin }] : [{ n: L.h1, u: L.chemin }],
+    fil: L.origine ? [{ n: 'Origines', u: '/prenoms/origines/' }, { n: L.h1, u: L.chemin }]
+      : L.type === 'annees' ? [{ n: 'Décennies', u: '/prenoms/annees/' }, { n: L.h1, u: L.chemin }] : [{ n: L.h1, u: L.chemin }],
     corps: `<section class="hero court">${h1(L.h1)}<p class="sous">${esc(L.sous)}</p></section>
-${bascule}${tableau(L.xs, L.col)}
-<p class="doute">${esc(L.intro)}</p>
-${autresOrigines}
+${bascule}${L.type === 'annees' ? tableauAnnees(L) : `${tableau(L.xs, L.col, L.ligne)}
+<p class="doute">${esc(L.intro)}</p>`}
+${autresOrigines}${autresDecennies}
 ${offrir}
 ${cta(null)}`
   }))
@@ -1348,6 +1735,29 @@ ${cta(null)}`
   urls.push('/prenoms/monde/')
 }
 
+// Les décennies, toutes : la plus récente d'abord, chacune par ses trois
+// premiers prénoms de fille et de garçon.
+if (DECENNIES.length) {
+  const carteDecennie = dd => {
+    const cols = [['f', 'Filles'], ['m', 'Garçons']].map(([s, t]) => [listes.find(L => L.type === 'annees' && L.decennie === dd && L.sexe === s), t]).filter(([L]) => L)
+    return `<article class="carte classement r"><h3>${esc(majuscule(nomDecennie(dd)))}</h3><p>Naissances de ${dd} à ${Math.min(dd + 9, H1)}.</p><div class="duo">${cols.map(([L, t]) =>
+      // Sans les naissances : « Christophe 162 860 » ne tient pas dans une
+      // demi-carte à 360 px ; elles sont dans le tableau de la décennie.
+      `<div><p class="genre">${t}</p><ol class="apercu">${L.rows.slice(0, 3).map(r => `<li>${r.tete ? `<a href="${url(r.tete)}">${esc(r.l)}</a>` : esc(r.l)}</li>`).join('')}</ol>
+<a class="suite" href="${L.chemin}">Les ${L.rows.length}<span class="vh"> prénoms de ${genreNom[L.sexe]} des ${nomDecennie(dd)}</span></a></div>`).join('')}</div></article>`
+  }
+  ecrire('/prenoms/annees/', page({
+    chemin: '/prenoms/annees/', rubrique: 'annees', champ: 'sable',
+    fil: [{ n: 'Décennies', u: '/prenoms/annees/' }],
+    titre: `Prénoms par décennie : les plus donnés en France de ${DECENNIES[0]} à aujourd’hui`,
+    description: `Les prénoms les plus donnés en France dans chaque décennie, des ${nomDecennie(DECENNIES[0])} aux ${nomDecennie(DECENNIES.at(-1))}, filles et garçons, d’après l’INSEE.`,
+    corps: `<section class="hero court">${h1('Prénoms par décennie')}<p class="sous">Les prénoms les plus donnés en France, décennie par décennie, depuis ${H0} (INSEE).</p></section>
+<section class="bloc"><div class="classements">${[...DECENNIES].reverse().map(carteDecennie).join('')}</div></section>
+${cta(null)}`
+  }))
+  urls.push('/prenoms/annees/')
+}
+
 // Les origines, toutes, avec de quoi reconnaître chacune.
 ecrire('/prenoms/origines/', page({
   chemin: '/prenoms/origines/', rubrique: 'origines', champ: 'sable',
@@ -1399,7 +1809,9 @@ const CLASSEMENTS = [
   { type: 'populaires', titre: 'Les plus donnés', desc: `Le top 100 des naissances en France, de ${AN1 - 2} à ${AN1}.`,
     stat: x => nf(x.n), nom: 'les plus donnés' },
   { type: 'rares', titre: 'Rares, et qui ont du sens', desc: 'Peu donnés mais portés, avec une signification établie.',
-    stat: () => '', nom: 'rares' }
+    stat: () => '', nom: 'rares' },
+  { type: 'retro', titre: 'Rétro, et qui reviennent', desc: 'À leur sommet avant 1950, presque oubliés, de nouveau donnés. L’année : leur record.',
+    stat: x => String(histoireDe(x.slug, x.sexe).pic.an), nom: 'rétro qui reviennent' }
 ]
 const carteClassement = C => {
   const colonne = (s, t) => {
@@ -1414,10 +1826,12 @@ ecrire('/prenoms/', page({
   chemin: '/prenoms/', champ: 'fond',
   titre: `Prénoms : ${nf(pages.size)} fiches avec signification, origine et popularité`,
   description: `Signification, origine et courbe de popularité de ${nf(pages.size)} prénoms donnés en France, d’après les naissances INSEE. Tendances, prénoms rares, par origine.`,
-  corps: `<section class="hero">${h1('Trouver un prénom')}<p class="sous">${nf(pages.size)} prénoms donnés en France, avec leurs vrais chiffres : le sens, l’origine, et les naissances depuis ${AN0}.</p>${formRecherche()}</section>
+  corps: `<section class="hero">${h1('Trouver un prénom')}<p class="sous">${nf(pages.size)} prénoms donnés en France, avec leurs vrais chiffres : le sens, l’origine, et les naissances depuis ${H0}.</p>${formRecherche()}</section>
 <section class="bloc"><h2>Les classements</h2><div class="classements">${CLASSEMENTS.map(carteClassement).join('')}</div></section>
 <section class="bloc r"><h2>Par origine</h2><ul class="origines six">${listesOrigines.slice(0, 6).map(carteOrigine).join('')}</ul>
 <p class="suite-bloc"><a class="suite" href="/prenoms/origines/">Les ${listesOrigines.length} origines</a></p></section>
+${DECENNIES.length ? `<section class="bloc r"><h2>Par décennie</h2><ul class="puces">${[...DECENNIES].reverse().map(dd => `<li><a href="${cheminDecennie(dd, 'f')}">${esc(majuscule(nomDecennie(dd)))}</a></li>`).join('')}</ul>
+<p class="suite-bloc"><a class="suite" href="/prenoms/annees/">Filles et garçons, décennie par décennie</a></p></section>` : ''}
 <section class="bloc r"><h2>Dans le monde</h2><ul class="puces">${PAYS_MONDE.map(x => `<li><a href="${cheminPays(x, 'f')}">${esc(MONDE[x.code][2])}</a></li>`).join('')}</ul>
 <p class="suite-bloc"><a class="suite" href="/prenoms/monde/">Les ${PAYS_MONDE.length} pays</a></p></section>
 <section class="bloc r" id="lettres"><h2>Par lettre</h2>${alphabet(null)}</section>
@@ -1435,7 +1849,7 @@ ecrire(CHERCHER, page({
 <section class="bloc r"><h2>Ce prénom existe-t-il ?</h2><p>La recherche couvre tous les prénoms publiés par l’INSEE, donnés en France de ${AN0} à ${AN1}, même les plus rares. Un prénom qui n’y figure pas n’a pas forcément jamais été donné : l’INSEE ne publie un prénom qu’à partir de 3 naissances, en dessous il reste dans l’ombre du secret statistique.</p>
 <p>Et un prénom inédit reste possible : depuis la loi du 8 janvier 1993, les parents choisissent librement. L’officier d’état civil ne peut que saisir le procureur s’il juge le prénom contraire à l’intérêt de l’enfant.</p></section>
 <section class="bloc r"><h2>Orthographes et prénoms qui sonnent pareil</h2><p>Maëlys, Maelys, Maélis : pour l’INSEE, ce sont des prénoms différents, comptés à part. La recherche vous propose les orthographes voisines et les prénoms qui se prononcent de la même façon, avec le nombre de bébés de chacun. Pratique pour savoir si l’orthographe que vous aimez est rare, ou si le prénom est en fait très courant sous une autre forme.</p></section>
-<section class="bloc r"><h2>Ce que dit chaque fiche</h2><ul class="puces"><li>La signification et l’origine, quand elles sont établies.</li><li>La courbe des naissances depuis ${AN0}.</li><li>La tendance récente : il monte, il se maintient ou il recule.</li><li>Les autres orthographes et leur poids.</li><li>Sa place au Québec, en Belgique et en Suisse, chiffres officiels à l’appui.</li></ul></section>
+<section class="bloc r"><h2>Ce que dit chaque fiche</h2><ul class="puces"><li>La signification et l’origine, quand elles sont établies.</li><li>La courbe des naissances, depuis ${H0} pour un prénom ancien.</li><li>La tendance récente : il monte, il se maintient ou il recule.</li><li>Les autres orthographes et leur poids.</li><li>Sa place dans les pays qui publient leurs prénoms, chiffres officiels à l’appui.</li></ul></section>
 ${cta(null)}`,
   jsonld: [{
     '@context': 'https://schema.org', '@type': 'WebApplication', name: 'Chercher un prénom',
@@ -1614,6 +2028,8 @@ writeFileSync(resolve(SORTIE, 'llms.txt'), `# ${MARQUE}
 - [Les 100 prénoms de garçons les plus donnés](${SITE}/prenoms/populaires/garcons/)
 - [Prénoms de filles rares](${SITE}/prenoms/rares/filles/): rares mais portés, au sens établi
 - [Prénoms de garçons rares](${SITE}/prenoms/rares/garcons/): rares mais portés, au sens établi
+- [Prénoms rétro de filles qui reviennent](${SITE}/prenoms/retro/filles/) et [de garçons](${SITE}/prenoms/retro/garcons/): à leur sommet avant 1950, oubliés, de nouveau donnés
+- [Prénoms par décennie](${SITE}/prenoms/annees/): les 100 plus donnés de chaque décennie depuis ${H0}, filles et garçons
 - [Prénoms par origine](${SITE}/prenoms/origines/): ${listesOrigines.length} origines, de la plus représentée à la plus rare
 - Exemples de fiches : [${fille.l}](${SITE}${url(fille)}), [${garcon.l}](${SITE}${url(garcon)})
 
