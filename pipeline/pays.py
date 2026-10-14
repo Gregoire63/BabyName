@@ -15,6 +15,10 @@ Format d'un fichier pays (extraits le 2026-10-09, voir data/raw/PROVENANCE.md) :
 
 Sorties (app/public/data/pays/) :
   index.json        la liste des pays, leurs sources, totaux, années, notes
+  presence.json     pour chaque prénom du catalogue (dans son ordre), les pays où il
+                    figure, en bits (bit i = i-ème pays de « codes ») : la fiche
+                    sait s'il y a quelque chose à montrer ailleurs sans charger
+                    les 16 fichiers (≈ 17 Ko gzip, contre 1 Mo)
   <code>.json(.gz)  une ligne par prénom : [label, sexe, n, rang, tendance, nouveau(, nb_car, nb_syllabes)]
                     sexe 0 = fille, 1 = garçon, 2 = tous sexes (Québec)
                     label = la graphie du CATALOGUE quand le prénom y est (même
@@ -143,6 +147,8 @@ def main() -> None:
 
     OUT.mkdir(parents=True, exist_ok=True)
     index = []
+    presence: dict[str, int] = {}
+    codes_presence: list[str] = []
     # La France vient du catalogue lui-même.
     fr = d[~d.get("hors_france", False).fillna(False).astype(bool)]
     index.append({
@@ -190,6 +196,11 @@ def main() -> None:
                     ligne += [len(re.sub(r"[- ’']", "", lab)), syllables_fr(lab)]
                 lignes.append(ligne)
         nouveaux = sum(l[5] for l in lignes)
+        bit = 1 << len(codes_presence)
+        codes_presence.append(code)
+        for l in lignes:
+            if not l[5]:
+                presence[l[0]] = presence.get(l[0], 0) | bit
         doc = {"code": code, "lignes": lignes}
         txt = json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
         (OUT / f"{code}.json").write_text(txt, encoding="utf-8")
@@ -212,6 +223,19 @@ def main() -> None:
     (OUT / "index.json").write_text(json.dumps({"version": 1, "pays": index}, ensure_ascii=False, indent=1),
                                     encoding="utf-8")
     print(f"{len(index)} pays -> {OUT / 'index.json'}")
+
+    # Où chaque prénom du catalogue est donné, hors France : aligné sur
+    # l'ordre du catalogue (export_catalogue.py passe avant), « n » pour que
+    # l'app vérifie qu'ils vont ensemble.
+    cat = json.loads((OUT.parent / "catalogue.json").read_text(encoding="utf-8"))
+    labels = cat["cols"]["l"]
+    doc = {"n": len(labels), "codes": codes_presence, "m": [presence.get(l, 0) for l in labels]}
+    txt = json.dumps(doc, separators=(",", ":"))
+    (OUT / "presence.json").write_text(txt, encoding="utf-8")
+    with gzip.GzipFile(filename="", mode="wb", fileobj=(OUT / "presence.json.gz").open("wb"),
+                       compresslevel=9, mtime=0) as g:
+        g.write(txt.encode())
+    print(f"présence ailleurs : {sum(1 for x in doc['m'] if x):,} prénoms sur {len(labels):,} -> {OUT / 'presence.json'}")
 
 
 if __name__ == "__main__":

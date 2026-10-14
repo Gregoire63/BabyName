@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sens, citer } from '~/composables/useSens'
 import { anneesBarres, bebesParAn, frequenceLisible, meilleurAilleurs, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeSiPresent } from '~/composables/etatGroupe'
 import { projeter, ecart, CLASSE } from '~/composables/useProjectionClasse'
@@ -117,11 +118,11 @@ const lecture = computed(() => {
           </button>
         </header>
 
-        <p v-if="p.m" class="sens">« {{ p.m }} »</p>
+        <p v-if="p.m" class="sens">{{ citer(sens(p.m)) }}</p>
         <p v-if="p.m && p.cf !== null && p.cf < 2" class="note doux">
           {{ p.cf === 0 ? $t('FichePrenom.douteuse') : $t('FichePrenom.probable') }}
         </p>
-        <p v-else-if="p.me" class="sens doux">« {{ p.me }} » <span class="mini">{{ $t('FichePrenom.sourceAnglaise') }}</span></p>
+        <p v-else-if="p.me" class="sens doux">{{ citer(p.me) }} <span class="mini">{{ $t('FichePrenom.sourceAnglaise') }}</span></p>
 
         <div v-if="p.g.length" class="ligne" style="flex-wrap:wrap;gap:6px">
           <span v-for="o in p.g" :key="o" class="puce">{{ $t(`Origines.${o}`) }}</span>

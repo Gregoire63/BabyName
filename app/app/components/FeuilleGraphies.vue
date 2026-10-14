@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sens, citer } from '~/composables/useSens'
 import { anneesBarres, bebesParAn, frequenceLisible, meilleurAilleurs, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { t, langue, nombre } from '~/composables/useLangue'
@@ -148,7 +149,7 @@ const barres = anneesBarres()
         {{ $t('FeuilleGraphies.tropPeu') }}
       </p>
 
-      <p v-if="courant.m" class="sens">« {{ courant.m }} »</p>
+      <p v-if="courant.m" class="sens">{{ citer(sens(courant.m)) }}</p>
     </section>
 
     <template #pied="{ fermer }">

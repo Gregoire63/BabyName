@@ -626,7 +626,7 @@ async function attendrePaiement() {
 <style scoped>
 .pager:focus { outline: none; }
 .cadre { height: 100%; }
-.paiement { position: fixed; left: 12px; right: 12px; bottom: 76px; z-index: 70;
+.paiement { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 70;
   padding: 13px 16px; border-radius: 15px; background: var(--carte);
   border: 1px solid var(--trait); box-shadow: var(--ombre); font-size: .9rem;
   animation: monte-paiement .22s cubic-bezier(.2,.8,.3,1); }

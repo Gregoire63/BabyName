@@ -21,6 +21,9 @@ const quota = computed(() => g.etat.value?.quota)
 
 const copie = ref(false)
 const offrirOuvert = ref(false)
+// Le compte s'ouvre aussi d'ici : en bas d'un réglage de liste, on cherchait
+// où changer de langue ou de compte sans repasser par l'accueil.
+const compteOuvert = ref(false)
 
 const renomme = ref(false)
 const nouveauNom = ref('')
@@ -328,7 +331,15 @@ async function quitterListe() {
     </template>
 
     <template v-else>
-      <TeteListe :onglet="$t('SectionReglages.onglet')" />
+      <div class="haut">
+        <TeteListe class="titre" :onglet="$t('SectionReglages.onglet')" />
+        <button type="button" class="profil" :aria-label="$t('SectionAccueil.monCompte')"
+                aria-haspopup="dialog" @click="compteOuvert = true">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8.6" r="3.4" /><path d="M5 19.4a7 7 0 0 1 14 0" />
+          </svg>
+        </button>
+      </div>
 
       <section class="carte pile">
         <div class="ligne">
@@ -551,10 +562,20 @@ async function quitterListe() {
       </section>
     </template>
     <FeuilleOffrir v-if="offrirOuvert" @fermer="offrirOuvert = false" />
+    <FeuilleCompte v-if="compteOuvert" @fermer="compteOuvert = false" />
   </div>
 </template>
 
 <style scoped>
+/* Le nom de la liste, et le compte en haut à droite (même place et même
+   taille que la loupe du tri). */
+.haut { display: flex; align-items: flex-start; gap: 8px; }
+.haut .titre { flex: 1; min-width: 0; }
+.profil { flex: none; width: 40px; height: 40px; margin: -2px -6px 0 0; border: 0; border-radius: 50%;
+  display: grid; place-items: center; background: none; color: var(--encre); cursor: pointer; }
+.profil:active { background: var(--carte); }
+.profil svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 2.2;
+  stroke-linecap: round; stroke-linejoin: round; }
 .exemple { font-weight: 650; }
 .lien-bouton { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; }
 .achat { background: linear-gradient(160deg, color-mix(in srgb, var(--menthe) 38%, var(--carte)) 0%, var(--carte) 70%); }

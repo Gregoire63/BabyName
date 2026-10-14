@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { chargerCatalogue, pourcentAn, PAYS_DEFAUT, type Prenom, type ChiffreFx } from '~/composables/useCatalogue'
 import { useGroupeSiPresent } from '~/composables/etatGroupe'
-import { chargerIndexPays, chargerPays, chargerTousLesPays, chiffre, indexPays, totalPour, type Pays } from '~/composables/usePays'
+import { chargerIndexPays, chargerPays, chargerPresence, chargerTousLesPays, chiffre, indexPays, totalPour, type Pays } from '~/composables/usePays'
 import { t, nombre } from '~/composables/useLangue'
 import { nomPays, notePays } from '~/utils/nomPays'
 
@@ -29,11 +29,14 @@ const choisis = computed<string[]>(() => {
 
 // Les pays de la liste sont d'ordinaire déjà chargés ; depuis l'accueil, non.
 const pret = ref(false)
+// Où le prénom figure, d'après presence.json (null : on ne sait pas).
+const ailleurs = ref<Map<string, string[]> | null>(null)
 onMounted(async () => {
   try {
     await chargerIndexPays()
     const c = await chargerCatalogue()
     await chargerPays(c!.liste, choisis.value)
+    ailleurs.value = await chargerPresence(c!.liste)
   } catch { /* la fiche reste lisible sans cette section */ }
   pret.value = true
   version.value++
@@ -62,7 +65,14 @@ const lignes = computed<Ligne[]>(() => {
 })
 const presents = computed(() => lignes.value.filter(l => l.v))
 const absents = computed(() => lignes.value.filter(l => !l.v))
-const autres = computed(() => Math.max(0, indexPays().length - choisis.value.length))
+// Les pays pas encore montrés OÙ LE PRÉNOM FIGURE : pas de bouton qui
+// n'ouvrirait que des « peu ou pas donné ». Si l'on ne sait pas (prénom venu
+// d'ailleurs, presence.json absent), tous les pays non montrés.
+const autres = computed(() => {
+  const restants = indexPays().filter(x => !choisis.value.includes(x.code)).map(x => x.code)
+  const ou = ailleurs.value && !props.p.hf ? ailleurs.value.get(props.p.l) ?? [] : null
+  return ou ? restants.filter(c => ou.includes(c)).length : restants.length
+})
 
 function rang(pays: Pays, r: number | null): string | null {
   if (!r || r > 2000) return null

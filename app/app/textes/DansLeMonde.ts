@@ -21,7 +21,7 @@ export default {
     parAn: '{pct}/an',
     absents: 'Peu ou pas donné (sous le seuil de publication) : {liste}.',
     chargement: 'Chargement…',
-    voirTout: (p) => `Voir dans les ${p.n} autres pays`
+    voirTout: (p) => Number(p.n) === 1 ? 'Voir dans 1 autre pays' : `Voir dans les ${p.n} autres pays`
   },
   en: {
     titre: 'Around the world',

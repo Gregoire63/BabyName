@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sens } from '~/composables/useSens'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { t } from '~/composables/useLangue'
 const g = useGroupeCourant()
@@ -320,7 +321,7 @@ onUnmounted(() => { cancelAnimationFrame(auto); clearTimeout(minuteurClavier) })
             <p v-if="c.nb_commentaires || g.parNom.value.get(c.prenom)?.m" class="mini doux" style="margin:3px 0 0">
               <span v-if="c.nb_commentaires" class="mots">{{ motsLisibles(c.nb_commentaires) }}</span>
               <template v-if="c.nb_commentaires && g.parNom.value.get(c.prenom)?.m"> · </template>
-              <template v-if="g.parNom.value.get(c.prenom)?.m">{{ $t('PanneauCommuns.signification', { m: g.parNom.value.get(c.prenom)!.m }) }}</template>
+              <template v-if="g.parNom.value.get(c.prenom)?.m">{{ $t('PanneauCommuns.signification', { m: sens(g.parNom.value.get(c.prenom)!.m) }) }}</template>
             </p>
             <p v-if="c.coeurs?.length" class="mini coeurs" style="margin:4px 0 0">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3 4.6 13a4.7 4.7 0 0 1 6.6-6.7l.8.8.8-.8a4.7 4.7 0 0 1 6.6 6.7Z" /></svg>

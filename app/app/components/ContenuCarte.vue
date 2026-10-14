@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sens, citer } from '~/composables/useSens'
 import { anneesBarres, bebesParAn, frequenceLisible, meilleurAilleurs, pourcentAn, sourcesFrancophonie, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { tester } from '~/composables/useNomComplet'
@@ -168,8 +169,8 @@ const niveau = computed(() => !essai.value ? ''
           }}<template v-if="p.variantes.length > 3"> +{{ p.variantes.length - 3 }}</template></span>
         <span class="voir">{{ $t('ContenuCarte.voirPlus') }}</span>
       </button>
-      <p v-if="p.m" class="sens">« {{ p.m }} »<span v-if="p.cf !== null && p.cf < 2" class="doute"> · {{ $t('ContenuCarte.sensProbable') }}</span></p>
-      <p v-else-if="p.me" class="sens doux">« {{ p.me }} »</p>
+      <p v-if="p.m" class="sens">{{ citer(sens(p.m)) }}<span v-if="p.cf !== null && p.cf < 2" class="doute"> · {{ $t('ContenuCarte.sensProbable') }}</span></p>
+      <p v-else-if="p.me" class="sens doux">{{ citer(p.me) }}</p>
     </div>
 
     <!-- Une ligne : le nom complet et le verdict, qui passe dessous s'il ne

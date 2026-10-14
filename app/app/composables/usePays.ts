@@ -86,6 +86,30 @@ export async function chargerPays(catalogue: Prenom[], codes: readonly string[])
   return crees.size ? [...catalogue, ...crees.values()] : catalogue
 }
 
+/**
+ * Où chaque prénom du catalogue est donné hors de France
+ * (pipeline/pays.py → presence.json, ≈ 17 Ko) : la fiche sait s'il reste des
+ * pays à montrer sans charger les seize fichiers. Inconnu (prénom créé par un
+ * pays, fichier absent ou d'un autre catalogue) : null, la fiche propose
+ * alors les autres pays comme avant.
+ */
+let presence: Promise<Map<string, string[]> | null> | null = null
+export function chargerPresence(catalogue: Prenom[]): Promise<Map<string, string[]> | null> {
+  presence ??= chargerJson('/data/pays/presence.json').then((d: any) => {
+    if (!d || d.n !== catalogue.length || !Array.isArray(d.m)) return null
+    const parNom = new Map<string, string[]>()
+    for (let i = 0; i < d.n; i++) {
+      const m = d.m[i]
+      if (!m) continue
+      const codes = parNom.get(catalogue[i]!.l) ?? []
+      d.codes.forEach((c: string, b: number) => { if (m & (1 << b) && !codes.includes(c)) codes.push(c) })
+      parNom.set(catalogue[i]!.l, codes)
+    }
+    return parNom
+  }).catch(() => null)
+  return presence
+}
+
 /** Tous les pays : pour la fiche, qui les montre tous. */
 export async function chargerTousLesPays(catalogue: Prenom[]): Promise<Prenom[]> {
   const idx = await chargerIndexPays()

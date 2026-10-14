@@ -305,7 +305,10 @@ button { font: inherit; color: inherit; }
   scroll-snap-type: x mandatory; scrollbar-width: none; }
 .pager::-webkit-scrollbar { display: none; }
 .pager > section { flex: 0 0 100%; scroll-snap-align: start; overflow-y: auto;
-  overscroll-behavior-y: contain; padding: max(18px, env(safe-area-inset-top)) 16px 84px; }
+  overscroll-behavior-y: contain;
+  /* La barre d'onglets fait 62 px PLUS la zone du geste d'accueil (34 px sur
+     un iPhone récent) : sans elle, le bas de chaque volet passait dessous. */
+  padding: max(18px, env(safe-area-inset-top)) 16px calc(84px + env(safe-area-inset-bottom)); }
 
 /* ---------------------------------------------------------------------------
    Les textes légaux : la même typographie en page (PageLegale) et en feuille
