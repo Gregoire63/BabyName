@@ -123,7 +123,7 @@ onMounted(async () => {
       </template>
     </div>
 
-    <PiedLegal compact />
+    <PiedLegal />
   </main>
   </div>
 </template>

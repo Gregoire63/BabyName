@@ -125,7 +125,7 @@ async function copier(quoi: 'lien' | 'code') {
       <NuxtLink to="/offrir" class="lien mini" style="align-self:center">{{ $t('PageOffrirMerci.autre') }}</NuxtLink>
     </template>
 
-    <PiedLegal compact />
+    <PiedLegal />
   </main>
 </template>
 

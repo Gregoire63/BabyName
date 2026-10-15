@@ -266,7 +266,7 @@ onBeforeUnmount(() => abandonnerPasskey())
       <component :is="OutilsDev" v-if="OutilsDev" :occupe="envoi" @entre="entreEnDev" />
     </template>
 
-    <PiedLegal compact />
+    <PiedLegal />
   </main>
 </template>
 

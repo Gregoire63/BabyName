@@ -7,13 +7,19 @@
  * Chacun ouvre la feuille des textes legaux (FeuilleLegale), qui monte du bas
  * par-dessus l'ecran : on lit sans le quitter. Le lien garde son adresse,
  * pour qui l'ouvre dans un nouvel onglet ou sans JavaScript.
+ *
+ * Sur UNE ligne, partout, dans toutes les langues, des 360 px de large : ils
+ * en prenaient deux (65 px au lieu de 30) sur presque chaque ecran. Mesure
+ * faite au plus etroit — la feuille du compte, 320 px de place —, le
+ * francais y tient a .68rem, liens serres ; le neerlandais grace a un nom
+ * plus court (« Juridische info »). Un texte agrandi (zoom du navigateur)
+ * passe a la ligne plutot que de sortir de l'ecran : `wrap` reste.
  */
-withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
 const { ouvrir } = useFeuilleLegale()
 </script>
 
 <template>
-  <nav class="pied-legal" :class="{ compact }" :aria-label="$t('PiedLegal.nav')">
+  <nav class="pied-legal" :aria-label="$t('PiedLegal.nav')">
     <ul>
       <li v-for="d in DOCS_LEGAUX" :key="d.chemin">
         <a :href="d.chemin" class="lien" aria-haspopup="dialog" @click.prevent="ouvrir(d.chemin)">{{ d.court }}</a>
@@ -24,7 +30,7 @@ const { ouvrir } = useFeuilleLegale()
 
 <style scoped>
 .pied-legal ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap;
-  justify-content: center; gap: 4px 16px; font-size: .78rem; color: var(--doux); }
-.pied-legal a { display: inline-block; padding: 6px 2px; }
-.pied-legal.compact ul { font-size: .74rem; gap: 2px 12px; }
+  justify-content: center; gap: 0 8px; font-size: .68rem; color: var(--doux); }
+/* 28 px de haut : de quoi les toucher, sans l'interligne d'un paragraphe. */
+.pied-legal a { display: inline-block; padding: 6px 1px; white-space: nowrap; }
 </style>

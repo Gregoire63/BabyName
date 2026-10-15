@@ -268,7 +268,7 @@ async function supprimerCompte() {
 
     <component :is="OutilsDev" v-if="OutilsDev" />
 
-    <PiedLegal compact class="legal" />
+    <PiedLegal class="legal" />
   </Feuille>
 </template>
 

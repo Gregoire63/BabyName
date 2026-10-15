@@ -38,7 +38,7 @@ onMounted(() => { ouvert.value = true })
       <NuxtLink to="/" class="btn btn-0 doux">{{ $t('PageOffrir.decouvrir') }}</NuxtLink>
     </div>
 
-    <PiedLegal compact />
+    <PiedLegal />
   </main>
 </template>
 

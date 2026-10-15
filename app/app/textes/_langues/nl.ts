@@ -961,7 +961,7 @@ export default {
   'pagesLegales.titre_confidentialite': 'Privacybeleid',
   'pagesLegales.court_conditions': 'Voorwaarden',
   'pagesLegales.titre_conditions': 'Algemene gebruiks- en verkoopvoorwaarden',
-  'pagesLegales.court_mentions': 'Wettelijke vermeldingen',
+  'pagesLegales.court_mentions': 'Juridische info',
   'pagesLegales.titre_mentions': 'Wettelijke vermeldingen',
   'pagesLegales.court_accessibilite': 'Toegankelijkheid',
   'pagesLegales.titre_accessibilite': 'Toegankelijkheidsverklaring',

@@ -129,6 +129,7 @@ les vraies notifications — se regarde sur un appareil (`mobile/LISEZMOI.md`).
 | `essai-sens` | **un sens, dans la langue de l'app** : en français jamais la glose du Wiktionnaire anglais (Gabriel « force de Dieu » seul ; Mya rien, et « pas d'étymologie fiable ») ; en anglais un sens traduit, pas deux, la glose marquée « English source » ; les pays d'un prénom d'ailleurs nommés en anglais |
 | `essai-pays` | les pays d'une liste : la création les demande, la carte montre leur moyenne, la fiche le prénom « dans le monde » avec un badge de source par pays, les autres à la demande ; **un drapeau sur chaque carte de pays**, le bon et dessiné (Emma, donnée dans les 17), et devant chaque pays de « Là où on le donne » |
 | `essai-langue` | l'app en anglais sans un mot de français (outils de développement exceptés) ; le choix du compte l'emporte et suit sur un autre appareil ; une langue inconnue donne l'anglais ; allemand et polonais chargés à la demande, sans texte introuvable |
+| `essai-pied-legal` | **les liens légaux sur une ligne**, partout où ils sont (connexion, « Offrir », page légale, accueil, « Mon compte »), dans les huit langues, à 360 px : lisibles (10,5 px au moins), assez hauts pour le doigt (24 px) ; texte agrandi deux fois : ils passent à la ligne, rien ne sort de l'écran |
 | `essai-veto` `essai-carte` `essai-nav` `essai-fond` `essai-glisse` `essai-chargement` `essai-sw` | vetos, carte, navigation, transitions, squelettes, service worker |
 
 **Ces essais voient-ils quelque chose ?** Une garde qu'aucun essai ne voit
