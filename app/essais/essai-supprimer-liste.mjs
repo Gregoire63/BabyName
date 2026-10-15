@@ -38,7 +38,7 @@ const quitter = (X, id, confirmation) => poster(X, `/api/groupes/${id}/quitter`,
 const idDe = async (X, nom) => (await X.api('/api/groupes')).j?.find(l => l.nom === nom)?.id
 const reglages = async (X, id) => {
   await X.page.goto(`${BASE}/g/${id}/reglages`, { waitUntil: 'networkidle' })
-  await X.page.locator('section[aria-label="Quitter ou supprimer cette liste"]').waitFor({ timeout: 20000 })
+  await X.page.locator('section.carte.zone-danger').waitFor({ timeout: 20000 })
 }
 const bouton = (X, nom) => X.page.getByRole('button', { name: nom, exact: true })
 const aLAccueil = async X => {
@@ -63,6 +63,20 @@ dit(await P.page.locator('.puce', { hasText: 'propriétaire' }).count() === 1
   '« Qui en est » le nomme')
 dit(await bouton(P, 'Supprimer cette liste').count() === 1 && await bouton(P, 'Quitter cette liste').count() === 1,
   'il peut supprimer, et quitter puisqu’Alice décide aussi')
+// Les deux, et eux seuls, dans une « Zone de danger » : la dernière carte,
+// qui le dit, en rouge.
+const zone = await P.page.evaluate(() => {
+  const z = document.querySelector('section.carte.zone-danger')
+  const cartes = [...document.querySelectorAll('section.carte')].filter(c => c.offsetParent)
+  const titre = z?.querySelector('h2')
+  return { derniere: cartes.at(-1) === z, titre: titre?.textContent.trim(), nomme: z?.getAttribute('aria-labelledby') === titre?.id,
+    rouge: titre ? getComputedStyle(titre).color : '', non: getComputedStyle(document.documentElement).getPropertyValue('--non').trim(),
+    boutons: [...(z?.querySelectorAll('button') ?? [])].map(b => b.textContent.trim()) }
+})
+const rgb = h => `rgb(${[1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)).join(', ')})`
+dit(zone.derniere && zone.titre === 'Zone de danger' && zone.nomme && zone.rouge === rgb(zone.non)
+    && zone.boutons.join(' | ') === 'Quitter cette liste | Supprimer cette liste',
+  `quitter et supprimer sont dans la « Zone de danger », dernière carte, titre en rouge (${zone.boutons.join(' | ')})`)
 await bouton(P, 'Supprimer cette liste').click()
 const avert = await P.page.locator('#titre-suppression-liste').innerText()
 dit(/(Alice et Mamie|Mamie et Alice) compris/.test(avert) && /déblocage part avec elle/.test(avert),

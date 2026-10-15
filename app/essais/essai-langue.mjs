@@ -13,10 +13,13 @@ let fautes = 0
 const ok = (c, m) => { console.log(`${c ? 'OK ' : 'NON'} ${m}`); if (!c) fautes++ }
 
 async function francais(page, ou) {
-  // Sans le bloc des outils de développement (section.dev), absent en production.
+  // Sans les blocs des outils de développement, absents en production : celui
+  // de la connexion (section.dev) et celui du compte (.outils-dev), en
+  // français, dont les listes arrivent ou non avant la lecture selon le temps
+  // que met le serveur de dev à répondre.
   const txt = await page.evaluate(() => {
     const b = document.body.cloneNode(true)
-    b.querySelectorAll('section.dev').forEach(x => x.remove())
+    b.querySelectorAll('section.dev, .outils-dev').forEach(x => x.remove())
     document.documentElement.appendChild(b); const t = b.innerText; b.remove(); return t
   })
   // « Notre liste » : le nom de la liste du jeu d'essai, une donnée.

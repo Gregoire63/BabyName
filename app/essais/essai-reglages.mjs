@@ -102,6 +102,26 @@ const violations = () => page.evaluate(async () => (await window.axe.run(documen
 
 await compte()
 dit(await feuille.getByRole('radio', { name: /Système/ }).isChecked(), 'par défaut : comme le téléphone')
+// « Se déconnecter » : une ligne en bas de la feuille, plus un pied fixe qui
+// prenait 143 px d'écran. « Supprimer mon compte » : dans la zone de danger.
+const bas = await page.evaluate(() => {
+  const c = document.querySelector('.feuille-corps'), d = c.querySelector('.feuille-dedans')
+  const sortir = [...c.querySelectorAll('button')].find(b => b.textContent.trim() === 'Se déconnecter')
+  const zone = c.querySelector('section.zone-danger'), titre = zone?.querySelector('h3')
+  return { pied: c.querySelectorAll('.feuille-pied').length, defileJusquEnBas: Math.round(c.getBoundingClientRect().bottom - d.getBoundingClientRect().bottom),
+    sortirDedans: !!sortir && d.contains(sortir) && !zone?.contains(sortir), hauteur: Math.round(sortir?.getBoundingClientRect().height ?? 999),
+    police: parseFloat(sortir ? getComputedStyle(sortir).fontSize : '99'),
+    titre: titre?.textContent.trim(), nomme: zone?.getAttribute('aria-labelledby') === titre?.id,
+    rouge: titre ? getComputedStyle(titre).color : '', non: getComputedStyle(document.documentElement).getPropertyValue('--non').trim(),
+    boutons: [...(zone?.querySelectorAll('button') ?? [])].map(b => b.textContent.trim()),
+    legalEnDernier: d.lastElementChild?.matches('nav.pied-legal') ?? false }
+})
+const rgb = h => `rgb(${[1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)).join(', ')})`
+dit(bas.pied === 0 && bas.defileJusquEnBas <= 1 && bas.sortirDedans && bas.hauteur <= 44 && bas.police <= 13,
+  `« Se déconnecter » : une petite ligne dans la feuille (${bas.hauteur} px, police ${bas.police} px), plus de pied fixe — ce qui défile va jusqu’en bas`)
+dit(bas.titre === 'Zone de danger' && bas.nomme && bas.rouge === rgb(bas.non) && bas.boutons.join(' | ') === 'Supprimer mon compte'
+    && bas.legalEnDernier,
+  `« Supprimer mon compte », seul dans la « Zone de danger » (titre en rouge) ; les liens légaux tout en bas`)
 // Les notifications sont celles d'un téléphone, dans l'app des stores : un
 // navigateur n'a rien à en régler (essai-coquille les joue dans l'app).
 dit(await feuille.getByRole('heading', { name: 'Notifications' }).count() === 0

@@ -56,24 +56,48 @@ const geste = useFeuille(fermer, dedans)
  * resultats restent sous les yeux. Voir useClavier.
  */
 const clavier = useClavier()
-/** Sous cette hauteur, une feuille haute ne montre plus trois resultats. */
-const ASSEZ = 300
 const styleVoile = computed(() => clavier.ouvert.value
   ? { top: `${clavier.haut.value}px`, bottom: 'auto', height: `${clavier.visible.value}px` } : {})
+
+/**
+ * Le haut d'une feuille haute ne bouge pas quand le clavier sort : seul son
+ * bas remonte. Le champ ou l'on tape reste sous le doigt.
+ *
+ * Il se tenait a 8 % du cadre (`height: 92%`). Or dans l'app Android, la
+ * coquille fait de la place au clavier en RETRECISSANT la vue web (Coquille.tsx,
+ * KeyboardAvoidingView), comme Chrome avec `resizes-content` : le cadre passait
+ * de 844 a 544 px, 8 % de lui de 68 a 44 px, et le champ sautait de 24 px vers
+ * le haut a chaque clavier — le « TP ». La vue visible, elle, ne dit rien dans
+ * ce cas (`ouvert` reste faux) : seul `cadre` retrecit.
+ *
+ * Le haut est donc fixe en pixels, une fois : 8 % du plus grand cadre vu
+ * depuis l'ouverture, a cette largeur (un clavier ne change pas la largeur,
+ * un autre ecran si). Le CSS fait le reste (`--marge-haute`), dans la meme
+ * image que le redimensionnement : un calcul en JS arriverait une image trop
+ * tard, et la feuille deborderait par le haut le temps d'une image.
+ *
+ * Clavier pose PAR-DESSUS la page (iPhone) : le voile epouse la vue visible
+ * (styleVoile), la marge se compte depuis son haut — le haut de l'ECRAN. Si
+ * le navigateur fait defiler la vue visible (`haut` > 0), les elements fixes
+ * montent d'autant a l'ecran ; compter la marge depuis le haut de la page
+ * (comme avant) faisait monter le champ d'autant.
+ */
+const reference = ref(0)
+let largeurReference = 0
+watch([clavier.cadre, clavier.largeur], ([c, l]) => {
+  if (!c) return
+  if (l !== largeurReference) { largeurReference = l; reference.value = c }
+  else if (c > reference.value) reference.value = c
+})
+const margeHaute = computed(() => props.haute && reference.value ? Math.round(reference.value * .08) : null)
 const styleCorps = computed(() => {
   const s: Record<string, string> = { ...(geste.style.value as Record<string, string>) }
-  if (clavier.ouvert.value) {
-    let h = Math.max(160, clavier.visible.value - (props.plein ? 0 : 12))
-    if (props.haute) {
-      // Le haut d'une feuille haute reste ou il etait (8 % sous le haut de
-      // l'ecran) : seul son bas remonte avec le clavier, et le champ ne
-      // saute pas a chaque fois qu'il sort ou rentre. Sauf sur un petit
-      // ecran, ou ces 8 % sont une ligne de resultats : la, on prend tout.
-      const stable = clavier.haut.value + clavier.visible.value - Math.round(clavier.cadre.value * .08)
-      if (stable >= ASSEZ && stable < h) h = stable
-    }
+  if (props.haute) {
+    if (margeHaute.value !== null) s['--marge-haute'] = `${margeHaute.value}px`
+  } else if (clavier.ouvert.value) {
+    const h = Math.max(160, clavier.visible.value - (props.plein ? 0 : 12))
     s.maxHeight = `${h}px`
-    if (props.plein || props.haute) s.height = `${h}px`
+    if (props.plein) s.height = `${h}px`
   }
   return s
 })
@@ -129,7 +153,12 @@ defineExpose({ fermer, remonter })
 .feuille-corps { width: 100%; max-width: 560px; max-height: 92%; background: var(--carte);
   border-radius: 22px 22px 0 0; display: flex; flex-direction: column; min-height: 0; }
 .feuille-corps.plein { max-height: 100%; height: 100%; border-radius: 0; max-width: none; }
-.feuille-corps.haute { height: 92%; }
+/* Haute : le haut a `--marge-haute` du haut du voile (8 % du cadre, fixe ;
+   voir `margeHaute`), le bas en bas. Quand il reste moins de 300 px — trois
+   resultats — sous cette marge (petit ecran et clavier), la feuille monte
+   jusqu'a 12 px du haut plutot que de cacher des lignes. */
+.feuille-corps.haute { max-height: 100%;
+  height: max(calc(100% - var(--marge-haute, 8%)), min(calc(100% - 12px), 300px)); }
 /* Le conteneur recoit le focus a l'ouverture (pour que le titre soit lu) :
    il n'a pas a s'encadrer, ce n'est pas une commande. */
 .feuille-corps:focus { outline: none; }

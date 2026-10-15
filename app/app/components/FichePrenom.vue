@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { sens, citer } from '~/composables/useSens'
+import { sensDe, citer } from '~/composables/useSens'
 import { anneesBarres, bebesParAn, frequenceLisible, meilleurAilleurs, pourcentAn, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeSiPresent } from '~/composables/etatGroupe'
 import { projeter, ecart, CLASSE } from '~/composables/useProjectionClasse'
@@ -56,6 +56,8 @@ const classe = computed(() => projeter(props.p, paye.value))
 const manque = computed(() => paye.value ? null : ecart(props.p))
 
 const sexeTexte = computed(() => t(`Sexe.${props.p.sexe}`))
+/** Un sens, dans la langue de l'app (useSens, `sensDe`) : jamais deux, jamais l'anglais en français. */
+const leSens = computed(() => sensDe(props.p))
 
 const fiable = computed(() => tendanceFiable(props.p))
 const barres = anneesBarres()
@@ -118,11 +120,13 @@ const lecture = computed(() => {
           </button>
         </header>
 
-        <p v-if="p.m" class="sens">{{ citer(sens(p.m)) }}</p>
+        <p v-if="leSens" class="sens" :class="{ doux: leSens.anglais }">
+          {{ citer(leSens.texte) }}
+          <span v-if="leSens.anglais" class="mini">{{ $t('FichePrenom.sourceAnglaise') }}</span>
+        </p>
         <p v-if="p.m && p.cf !== null && p.cf < 2" class="note doux">
           {{ p.cf === 0 ? $t('FichePrenom.douteuse') : $t('FichePrenom.probable') }}
         </p>
-        <p v-else-if="p.me" class="sens doux">{{ citer(p.me) }} <span class="mini">{{ $t('FichePrenom.sourceAnglaise') }}</span></p>
 
         <div v-if="p.g.length" class="ligne" style="flex-wrap:wrap;gap:6px">
           <span v-for="o in p.g" :key="o" class="puce">{{ $t(`Origines.${o}`) }}</span>
@@ -211,7 +215,7 @@ const lecture = computed(() => {
         <p v-if="p.dm?.length" class="note">
           {{ $t('FichePrenom.diminutifs', { liste: p.dm.join(', ') }) }}
         </p>
-        <p v-if="!p.m && !p.me" class="note doux">
+        <p v-if="!leSens" class="note doux">
           {{ $t('FichePrenom.sansEtymologie') }}
         </p>
       </div>

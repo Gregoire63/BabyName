@@ -59,5 +59,42 @@ const apres = await monde.locator('li.pays').count()
 dit(apres > avant, `les autres pays s’ajoutent à la demande (${avant} → ${apres})`)
 if (OUT) { await monde.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${OUT}/pays-fiche.png`, fullPage: false }) }
 
+// ---- Les drapeaux (Drapeau.vue) : sur chaque carte de pays, le bon, dessiné.
+// Emma est donnée dans les 17 pays : tous les dessins y passent.
+const CODES = new Map((await page.evaluate(() => fetch('/data/pays/index.json').then(r => r.json()))).pays.map(p => [p.nom, p.code]))
+/** Les drapeaux d'une liste de pays : [{ nom, code du dessin, nombre, formes, taille }]. */
+const drapeauxDe = (lignes, nom) => page.evaluate(([l, n]) => [...document.querySelectorAll(l)].map(li => {
+  const svg = li.querySelectorAll('svg.drapeau'), r = svg[0]?.getBoundingClientRect()
+  return { nom: li.querySelector(n)?.textContent.trim(), code: svg[0]?.dataset.pays, n: svg.length,
+    formes: svg[0]?.children.length ?? 0, l: Math.round(r?.width ?? 0), h: Math.round(r?.height ?? 0) }
+}), [lignes, nom])
+const fautifs = ds => ds.filter(d => d.n !== 1 || d.code !== CODES.get(d.nom) || d.formes < 2 || d.l < 16 || d.h < 10)
+async function enPremiere(prenom) {
+  await page.keyboard.press('Escape'); await page.waitForTimeout(600)
+  await page.getByRole('button', { name: 'Chercher un prénom' }).click()
+  await page.waitForSelector('.feuille-corps input.chercher', { timeout: 8000 })
+  await page.waitForTimeout(450)
+  await page.locator('input.chercher').fill(prenom.toLowerCase())
+  await page.waitForTimeout(400)
+  await page.locator('.trouve').filter({ has: page.locator(`.nom:text-is("${prenom}")`) }).first().click()
+  await page.waitForFunction(n => document.querySelector('.carte.fiche:not(.derriere) .nom')?.textContent.trim() === n, prenom, { timeout: 8000 })
+  await page.waitForTimeout(500)
+}
+await enPremiere('Emma')
+await carte.getByRole('button', { name: 'Infos sur Emma' }).click()
+await monde.waitFor({ timeout: 20000 })
+const tousPays = monde.getByRole('button', { name: /Voir dans les \d+ autres pays/ })
+if (await tousPays.count()) await tousPays.click()
+await page.waitForFunction(() => document.querySelectorAll('.monde li.pays').length >= 17, null, { timeout: 30000 }).catch(() => null)
+const dEmma = await drapeauxDe('.monde li.pays', '.tete .nom')
+dit(dEmma.length === 17 && fautifs(dEmma).length === 0,
+  `Emma dans les 17 pays : chaque carte a son drapeau, le bon, dessiné (${dEmma.map(d => d.code).join(' ')})${fautifs(dEmma).length ? ` ; fautifs : ${JSON.stringify(fautifs(dEmma).slice(0, 3))}` : ''}`)
+if (OUT) { await monde.locator('li.pays').nth(4).scrollIntoViewIfNeeded(); await page.screenshot({ path: `${OUT}/pays-drapeaux.png` }) }
+// Un prénom d'ailleurs sans courbe : la carte dit où on le donne, en barres.
+await enPremiere('Lotte')
+const dLotte = await drapeauxDe('.carte.fiche:not(.derriere) .ou li', '.pays')
+dit(dLotte.length >= 1 && fautifs(dLotte).length === 0,
+  `Lotte, prénom d’ailleurs : chaque pays de « Là où on le donne » a son drapeau (${dLotte.map(d => `${d.nom} ${d.code}`).join(', ')})`)
+
 dit(erreurs.length === 0, `aucune erreur JS (${erreurs.length})`)
 await nav.close()

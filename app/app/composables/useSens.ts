@@ -40,6 +40,25 @@ export function sens(m: string | null | undefined): string {
   return t[m] ?? m
 }
 
+/**
+ * LE sens d'un prénom à montrer, un seul, dans la langue de l'app — ou rien.
+ *
+ * Le catalogue en a deux : `m`, en français, relu (et traduit par `sens`),
+ * et `me`, une glose du Wiktionnaire anglais. Les deux s'affichaient : sous
+ * Gabriel, « force de Dieu » puis « strong man », en anglais dans l'app en
+ * français. Et pour une centaine de prénoms sans `m`, la glose seule, souvent
+ * fausse (Mya « mussel », Anthony « flower »).
+ *
+ * Donc : `m` d'abord, partout. `me` seulement à défaut, et jamais en
+ * français — l'app dit plutôt qu'elle n'a pas d'étymologie fiable. Ailleurs
+ * qu'en français, elle reste, marquée (`anglais`) : c'est une autre source.
+ */
+export function sensDe(p: { m: string | null; me: string | null }): { texte: string; anglais: boolean } | null {
+  if (p.m) return { texte: sens(p.m), anglais: false }
+  if (p.me && langue.value !== 'fr') return { texte: p.me, anglais: true }
+  return null
+}
+
 /** Entre guillemets, à la façon de la langue : « … » en français, “…” sinon. */
 export function citer(s: string): string {
   return langue.value === 'fr' ? `« ${s} »` : `“${s}”`

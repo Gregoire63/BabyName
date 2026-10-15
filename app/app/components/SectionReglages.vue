@@ -504,10 +504,14 @@ async function quitterListe() {
         <p v-else class="mini doux" style="margin:0">{{ $t('SectionReglages.aucunFiltre') }}</p>
       </section>
 
-      <section class="carte pile" :aria-label="$t('SectionReglages.quitterOuSupprimer')">
+      <!-- Ce qui ne se défait pas, à part et en dernier : une carte à elle, qui
+           le dit. Les deux boutons rouges finissaient la page sans titre, à
+           la suite des filtres, comme deux réglages de plus. -->
+      <section class="carte pile zone-danger" aria-labelledby="titre-zone-danger">
+        <h2 id="titre-zone-danger">{{ $t('SectionReglages.zoneDanger') }}</h2>
         <template v-if="peutQuitter">
-          <button v-if="!demandeQuitter" type="button" class="btn btn-0 mini danger"
-                  style="align-self:flex-start" @click="demandeQuitter = true; demandeSuppression = false">
+          <button v-if="!demandeQuitter" type="button" class="btn mini contour-danger"
+                  @click="demandeQuitter = true; demandeSuppression = false">
             {{ $t('SectionReglages.quitterCette') }}
           </button>
           <div v-else class="pile suppression" role="group" aria-labelledby="titre-quitter-liste">
@@ -530,8 +534,8 @@ async function quitterListe() {
         </template>
 
         <template v-if="jeSuisProprietaire">
-        <button v-if="!demandeSuppression" type="button" class="btn btn-0 mini danger"
-                style="align-self:flex-start" @click="demandeSuppression = true; demandeQuitter = false">
+        <button v-if="!demandeSuppression" type="button" class="btn mini contour-danger"
+                @click="demandeSuppression = true; demandeQuitter = false">
           {{ $t('SectionReglages.supprimerCette') }}
         </button>
 
@@ -601,8 +605,11 @@ async function quitterListe() {
 .lien-invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
 .avert { gap: 6px; padding: 11px 13px; border-radius: var(--r-s);
   border: 1px solid color-mix(in srgb, var(--peche) 55%, var(--trait)); }
-/* Les mêmes que la suppression du compte (FeuilleCompte). */
-.danger { color: var(--non); padding-left: 0; }
+/* La zone de danger, la même que dans « Mon compte » (FeuilleCompte). */
+.zone-danger { border-color: color-mix(in srgb, var(--non) 38%, var(--trait)); }
+.zone-danger h2 { color: var(--non); }
+.contour-danger { align-self: flex-start; background: transparent; color: var(--non);
+  border-color: color-mix(in srgb, var(--non) 50%, var(--trait)); }
 .suppression { padding: 12px 14px; border-radius: var(--r-s);
   border: 1px solid color-mix(in srgb, var(--non) 45%, var(--trait)); gap: 10px; }
 .btn-danger { background: var(--non); border-color: var(--non); color: var(--fond); }

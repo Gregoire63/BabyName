@@ -27,7 +27,8 @@ export default {
     suppressionEnCours: 'Suppression…',
     supprimerDefinitivement: 'Supprimer définitivement',
     annuler: 'Annuler',
-    deconnecter: 'Se déconnecter'
+    deconnecter: 'Se déconnecter',
+    zoneDanger: 'Zone de danger'
   },
   en: {
     titre: 'My account',
@@ -55,6 +56,7 @@ export default {
     suppressionEnCours: 'Deleting…',
     supprimerDefinitivement: 'Delete permanently',
     annuler: 'Cancel',
-    deconnecter: 'Log out'
+    deconnecter: 'Log out',
+    zoneDanger: 'Danger zone'
   }
 } satisfies Textes

@@ -73,7 +73,7 @@ export default {
     fRares: 'prénoms très rares inclus',
     fPays: 'pays : {liste}',
 
-    quitterOuSupprimer: 'Quitter ou supprimer cette liste',
+    zoneDanger: 'Zone de danger',
     quitterCette: 'Quitter cette liste',
     vousQuittez: 'Vous quittez « {nom} »',
     quitterSuite: ' : ce que vous y avez donné (votes, vetos, favoris, commentaires) est effacé. Les autres membres gardent la liste',
@@ -169,7 +169,7 @@ export default {
     fRares: 'very rare names included',
     fPays: 'countries: {liste}',
 
-    quitterOuSupprimer: 'Leave or delete this list',
+    zoneDanger: 'Danger zone',
     quitterCette: 'Leave this list',
     vousQuittez: 'You are leaving “{nom}”',
     quitterSuite: ': everything you contributed (votes, vetoes, favourites, comments) will be erased. The other members keep the list',

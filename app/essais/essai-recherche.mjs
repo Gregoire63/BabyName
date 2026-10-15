@@ -20,8 +20,10 @@
  *  - les résultats suivent chaque lettre, même quand le clavier (Android)
  *    compose encore le mot — c'est ce qui les « cachait sous le clavier » ;
  *  - quand le clavier sort, champ et résultats restent au-dessus : qu'il se
- *    pose sur la page (iPhone), que le navigateur le dise autrement, ou qu'il
- *    ne dise rien du tout ; faire défiler les résultats le range ;
+ *    pose sur la page (iPhone), que le navigateur le dise autrement, qu'il
+ *    ne dise rien du tout, ou que la page rétrécisse pour lui (app Android,
+ *    Chrome) — et le champ ne bouge pas d'un pixel, dans aucune image ;
+ *    faire défiler les résultats le range ;
  *  - la feuille et la fiche se referment en glissant, pas d'un coup.
  */
 import { lancer, onglet, compteur, BASE, entrerComme, composer, glisser } from './navigateur.mjs'
@@ -209,14 +211,15 @@ const CLAVIER = 336
 /** Un clavier simulé : selon le navigateur, il ne s'annonce pas de la même façon. */
 const CLAVIERS = {
   // iPhone : il se pose sur la page, seule la « vue visible » rétrécit.
+  // `d` : le navigateur fait en plus défiler la vue visible de d px.
   iphone: () => {
-    const vv = new EventTarget(); let k = 0
+    const vv = new EventTarget(); let k = 0, d = 0
     Object.defineProperty(vv, 'height', { get: () => window.innerHeight - k })
-    Object.defineProperty(vv, 'offsetTop', { get: () => 0 })
+    Object.defineProperty(vv, 'offsetTop', { get: () => d })
     Object.defineProperty(vv, 'scale', { get: () => 1 })
     Object.defineProperty(vv, 'width', { get: () => window.innerWidth })
     Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true })
-    window.__clavier = (h) => { k = h; vv.dispatchEvent(new Event('resize')) }
+    window.__clavier = (h, defile = 0) => { k = h; d = defile; vv.dispatchEvent(new Event('resize')) }
   },
   // La vue visible rétrécit et innerHeight la suit, sans que la page soit
   // redimensionnée (Firefox sur iPhone, des navigateurs intégrés) : comparer
@@ -340,6 +343,58 @@ const peu = await releve(muet, CLAVIER)
 dit(peu.lignes > 0 && peu.lignes <= 3 && peu.lisibles === peu.lignes && peu.champ === m.champ,
   `peu de résultats (${peu.lignes}) : ils ne tombent pas derrière le clavier, et le champ n’a pas bougé`)
 await muet.context().close()
+
+// ---- 6f. la page est RETRÉCIE par le clavier : l'app Android (sa coquille
+// fait de la place au clavier en rétrécissant la vue web), Chrome Android
+// (`resizes-content`). La vue visible ne dit rien : seul le cadre rétrécit.
+// Le champ sautait de 24 px vers le haut à chaque clavier (le « TP »).
+const andro = await devantLaRecherche('muet')
+const r0 = await releve(andro, 0)
+// Image par image pendant que la vue web rétrécit : le champ ne doit être
+// ailleurs dans AUCUNE (un calcul en retard d'une image se verrait ici).
+const images = andro.evaluate(() => new Promise(ok => {
+  const vus = new Set(), t0 = performance.now()
+  const tic = () => {
+    vus.add(Math.round(document.querySelector('input.chercher').getBoundingClientRect().top))
+    if (performance.now() - t0 < 700) requestAnimationFrame(tic); else ok([...vus])
+  }
+  requestAnimationFrame(tic)
+}))
+await andro.waitForTimeout(80)
+await andro.setViewportSize({ width: 390, height: 844 - 300 })
+const ysPendant = await images
+await andro.locator('input.chercher').fill('ma')
+await andro.waitForTimeout(400)
+const r1 = await releve(andro, 0)
+dit(ysPendant.length === 1 && ysPendant[0] === r0.champ && r1.champ === r0.champ,
+  `page rétrécie par le clavier (844 → 544) : le champ ne bouge dans aucune image (y=${ysPendant.join(', ')} ; avant ${r0.champ})`)
+dit(r1.bas === r1.ecran && r1.lisibles >= 3,
+  `le bas de la feuille suit le clavier (bas ${r1.bas} = ${r1.ecran}), ${r1.lisibles} résultats lisibles`)
+await andro.setViewportSize({ width: 390, height: 844 })
+await andro.waitForTimeout(300)
+const r2 = await releve(andro, 0)
+dit(r2.champ === r0.champ && r2.bas === 844, `clavier rentré : la feuille redescend, le champ n’a pas bougé (y=${r2.champ})`)
+// Un autre écran (la largeur change) n'est pas un clavier : la feuille se
+// cale sur 8 % du nouveau cadre.
+await andro.setViewportSize({ width: 600, height: 420 })
+await andro.waitForTimeout(400)
+const r3 = await releve(andro, 0)
+dit(Math.abs(r3.haut - Math.round(420 * .08)) <= 1,
+  `autre largeur, autre écran : le haut de la feuille reprend 8 % du cadre (y=${r3.haut}, attendu ${Math.round(420 * .08)})`)
+await andro.context().close()
+
+// ---- 6g. iPhone qui fait défiler la vue visible pour montrer le champ
+// (offsetTop > 0) : les éléments fixes montent d'autant à l'écran. Le champ,
+// lui, reste où il était À L'ÉCRAN — compté depuis le haut de la page, il
+// montait de ces 120 px.
+const defileur = await devantLaRecherche('iphone')
+const e0 = await releve(defileur, 0)
+await defileur.evaluate(k => window.__clavier(k, 120), CLAVIER)
+await defileur.waitForTimeout(300)
+const e1 = await releve(defileur, CLAVIER)
+dit(e1.champ - 120 === e0.champ && e1.bas - 120 <= 844 - CLAVIER + 1,
+  `vue visible défilée de 120 px : à l’écran, le champ reste à y=${e1.champ - 120} (avant ${e0.champ}), la feuille s’arrête au clavier`)
+await defileur.context().close()
 
 // ---- 6e. petit écran : la feuille prend toute la place que laisse le clavier
 const petit = await devantLaRecherche('iphone', { width: 360, height: 560 })

@@ -101,7 +101,7 @@ const note = (pays: Pays) => {
     <ul>
       <li v-for="{ pays, v } in presents" :key="pays.code" class="pays">
         <div class="tete">
-          <b>{{ nom(pays) }}</b>
+          <b class="nom"><Drapeau :code="pays.code" />{{ nom(pays) }}</b>
           <a class="badge" :href="pays.url" target="_blank" rel="noopener" :title="titre(pays)"
              :aria-label="$t('DansLeMonde.source', { titre: titre(pays) })">{{ court(pays) }} · {{ pays.annees[0] }}-{{ String(pays.annees[1]).slice(2) }}</a>
         </div>
@@ -131,6 +131,8 @@ ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: col
 .pays { padding: 10px 12px; border-radius: 13px; border: 1px solid var(--trait); background: var(--fond);
   display: flex; flex-direction: column; gap: 4px; }
 .tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* Le drapeau devant le nom (Drapeau.vue) : on trouve son pays d'un coup d'œil. */
+.tete .nom { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .badge { font-size: .68rem; font-weight: 650; letter-spacing: .02em; color: var(--encre);
   text-decoration: none; padding: 3px 8px; border-radius: 999px; white-space: nowrap;
   background: color-mix(in srgb, var(--menthe) 45%, var(--carte));

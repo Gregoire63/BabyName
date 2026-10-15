@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { sens, citer } from '~/composables/useSens'
+import { sensDe, citer } from '~/composables/useSens'
 import { anneesBarres, bebesParAn, frequenceLisible, meilleurAilleurs, pourcentAn, sourcesFrancophonie, tendanceFiable, type Prenom } from '~/composables/useCatalogue'
 import { useGroupeCourant } from '~/composables/etatGroupe'
 import { tester } from '~/composables/useNomComplet'
 import { resumeTempetes } from '~/utils/tempetes'
 import { meilleurPays, nomSelection, paysDe, totalPour } from '~/composables/usePays'
 import { locale, t } from '~/composables/useLangue'
+import { nomPays } from '~/utils/nomPays'
 
 /**
  * Le contenu d'une carte de tri.
@@ -48,6 +49,8 @@ const tendance = computed(() => props.p.t > 8 ? 'monte' : props.p.t < -5 ? 'bais
 // Sous une vingtaine de bebes par an, la pente n'est que l'arrondi de l'INSEE :
 // la tuile donne alors le nombre de bebes, et les barres les montrent.
 const fiable = computed(() => tendanceFiable(props.p))
+/** Un sens, dans la langue de l'app (useSens, `sensDe`) : jamais deux, jamais l'anglais en français. */
+const leSens = computed(() => sensDe(props.p))
 const barres = anneesBarres()
 // Un prénom d'ailleurs : pas de chiffre français, le pays où il vit.
 const ailleurs = computed(() => {
@@ -64,17 +67,19 @@ const ailleurs = computed(() => {
 const ou = computed(() => {
   const p = props.p
   if (!p.hf || p.sr || p.nb) return []
-  const l: { nom: string; part: number }[] = []
+  // Le nom dans la langue de l'app (il restait en français : « Belgique »
+  // dans l'app en anglais), et le code pour son drapeau.
+  const l: { code: string; nom: string; part: number }[] = []
   for (const [code, v] of Object.entries(p.px ?? {})) {
     const x = paysDe(code)
-    if (x) l.push({ nom: x.nom, part: v.n / totalPour(x, p.sexe) })
+    if (x) l.push({ code, nom: nomPays(code, x.nom), part: v.n / totalPour(x, p.sexe) })
   }
   if (!l.length && p.fx) sourcesFrancophonie().forEach((s, i) => {
     const v = p.fx![i]
     if (!v) return
     const tot = typeof s.total === 'number' ? s.total
       : p.sexe === 'f' ? s.total.f : p.sexe === 'm' ? s.total.m : s.total.f + s.total.m
-    l.push({ nom: s.pays, part: v.n / tot })
+    l.push({ code: s.id, nom: nomPays(s.id, s.pays), part: v.n / tot })
   })
   l.sort((a, b) => b.part - a.part)
   const max = l[0]?.part ?? 1
@@ -169,8 +174,8 @@ const niveau = computed(() => !essai.value ? ''
           }}<template v-if="p.variantes.length > 3"> +{{ p.variantes.length - 3 }}</template></span>
         <span class="voir">{{ $t('ContenuCarte.voirPlus') }}</span>
       </button>
-      <p v-if="p.m" class="sens">{{ citer(sens(p.m)) }}<span v-if="p.cf !== null && p.cf < 2" class="doute"> · {{ $t('ContenuCarte.sensProbable') }}</span></p>
-      <p v-else-if="p.me" class="sens doux">{{ citer(p.me) }}</p>
+      <p v-if="leSens" class="sens" :class="{ doux: leSens.anglais }">{{ citer(leSens.texte) }}<span
+        v-if="p.m && p.cf !== null && p.cf < 2" class="doute"> · {{ $t('ContenuCarte.sensProbable') }}</span></p>
     </div>
 
     <!-- Une ligne : le nom complet et le verdict, qui passe dessous s'il ne
@@ -227,8 +232,8 @@ const niveau = computed(() => !essai.value ? ''
     <div v-else-if="ou.length" class="graphe ou">
       <p class="graphe-tete"><span>{{ $t('ContenuCarte.ouOnLeDonne') }}</span></p>
       <ul>
-        <li v-for="x in ou" :key="x.nom">
-          <span class="pays">{{ x.nom }}</span>
+        <li v-for="x in ou" :key="x.code">
+          <span class="pays"><Drapeau :code="x.code" class="drapeau-ou" />{{ x.nom }}</span>
           <span class="barre"><i :style="{ width: x.largeur + '%' }" /></span>
           <span class="sur">{{ x.sur }}</span>
         </li>
@@ -301,6 +306,7 @@ const niveau = computed(() => !essai.value ? ''
 .ou li { display: grid; grid-template-columns: minmax(0, 7.5em) 1fr auto; align-items: center; gap: 8px;
   font-size: .82rem; }
 .ou .pays { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--doux); }
+.ou .drapeau-ou { margin-right: 6px; }
 .ou .barre { height: 8px; border-radius: 999px; background: var(--trait); overflow: hidden; }
 .ou .barre i { display: block; height: 100%; border-radius: 999px; background: var(--encre); opacity: .75; }
 .ou .sur { font-variant-numeric: tabular-nums; font-weight: 650; }

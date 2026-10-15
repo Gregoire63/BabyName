@@ -30,6 +30,12 @@
  * Et quand le navigateur ne dit RIEN (ni page redimensionnee, ni vue visible
  * a jour), aucun calcul ne sauve la feuille : c'est a elle de garder ce qui
  * compte en haut de l'ecran. Voir la prop `haute` de Feuille.vue.
+ *
+ * `cadre` et `largeur` servent aussi quand la page EST redimensionnee (l'app
+ * Android : sa coquille fait de la place au clavier en retrecissant la vue
+ * web, comme Chrome avec `resizes-content`) : `ouvert` reste faux, mais une
+ * feuille haute doit savoir que le cadre a retreci a largeur egale — c'est
+ * le clavier, pas un autre ecran (Feuille.vue, `reference`).
  */
 
 /** Ce que couvre `position: fixed; inset: 0`, mesure et non suppose. */
@@ -53,10 +59,12 @@ export function useClavier() {
   const visible = ref(0)
   /** Hauteur du cadre des elements fixes : la ou une feuille se pose, clavier ou pas. */
   const cadre = ref(0)
-  if (!import.meta.client) return { ouvert, haut, visible, cadre }
+  /** Largeur de la page : un clavier ne la change pas, un autre ecran si. */
+  const largeur = ref(0)
+  if (!import.meta.client) return { ouvert, haut, visible, cadre, largeur }
 
   const vv = window.visualViewport
-  if (!vv) return { ouvert, haut, visible, cadre }
+  if (!vv) return { ouvert, haut, visible, cadre, largeur }
 
   let image = 0
   let retard = 0
@@ -66,6 +74,7 @@ export function useClavier() {
       // (Zoome au doigt, la vue visible retrecit aussi : la feuille se range
       // alors dans ce qu'on voit, comme derriere un clavier — ca convient.)
       cadre.value = hauteurDuCadre()
+      largeur.value = document.documentElement.clientWidth
       ouvert.value = cadre.value - vv.height > 60
       haut.value = Math.max(0, Math.round(vv.offsetTop))
       visible.value = Math.round(vv.height)
@@ -95,5 +104,5 @@ export function useClavier() {
     document.removeEventListener('focusin', plusTard)
     document.removeEventListener('focusout', plusTard)
   })
-  return { ouvert, haut, visible, cadre }
+  return { ouvert, haut, visible, cadre, largeur }
 }

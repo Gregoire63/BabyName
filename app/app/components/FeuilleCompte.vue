@@ -219,9 +219,26 @@ async function supprimerCompte() {
       <p v-if="exportRate" class="mini" role="alert" style="color:var(--non);margin:0">
         {{ $t('FeuilleCompte.exportRate') }}
       </p>
+    </section>
 
-      <button v-if="!demandeSuppression" type="button" class="btn btn-0 mini danger"
-              style="align-self:flex-start" @click="demandeSuppression = true">
+    <!-- Une ligne dans la feuille, pas un pied fixe : la déconnexion et les
+         liens légaux y prenaient 143 px d'écran en permanence, pour un geste
+         qu'on fait rarement. -->
+    <section class="pile">
+      <button type="button" class="btn btn-0 mini sortir" @click="sortir">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M14 4.5h3a2.5 2.5 0 0 1 2.5 2.5v10a2.5 2.5 0 0 1-2.5 2.5h-3" /><path d="m9.5 8-4 4 4 4" /><path d="M5.5 12H15" />
+        </svg>
+        {{ $t('FeuilleCompte.deconnecter') }}
+      </button>
+    </section>
+
+    <!-- Ce qui ne se défait pas, à part et en dernier (comme dans les
+         réglages d'une liste). -->
+    <section class="pile zone-danger" aria-labelledby="compte-danger">
+      <h3 id="compte-danger" class="etiquette">{{ $t('FeuilleCompte.zoneDanger') }}</h3>
+      <button v-if="!demandeSuppression" type="button" class="btn mini contour-danger"
+              @click="demandeSuppression = true">
         {{ $t('FeuilleCompte.supprimer') }}
       </button>
 
@@ -251,10 +268,7 @@ async function supprimerCompte() {
 
     <component :is="OutilsDev" v-if="OutilsDev" />
 
-    <template #pied>
-      <button type="button" class="btn btn-0 doux" @click="sortir">{{ $t('FeuilleCompte.deconnecter') }}</button>
-      <PiedLegal compact />
-    </template>
+    <PiedLegal compact class="legal" />
   </Feuille>
 </template>
 
@@ -264,7 +278,15 @@ async function supprimerCompte() {
   font-weight: 800; color: var(--doux); }
 .etiquette:is(h3) { line-height: 1.5; }
 .telecharger { align-self: flex-start; text-decoration: none; }
-.danger { color: var(--non); padding-left: 0; }
+.sortir { align-self: flex-start; padding-left: 0; display: inline-flex; align-items: center; gap: 8px; }
+.sortir svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round; }
+/* La zone de danger : son titre et ses boutons en rouge, les mêmes que dans
+   les réglages d'une liste (SectionReglages). */
+.zone-danger .etiquette { color: var(--non); }
+.contour-danger { align-self: flex-start; background: transparent; color: var(--non);
+  border-color: color-mix(in srgb, var(--non) 50%, var(--trait)); }
+.legal { margin-top: 22px; }
 .suppression { padding: 12px 14px; border-radius: var(--r-s);
   border: 1px solid color-mix(in srgb, var(--non) 45%, var(--trait)); gap: 10px; }
 .btn-danger { background: var(--non); border-color: var(--non); color: var(--fond); }
