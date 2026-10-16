@@ -16,6 +16,13 @@
  * carte dont l'auteur est parti (compte effacé, liste quittée) ne se retire
  * plus — elle est à la liste.
  *
+ * `seule=1` : un prénom DU CATALOGUE que son auteur avait proposé parce que
+ * les filtres de la liste l'écartaient (VueGroupe, proposerHorsFiltres), et
+ * qu'il reprend en disant non. La carte n'était qu'une mise en tête de pile :
+ * le prénom reste au catalogue, et ce que l'auteur en a dit reste aussi — son
+ * « non » est justement ce qui la retire. Même règle pour le reste : seul
+ * l'auteur, et seulement si personne d'autre ne l'a jugé.
+ *
  * Le prénom dans l'adresse (?prenom=), pas dans un corps : sur Cloudflare, un
  * DELETE avec un corps restait suspendu (remettre.post.ts).
  */
@@ -43,6 +50,7 @@ export default defineEventHandler(async (e) => {
         and not exists (select 1 from commentaires c where c.groupe_id = ?1 and c.prenom = ?2 and c.user_id <> ?3)
       returning prenom`, [gid, prenom, moi.user_id, cheminPrenom(prenom)])
   if (!parti.length) throw createError({ statusCode: 409, statusMessage: 'deja_juge' })
+  if (getQuery(e).seule === '1') return { ok: true }
 
   // Ce que l'auteur y avait mis. Après coup, et seulement à lui : s'il
   // échouait, il resterait un vote sur un prénom que personne ne voit — sans

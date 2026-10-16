@@ -32,6 +32,8 @@ export default {
     vetoAria: 'Veto sur {nom}', veto: 'Veto',
     // Un prénom ajouté par la liste (useAjouts)
     ajouteParVous: 'ajouté par vous', ajoutePar: 'ajouté par {nom}', ajoute: 'ajouté',
+    // Un prénom du catalogue proposé par un membre, hors filtres (VueGroupe)
+    proposeParVous: 'proposé par vous', proposePar: 'proposé par {nom}', propose: 'proposé',
     seDitComme: 'se dit comme {nom}', seDitCommeAria: 'Se dit comme {nom} : voir sa fiche', voir: 'Voir',
     bebesDepuis: 'bébés depuis {an}', leDernier: 'le dernier', enAn: 'en {an}',
     jumeauNaissances: '{nom}, des naissances', jumeauParAn: '{nom}, par an',
@@ -75,6 +77,7 @@ export default {
     vetoAria: 'Veto {nom}', veto: 'Veto',
     // A name added by the list (useAjouts)
     ajouteParVous: 'added by you', ajoutePar: 'added by {nom}', ajoute: 'added',
+    proposeParVous: 'suggested by you', proposePar: 'suggested by {nom}', propose: 'suggested',
     seDitComme: 'sounds like {nom}', seDitCommeAria: 'Sounds like {nom}: see its card', voir: 'See',
     bebesDepuis: 'babies since {an}', leDernier: 'the last one', enAn: 'in {an}',
     jumeauNaissances: '{nom}, of births', jumeauParAn: '{nom}, per year',

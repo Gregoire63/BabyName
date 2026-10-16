@@ -1,5 +1,5 @@
 import type { InjectionKey, Ref, ComputedRef, ShallowRef } from 'vue'
-import type { Prenom, Filtres } from '~/composables/useCatalogue'
+import type { Prenom, Filtres, InfoAjout } from '~/composables/useCatalogue'
 
 /** Un prénom « déjà pris » : retiré pour toute la liste, et dit. */
 export interface EntreeDejaPris {
@@ -61,6 +61,21 @@ export interface EtatGroupe {
   /** Le retirer, quand on l'a ajoute et que personne d'autre ne l'a juge
    *  (sinon le serveur refuse : 409 deja_juge). */
   retirerAjout: (prenom: string) => Promise<void>
+  /**
+   * Les prénoms DU CATALOGUE qu'un membre a proposés à la liste parce que ses
+   * filtres les écartaient (VueGroupe, proposerHorsFiltres) : qui, quand. Leur
+   * carte est celle du catalogue ; elle le dit.
+   */
+  propositions: ComputedRef<Map<string, InfoAjout>>
+  /** Ce que la liste met en tête de pile, dans l'ordre d'arrivée : prénoms
+   *  ajoutés (fiche de useAjouts) et prénoms proposés (fiche du catalogue). */
+  enTete: ComputedRef<Prenom[]>
+  /** Proposer à la liste un prénom du catalogue que ses filtres écartent,
+   *  qu'on vient d'aimer sur sa carte épinglée. Vrai s'il vient de l'être. */
+  proposerHorsFiltres: (prenom: string, jugeParTous?: boolean) => Promise<boolean>
+  /** Reprendre ma proposition (un « non » ensuite), si personne d'autre ne
+   *  l'a jugée — sinon le serveur refuse, et elle reste. */
+  retirerProposition: (prenom: string) => Promise<void>
   favoris: Ref<Set<string>>
   basculerFavori: (prenom: string) => Promise<void>
   /** Les prenoms sur lesquels tout le monde s'accorde. Charges avec le reste :
@@ -130,7 +145,8 @@ const CHAMPS = [
   'gid', 'etat', 'catalogue', 'parNom', 'origines', 'filtres', 'dejaVotes',
   'aimes', 'vetos', 'mesVetos', 'poserVeto', 'retirerVeto', 'dejaPris',
   'parDejaPris', 'ajouterDejaPris', 'retirerDejaPris', 'graphiesDe', 'ajouts',
-  'ajouterPrenom', 'retirerAjout', 'favoris',
+  'ajouterPrenom', 'retirerAjout', 'propositions', 'enTete', 'proposerHorsFiltres',
+  'retirerProposition', 'favoris',
   'basculerFavori', 'communs', 'rechargerCommuns', 'votes', 'rechargerVotes',
   'voter', 'feter', 'pret', 'recharger', 'ouvrirFiche', 'ouvrirFiltres', 'allerA',
   'ouvrirDebloquer', 'annoncerPaiement'

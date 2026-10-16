@@ -8,6 +8,11 @@
 --  liste. Votes, vetos, favoris, « déjà pris » et commentaires n'ont rien à
 --  apprendre : ils ne connaissent qu'un prénom écrit.
 --
+--  Même table pour les PROPOSITIONS : un prénom du catalogue que les filtres
+--  de la liste écartent, qu'un membre a cherché puis aimé. Il passe en tête
+--  de la pile des autres, « proposé par » son auteur (VueGroupe,
+--  proposerHorsFiltres) ; la base n'a pas à savoir s'il est au catalogue.
+--
 --  L'écriture est celle de shared/utils/ajouts.ts (ecrireAjout), la même dans
 --  l'app et ici : « jeannine » et « JEANNINE » font une seule carte.
 -- ============================================================================

@@ -13,6 +13,12 @@
  * Proposer un prénom, c'est déjà dire qu'on y pense ; le cacher aurait été
  * prétendre le contraire.
  *
+ * LES PROPOSITIONS passent aussi par ici : un prénom DU CATALOGUE que les
+ * filtres de la liste écartent, qu'un membre a cherché puis aimé (VueGroupe,
+ * proposerHorsFiltres). Même place en tête de pile, même « proposé par » ; le
+ * serveur n'a pas à savoir s'il est au catalogue — l'app, qui l'a, montre sa
+ * vraie fiche (et ecrireAjout garde telle quelle l'écriture du catalogue).
+ *
  * Décideurs seulement : un observateur ne met rien dans la pile des autres.
  * Le même prénom à la casse près (« jeannine », « Jeannine ») est le même :
  * on rend celui qui est déjà là, sans erreur — deux parents qui ont eu la même

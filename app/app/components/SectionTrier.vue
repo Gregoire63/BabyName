@@ -122,18 +122,32 @@ const dispo = computed(() => {
 })
 
 /**
- * LES PRÉNOMS AJOUTÉS PAR LA LISTE PASSENT DEVANT, hors filtres.
+ * CE QUE LA LISTE MET EN TÊTE PASSE DEVANT, hors filtres : les prénoms
+ * ajoutés (FeuilleRecherche) et les prénoms du catalogue qu'un membre a
+ * cherchés et aimés alors que les filtres les écartent (VueGroupe,
+ * proposerHorsFiltres).
  *
- * Quelqu'un de la liste les a tapés exprès (FeuilleRecherche) : c'est une
- * proposition faite aux autres, pas une carte parmi dix-neuf mille. Ni les
- * filtres de chacun (un « 2 à 3 syllabes » n'a pas à cacher l'arrière-grand-
- * mère) ni l'ordre par affinité (leurs chiffres sont des zéros) ne les
- * concernent : ils arrivent en tête, dans l'ordre où ils ont été ajoutés.
+ * Quelqu'un de la liste les a choisis exprès : c'est une proposition faite
+ * aux autres, pas une carte parmi dix-neuf mille. Ni les filtres (un « 2 à 3
+ * syllabes » n'a pas à cacher l'arrière-grand-mère) ni l'ordre par affinité
+ * ne les concernent : ils arrivent en tête, dans l'ordre où ils sont venus.
  * Jugés ou bloqués, ils sortent comme les autres.
+ *
+ * Une proposition emporte, comme toute carte, les graphies de sa prononciation
+ * encore à juger dans la pile — des filtres changés depuis ont pu l'y faire
+ * entrer : un geste pour un son, et la pile ne la remontre pas derrière.
  */
-const ajoutsAJuger = computed(() => {
+const pileParGroupe = computed(() => new Map(dispo.value.map(c => [c.gp, c])))
+const enTeteAJuger = computed(() => {
   const juges = g.dejaVotes.value, vetos = g.vetos.value
-  return g.ajouts.value.filter(p => !juges.has(p.l) && !vetos.has(p.l))
+  const restent = g.enTete.value.filter(p => !juges.has(p.l) && !vetos.has(p.l))
+  if (restent.every(p => p.ajout)) return restent
+  const pile = pileParGroupe.value
+  return restent.map((p) => {
+    if (p.ajout) return p
+    const c = pile.get(p.gp)
+    return { ...p, variantes: c ? [c.l, ...(c.variantes ?? [])].filter(l => l !== p.l) : [] }
+  })
 })
 
 const TETE = 2
@@ -144,9 +158,13 @@ const TETE = 2
  *  n'en calcule que le debut : ranger toute la pile apres chaque vote pour
  *  n'en montrer que deux cartes etait du travail perdu. */
 const devant = computed(() => {
-  const a = ajoutsAJuger.value
-  const suite = premiers(dispo.value, g.aimes.value, TETE * 2)
-  return a.length ? [...a, ...suite].slice(0, TETE * 2) : suite
+  const a = enTeteAJuger.value
+  if (!a.length) return premiers(dispo.value, g.aimes.value, TETE * 2)
+  if (a.length >= TETE * 2) return a.slice(0, TETE * 2)
+  // Une proposition dont la prononciation est aussi dans la pile : une carte.
+  const sons = new Set(a.map(p => p.gp))
+  const suite = premiers(dispo.value, g.aimes.value, TETE * 4).filter(p => !sons.has(p.gp))
+  return [...a, ...suite].slice(0, TETE * 2)
 })
 
 /**
@@ -172,8 +190,9 @@ watch(devant, (premieres) => {
   const garde: Prenom[] = []
   const vus = new Set<string>()
   for (const p of tete.value) {
-    // on reprend l'objet a jour (un prenom ajoute n'est pas dans `dispo`)
-    const frais = p.ajout ? ajoutsAJuger.value.find(x => x.l === p.l) : pile.find(x => x.l === p.l)
+    // on reprend l'objet a jour (un prenom ajoute ou propose n'est pas dans `dispo`)
+    const frais = enTeteAJuger.value.find(x => x.l === p.l)
+      ?? (p.ajout ? undefined : pile.find(x => x.l === p.l))
     if (frais && !vus.has(p.l)) { garde.push(frais); vus.add(p.l) }
   }
   for (const p of premieres) {
@@ -335,7 +354,13 @@ watch(() => g.pret.value, (pret) => {
 }, { immediate: true })
 
 /** Combien de cartes restent dans la pile (une par prononciation). */
-const nbPossibles = computed(() => dispo.value.length + ajoutsAJuger.value.length)
+const nbPossibles = computed(() => {
+  const a = enTeteAJuger.value
+  // une proposition dont le son est aussi dans la pile n'y fait qu'une carte
+  const enPlus = a.every(p => p.ajout) ? a.length
+    : a.filter(p => p.ajout || !pileParGroupe.value.has(p.gp)).length
+  return dispo.value.length + enPlus
+})
 const plafond = computed(() => HYGIENE + bonus.value)
 
 /** Le mur vient-il du depart de la LISTE (nouveau membre sur une liste deja
@@ -732,6 +757,24 @@ async function voter(valeur: 0 | 1 | 2) {
   const tous = (r?.votes ?? []).filter((v: any) =>
     v.valeur !== undefined && v.pseudo && estDecideur.has(v.user_id))
   const autres = tous.filter((v: any) => v.user_id !== moiId)
+
+  // Un prénom épinglé (cherché, ou demandé par l'adresse) que les filtres de
+  // la liste écartent : aimé, il est proposé aux autres, qui sinon ne le
+  // verraient jamais — et on le dit, puisque c'est leur montrer qu'on l'aime
+  // (VueGroupe, proposerHorsFiltres). Un non reprend ma proposition, si c'en
+  // était une.
+  if (r && valeur === 0) g.retirerProposition(p.l).catch(() => null)
+  else if (r && etaitEpingle) {
+    const jugeParTous = decideurs.length > 1 && autres.length >= decideurs.length - 1
+    g.proposerHorsFiltres(p.l, jugeParTous).then((fait) => {
+      if (!fait) return
+      const texte = t('SectionTrier.propose', { nom: p.l })
+      // Après « Alice aussi » (une liste à trois), pas par-dessus.
+      if (retour.value) setTimeout(() => dire(texte), 2700)
+      else dire(texte)
+    }).catch(() => null)
+  }
+
   if (!visibles.length) return
 
   // Accord total : j'ai dit oui, et tous ceux qui ont vote ont dit oui aussi.
@@ -799,9 +842,9 @@ function prefixeAffiche(p: Prenom, racine: string): string {
  * que ce prenom et ses graphies : un simple non suffit, le bouton disparait.
  */
 function familleInfo(p: Prenom | null) {
-  // Un prénom ajouté est une proposition précise : on lui répond, on ne
-  // balaie pas avec lui les prénoms du catalogue qui commencent pareil.
-  if (!p || p.ajout) return null
+  // Un prénom ajouté ou proposé est une proposition précise : on lui répond,
+  // on ne balaie pas avec lui les prénoms du catalogue qui commencent pareil.
+  if (!p || p.ajout || g.propositions.value.has(p.l)) return null
   const f = familleDe(p)
   const meme = new Set([p.l, ...(p.variantes ?? [])])
   if (!f.some(x => !meme.has(x.l))) return null

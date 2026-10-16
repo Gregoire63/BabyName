@@ -4,6 +4,8 @@ export default {
   fr: {
     onglet: 'Swipe',
     passeraEnPremier: '{nom} passera en premier dès que vous pourrez trier à nouveau.',
+    // Un prénom épinglé hors filtres, aimé : il part dans la pile des autres (VueGroupe, proposerHorsFiltres)
+    propose: 'Proposé à la liste : {nom}',
     dejaAccords: '{nom} est déjà dans vos accords.',
     dejaPris: (p) => `${p.nom} est déjà pris${p.motif ? ` (${p.motif})` : ''} : la liste l’a retiré du jeu.`,
     dejaVeto: '{nom} a reçu un veto dans cette liste.',
@@ -48,6 +50,7 @@ export default {
   en: {
     onglet: 'Swipe',
     passeraEnPremier: '{nom} will come first as soon as you can sort again.',
+    propose: 'Suggested to the list: {nom}',
     dejaAccords: '{nom} is already in your matches.',
     dejaPris: (p) => `${p.nom} is already taken${p.motif ? ` (${p.motif})` : ''}: the list has taken it out of play.`,
     dejaVeto: '{nom} has been vetoed in this list.',
