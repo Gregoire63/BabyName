@@ -79,7 +79,7 @@ async function debloquer(gid: string) {
 
     <template v-else>
       <div class="carte-cadeau">
-        <Etincelles class="deco" :taille="26" couleur="var(--peche)" />
+        <Coeurs class="deco" :taille="26" couleur="var(--peche)" />
         <p class="qui">
           <strong>{{ infos.de_la_part ?? $t('FeuilleCadeau.quelquun') }}</strong> {{ $t('FeuilleCadeau.offre') }}
         </p>

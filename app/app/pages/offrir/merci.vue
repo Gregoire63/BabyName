@@ -92,7 +92,7 @@ async function copier(quoi: 'lien' | 'code') {
 
     <template v-else>
       <section class="carte pile code-carte" aria-labelledby="titre-code">
-        <Etincelles class="deco" :taille="28" couleur="var(--peche)" />
+        <Coeurs class="deco" :taille="28" couleur="var(--peche)" />
         <h2 id="titre-code" class="mini doux" style="margin:0">
           {{ $t(`PageOffrirMerci.statut_${c.statut}`) }}
         </h2>

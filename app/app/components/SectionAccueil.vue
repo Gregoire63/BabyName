@@ -408,7 +408,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <!-- liste en cours -->
         <NuxtLink v-if="principale" :to="`/g/${principale.id}/swipe`"
                   class="carte degrade grande">
-          <Etincelles class="deco" :taille="30" />
+          <Coeurs class="deco" :taille="30" />
           <p class="etiquette">{{ $t('SectionAccueil.listeEnCours') }}</p>
           <h2 class="titre">{{ principale.nom }}</h2>
           <div class="ligne chiffres">
@@ -422,22 +422,33 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         </NuxtLink>
 
         <div v-else class="carte degrade grande accueil">
-          <Etincelles class="deco" :taille="30" />
+          <Coeurs class="deco" :taille="30" />
           <h2 class="titre">{{ $t('SectionAccueil.commencez') }}</h2>
           <p class="mini" style="margin:0;opacity:.85">
             {{ $t('SectionAccueil.chacunTrie') }}
           </p>
         </div>
 
-        <!-- actions -->
+        <!-- Actions. Les deux cartes ont la hauteur de la plus haute (la
+             grille) : leur contenu part du HAUT, pas du milieu, sinon une
+             description plus courte faisait descendre la pastille et le titre
+             de sa carte — à 10 px de ceux de l'autre, ce qu'un testeur a vu
+             tout de suite. Les signes sont dessinés, pas écrits : un « ＋ » ou
+             un « → » de police tombe là où la police le place (1 à 2 px sous
+             le milieu, selon la police de repli du téléphone), un tracé tombe
+             au milieu du rond. -->
         <button class="carte tuile colonne creer" @click="assistant = true">
-          <span class="rond">＋</span>
+          <span class="rond" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13" /></svg>
+          </span>
           <strong>{{ groupes.length ? $t('SectionAccueil.autreListe') : $t('SectionAccueil.creerListe') }}</strong>
           <span class="mini doux">{{ $t('SectionAccueil.quelquesQuestions') }}</span>
         </button>
 
         <button class="carte tuile colonne creer" @click="rejoindreOuvert = true">
-          <span class="rond">→</span>
+          <span class="rond" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5.5 12h13M13 6.5l5.5 5.5-5.5 5.5" /></svg>
+          </span>
           <strong>{{ $t('SectionAccueil.rejoindre') }}</strong>
           <span class="mini doux">{{ $t('SectionAccueil.avecCode') }}</span>
         </button>
@@ -630,7 +641,9 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
   cursor: pointer; }
 .tuile.colonne { flex-direction: column; align-items: stretch; gap: 7px; cursor: default; }
 .rond { width: 34px; height: 34px; border-radius: 50%; background: var(--fond);
-  display: grid; place-items: center; font-size: 1.15rem; color: var(--doux); flex: none; }
+  display: grid; place-items: center; color: var(--doux); flex: none; }
+.rond svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2;
+  stroke-linecap: round; stroke-linejoin: round; }
 
 .rang { display: flex; align-items: baseline; gap: 7px; background: none; border: 0;
   padding: 3px 0; cursor: pointer; text-align: left; font-weight: 560; width: 100%; }
@@ -639,7 +652,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .rang em { font-style: normal; font-size: .72rem; color: var(--doux); white-space: nowrap;
   font-variant-numeric: tabular-nums; flex: none; }
 .rang .n { color: var(--doux); font-size: .74rem; width: 11px; flex: none; }
-.creer { align-items: center; justify-content: center; text-align: center; gap: 6px; }
+.creer { align-items: center; justify-content: flex-start; text-align: center; gap: 6px; }
 
 .section { margin: 10px 0 -2px; font-size: .72rem; text-transform: uppercase;
   letter-spacing: .07em; font-weight: 700; color: var(--doux); }

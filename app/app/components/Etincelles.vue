@@ -3,6 +3,12 @@
  * Le motif du logo : deux etoiles a quatre branches aux cotes concaves, une
  * grande et une petite. C'est la seule fioriture de l'identite, donc on
  * l'emploie avec parcimonie — la ou il se passe quelque chose de bien.
+ *
+ * JAMAIS EN COIN D'UNE CARTE, en filigrane. L'étincelle est devenue le signe
+ * des IA : posée en haut à droite d'un bandeau en dégradé, un testeur l'a
+ * prise pour la marque de Gemini, et la carte pour une image générée (16/10).
+ * Les coins ont désormais leurs deux cœurs (Coeurs) ; l'étincelle reste là où
+ * elle dit quelque chose : un accord, un favori.
  */
 withDefaults(defineProps<{ taille?: number; couleur?: string; une?: boolean }>(),
   { taille: 26, couleur: 'currentColor', une: false })

@@ -180,6 +180,10 @@ const carte = (await p.locator('.code-carte').innerText()).replace(/\s+/g, ' ')
 const dans2ans = new Date(Date.now() + 730 * 86400e3).getFullYear()
 dit(new RegExp(`Valable jusqu’au .*${dans2ans}`).test(carte), `avec son échéance, dans deux ans (${carte.match(/jusqu’au [^,]+/)?.[0]})`)
 dit(/Mamie Jo vous offre babyNamed : « Pour vous deux/.test(carte), 'et ce que le destinataire lira')
+// Le décor du coin : deux cœurs, pas l'étincelle, prise pour la marque de
+// Gemini (Coeurs.vue, un testeur, 16/10).
+dit(await p.locator('.code-carte .deco.coeurs').count() === 1 && await p.locator('.code-carte .etincelles').count() === 0,
+  'en coin de la carte du code : deux cœurs, pas d’étincelle')
 for (const nom of ['Envoyer le lien', 'Copier le message et le lien', 'Copier le code seul']) {
   dit(await p.getByRole('button', { name: nom }).count() === 1, `bouton « ${nom} »`)
 }
@@ -217,6 +221,8 @@ await q.waitForSelector('.feuille-corps .carte-cadeau', { timeout: 30000 })
 const txtF = (await feuille.innerText()).replace(/\s+/g, ' ')
 dit(/Mamie Jo vous offre babyNamed/.test(txtF) && /tout notre amour/.test(txtF),
   'sur l’accueil, la feuille du cadeau : de qui, et son mot')
+dit(await feuille.locator('.carte-cadeau .deco.coeurs').count() === 1 && await feuille.locator('.carte-cadeau .etincelles').count() === 0,
+  'en coin de la carte du cadeau : deux cœurs, pas d’étincelle')
 const choix = feuille.locator('.choix')
 dit(await choix.count() === 1 && /nouvelle liste/.test(await choix.innerText()),
   'pas encore de liste : le cadeau en propose une neuve')
