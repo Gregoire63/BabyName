@@ -158,7 +158,9 @@ export function portraits(
   const par = new Map<string, { pseudo: string; oui: Prenom[]; juges: Prenom[] }>()
   for (const v of votes) {
     const p = parNom.get(v.prenom)
-    if (!p) continue
+    // Un prénom ajouté par la liste (useAjouts) n'a pas les chiffres d'un
+    // prénom du catalogue : il ne dit rien d'un goût, et ne compte pas.
+    if (!p || p.ajout) continue
     let e = par.get(v.user_id)
     if (!e) { e = { pseudo: v.pseudo, oui: [], juges: [] }; par.set(v.user_id, e) }
     e.juges.push(p)
@@ -189,7 +191,7 @@ export function divergence(
   for (const v of votes) {
     if (v.valeur !== 2) continue
     const p = parNom.get(v.prenom)
-    if (!p) continue
+    if (!p || p.ajout) continue
     let e = par.get(v.user_id)
     if (!e) { e = { pseudo: v.pseudo, oui: [] }; par.set(v.user_id, e) }
     e.oui.push(p)
@@ -292,7 +294,7 @@ export function expliquerDesaccords(
     if (v.valeur === 0 && v.user_id !== moiId && !refusDe.has(v.prenom)) refusDe.set(v.prenom, v)
     if (v.valeur !== 2) continue
     const q = parNom.get(v.prenom)
-    if (!q) continue
+    if (!q || q.ajout) continue
     const l = ouiDe.get(v.user_id)
     if (l) l.push(q); else ouiDe.set(v.user_id, [q])
   }
@@ -319,7 +321,9 @@ export function expliquerDesaccords(
   for (const prenom of prenoms) {
     const p = parNom.get(prenom)
     const refus = refusDe.get(prenom)
-    if (!p || !refus) continue
+    // Un prénom ajouté : ses chiffres sont des zéros, l'écart qu'on y lirait
+    // serait inventé. Mieux vaut ne rien expliquer.
+    if (!p || p.ajout || !refus) continue
     const profil = profilDe(refus.user_id)
     if (!profil) continue
 

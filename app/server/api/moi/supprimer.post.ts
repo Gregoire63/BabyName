@@ -13,7 +13,8 @@
  * RGPD du schema : avant lui, effacer le createur effacait la liste.) Les
  * prenoms « deja pris » qu'il y a ajoutes restent aussi : ils sont a la liste.
  * Ils perdent leur auteur et sa note (cle etrangere `set null` et trigger
- * trg_deja_pris_sans_auteur, migration 0002).
+ * trg_deja_pris_sans_auteur, migration 0002). Pareil pour les prenoms qu'il a
+ * ajoutes au catalogue d'une liste : sans auteur ni mot (migration 0014).
  *
  * Confirmation tapee en toutes lettres : c'est irreversible, et un double
  * appui trop rapide sur un telephone ne doit pas suffire.

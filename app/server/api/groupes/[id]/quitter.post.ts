@@ -5,6 +5,8 @@
  * blocages, favoris, classements, commentaires. Les prénoms « déjà pris »
  * qu'on y a ajoutés restent à la liste, sans son nom ni sa note — comme à
  * l'effacement du compte (trigger trg_deja_pris_sans_auteur, migration 0002).
+ * De même les prénoms qu'on a ajoutés au catalogue : les autres les ont
+ * peut-être jugés ; ils restent, sans auteur ni mot (migration 0014).
  * Le déblocage reste acquis aux autres, même si c'est soi qui l'avait payé.
  *
  * Le propriétaire peut partir aussi : la liste passe au plus ancien de ceux
@@ -21,8 +23,9 @@ export default defineEventHandler(async (e) => {
   if (String(confirmation ?? '').trim().toUpperCase() !== 'QUITTER') {
     throw createError({ statusCode: 400, statusMessage: 'confirmation_requise' })
   }
-  const [, , vide] = await lot([
+  const [, , , vide] = await lot([
     [`update deja_pris set user_id = null where groupe_id = ?1 and user_id = ?2`, [gid, moi.user_id]],
+    [`update prenoms_ajoutes set user_id = null where groupe_id = ?1 and user_id = ?2`, [gid, moi.user_id]],
     [`delete from membres where groupe_id = ?1 and user_id = ?2`, [gid, moi.user_id]],
     [`delete from groupes
        where id = ?1

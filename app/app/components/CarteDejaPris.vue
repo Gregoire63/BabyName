@@ -50,13 +50,17 @@ const suggestions = computed<Prenom[]>(() => {
   const exacts: Prenom[] = []
   const debut: Prenom[] = []
   const dedans: Prenom[] = []
-  for (const p of g.catalogue.value) {
+  // Le catalogue, et les prénoms que la liste y a ajoutés (useAjouts) : un
+  // prénom ajouté passe en carte, il peut être déjà pris aussi.
+  for (const p of [...g.ajouts.value, ...g.catalogue.value]) {
     if (p.l.toLowerCase() === tape) exacts.push(p)
     else if (p.slug.startsWith(r)) debut.push(p)
     else if (p.slug.includes(r)) dedans.push(p)
   }
   // Les plus donnés d'abord : c'est presque toujours celui qu'on cherche.
-  const parFrequence = (a: Prenom, b: Prenom) => b.n - a.n
+  // Sauf un prénom que la liste a ajouté : il n'a pas de naissances pour
+  // remonter, et c'est celui qui passera dans la pile de chacun.
+  const parFrequence = (a: Prenom, b: Prenom) => Number(!!b.ajout) - Number(!!a.ajout) || b.n - a.n
   const vus = new Set<number>()
   const out: Prenom[] = []
   for (const p of [...exacts, ...debut.sort(parFrequence), ...dedans.sort(parFrequence)]) {
@@ -84,6 +88,7 @@ function choisir(p: Prenom) {
 function entree() {
   const t = saisie.value.trim().toLowerCase()
   const exact = g.catalogue.value.find(p => p.l.toLowerCase() === t)
+    ?? g.ajouts.value.find(p => p.l.toLowerCase() === t)
   const p = exact ?? (suggestions.value.length === 1 ? suggestions.value[0] : null)
   if (p) choisir(p)
 }

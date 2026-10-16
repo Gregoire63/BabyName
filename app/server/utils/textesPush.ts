@@ -17,6 +17,8 @@ export interface TextesPush {
   deblocagePar: (pseudo: string) => string
   deblocage: string
   commentaire: (pseudo: string) => string
+  /** Un prénom ajouté (ou proposé) à trier : qui, jamais lequel. */
+  ajout: (pseudo: string) => string
   /** `n` : 25 au moins (PALIERS_AVANCE). */
   avance: (pseudo: string, n: number) => string
 }
@@ -29,6 +31,7 @@ const fr: TextesPush = {
   deblocagePar: p => `${p} a débloqué la liste : swipes illimités, pour vous aussi.`,
   deblocage: 'Votre liste est débloquée : swipes illimités.',
   commentaire: p => `${p} a laissé un commentaire.`,
+  ajout: p => `${p} a ajouté un prénom à trier.`,
   avance: (p, n) => `${p} a jugé ${n} prénoms de plus que vous. Les accords vous attendent.`
 }
 
@@ -40,6 +43,7 @@ const en: TextesPush = {
   deblocagePar: p => `${p} unlocked the list: unlimited swipes, for you too.`,
   deblocage: 'Your list is unlocked: unlimited swipes.',
   commentaire: p => `${p} left a comment.`,
+  ajout: p => `${p} added a name for you to sort.`,
   avance: (p, n) => `${p} has rated ${n} more names than you. Your matches are waiting.`
 }
 
@@ -51,6 +55,7 @@ const de: TextesPush = {
   deblocagePar: p => `${p} hat die Liste freigeschaltet: unbegrenzt swipen, auch für Sie.`,
   deblocage: 'Ihre Liste ist freigeschaltet: unbegrenzt swipen.',
   commentaire: p => `${p} hat einen Kommentar hinterlassen.`,
+  ajout: p => `${p} hat einen Namen zum Bewerten hinzugefügt.`,
   avance: (p, n) => `${p} hat ${n} Namen mehr bewertet als Sie. Ihre Matches warten auf Sie.`
 }
 
@@ -62,6 +67,7 @@ const nl: TextesPush = {
   deblocagePar: p => `${p} heeft de lijst ontgrendeld: onbeperkt swipen, ook voor u.`,
   deblocage: 'Uw lijst is ontgrendeld: onbeperkt swipen.',
   commentaire: p => `${p} heeft een reactie achtergelaten.`,
+  ajout: p => `${p} heeft een naam toegevoegd om te beoordelen.`,
   avance: (p, n) => `${p} heeft ${n} namen meer beoordeeld dan u. De matches wachten op u.`
 }
 
@@ -73,6 +79,7 @@ const sv: TextesPush = {
   deblocagePar: p => `${p} har låst upp listan: obegränsat med swipes, för dig också.`,
   deblocage: 'Er lista är upplåst: obegränsat med swipes.',
   commentaire: p => `${p} har lämnat en kommentar.`,
+  ajout: p => `${p} har lagt till ett namn att bedöma.`,
   avance: (p, n) => `${p} har bedömt ${n} namn fler än du. Matcherna väntar på dig.`
 }
 
@@ -84,6 +91,7 @@ const nb: TextesPush = {
   deblocagePar: p => `${p} har låst opp listen: ubegrenset med sveip, for deg også.`,
   deblocage: 'Listen deres er låst opp: ubegrenset med sveip.',
   commentaire: p => `${p} har lagt igjen en kommentar.`,
+  ajout: p => `${p} har lagt til et navn som skal vurderes.`,
   avance: (p, n) => `${p} har vurdert ${n} flere navn enn deg. Matchene venter på deg.`
 }
 
@@ -99,6 +107,7 @@ const pl: TextesPush = {
   deblocagePar: p => `Lista odblokowana przez: ${p}. Przesuwanie bez limitu, także dla Ciebie.`,
   deblocage: 'Wasza lista jest odblokowana: przesuwanie bez limitu.',
   commentaire: p => `Nowy komentarz od: ${p}.`,
+  ajout: p => `Nowe imię do oceny od: ${p}.`,
   avance: (p, n) => `${p} ma o ${imionPl(n)} więcej niż Ty. Dopasowania czekają.`
 }
 
@@ -113,6 +122,7 @@ const lv: TextesPush = {
   deblocagePar: p => `${p} atbloķēja sarakstu: neierobežota vērtēšana arī Jums.`,
   deblocage: 'Jūsu saraksts ir atbloķēts: neierobežota vērtēšana.',
   commentaire: p => `${p} atstāja komentāru.`,
+  ajout: p => `${p} pievienoja vārdu izvērtēšanai.`,
   avance: (p, n) => `${p} Jūs apsteidz par ${vardiemLv(n)}. Sakritības Jūs gaida.`
 }
 

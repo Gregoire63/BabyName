@@ -5,8 +5,9 @@ import { useGroupeSiPresent } from '~/composables/etatGroupe'
 import { projeter, ecart, CLASSE } from '~/composables/useProjectionClasse'
 import { memeEcriture } from '~/utils/tempetes'
 import { meilleurPays } from '~/composables/usePays'
-import { t, langue, nombre } from '~/composables/useLangue'
+import { t, langue, nombre, locale } from '~/composables/useLangue'
 import { nomPays } from '~/utils/nomPays'
+import { donneesAjout, anneesDe } from '~/composables/useAjouts'
 const props = defineProps<{ p: Prenom }>()
 const emit = defineEmits<{ fermer: [] }>()
 const g = useGroupeSiPresent()
@@ -72,6 +73,58 @@ const commeTempete = computed(() => tempetes.value.length > 0
   && !tempetes.value.some(t => memeEcriture(props.p.l, t)))
 const idTempetes = useId()
 
+/**
+ * LA FICHE D'UN PRÉNOM AJOUTÉ PAR LA LISTE (useAjouts) : qui l'a ajouté et
+ * quand, son mot, puis ce qu'on en sait vraiment — son historique à l'INSEE,
+ * le prénom qui se dit pareil (avec SA courbe, sous SON nom), ceux qui
+ * s'écrivent presque pareil. Ni classe, ni tendance, ni originalité : ce
+ * seraient les zéros d'un prénom que le catalogue n'a pas.
+ *
+ * Son auteur peut le retirer tant que personne d'autre ne l'a jugé
+ * (ajouts.delete.ts) : une faute de frappe se rattrape ; une proposition que
+ * la liste a déjà jugée lui appartient.
+ */
+const ajout = computed(() => props.p.ajout ?? null)
+const donnees = computed(() => ajout.value && g ? donneesAjout(props.p, g.catalogue.value) : undefined)
+const hist = computed(() => {
+  const h = donnees.value?.hist
+  return h && h !== 'absent' ? h : null
+})
+const jumeau = computed(() => donnees.value?.jumeau ?? null)
+/** Comme sur la carte : la fréquence s'il est assez donné, sinon les bébés par an. */
+const combienDe = (x: Prenom) => tendanceFiable(x) ? frequenceLisible(x.f)
+  : t('FichePrenom.environBebesAn', { n: bebesParAn(x) })
+const sousTitreAjout = computed(() => {
+  const a = ajout.value
+  if (!a) return ''
+  const x = donnees.value?.sexe
+  const sexe = x ? `${t(`Sexe.${x}`)} · ` : ''
+  const qui = a.mien ? t('FichePrenom.ajouteParVous') : a.par ? t('FichePrenom.ajoutePar', { nom: a.par }) : t('FichePrenom.ajouteALaListe')
+  const le = new Date(a.le)
+  return `${sexe}${qui}${isNaN(+le) ? '' : t('FichePrenom.ajouteLe', { date: le.toLocaleDateString(locale.value, { day: 'numeric', month: 'long' }) })}`
+})
+const lectureHist = computed(() => {
+  const h = hist.value
+  if (!h) return ''
+  return t('FichePrenom.lectureHist', { total: nombre(h.total), premiere: h.premiere, annees: anneesDe(h.pic), derniere: h.derniere })
+})
+
+const retrait = ref<'' | 'en-cours' | 'refuse' | 'echec'>('')
+// « La fiche de Jérôme » remplace celle-ci dans la même feuille.
+watch(() => props.p.l, () => { retrait.value = '' })
+async function retirer() {
+  if (!g || retrait.value === 'en-cours') return
+  retrait.value = 'en-cours'
+  try {
+    await g.retirerAjout(props.p.l)
+    retrait.value = ''
+    fermer()
+  } catch (err: any) {
+    const code = err?.data?.statusMessage ?? err?.statusMessage
+    retrait.value = code === 'deja_juge' ? 'refuse' : 'echec'
+  }
+}
+
 /** Une phrase, pas un tableau : ce que le chiffre veut dire concretement. */
 const lecture = computed(() => {
   const p = props.p
@@ -112,7 +165,8 @@ const lecture = computed(() => {
           <div>
             <h2 :id="idNom" class="nom">{{ p.l }}</h2>
             <p class="mini doux" style="margin:4px 0 0">
-              {{ sexeTexte }}<template v-if="p.hf"> · <span class="ailleurs">{{ $t('FichePrenom.ailleurs') }}</span></template>
+              <template v-if="ajout">{{ sousTitreAjout }}</template>
+              <template v-else>{{ sexeTexte }}<template v-if="p.hf"> · <span class="ailleurs">{{ $t('FichePrenom.ailleurs') }}</span></template></template>
             </p>
           </div>
           <button type="button" class="btn btn-0 rond" :aria-label="$t('FichePrenom.fermer')" @click="fermer">
@@ -120,6 +174,70 @@ const lecture = computed(() => {
           </button>
         </header>
 
+        <template v-if="ajout">
+          <p v-if="ajout.mot" class="sens">{{ citer(ajout.mot) }}</p>
+          <div v-if="donnees === undefined" class="bloc" aria-hidden="true">
+            <Squelette l="100%" :h="110" :r="12" />
+          </div>
+          <template v-if="hist">
+            <section class="bloc">
+              <h3>{{ $t('FichePrenom.depuisParDecennie', { an: hist.premiere }) }}</h3>
+              <BarresPrenom :valeurs="hist.parDecennie" :an0="hist.decennies[0]!" :pas="10" :hauteur="110" />
+            </section>
+            <p class="lecture">{{ lectureHist }}</p>
+          </template>
+          <p v-else-if="donnees?.hist === 'absent'" class="lecture">
+            {{ $t('FichePrenom.aucuneNaissance') }}
+          </p>
+          <section v-if="jumeau" class="bloc">
+            <h3>{{ $t('FichePrenom.seDitComme', { nom: jumeau.l }) }}</h3>
+            <template v-if="jumeau.p">
+              <CourbePrenom v-if="jumeau.p.sr" :serie="jumeau.p.sr" :hauteur="88" pic />
+              <BarresPrenom v-else-if="jumeau.p.nb" :valeurs="jumeau.p.nb" :an0="barres[0]" :hauteur="110" />
+              <p class="mini doux" style="margin:0">
+                {{ $t('FichePrenom.jumeauAujourdhui', { nom: jumeau.l, freq: frequenceLisible(jumeau.p.f) }) }}
+              </p>
+              <button type="button" class="btn btn-0 mini" style="align-self:flex-start"
+                      @click="g?.ouvrirFiche(jumeau.l)">
+                {{ $t('FichePrenom.laFicheDe', { nom: jumeau.l }) }}
+              </button>
+            </template>
+            <template v-else-if="jumeau.h">
+              <BarresPrenom :valeurs="jumeau.h.parDecennie" :an0="jumeau.h.decennies[0]!" :pas="10" :hauteur="110" />
+              <p class="mini doux" style="margin:0">
+                {{ $t('FichePrenom.jumeauHist', { nom: jumeau.l, total: nombre(jumeau.h.total), premiere: jumeau.h.premiere, annees: anneesDe(jumeau.h.pic) }) }}
+              </p>
+            </template>
+          </section>
+          <section v-if="donnees?.proches.length" class="bloc">
+            <h3>{{ $t('FichePrenom.prochesTitre') }}</h3>
+            <ul class="proches">
+              <li v-for="x in donnees.proches" :key="x.l">
+                <button type="button" class="proche" :aria-label="$t('FichePrenom.prochesAria', { nom: x.l, combien: combienDe(x) })"
+                        @click="g?.ouvrirFiche(x.l)">
+                  <span class="qui">{{ x.l }}</span>
+                  <span class="combien">{{ combienDe(x) }}</span>
+                  <span class="allure" aria-hidden="true"><CourbePrenom v-if="x.sr" :serie="x.sr" :hauteur="24" /></span>
+                </button>
+              </li>
+            </ul>
+          </section>
+          <p class="note doux">{{ $t('FichePrenom.sansEtymologie') }}</p>
+          <div v-if="ajout.mien" class="pile retrait">
+            <button type="button" class="btn btn-0 mini danger" style="align-self:flex-start"
+                    :disabled="retrait === 'en-cours'" @click="retirer">
+              {{ $t('FichePrenom.retirer') }}
+            </button>
+            <p v-if="retrait === 'refuse'" class="mini" role="alert" style="margin:0">
+              {{ $t('FichePrenom.retraitRefuse') }}
+            </p>
+            <p v-else-if="retrait === 'echec'" class="mini" role="alert" style="color:var(--non);margin:0">
+              {{ $t('FichePrenom.retraitEchec') }}
+            </p>
+          </div>
+        </template>
+
+        <template v-else>
         <p v-if="leSens" class="sens" :class="{ doux: leSens.anglais }">
           {{ citer(leSens.texte) }}
           <span v-if="leSens.anglais" class="mini">{{ $t('FichePrenom.sourceAnglaise') }}</span>
@@ -218,6 +336,7 @@ const lecture = computed(() => {
         <p v-if="!leSens" class="note doux">
           {{ $t('FichePrenom.sansEtymologie') }}
         </p>
+        </template>
       </div>
     </div>
   </div>
@@ -283,4 +402,15 @@ const lecture = computed(() => {
   background: color-mix(in srgb, var(--menthe) 45%, var(--carte)); }
 .note.alerte { color: var(--texte); background: color-mix(in srgb, var(--peche) 40%, transparent);
   padding: 10px 12px; border-radius: 11px; }
+.proches { list-style: none; margin: 0; padding: 0; }
+.proches li + li { border-top: 1px solid var(--trait); }
+.proche { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto 80px; align-items: center;
+  gap: 12px; padding: 9px 2px; border: 0; background: none; font: inherit; color: var(--texte);
+  text-align: left; cursor: pointer; border-radius: 10px; }
+.proche:active { background: var(--fond); }
+.proche .qui { font-weight: 700; }
+.proche .combien { font-size: .8rem; color: var(--doux); font-variant-numeric: tabular-nums; }
+.proche .allure { height: 24px; }
+.retrait { gap: 8px; padding-top: 12px; border-top: 1px solid var(--trait); }
+.danger { color: var(--non); padding-left: 0; }
 </style>

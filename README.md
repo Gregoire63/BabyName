@@ -13,6 +13,7 @@ python3 pipeline/export_catalogue.py       # -> app/public/data/catalogue.json(.
 python3 pipeline/historiques.py            # -> app/scripts/donnees/historiques.json : sens et origine
                                            #    des prénoms INSEE hors catalogue (Josette, Ginette…)
 python3 pipeline/pays.py                   # -> app/public/data/pays/ : 17 pays, un fichier chacun
+python3 pipeline/export_historique.py      # -> app/public/data/historique.json.gz (hors catalogue, depuis 1900)
 python3 pipeline/test_syllabes.py          # 65/65 attendus
 python3 pipeline/test_phonetique.py        # 47/47 attendus
 python3 pipeline/test_wikitexte.py         # les gloses qui ont fini sur une carte

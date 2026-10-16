@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { t } from '~/composables/useLangue'
+import { t, nombre, locale } from '~/composables/useLangue'
 /**
  * Les naissances année par année, en barres : pour les prénoms trop peu
  * donnés pour une courbe (moins de 60 bébés en trois ans, jamais plus de 60
@@ -15,22 +15,35 @@ import { t } from '~/composables/useLangue'
  * chiffres ni années, on « ne comprenait pas grand-chose ». En HTML plutôt
  * qu'en SVG étiré : les chiffres restent nets à toutes les largeurs. La carte
  * de tri lui donne la hauteur qui reste (`remplir`).
+ *
+ * `pas: 10` : une barre par DÉCENNIE, pour l'historique d'un prénom ajouté
+ * hors catalogue (useHistorique) — 1900 à 2020, une année sur deux dessous,
+ * et un seul chiffre, court, sur la plus haute (« 90 k ») : treize nombres
+ * de six chiffres sur des barres de 20 pixels se marchaient dessus.
  */
-const props = defineProps<{ valeurs: number[] | null; an0: number; hauteur?: number
-  remplir?: boolean }>()
+const props = withDefaults(defineProps<{ valeurs: number[] | null; an0: number; hauteur?: number
+  remplir?: boolean; pas?: number }>(), { pas: 1 })
+
+const court = (x: number) => new Intl.NumberFormat(locale.value,
+  { notation: 'compact', maximumFractionDigits: x >= 10000 ? 0 : 1 }).format(x)
 
 const d = computed(() => {
   const v = props.valeurs
   if (!v?.length) return null
   const max = Math.max(...v)
   if (max <= 0) return null
-  const dernier = props.an0 + v.length - 1
+  const pas = props.pas
+  const dernier = props.an0 + (v.length - 1) * pas
   return {
     max,
     barres: v.map((x, i) => {
-      const an = props.an0 + i
-      const montre = i === 0 || i === v.length - 1 || (an % 5 === 0 && dernier - an >= 3 && an - props.an0 >= 3)
-      return { an, v: x, pct: x > 0 ? Math.max(4, (x / max) * 100) : 0, etiquette: montre ? String(an) : '' }
+      const an = props.an0 + i * pas
+      const montre = pas > 1
+        ? i % 2 === 0
+        : i === 0 || i === v.length - 1 || (an % 5 === 0 && dernier - an >= 3 && an - props.an0 >= 3)
+      const texte = pas > 1 ? (x === max ? (x >= 1000 ? court(x) : String(x)) : '') : String(x)
+      return { an, v: x, texte,
+               pct: x > 0 ? Math.max(4, (x / max) * 100) : 0, etiquette: montre ? String(an) : '' }
     })
   }
 })
@@ -40,7 +53,11 @@ defineExpose({ d })
 const resume = computed(() => {
   const v = props.valeurs
   if (!d.value || !v) return ''
-  const an1 = props.an0 + v.length - 1
+  const an1 = props.an0 + (v.length - 1) * props.pas
+  if (props.pas > 1) {
+    const pic = props.an0 + v.indexOf(d.value.max) * props.pas
+    return t('BarresPrenom.resumeDecennies', { debut: props.an0, fin: an1, max: nombre(d.value.max), pic })
+  }
   return t('BarresPrenom.resume', { debut: props.an0, fin: an1, max: d.value.max, dernier: v[v.length - 1] })
 })
 </script>
@@ -52,7 +69,7 @@ const resume = computed(() => {
     <div v-for="(b, i) in d.barres" :key="b.an" class="col" aria-hidden="true">
       <div class="zone">
         <span v-if="b.v" class="barre" :style="{ height: `${b.pct}%` }" />
-        <span v-if="b.v" class="val" :style="{ bottom: `${b.pct}%` }">{{ b.v }}</span>
+        <span v-if="b.v && b.texte" class="val" :style="{ bottom: `${b.pct}%` }">{{ b.texte }}</span>
       </div>
       <span class="an" :class="{ premier: i === 0, dernier: i === d.barres.length - 1 }">{{ b.etiquette }}</span>
     </div>

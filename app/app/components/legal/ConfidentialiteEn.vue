@@ -59,7 +59,7 @@ const c = CONSERVATION
   <h3>Your lists</h3>
   <dl>
     <dt>Data</dt>
-    <dd>The name of the lists and, if you enter it, the child’s surname; your search filters; your votes (yes, neutral, no), vetoes and their reason, “already taken” names you add and their note, favourites, rankings, duels and comments; the members and observers of each list.</dd>
+    <dd>The name of the lists and, if you enter it, the child’s surname; your search filters; your votes (yes, neutral, no), vetoes and their reason, “already taken” names you add and their note, names you add to a list outside the catalogue (and your note) or propose to it outside its filters, favourites, rankings, duels and comments; the members and observers of each list.</dd>
     <dt>Why</dt>
     <dd>This is the service itself: sorting names together and finding those on which you agree.</dd>
     <dt>Legal basis</dt>
@@ -177,7 +177,10 @@ const c = CONSERVATION
       you have rated and the matches you have taken part in. Your vote on a name is only
       shown to them once they have voted on that same name: this is the blind vote. No one sees who
       vetoed a name. An “already taken” name, on the other hand, is meant to be seen: it is shown to
-      the whole list, observers included, with your name and your note.
+      the whole list, observers included, with your name and your note. Likewise a name you add to the
+      list outside the catalogue: its card says you added it, with your note. And a name outside the
+      list’s filters that you found through the search and rated yes or neutral: it goes to the top of
+      the other members’ stacks, and its card says you proposed it.
     </li>
     <li><strong>The publisher</strong> has technical access to the database, for maintenance and support. They do not consult it outside these needs.</li>
     <li><strong>Our providers</strong>, solely for what they do for us:</li>
@@ -221,9 +224,10 @@ const c = CONSERVATION
   <ul>
     <li><strong>Account and lists</strong>: as long as you use them. Erased immediately if you delete your account; erased automatically after <strong>{{ c.inactiviteMois }} months</strong> without opening the app.</li>
     <li><strong>A list</strong> is erased, whether or not it has been unlocked, as soon as its owner deletes it (from its settings, for everyone), or when there is no one left in it to make decisions.</li>
-    <li><strong>Leaving a list</strong> erases what you gave there: votes, vetoes, favourites, comments. The “already taken” names you added there remain with the list, without your name or your note.</li>
+    <li><strong>Leaving a list</strong> erases what you gave there: votes, vetoes, favourites, comments. The “already taken” names you added there remain with the list, without your name or your note; likewise the names you added or proposed there.</li>
     <li><strong>Gift codes</strong>: a code that is never used is erased {{ c.cadeauMois }} months after purchase, along with the name and message of the person who gave it; a cancelled code, one month later; a used code remains attached to the list it unlocked (“a gift from…”) and disappears with it.</li>
     <li><strong>“Already taken” names</strong>: they belong to the list. If you erase your account, those you added remain there for the other members, without your name or your note.</li>
+    <li><strong>Added or proposed names</strong>: they too belong to the list, whose members may have rated them. As long as no one else has, you can remove a name you added outside the catalogue, from its card. If you erase your account, they remain, without your name or your note.</li>
     <li><strong>Free version counters</strong>: the total, with the account; the daily one, until the next day of sorting, and {{ c.quotaJours }} days at most.</li>
     <li><strong>Sign-in cookie</strong>: {{ c.sessionJours }} days, renewed at each sign-in. <em>My account → Log out my other devices</em> cancels them all at once, except the one on the device in hand.</li>
     <li><strong>Email address and passkeys</strong>: as long as your account exists, or until you remove them in <em>My account</em>.</li>

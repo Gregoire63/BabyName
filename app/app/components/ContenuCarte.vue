@@ -5,8 +5,9 @@ import { useGroupeCourant } from '~/composables/etatGroupe'
 import { tester } from '~/composables/useNomComplet'
 import { resumeTempetes } from '~/utils/tempetes'
 import { meilleurPays, nomSelection, paysDe, totalPour } from '~/composables/usePays'
-import { locale, t } from '~/composables/useLangue'
+import { locale, t, nombre } from '~/composables/useLangue'
 import { nomPays } from '~/utils/nomPays'
+import { donneesAjout, anneesDe } from '~/composables/useAjouts'
 
 /**
  * Le contenu d'une carte de tri.
@@ -117,6 +118,33 @@ const nomFamille = computed(() => {
   return gr?.paye && typeof gr?.nom_famille === 'string' ? gr.nom_famille.trim() : ''
 })
 const essai = computed(() => nomFamille.value ? tester(props.p.l, nomFamille.value, t) : null)
+
+/**
+ * UN PRÉNOM AJOUTÉ PAR LA LISTE n'a aucun chiffre du catalogue : sa carte
+ * montre ce qu'on en sait vraiment (useAjouts) — son historique à l'INSEE
+ * (Jeannine : 218 695 bébés, le dernier en 2015, par décennie), sinon le
+ * prénom qui se dit pareil, avec SES chiffres et son nom dessus ; sinon les
+ * prénoms qui s'écrivent presque pareil, et qu'aucune naissance n'a été
+ * publiée. Qui l'a ajouté, et son mot, à la place du sens.
+ */
+const ajout = computed(() => props.p.ajout ?? null)
+const donnees = computed(() => ajout.value ? donneesAjout(props.p, g.catalogue.value) : undefined)
+const hist = computed(() => {
+  const h = donnees.value?.hist
+  return h && h !== 'absent' ? h : null
+})
+const jumeau = computed(() => donnees.value?.jumeau ?? null)
+const parQui = computed(() => !ajout.value ? ''
+  : ajout.value.mien ? t('ContenuCarte.ajouteParVous')
+  : ajout.value.par ? t('ContenuCarte.ajoutePar', { nom: ajout.value.par }) : t('ContenuCarte.ajoute'))
+const sexeAjout = computed(() => {
+  const x = donnees.value?.sexe
+  return x ? t(`ContenuCarte.sexe_${x}`) : ''
+})
+/** « 1 sur 194 » quand il est assez donné pour le dire ; sinon les bébés par
+ *  an, comme sur sa propre carte (« 1 sur 58 824 » ne parle à personne). */
+const combienDe = (x: Prenom) => tendanceFiable(x) ? frequenceLisible(x.f)
+  : t('ContenuCarte.environBebesAn', { n: bebesParAn(x) })
 const niveau = computed(() => !essai.value ? ''
   : essai.value.accroche ? 'accroche'
   : essai.value.remarques.some(r => r.gravite === 'attention') ? 'attention' : 'bien')
@@ -130,7 +158,11 @@ const niveau = computed(() => !essai.value ? ''
          aviez dit ») : elles passent à la ligne, jamais sous le bouton. -->
     <div class="tete">
       <span class="etiquettes">
-        <span class="puce">
+        <template v-if="ajout">
+          <span class="puce ajoute">{{ parQui }}</span>
+          <span v-if="sexeAjout" class="puce">{{ sexeAjout }}</span>
+        </template>
+        <span v-else class="puce">
           {{ $t(`ContenuCarte.sexe_${p.sexe === 'fm' ? 'fm' : p.sexe === 'f' ? 'f' : 'm'}`) }}
         </span>
         <span v-if="dejaDit !== null" class="puce deja" :class="`d${dejaDit}`">{{ $t(`ContenuCarte.dit${dejaDit}`) }}</span>
@@ -174,7 +206,20 @@ const niveau = computed(() => !essai.value ? ''
           }}<template v-if="p.variantes.length > 3"> +{{ p.variantes.length - 3 }}</template></span>
         <span class="voir">{{ $t('ContenuCarte.voirPlus') }}</span>
       </button>
-      <p v-if="leSens" class="sens" :class="{ doux: leSens.anglais }">{{ citer(leSens.texte) }}<span
+      <!-- Un prénom ajouté : ce qui se dit pareil, là où les autres cartes
+           nomment leurs graphies ; puis le mot de qui l'a ajouté, à la place
+           d'un sens qu'on ne connaît pas. -->
+      <template v-if="ajout">
+        <button v-if="jumeau?.p" type="button" class="graphies"
+                :aria-label="$t('ContenuCarte.seDitCommeAria', { nom: jumeau.l })"
+                @click.stop="g.ouvrirFiche(jumeau.l)">
+          <span class="lesquelles">{{ $t('ContenuCarte.seDitComme', { nom: jumeau.l }) }}</span>
+          <span class="voir">{{ $t('ContenuCarte.voir') }}</span>
+        </button>
+        <p v-else-if="jumeau" class="graphies">{{ $t('ContenuCarte.seDitComme', { nom: jumeau.l }) }}</p>
+        <p v-if="ajout.mot" class="sens mot">{{ citer(ajout.mot) }}</p>
+      </template>
+      <p v-else-if="leSens" class="sens" :class="{ doux: leSens.anglais }">{{ citer(leSens.texte) }}<span
         v-if="p.m && p.cf !== null && p.cf < 2" class="doute"> · {{ $t('ContenuCarte.sensProbable') }}</span></p>
     </div>
 
@@ -190,7 +235,30 @@ const niveau = computed(() => !essai.value ? ''
          disait pas de quoi. Pas les syllabes : chacun les compte en lisant
          le prénom, et une machine qui compte de travers (Léandre) agace plus
          qu'elle n'aide. -->
-    <dl v-if="selection" class="resume">
+    <template v-if="ajout">
+      <!-- Le temps de lire l'historique : la place des chiffres est tenue,
+           rien ne saute quand ils arrivent. -->
+      <div v-if="donnees === undefined" class="resume" aria-hidden="true">
+        <Squelette l="100%" :h="46" :r="13" /><Squelette l="100%" :h="46" :r="13" :retard="0.08" />
+      </div>
+      <dl v-else-if="hist" class="resume">
+        <div><dt>{{ $t('ContenuCarte.bebesDepuis', { an: hist.premiere }) }}</dt><dd>{{ nombre(hist.total) }}</dd></div>
+        <div><dt>{{ $t('ContenuCarte.leDernier') }}</dt><dd>{{ $t('ContenuCarte.enAn', { an: hist.derniere }) }}</dd></div>
+      </dl>
+      <dl v-else-if="jumeau?.p" class="resume">
+        <div><dt>{{ $t('ContenuCarte.jumeauNaissances', { nom: jumeau.l }) }}</dt><dd>{{ frequenceLisible(jumeau.p.f) }}</dd></div>
+        <div v-if="tendanceFiable(jumeau.p)"><dt>{{ $t('ContenuCarte.jumeauParAn', { nom: jumeau.l }) }}</dt><dd>{{ pourcentAn(jumeau.p.t) }}</dd></div>
+        <div v-else><dt>{{ $t('ContenuCarte.jumeauParAn', { nom: jumeau.l }) }}</dt><dd>{{ $t('ContenuCarte.environBebes', { n: bebesParAn(jumeau.p) }) }}</dd></div>
+      </dl>
+      <dl v-else-if="jumeau?.h" class="resume">
+        <div><dt>{{ $t('ContenuCarte.jumeauDepuis', { nom: jumeau.l, an: jumeau.h.premiere }) }}</dt><dd>{{ $t('ContenuCarte.nBebes', { n: nombre(jumeau.h.total), c: jumeau.h.total }) }}</dd></div>
+        <div><dt>{{ $t('ContenuCarte.jumeauDernier', { nom: jumeau.l }) }}</dt><dd>{{ $t('ContenuCarte.enAn', { an: jumeau.h.derniere }) }}</dd></div>
+      </dl>
+      <p v-else-if="donnees.hist === 'absent'" class="absent">
+        {{ $t('ContenuCarte.aucuneNaissance') }}
+      </p>
+    </template>
+    <dl v-else-if="selection" class="resume">
       <div><dt>{{ selection.seul ? $t('ContenuCarte.desNaissances') : $t('ContenuCarte.moyenneDe', { nom: selection.nom }) }}</dt>
         <dd>{{ p.nsel ? frequenceLisible(p.fsel!) : $t('ContenuCarte.pasDonne') }}</dd></div>
       <div v-if="p.tsel != null"><dt>{{ $t('ContenuCarte.parAn') }}</dt><dd :class="tendanceSel">{{ pourcentAn(p.tsel) }}</dd></div>
@@ -207,7 +275,48 @@ const niveau = computed(() => !essai.value ? ''
       <div v-else><dt>{{ $t('ContenuCarte.bebesParAn', { n: bebesParAn(p) }) }}</dt><dd>≈ {{ bebesParAn(p) }}</dd></div>
     </dl>
 
-    <p v-if="p.r > 30" class="alerte">
+    <template v-if="ajout">
+      <div v-if="hist" class="graphe">
+        <p class="graphe-tete" aria-hidden="true">
+          <span>{{ $t('ContenuCarte.parDecennie') }}</span><span>{{ $t('ContenuCarte.auPlusHautDecennie', { annees: anneesDe(hist.pic) }) }}</span>
+        </p>
+        <div class="graphe-corps"><BarresPrenom :valeurs="hist.parDecennie" :an0="hist.decennies[0]!" :pas="10" remplir /></div>
+      </div>
+      <div v-else-if="jumeau?.p?.sr" class="graphe">
+        <!-- Lue, celle-ci : la courbe est celle d'un AUTRE prénom, et son
+             résumé (CourbePrenom) ne le dit pas. -->
+        <p class="graphe-tete"><span>{{ $t('ContenuCarte.jumeauDepuis1986', { nom: jumeau.l }) }}</span></p>
+        <div class="graphe-corps"><CourbePrenom :serie="jumeau.p.sr" remplir /></div>
+        <p class="graphe-axe" aria-hidden="true"><span>1986</span><span>2025</span></p>
+      </div>
+      <div v-else-if="jumeau?.p?.nb" class="graphe">
+        <p class="graphe-tete"><span>{{ $t('ContenuCarte.jumeauNaissancesParAn', { nom: jumeau.l }) }}</span></p>
+        <div class="graphe-corps"><BarresPrenom :valeurs="jumeau.p.nb" :an0="barres[0]" remplir /></div>
+      </div>
+      <div v-else-if="jumeau?.h" class="graphe">
+        <p class="graphe-tete">
+          <span>{{ $t('ContenuCarte.jumeauParDecennie', { nom: jumeau.l }) }}</span><span>{{ $t('ContenuCarte.auPlusHautDecennie', { annees: anneesDe(jumeau.h.pic) }) }}</span>
+        </p>
+        <div class="graphe-corps"><BarresPrenom :valeurs="jumeau.h.parDecennie" :an0="jumeau.h.decennies[0]!" :pas="10" remplir /></div>
+      </div>
+      <!-- Rien de publié pour lui, ni pour ce qui se dit pareil : les prénoms
+           qui s'écrivent presque pareil, chacun avec SES chiffres et sous son
+           nom — de quoi situer un prénom inventé parmi des vrais. Pas des
+           boutons : c'est là que le pouce saisit la carte pour la lancer (la
+           fiche, elle, les ouvre). -->
+      <div v-else-if="donnees?.proches.length" class="proches">
+        <p class="graphe-tete"><span>{{ $t('ContenuCarte.prochesTitre') }}</span></p>
+        <ul>
+          <li v-for="x in donnees.proches" :key="x.l" class="proche">
+            <span class="qui">{{ x.l }}</span>
+            <span class="combien">{{ combienDe(x) }}</span>
+            <span class="allure" aria-hidden="true"><CourbePrenom v-if="x.sr" :serie="x.sr" :hauteur="22" /></span>
+          </li>
+        </ul>
+      </div>
+    </template>
+
+    <p v-else-if="p.r > 30" class="alerte">
       {{ $t('ContenuCarte.alerteRare') }}
     </p>
     <p v-else-if="p.rv" class="alerte">
@@ -217,7 +326,7 @@ const niveau = computed(() => !essai.value ? ''
       {{ $t('ContenuCarte.aussi', { quoi: p.obn || $t('ContenuCarte.nomCommun') }) }}
     </p>
 
-    <div v-if="p.sr" class="graphe">
+    <div v-if="!ajout && p.sr" class="graphe">
       <p class="graphe-tete" aria-hidden="true">
         <span>{{ $t('ContenuCarte.naissancesDepuis') }}</span>
         <span v-if="pic">{{ $t('ContenuCarte.auPlusHaut', { annee: pic }) }}</span>
@@ -225,7 +334,7 @@ const niveau = computed(() => !essai.value ? ''
       <div class="graphe-corps"><CourbePrenom :serie="p.sr" remplir /></div>
       <p class="graphe-axe" aria-hidden="true"><span>1986</span><span>2025</span></p>
     </div>
-    <div v-else-if="p.nb" class="graphe">
+    <div v-else-if="!ajout && p.nb" class="graphe">
       <p class="graphe-tete" aria-hidden="true"><span>{{ $t('ContenuCarte.naissancesParAn') }}</span></p>
       <div class="graphe-corps"><BarresPrenom :valeurs="p.nb" :an0="barres[0]" remplir /></div>
     </div>
@@ -352,6 +461,21 @@ const niveau = computed(() => !essai.value ? ''
 
 .alerte { margin: 0; font-size: .84rem; padding: 9px 11px; border-radius: 11px;
   background: color-mix(in srgb, var(--peche) 45%, transparent); }
+
+/* Un prénom ajouté par la liste : son étiquette dit qui, en menthe (ni le
+   genre ni une origine) ; son mot se lit comme un sens, il en tient lieu. */
+.puce.ajoute { background: color-mix(in srgb, var(--menthe) 60%, transparent); }
+.sens.mot { font-size: .98rem; }
+.absent { margin: 0; font-size: .84rem; padding: 9px 11px; border-radius: 11px;
+  background: var(--fond); border: 1px solid var(--trait); }
+.proches { display: flex; flex-direction: column; gap: 6px; }
+.proches ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.proches li + li { border-top: 1px solid var(--trait); }
+.proche { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px; align-items: center;
+  gap: 10px; padding: 8px 2px; }
+.proche .qui { font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proche .combien { font-size: .76rem; color: var(--doux); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.proche .allure { height: 22px; }
 
 /* La courbe prend toute la place qui reste ; faute de place, c'est elle qui
    cede, pas le reste de la carte. Elle cede d'abord ses legendes : sous

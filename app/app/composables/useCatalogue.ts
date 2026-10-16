@@ -80,6 +80,23 @@ export interface Prenom {
    * ce qu'on entend tous les jours dans les cours d'école d'ici.
    */
   poids: number
+  /**
+   * Un prénom que la LISTE a ajouté, hors du catalogue (shared/utils/ajouts.ts,
+   * composables/useAjouts.ts). Ses chiffres du catalogue sont des zéros sans
+   * signification : la carte et la fiche montrent à la place ce qu'on en sait
+   * vraiment (l'historique de l'INSEE, le prénom qui se dit pareil), et qui l'a
+   * ajouté. Absent pour tous les prénoms du catalogue.
+   */
+  ajout?: InfoAjout
+}
+
+export interface InfoAjout {
+  /** Le nom affiché de qui l'a ajouté ; null si son compte a été effacé ou qu'il a quitté la liste. */
+  par: string | null
+  mien: boolean
+  /** Son mot (« le prénom de mon arrière-grand-mère »), 140 caractères au plus. */
+  mot: string | null
+  le: string
 }
 
 /** Un prénom dans un pays : naissances 2023-2025, rang, tendance %/an. */
@@ -172,8 +189,11 @@ export const filtresParDefaut = (): Filtres => ({
  *
  * On regarde donc les deux premiers octets : 1f 8b, c'est du gzip, on
  * décompresse ; sinon c'est déjà du texte, on le lit tel quel.
+ *
+ * Même chemin pour l'historique des prénoms hors catalogue (useHistorique),
+ * qui n'a pas de version non compressée : sans repli, un échec rend null.
  */
-export async function chargerJson(chemin = '/data/catalogue.json'): Promise<any> {
+export async function chargerJson(chemin = '/data/catalogue.json', repli = true): Promise<any> {
   try {
     const r = await fetch(`${chemin}.gz`)
     if (r.ok) {
@@ -186,7 +206,7 @@ export async function chargerJson(chemin = '/data/catalogue.json'): Promise<any>
       }
     }
   } catch { /* on tente le repli */ }
-  return $fetch(chemin)
+  return repli ? $fetch(chemin) : null
 }
 
 let cache: { liste: Prenom[]; origines: string[]; annees: [number, number]
@@ -384,7 +404,10 @@ export function filtrer(liste: Prenom[], f: Filtres): Prenom[] {
  * notes, de la plus haute à la plus basse, et à note égale celui de la liste
  * (le catalogue : du plus donné au moins donné).
  */
-function noteur(aimes: Prenom[]): (p: Prenom) => number {
+function noteur(tousLesOui: Prenom[]): (p: Prenom) => number {
+  // Un prénom ajouté par la liste n'a ni origine, ni rareté mesurée : il ne
+  // dit rien de ce qui ressemble à ce qu'on aime.
+  const aimes = tousLesOui.some(p => p.ajout) ? tousLesOui.filter(p => !p.ajout) : tousLesOui
   if (aimes.length < 3) return p => p.poids
 
   const orig = new Map<string, number>()

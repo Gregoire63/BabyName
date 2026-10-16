@@ -29,7 +29,20 @@ export default {
     infosAria: 'Infos sur {nom}', infos: 'Infos',
     familleAria: 'Non aux {prefixe}… : {n} prénoms qui commencent par {prefixe}',
     nonAux: 'Non aux {prefixe}…',
-    vetoAria: 'Veto sur {nom}', veto: 'Veto'
+    vetoAria: 'Veto sur {nom}', veto: 'Veto',
+    // Un prénom ajouté par la liste (useAjouts)
+    ajouteParVous: 'ajouté par vous', ajoutePar: 'ajouté par {nom}', ajoute: 'ajouté',
+    seDitComme: 'se dit comme {nom}', seDitCommeAria: 'Se dit comme {nom} : voir sa fiche', voir: 'Voir',
+    bebesDepuis: 'bébés depuis {an}', leDernier: 'le dernier', enAn: 'en {an}',
+    jumeauNaissances: '{nom}, des naissances', jumeauParAn: '{nom}, par an',
+    jumeauDepuis: '{nom}, depuis {an}', jumeauDernier: '{nom}, le dernier',
+    environBebes: (p) => `≈ ${p.n} bébé${Number(p.n) > 1 ? 's' : ''}`,
+    environBebesAn: (p) => `≈ ${p.n} bébé${Number(p.n) > 1 ? 's' : ''}/an`,
+    nBebes: (p) => `${p.n} bébé${Number(p.c) > 1 ? 's' : ''}`,
+    aucuneNaissance: 'Aucune naissance publiée par l’INSEE depuis 1900.',
+    parDecennie: 'Naissances par décennie', auPlusHautDecennie: 'au plus haut : {annees}',
+    jumeauDepuis1986: '{nom} depuis 1986', jumeauNaissancesParAn: '{nom}, naissances par an',
+    jumeauParDecennie: '{nom}, par décennie', prochesTitre: 'S’écrivent presque pareil'
   },
   en: {
     sexe_fm: 'unisex', sexe_f: 'girl', sexe_m: 'boy',
@@ -59,6 +72,19 @@ export default {
     infosAria: 'About {nom}', infos: 'Info',
     familleAria: 'No to {prefixe}…: {n} names starting with {prefixe}',
     nonAux: 'No to {prefixe}…',
-    vetoAria: 'Veto {nom}', veto: 'Veto'
+    vetoAria: 'Veto {nom}', veto: 'Veto',
+    // A name added by the list (useAjouts)
+    ajouteParVous: 'added by you', ajoutePar: 'added by {nom}', ajoute: 'added',
+    seDitComme: 'sounds like {nom}', seDitCommeAria: 'Sounds like {nom}: see its card', voir: 'See',
+    bebesDepuis: 'babies since {an}', leDernier: 'the last one', enAn: 'in {an}',
+    jumeauNaissances: '{nom}, of births', jumeauParAn: '{nom}, per year',
+    jumeauDepuis: '{nom}, since {an}', jumeauDernier: '{nom}, the last one',
+    environBebes: (p) => `≈ ${p.n} ${Number(p.n) > 1 ? 'babies' : 'baby'}`,
+    environBebesAn: (p) => `≈ ${p.n} ${Number(p.n) > 1 ? 'babies' : 'baby'}/yr`,
+    nBebes: (p) => `${p.n} ${Number(p.c) > 1 ? 'babies' : 'baby'}`,
+    aucuneNaissance: 'No births published by INSEE since 1900.',
+    parDecennie: 'Births per decade', auPlusHautDecennie: 'peak: {annees}',
+    jumeauDepuis1986: '{nom} since 1986', jumeauNaissancesParAn: '{nom}, births per year',
+    jumeauParDecennie: '{nom}, per decade', prochesTitre: 'Spelt almost the same'
   }
 } satisfies Textes
