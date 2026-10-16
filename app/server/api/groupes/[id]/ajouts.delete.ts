@@ -16,12 +16,14 @@
  * carte dont l'auteur est parti (compte effacé, liste quittée) ne se retire
  * plus — elle est à la liste.
  *
- * `seule=1` : un prénom DU CATALOGUE que son auteur avait proposé parce que
- * les filtres de la liste l'écartaient (VueGroupe, proposerHorsFiltres), et
- * qu'il reprend en disant non. La carte n'était qu'une mise en tête de pile :
- * le prénom reste au catalogue, et ce que l'auteur en a dit reste aussi — son
- * « non » est justement ce qui la retire. Même règle pour le reste : seul
- * l'auteur, et seulement si personne d'autre ne l'a jugé.
+ * UNE PROPOSITION (`propose`, migration 0014) : un prénom DU CATALOGUE que
+ * son auteur avait cherché puis aimé (VueGroupe, proposer), et qu'il reprend
+ * en disant non. Ce n'était qu'une mise en tête de pile : le prénom reste au
+ * catalogue, et ce que l'auteur en a dit reste aussi — son « non » est
+ * justement ce qui la retire. C'est la ligne qui le dit, pas l'app : une
+ * demande ne peut pas effacer moins, ni plus, que ce que la ligne est. Même
+ * règle pour le reste : seul l'auteur, et seulement si personne d'autre ne
+ * l'a jugé.
  *
  * Le prénom dans l'adresse (?prenom=), pas dans un corps : sur Cloudflare, un
  * DELETE avec un corps restait suspendu (remettre.post.ts).
@@ -30,8 +32,8 @@ export default defineEventHandler(async (e) => {
   const gid = groupeIdDepuisRoute(e)
   const moi = await exigerMembre(e, gid)
   const prenom = String(getQuery(e).prenom ?? '')
-  const ligne = await q1<{ user_id: string | null }>(
-    `select user_id from prenoms_ajoutes where groupe_id = ?1 and prenom = ?2`, [gid, prenom])
+  const ligne = await q1<{ user_id: string | null; propose: number }>(
+    `select user_id, propose from prenoms_ajoutes where groupe_id = ?1 and prenom = ?2`, [gid, prenom])
   if (!ligne) throw createError({ statusCode: 404, statusMessage: 'pas_ajoute' })
   if (ligne.user_id !== moi.user_id) throw createError({ statusCode: 403, statusMessage: 'pas_l_auteur' })
 
@@ -50,7 +52,7 @@ export default defineEventHandler(async (e) => {
         and not exists (select 1 from commentaires c where c.groupe_id = ?1 and c.prenom = ?2 and c.user_id <> ?3)
       returning prenom`, [gid, prenom, moi.user_id, cheminPrenom(prenom)])
   if (!parti.length) throw createError({ statusCode: 409, statusMessage: 'deja_juge' })
-  if (getQuery(e).seule === '1') return { ok: true }
+  if (ligne.propose) return { ok: true }
 
   // Ce que l'auteur y avait mis. Après coup, et seulement à lui : s'il
   // échouait, il resterait un vote sur un prénom que personne ne voit — sans

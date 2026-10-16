@@ -96,7 +96,8 @@ export interface InfoAjout {
   mien: boolean
   /** Son mot (« le prénom de mon arrière-grand-mère »), 140 caractères au plus. */
   mot: string | null
-  le: string
+  /** Quand ; null si ce n'est pas à nous de le savoir (la proposition d'un autre). */
+  le: string | null
 }
 
 /** Un prénom dans un pays : naissances 2023-2025, rang, tendance %/an. */

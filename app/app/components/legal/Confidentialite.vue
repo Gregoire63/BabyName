@@ -55,7 +55,7 @@ const c = CONSERVATION
   <h3>Vos listes</h3>
   <dl>
     <dt>Données</dt>
-    <dd>Le nom des listes et, si vous le saisissez, le nom de famille de l’enfant ; vos filtres de recherche ; vos votes (oui, neutre, non), vetos et leur motif, prénoms « déjà pris » que vous ajoutez et leur note, prénoms que vous ajoutez à une liste hors du catalogue (et votre mot) ou que vous lui proposez hors de ses filtres, favoris, classements, duels et commentaires ; les membres et observateurs de chaque liste.</dd>
+    <dd>Le nom des listes et, si vous le saisissez, le nom de famille de l’enfant ; vos filtres de recherche ; vos votes (oui, neutre, non), vetos et leur motif, prénoms « déjà pris » que vous ajoutez et leur note, prénoms que vous ajoutez à une liste hors du catalogue (et votre mot) ou que vous lui proposez (trouvés par la recherche et aimés), favoris, classements, duels et commentaires ; les membres et observateurs de chaque liste.</dd>
     <dt>Pourquoi</dt>
     <dd>C’est le service lui-même : trier des prénoms à plusieurs et trouver ceux sur lesquels vous êtes d’accord.</dd>
     <dt>Base légale</dt>
@@ -174,9 +174,9 @@ const c = CONSERVATION
       montré qu’une fois qu’ils ont voté sur ce même prénom : c’est le vote à l’aveugle. Personne ne voit qui
       a mis un veto sur un prénom. Un prénom « déjà pris », lui, est fait pour être vu : il s’affiche à
       toute la liste, observateurs compris, avec votre nom et votre note. De même un prénom que vous
-      ajoutez à la liste hors du catalogue : sa carte dit que vous l’avez ajouté, avec votre mot. Et un
-      prénom hors des filtres de la liste, que vous avez trouvé par la recherche et jugé oui ou neutre :
-      il passe en tête de la pile des autres membres, et sa carte dit que vous l’avez proposé.
+      ajoutez à la liste hors du catalogue : sa carte dit que vous l’avez ajouté, avec votre mot. Un
+      prénom que vous avez trouvé par la recherche et jugé oui ou neutre, lui, passe en tête de la pile
+      des autres membres sans votre nom ; à deux, on peut deviner d’où il vient.
     </li>
     <li><strong>L’éditeur</strong> a un accès technique à la base, pour la maintenance et l’assistance. Il ne le consulte pas en dehors de ces besoins.</li>
     <li><strong>Nos prestataires</strong>, uniquement pour ce qu’ils font pour nous :</li>

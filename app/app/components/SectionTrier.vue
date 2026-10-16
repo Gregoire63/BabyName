@@ -122,10 +122,9 @@ const dispo = computed(() => {
 })
 
 /**
- * CE QUE LA LISTE MET EN TÊTE PASSE DEVANT, hors filtres : les prénoms
+ * CE QUE LA LISTE MET EN TÊTE PASSE DEVANT, filtres ou pas : les prénoms
  * ajoutés (FeuilleRecherche) et les prénoms du catalogue qu'un membre a
- * cherchés et aimés alors que les filtres les écartent (VueGroupe,
- * proposerHorsFiltres).
+ * cherchés et aimés (VueGroupe, proposer).
  *
  * Quelqu'un de la liste les a choisis exprès : c'est une proposition faite
  * aux autres, pas une carte parmi dix-neuf mille. Ni les filtres (un « 2 à 3
@@ -758,21 +757,14 @@ async function voter(valeur: 0 | 1 | 2) {
     v.valeur !== undefined && v.pseudo && estDecideur.has(v.user_id))
   const autres = tous.filter((v: any) => v.user_id !== moiId)
 
-  // Un prénom épinglé (cherché, ou demandé par l'adresse) que les filtres de
-  // la liste écartent : aimé, il est proposé aux autres, qui sinon ne le
-  // verraient jamais — et on le dit, puisque c'est leur montrer qu'on l'aime
-  // (VueGroupe, proposerHorsFiltres). Un non reprend ma proposition, si c'en
-  // était une.
+  // Un prénom épinglé (cherché, ou demandé par l'adresse) et aimé : il est
+  // proposé aux autres, en tête de leur pile — sans quoi ils ne le verraient
+  // pas, ou des milliers de cartes plus loin. Sans un mot, ici ni chez eux
+  // (VueGroupe, proposer). Un non reprend ma proposition, si c'en était une.
   if (r && valeur === 0) g.retirerProposition(p.l).catch(() => null)
   else if (r && etaitEpingle) {
     const jugeParTous = decideurs.length > 1 && autres.length >= decideurs.length - 1
-    g.proposerHorsFiltres(p.l, jugeParTous).then((fait) => {
-      if (!fait) return
-      const texte = t('SectionTrier.propose', { nom: p.l })
-      // Après « Alice aussi » (une liste à trois), pas par-dessus.
-      if (retour.value) setTimeout(() => dire(texte), 2700)
-      else dire(texte)
-    }).catch(() => null)
+    g.proposer(p.l, jugeParTous).catch(() => null)
   }
 
   if (!visibles.length) return
@@ -842,9 +834,10 @@ function prefixeAffiche(p: Prenom, racine: string): string {
  * que ce prenom et ses graphies : un simple non suffit, le bouton disparait.
  */
 function familleInfo(p: Prenom | null) {
-  // Un prénom ajouté ou proposé est une proposition précise : on lui répond,
-  // on ne balaie pas avec lui les prénoms du catalogue qui commencent pareil.
-  if (!p || p.ajout || g.propositions.value.has(p.l)) return null
+  // Un prénom ajouté est une proposition précise : on lui répond, on ne
+  // balaie pas avec lui les prénoms du catalogue qui commencent pareil. (Un
+  // prénom proposé, lui, est une carte comme une autre : rien ne le distingue.)
+  if (!p || p.ajout) return null
   const f = familleDe(p)
   const meme = new Set([p.l, ...(p.variantes ?? [])])
   if (!f.some(x => !meme.has(x.l))) return null

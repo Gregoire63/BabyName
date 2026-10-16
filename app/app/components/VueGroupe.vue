@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { chargerCatalogue, filtrer, filtresParDefaut, PAYS_DEFAUT, type Prenom, type Filtres, type InfoAjout }
+import { chargerCatalogue, filtrer, filtresParDefaut, PAYS_DEFAUT, type Prenom, type Filtres }
   from '~/composables/useCatalogue'
 import { appliquerPays, chargerPays } from '~/composables/usePays'
 import { marquerListeCourante } from '~/composables/useListeCourante'
@@ -109,23 +109,9 @@ const parNom = computed(() => {
   return m
 })
 
-/**
- * LES PROPOSITIONS : un prénom DU CATALOGUE que les filtres de la liste
- * écartent, et qu'un membre a cherché puis aimé (proposerHorsFiltres). Même
- * table que les prénoms ajoutés, même route, même notification : le serveur
- * n'a pas à savoir s'il est au catalogue. Sa carte reste la vraie, celle du
- * catalogue — elle dit seulement qui l'a proposée.
- */
-const propositions = computed(() => {
-  const c = parNomCatalogue.value
-  const m = new Map<string, InfoAjout>()
-  for (const a of entreesAjouts.value) {
-    if (c.has(a.prenom)) m.set(a.prenom, { par: a.auteur, mien: a.mien, mot: a.mot, le: a.ajoute_le })
-  }
-  return m
-})
 /** Ce que la liste met en tête de pile, dans l'ordre où c'est arrivé :
- *  prénoms ajoutés et prénoms proposés, chacun avec sa fiche. */
+ *  prénoms ajoutés et prénoms proposés (proposer), chacun avec sa fiche —
+ *  celle du catalogue pour un prénom qui y est. */
 const enTete = computed(() => {
   const c = parNomCatalogue.value
   return entreesAjouts.value.map(a => c.get(a.prenom) ?? ficheAjoutee(a))
@@ -239,13 +225,16 @@ async function retirerAjout(prenom: string) {
 }
 
 /**
- * PROPOSER UN PRÉNOM QUE LES FILTRES ÉCARTENT.
+ * PROPOSER UN PRÉNOM CHERCHÉ PUIS AIMÉ.
  *
- * Paul cherche Bernadette, que la liste ne montre pas (les « très rares »
- * sont exclus), la met en première carte et dit oui. Sans rien de plus,
- * Alice ne la verrait jamais : pas d'accord possible sur un prénom que l'un
- * des deux aime. Elle lui est donc proposée — en tête de sa pile, « proposé
- * par Paul ».
+ * Paul cherche Bernadette, la met en première carte et dit oui. Sans rien de
+ * plus, Alice ne la verrait jamais si les filtres l'écartent (les « très
+ * rares » le sont), et au bout de milliers de cartes s'ils la laissent passer
+ * — le tri suit la fréquence, puis les goûts d'Alice, pas ceux de Paul. Un
+ * prénom qu'on est allé chercher exprès mérite mieux : il est proposé — en
+ * tête de la pile des autres, et c'est tout. (D'abord pour les seuls prénoms
+ * hors des filtres ; Greg, le 16/10 : « oui, fais-le remonter » aussi dans
+ * les filtres.)
  *
  * Seulement quand c'est utile, et sans surprise :
  *  - après un « oui » ou un « pourquoi pas » sur la carte épinglée par la
@@ -253,20 +242,23 @@ async function retirerAjout(prenom: string) {
  *    Pas un « non » — on ne pousse pas chez les autres ce qu'on écarte. Pas
  *    un vote changé dans « Mes choix » : une liste passée des garçons aux
  *    filles ne doit pas voir revenir les garçons qu'on y avait aimés ;
- *  - sa prononciation entière hors des filtres : si une autre graphie y
- *    passe, les autres l'ont déjà, sous celle-là ;
  *  - par un décideur (un observateur ne remplit pas la pile des autres),
  *    une écriture que l'ajout garderait telle quelle (ecrireAjout), un
  *    prénom pas encore en tête ; et pas si tous les autres décideurs l'ont
  *    déjà jugé (`jugeParTous`, que le vote vient d'apprendre). Une liste où
  *    l'on est encore seul le garde pour ceux qui viendront.
+ * Une autre graphie du même son dans la pile (Roze, et Rose) ne l'empêche
+ * pas : c'est celle-ci qu'on aime. La carte proposée emporte les graphies
+ * de la pile (SectionTrier) — un son, une carte.
  *
- * Proposer, c'est dire qu'on l'aime avant que l'autre ait jugé : pour ce
- * prénom-là, le vote n'est plus aveugle. C'est le sens même de la demande,
- * et l'écran le dit à celui qui vote. Rend vrai si le prénom vient d'être
- * proposé.
+ * SANS LE DIRE, ni à l'un ni à l'autre (Greg, 16/10) : ni « proposé par
+ * Paul » sur la carte d'Alice, ni notification, ni message à Paul. Le dire,
+ * ce serait dire à Alice que Paul l'aime avant qu'elle ait jugé — la fin du
+ * vote à l'aveugle ; le serveur ne lui en dit pas l'auteur (index.get.ts).
+ * Seul un prénom CRÉÉ se signe : sa carte n'a rien d'autre à montrer. Rend
+ * vrai si le prénom vient d'être proposé.
  */
-async function proposerHorsFiltres(prenom: string, jugeParTous = false): Promise<boolean> {
+async function proposer(prenom: string, jugeParTous = false): Promise<boolean> {
   if (jugeParTous || etat.value?.moi?.role === 'observateur') return false
   const p = parNomCatalogue.value.get(prenom)
   // Quelques lignes des fichiers de pays (« A », des macrons perdus) ne sont
@@ -274,8 +266,13 @@ async function proposerHorsFiltres(prenom: string, jugeParTous = false): Promise
   // carte que celle qu'on vient de juger.
   if (!p || ecrireAjout(prenom) !== prenom) return false
   if (entreesAjouts.value.some(a => memeAjout(a.prenom, prenom))) return false
-  if (filtrer(catalogue.value, filtres.value).some(x => x.gp === p.gp)) return false
-  await ajouterPrenom(prenom)
+  const r = await $fetch<{ prenom: string; deja?: boolean }>(`/api/groupes/${gid}/ajouts`,
+    { method: 'POST', body: { prenom, propose: true } })
+  // Déjà là (l'autre l'a proposé au même instant) : la liste relue le dira.
+  if (r.deja) { await recharger(); return false }
+  const moi = etat.value?.membres?.find((m: any) => m.user_id === etat.value?.moi?.user_id)
+  entreesAjouts.value = [...entreesAjouts.value, { prenom: r.prenom, mot: null, auteur: moi?.pseudo ?? null,
+    mien: true, ajoute_le: new Date().toISOString(), propose: true }]
   return true
 }
 
@@ -283,13 +280,12 @@ async function proposerHorsFiltres(prenom: string, jugeParTous = false): Promise
  * Retirer ma proposition : j'ai changé d'avis (un « non », voir `voter`).
  * Elle était née d'un oui ; un non la reprend — tant que personne d'autre ne
  * l'a jugée, sinon le serveur refuse (409) et elle reste : elle est à la
- * liste. Le prénom, lui, reste au catalogue, avec mon vote (`seule`,
- * ajouts.delete.ts).
+ * liste. Le prénom, lui, reste au catalogue, avec mon vote (ajouts.delete.ts,
+ * qui le sait par la ligne : `propose`).
  */
 async function retirerProposition(prenom: string) {
-  if (!propositions.value.get(prenom)?.mien) return
-  await $fetch(`/api/groupes/${gid}/ajouts?prenom=${encodeURIComponent(prenom)}&seule=1`,
-    { method: 'DELETE' })
+  if (!entreesAjouts.value.some(a => a.prenom === prenom && a.propose && a.mien)) return
+  await $fetch(`/api/groupes/${gid}/ajouts?prenom=${encodeURIComponent(prenom)}`, { method: 'DELETE' })
   entreesAjouts.value = entreesAjouts.value.filter(a => a.prenom !== prenom)
 }
 
@@ -513,8 +509,8 @@ onUnmounted(() => window.removeEventListener('babynamed:debloquee', auDeblocage)
 const partage: EtatGroupe = {
   gid, etat, catalogue, parNom, origines, filtres, dejaVotes, aimes, vetos,
   mesVetos, poserVeto, retirerVeto, dejaPris, parDejaPris, ajouterDejaPris,
-  retirerDejaPris, graphiesDe, ajouts, ajouterPrenom, retirerAjout, propositions, enTete,
-  proposerHorsFiltres, retirerProposition, favoris, basculerFavori,
+  retirerDejaPris, graphiesDe, ajouts, ajouterPrenom, retirerAjout, enTete,
+  proposer, retirerProposition, favoris, basculerFavori,
   communs, rechargerCommuns, votes, rechargerVotes, voter, feter,
   pret, recharger, ouvrirFiche, ouvrirFiltres, allerA, ouvrirDebloquer, verifierPaiement,
   annoncerPaiement

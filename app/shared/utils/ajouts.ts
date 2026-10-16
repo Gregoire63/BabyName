@@ -1,8 +1,8 @@
 /**
  * Les prénoms AJOUTÉS à une liste : ceux que le catalogue n'a pas (migration
  * 0014) — le prénom d'une arrière-grand-mère, une graphie à soi, un prénom
- * inventé ; et ceux du catalogue qu'un membre lui PROPOSE, parce que ses
- * filtres les écartent (VueGroupe, proposerHorsFiltres). Ce qui suit vaut
+ * inventé ; et ceux du catalogue qu'un membre lui PROPOSE, cherchés puis
+ * aimés (VueGroupe, proposer). Ce qui suit vaut
  * dans l'app ET sur le serveur : les deux doivent
  * écrire le même prénom de la même façon, sans quoi la liste aurait deux
  * cartes pour un seul.

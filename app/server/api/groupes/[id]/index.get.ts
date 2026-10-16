@@ -47,8 +47,8 @@ export default defineEventHandler(async (e) => {
     proprietaire(gid),
     // Les prénoms que la liste a ajoutés au catalogue (migration 0014) : des
     // cartes du tri pour tous, avec leur auteur et son mot.
-    q<{ prenom: string; mot: string | null; user_id: string | null; auteur: string | null; ajoute_le: string }>(
-      `select a.prenom, a.mot, a.user_id, u.pseudo as auteur, a.ajoute_le
+    q<{ prenom: string; mot: string | null; user_id: string | null; auteur: string | null; ajoute_le: string; propose: number }>(
+      `select a.prenom, a.mot, a.user_id, u.pseudo as auteur, a.ajoute_le, a.propose
          from prenoms_ajoutes a left join utilisateurs u on u.id = a.user_id
         where a.groupe_id = ?1 order by a.ajoute_le`, [gid])
   ])
@@ -63,8 +63,11 @@ export default defineEventHandler(async (e) => {
    * retirent de la pile — mais ni l'auteur ni le motif ne sortent d'ici.
    *
    * « Déjà pris », au contraire, se montre en entier, a tous les membres :
-   * c'est tout son principe (deja-pris.post.ts). Les prénoms ajoutés aussi :
-   * une proposition se fait a visage decouvert (ajouts.post.ts).
+   * c'est tout son principe (deja-pris.post.ts). Les prénoms créés aussi :
+   * leur carte n'a que son auteur et son mot à montrer (ajouts.post.ts).
+   * Un prénom PROPOSÉ (cherché puis aimé), non : il arrive en tête de la pile
+   * des autres sans leur dire de qui — ce serait leur dire qui l'aime avant
+   * qu'ils l'aient jugé. Ni le nom ni l'heure ne sortent d'ici pour eux.
    */
   return {
     groupe, membres, avancement: av, moi, proprietaire: proprio,
@@ -77,8 +80,10 @@ export default defineEventHandler(async (e) => {
       auteur: d.ligne.auteur, mien: d.ligne.user_id === moi.user_id, pose_le: d.ligne.pose_le
     })),
     mes_favoris: favoris.map((f: any) => f.prenom),
-    ajouts: ajouts.map(a => ({
-      prenom: a.prenom, mot: a.mot, auteur: a.auteur, mien: a.user_id === moi.user_id, ajoute_le: a.ajoute_le
-    }))
+    ajouts: ajouts.map((a) => {
+      const mien = a.user_id === moi.user_id
+      if (a.propose && !mien) return { prenom: a.prenom, mot: null, auteur: null, mien, ajoute_le: null, propose: true }
+      return { prenom: a.prenom, mot: a.mot, auteur: a.auteur, mien, ajoute_le: a.ajoute_le, propose: !!a.propose }
+    })
   }
 })

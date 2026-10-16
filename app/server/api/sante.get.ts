@@ -97,8 +97,10 @@ export default defineEventHandler(async (e) => {
         'achats_apple': a('achats_apple', 'transaction_id') && a('achats_apple', 'jeton'),
         // La langue du compte (migration 0013).
         'langue': a('utilisateurs', 'langue') && a('utilisateurs', 'langue_choix'),
-        // Les prénoms ajoutés au catalogue par une liste (migration 0014).
+        // Les prénoms ajoutés au catalogue par une liste, et les prénoms
+        // proposés (migration 0014).
         'prenoms_ajoutes': a('prenoms_ajoutes', 'mot') && a('prenoms_ajoutes', 'user_id')
+          && a('prenoms_ajoutes', 'propose')
       }
       // Pas de compte des listes vendues ici : meme reservee, cette route n'a
       // pas a porter le nombre de clients. Il se lit dans la console D1.

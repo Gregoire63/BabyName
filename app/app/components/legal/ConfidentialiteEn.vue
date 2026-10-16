@@ -59,7 +59,7 @@ const c = CONSERVATION
   <h3>Your lists</h3>
   <dl>
     <dt>Data</dt>
-    <dd>The name of the lists and, if you enter it, the child’s surname; your search filters; your votes (yes, neutral, no), vetoes and their reason, “already taken” names you add and their note, names you add to a list outside the catalogue (and your note) or propose to it outside its filters, favourites, rankings, duels and comments; the members and observers of each list.</dd>
+    <dd>The name of the lists and, if you enter it, the child’s surname; your search filters; your votes (yes, neutral, no), vetoes and their reason, “already taken” names you add and their note, names you add to a list outside the catalogue (and your note) or propose to it (found through the search and liked), favourites, rankings, duels and comments; the members and observers of each list.</dd>
     <dt>Why</dt>
     <dd>This is the service itself: sorting names together and finding those on which you agree.</dd>
     <dt>Legal basis</dt>
@@ -178,9 +178,9 @@ const c = CONSERVATION
       shown to them once they have voted on that same name: this is the blind vote. No one sees who
       vetoed a name. An “already taken” name, on the other hand, is meant to be seen: it is shown to
       the whole list, observers included, with your name and your note. Likewise a name you add to the
-      list outside the catalogue: its card says you added it, with your note. And a name outside the
-      list’s filters that you found through the search and rated yes or neutral: it goes to the top of
-      the other members’ stacks, and its card says you proposed it.
+      list outside the catalogue: its card says you added it, with your note. A name you found
+      through the search and rated yes or neutral goes to the top of the other members’ stacks, but
+      without your name; in a list of two, they may guess where it comes from.
     </li>
     <li><strong>The publisher</strong> has technical access to the database, for maintenance and support. They do not consult it outside these needs.</li>
     <li><strong>Our providers</strong>, solely for what they do for us:</li>

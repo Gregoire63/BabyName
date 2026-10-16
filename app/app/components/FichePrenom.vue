@@ -100,21 +100,13 @@ const sousTitreAjout = computed(() => {
   const x = donnees.value?.sexe
   const sexe = x ? `${t(`Sexe.${x}`)} · ` : ''
   const qui = a.mien ? t('FichePrenom.ajouteParVous') : a.par ? t('FichePrenom.ajoutePar', { nom: a.par }) : t('FichePrenom.ajouteALaListe')
-  const le = new Date(a.le)
-  return `${sexe}${qui}${isNaN(+le) ? '' : t('FichePrenom.ajouteLe', { date: le.toLocaleDateString(locale.value, { day: 'numeric', month: 'long' }) })}`
+  const le = a.le ? new Date(a.le) : null
+  return `${sexe}${qui}${!le || isNaN(+le) ? '' : t('FichePrenom.ajouteLe', { date: le.toLocaleDateString(locale.value, { day: 'numeric', month: 'long' }) })}`
 })
 const lectureHist = computed(() => {
   const h = hist.value
   if (!h) return ''
   return t('FichePrenom.lectureHist', { total: nombre(h.total), premiere: h.premiere, annees: anneesDe(h.pic), derniere: h.derniere })
-})
-
-/** Un prénom du catalogue proposé par un membre (VueGroupe, proposerHorsFiltres) :
- *  sa vraie fiche, et qui l'a proposé. */
-const parQuiPropose = computed(() => {
-  const x = ajout.value ? null : g?.propositions.value.get(props.p.l)
-  return !x ? '' : x.mien ? t('FichePrenom.proposeParVous')
-    : x.par ? t('FichePrenom.proposePar', { nom: x.par }) : t('FichePrenom.proposeALaListe')
 })
 
 const retrait = ref<'' | 'en-cours' | 'refuse' | 'echec'>('')
@@ -174,7 +166,7 @@ const lecture = computed(() => {
             <h2 :id="idNom" class="nom">{{ p.l }}</h2>
             <p class="mini doux" style="margin:4px 0 0">
               <template v-if="ajout">{{ sousTitreAjout }}</template>
-              <template v-else>{{ sexeTexte }}<template v-if="p.hf"> · <span class="ailleurs">{{ $t('FichePrenom.ailleurs') }}</span></template><template v-if="parQuiPropose"> · {{ parQuiPropose }}</template></template>
+              <template v-else>{{ sexeTexte }}<template v-if="p.hf"> · <span class="ailleurs">{{ $t('FichePrenom.ailleurs') }}</span></template></template>
             </p>
           </div>
           <button type="button" class="btn btn-0 rond" :aria-label="$t('FichePrenom.fermer')" @click="fermer">

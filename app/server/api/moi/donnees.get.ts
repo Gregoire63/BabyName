@@ -102,7 +102,7 @@ export default defineEventHandler(async (e) => {
           where user_id = ?1 and transaction_id is not null order by achete_le`, [uid]),
       // Les prénoms que la personne a ajoutés au catalogue d'une liste — y
       // compris d'une liste quittée depuis : ils restent à la liste.
-      q(`select groupe_id, prenom, mot, ajoute_le from prenoms_ajoutes
+      q(`select groupe_id, prenom, mot, ajoute_le, propose = 1 as propose from prenoms_ajoutes
           where user_id = ?1 order by groupe_id, ajoute_le`, [uid])
     ])
 
@@ -138,7 +138,7 @@ export default defineEventHandler(async (e) => {
       valeurs_de_vote: 'non, neutre ou oui. « balayage » indique un « non » donné à toute une famille de prénoms d’un seul geste.',
       vetos: 'Vos vetos : les prénoms que vous avez écartés, avec leurs graphies (même prononciation) et votre motif. Les autres membres ne voient pas qui les a posés.',
       deja_pris: 'Les prénoms que vous avez marqués « déjà pris » : ils appartiennent à la liste. Si vous effacez votre compte, ils y restent, sans votre nom ni votre note.',
-      prenoms_ajoutes: 'Les prénoms que vous avez ajoutés à une liste (hors du catalogue, avec votre mot) ou que vous lui avez proposés (hors de ses filtres, après un oui ou un neutre) : toute la liste les voit, avec votre nom. Ils appartiennent à la liste : si vous la quittez ou effacez votre compte, ils y restent, sans votre nom ni votre mot.',
+      prenoms_ajoutes: 'Les prénoms que vous avez ajoutés à une liste (hors du catalogue, avec votre mot) : toute la liste les voit, avec votre nom. Ceux que vous lui avez proposés (« propose » : trouvés par la recherche, puis un oui ou un neutre) passent en tête de la pile des autres, sans votre nom. Ils appartiennent à la liste : si vous la quittez ou effacez votre compte, ils y restent, sans votre nom ni votre mot.',
       cadeaux_recus: 'Les codes cadeaux dont vous vous êtes servi : de la part de qui, et le mot qui les accompagnait.',
       achats_app_store: 'Vos achats faits dans l’app iPhone : le numéro de transaction d’Apple (celui de votre reçu), la liste débloquée, les dates. Un achat sans liste est un déblocage payé d’avance : il servira à la prochaine liste que vous débloquerez.',
       quotas: `Le nombre de prénoms jugés le dernier jour de tri, sur chaque liste gratuite, une fois le lot de départ épuisé : le jour suivant le remplace. Effacé automatiquement au bout de ${CONSERVATION.quotaJours} jours.`

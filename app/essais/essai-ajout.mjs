@@ -431,6 +431,13 @@ dit(long.json?.prenom === 'Bérénixe' && b?.mot?.length === 140 && !/\s\s|\n/.t
   const de_trop = await api(P, `/api/groupes/${l.id}/ajouts`, 'POST', { prenom: 'Pleinzz' })
   dit(echecs.length === 0 && de_trop.status === 409 && de_trop.json?.statusMessage === 'ajouts_plein',
     `deux cents par liste, pas un de plus (${200 - echecs.length} acceptés, puis ${de_trop.status} ${de_trop.json?.statusMessage})`)
+  // Les propositions (un prénom du catalogue, cherché puis aimé) ont leur
+  // propre borne : elles n'empêchent pas de créer, ni la création pleine de
+  // proposer.
+  const propose = await api(P, `/api/groupes/${l.id}/ajouts`, 'POST', { prenom: 'Bernadette', propose: true })
+  const encore = await api(P, `/api/groupes/${l.id}/ajouts`, 'POST', { prenom: 'Pleinzy' })
+  dit(propose.status === 200 && encore.status === 409,
+    `pleine de prénoms créés, la liste prend encore une proposition (${propose.status}), pas un prénom créé de plus (${encore.status})`)
 }
 
 // =================== 8. AU RETOUR SUR L'APP ==================================

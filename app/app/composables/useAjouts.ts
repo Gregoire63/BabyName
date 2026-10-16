@@ -33,9 +33,15 @@ import { t } from '~/composables/useLangue'
 export interface EntreeAjout {
   prenom: string
   mot: string | null
+  /** null : son compte est parti — ou c'est la proposition d'un autre, qui ne
+   *  se signe pas (groupes/[id]/index.get.ts). */
   auteur: string | null
   mien: boolean
-  ajoute_le: string
+  /** null pour la proposition d'un autre : ni son nom, ni son heure. */
+  ajoute_le: string | null
+  /** Une proposition : un prénom du catalogue, cherché puis aimé (VueGroupe,
+   *  proposer) — pas un prénom créé. */
+  propose?: boolean
 }
 
 // Une fiche par prénom, la même tant que rien n'en change : la pile reconnaît

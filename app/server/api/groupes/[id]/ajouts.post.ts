@@ -13,11 +13,13 @@
  * Proposer un prénom, c'est déjà dire qu'on y pense ; le cacher aurait été
  * prétendre le contraire.
  *
- * LES PROPOSITIONS passent aussi par ici : un prénom DU CATALOGUE que les
- * filtres de la liste écartent, qu'un membre a cherché puis aimé (VueGroupe,
- * proposerHorsFiltres). Même place en tête de pile, même « proposé par » ; le
- * serveur n'a pas à savoir s'il est au catalogue — l'app, qui l'a, montre sa
- * vraie fiche (et ecrireAjout garde telle quelle l'écriture du catalogue).
+ * LES PROPOSITIONS passent aussi par ici (`propose`) : un prénom DU
+ * CATALOGUE qu'un membre a cherché puis aimé (VueGroupe, proposer). Même
+ * place en tête de la pile des autres, mais rien d'autre : ni mot, ni
+ * notification, ni nom — le vote reste aveugle (index.get.ts ne dit l'auteur
+ * qu'à lui-même). Le serveur n'a pas à savoir s'il est au catalogue : l'app,
+ * qui l'a, montre sa vraie fiche (et ecrireAjout garde telle quelle
+ * l'écriture du catalogue).
  *
  * Décideurs seulement : un observateur ne met rien dans la pile des autres.
  * Le même prénom à la casse près (« jeannine », « Jeannine ») est le même :
@@ -31,10 +33,11 @@ export default defineEventHandler(async (e) => {
     throw createError({ statusCode: 403, statusMessage: 'observateur_lecture_seule' })
   }
   await limiter(e, 'ajout', moi.user_id, 60, 3600)
-  const { prenom, mot } = await readBody<{ prenom?: unknown; mot?: unknown }>(e) ?? {}
+  const { prenom, mot, propose } = await readBody<{ prenom?: unknown; mot?: unknown; propose?: unknown }>(e) ?? {}
   const nom = ecrireAjout(prenom)
   if (!nom) throw createError({ statusCode: 400, statusMessage: 'prenom_invalide' })
-  const texte = typeof mot === 'string'
+  const proposition = propose === true
+  const texte = !proposition && typeof mot === 'string'
     ? mot.replace(/\s+/g, ' ').trim().slice(0, MOT_AJOUT_MAX) || null : null
 
   // Deux cents lignes au plus (le trigger de la migration 0014) : les relire
@@ -43,16 +46,18 @@ export default defineEventHandler(async (e) => {
     `select prenom from prenoms_ajoutes where groupe_id = ?1`, [gid])).find(d => memeAjout(d.prenom, nom))
   if (deja) return { ok: true, prenom: deja.prenom, deja: true }
   try {
-    await ecrire(`insert into prenoms_ajoutes (groupe_id, prenom, user_id, mot) values (?1, ?2, ?3, ?4)`,
-      [gid, nom, moi.user_id, texte])
+    await ecrire(`insert into prenoms_ajoutes (groupe_id, prenom, user_id, mot, propose) values (?1, ?2, ?3, ?4, ?5)`,
+      [gid, nom, moi.user_id, texte, proposition ? 1 : 0])
   } catch (err: any) {
-    if (String(err?.message).includes('ajouts_plein')) {
-      throw createError({ statusCode: 409, statusMessage: 'ajouts_plein' })
+    for (const plein of ['ajouts_plein', 'propositions_plein']) {
+      if (String(err?.message).includes(plein)) throw createError({ statusCode: 409, statusMessage: plein })
     }
     // Ajouté au même instant par un autre membre : c'est le même.
     if (estDoublon(err)) return { ok: true, prenom: nom, deja: true }
     throw err
   }
-  enFond(e, prevenirAjout(gid, moi.user_id))
+  // Une proposition ne se dit pas : « Paul a ajouté un prénom » dirait qu'il
+  // en aime un, avant qu'on l'ait jugé.
+  if (!proposition) enFond(e, prevenirAjout(gid, moi.user_id))
   return { ok: true, prenom: nom }
 })

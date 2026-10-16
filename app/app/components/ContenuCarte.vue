@@ -137,15 +137,6 @@ const jumeau = computed(() => donnees.value?.jumeau ?? null)
 const parQui = computed(() => !ajout.value ? ''
   : ajout.value.mien ? t('ContenuCarte.ajouteParVous')
   : ajout.value.par ? t('ContenuCarte.ajoutePar', { nom: ajout.value.par }) : t('ContenuCarte.ajoute'))
-/**
- * UN PRÉNOM DU CATALOGUE PROPOSÉ PAR UN MEMBRE (VueGroupe, proposerHorsFiltres) :
- * les filtres de la liste l'écartent, il est pourtant en tête de pile. Sa
- * carte est la vraie ; l'étiquette dit pourquoi il est là, et de qui il vient.
- */
-const proposition = computed(() => ajout.value ? null : g.propositions.value.get(props.p.l) ?? null)
-const parQuiPropose = computed(() => !proposition.value ? ''
-  : proposition.value.mien ? t('ContenuCarte.proposeParVous')
-  : proposition.value.par ? t('ContenuCarte.proposePar', { nom: proposition.value.par }) : t('ContenuCarte.propose'))
 const sexeAjout = computed(() => {
   const x = donnees.value?.sexe
   return x ? t(`ContenuCarte.sexe_${x}`) : ''
@@ -171,12 +162,9 @@ const niveau = computed(() => !essai.value ? ''
           <span class="puce ajoute">{{ parQui }}</span>
           <span v-if="sexeAjout" class="puce">{{ sexeAjout }}</span>
         </template>
-        <template v-else>
-          <span v-if="proposition" class="puce ajoute">{{ parQuiPropose }}</span>
-          <span class="puce">
-            {{ $t(`ContenuCarte.sexe_${p.sexe === 'fm' ? 'fm' : p.sexe === 'f' ? 'f' : 'm'}`) }}
-          </span>
-        </template>
+        <span v-else class="puce">
+          {{ $t(`ContenuCarte.sexe_${p.sexe === 'fm' ? 'fm' : p.sexe === 'f' ? 'f' : 'm'}`) }}
+        </span>
         <span v-if="dejaDit !== null" class="puce deja" :class="`d${dejaDit}`">{{ $t(`ContenuCarte.dit${dejaDit}`) }}</span>
         <!-- Un nom de tempête : l'icône seule, juste après le genre (toujours
              sur la première ligne). La toucher ouvre sa feuille — quelle

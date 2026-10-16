@@ -6,7 +6,8 @@
  *     liste — ni le prénom, ni le texte) ; d'affilée, un seul message par
  *     demi-heure et par personne.
  *  1 bis. Un prénom ajouté hors du catalogue : de même — qui, pas lequel, ni
- *     son mot ; d'affilée, un seul ; le même tapé autrement, rien.
+ *     son mot ; d'affilée, un seul ; le même tapé autrement, rien ; un prénom
+ *     proposé (cherché puis aimé), rien du tout.
  *  2. La liste débloquée par quelqu'un d'autre : par un cadeau, par Stripe au
  *     retour du navigateur, par Stripe via son webhook. Une fois : un rejeu
  *     ne redit rien. Celui qui a payé n'est pas prévenu.
@@ -192,6 +193,16 @@ const SANS_BRUIT = m => m.channelId === 'activite' && !('sound' in m) && m.prior
   await silence()
   dit(deja.j?.deja === true && messages.length === avant,
     'Alice tape le même en capitales : il était déjà là, rien n’est annoncé')
+  // Une proposition (un prénom du catalogue, cherché puis aimé) ne se dit
+  // pas : « Alice a ajouté un prénom » dirait qu'elle en aime un.
+  const prop = await poster(alice.page, `/api/groupes/${NOTRE}/ajouts`, { prenom: 'Bernadette', propose: true })
+  await silence()
+  dit(prop.status === 200 && messages.length === avant,
+    'Alice aime Bernadette, cherchée : proposée sans rien annoncer')
+  const cree = await poster(alice.page, `/api/groupes/${NOTRE}/ajouts`, { prenom: 'Zorglubine' })
+  const aPaul = await jusqua(() => pour(paul, avant)[0])
+  dit(cree.status === 200 && aPaul?.body === 'Alice a ajouté un prénom à trier.',
+    'puis elle crée Zorglubine : là, Paul est prévenu — la proposition n’avait rien compté')
 }
 
 // =================== 2. LA LISTE DÉBLOQUÉE PAR QUELQU'UN D'AUTRE ============
@@ -324,7 +335,7 @@ const SANS_BRUIT = m => m.channelId === 'activite' && !('sound' in m) && m.prior
 // =================== 5. JAMAIS UN PRÉNOM ====================================
 {
   const tout = JSON.stringify(messages)
-  const fuites = PRENOMS.concat(['Louna', 'Lounah', 'Jeaninne', 'Zélyanne', 'Ginette'])
+  const fuites = PRENOMS.concat(['Louna', 'Lounah', 'Jeaninne', 'Zélyanne', 'Ginette', 'Bernadette', 'Zorglubine'])
     .filter(p => new RegExp(`(^|[^\\p{L}])${p}([^\\p{L}]|$)`, 'u').test(tout))
   dit(messages.length >= 9 && fuites.length === 0,
     `aucun des ${messages.length} messages ne porte un prénom jugé, commenté ou ajouté${fuites.length ? ` — ${fuites.join(', ')}` : ''}`)
