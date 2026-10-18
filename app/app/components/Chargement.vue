@@ -37,9 +37,9 @@ withDefaults(defineProps<{ texte?: string; plein?: boolean }>(), { plein: false 
 .p2 { position: absolute; left: 2px; bottom: 10px;
   animation: scintille 1.9s ease-in-out .95s infinite; }
 
-/* un quart de tour par cycle : l'etoile a quatre branches retombe sur
+/* un cinquieme de tour par cycle : l'etoile a cinq branches retombe sur
    elle-meme, la rotation se lit sans jamais paraitre saccadee */
-@keyframes tourne { to { transform: rotate(90deg) } }
+@keyframes tourne { to { transform: rotate(72deg) } }
 @keyframes respire { 0%, 100% { opacity: .78 } 50% { opacity: 1 } }
 @keyframes scintille {
   0%, 100% { opacity: .18; transform: scale(.7) }

@@ -7,7 +7,7 @@
    servi par le reseau d'abord, ou revalide en arriere-plan. Un fichier sans
    nom hache garde en cache-d'abord, c'est une application figee pour
    toujours sur le telephone de quelqu'un. */
-const VERSION = 'bn-9'   // bn-9 : /chercher-un-prenom/ est une page statique (bn-8 : les pages SEO ne remplacent plus la coquille)
+const VERSION = 'bn-10'  // bn-10 : logo à étoiles 5 branches, servi tout de suite (bn-9 : /chercher-un-prenom/ est une page statique (bn-8 : les pages SEO ne remplacent plus la coquille))
 const COQUILLE = `coquille-${VERSION}`
 const BIENS = `biens-${VERSION}`
 
