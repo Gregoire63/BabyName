@@ -12,10 +12,16 @@ export default defineEventHandler(async (e) => {
       // bulletin vide (un vote refuse par le quota en cree un).
       `select cast(g.id as text) as id, g.nom,
               case when m.role <> 'observateur' then g.code_invitation end as code_invitation,
+              case when m.role <> 'observateur' then g.code_observateur end as code_observateur,
               g.nb_vetos_max, g.favoris_visibles,
               g.quota_swipe_jour, g.filtres, g.cree_le,
               (g.paye_le is not null) as paye, m.role,
               (select count(*) from membres m2 where m2.groupe_id = g.id) as nb_membres,
+              -- Les decideurs seuls : au-dela d'un, la feuille de partage de
+              -- l'accueil dit avant l'envoi ce qu'un membre de plus change
+              -- (InvitationListe).
+              (select count(*) from membres m3
+                where m3.groupe_id = g.id and m3.role <> 'observateur') as nb_decideurs,
               coalesce((select b.nb from bulletins b
                          where b.groupe_id = g.id and b.user_id = ?1), 0) as mes_votes,
               coalesce((select sum(b.nb) from bulletins b where b.groupe_id = g.id), 0) as tous_votes,

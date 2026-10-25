@@ -837,6 +837,8 @@ export default {
   'SectionAccueil.cadeauSurSite': 'Presentkoder löses in på webbplatsen babynamed.fr, inte i appen. Listan låses upp där, och här också.',
   'SectionAccueil.offrir': 'Ge bort babyNamed',
   'SectionAccueil.offrirAide': 'Till blivande föräldrar: en upplåst lista',
+  'SectionAccueil.partager': 'Dela',
+  'SectionAccueil.partagerListe': 'Dela ”{nom}”',
   'SectionAccueil.naissances': 'Födslar {annee}',
   'SectionAccueil.topFilles': 'Vanligast · flickor',
   'SectionAccueil.topGarcons': 'Vanligast · pojkar',

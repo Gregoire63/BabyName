@@ -862,6 +862,8 @@ export default {
   'SectionAccueil.cadeauSurSite': 'Kody prezentowe wykorzystuje się na stronie babynamed.fr, nie w aplikacji. Lista zostanie odblokowana tam, a także tutaj.',
   'SectionAccueil.offrir': 'Podaruj babyNamed',
   'SectionAccueil.offrirAide': 'Dla przyszłych rodziców: odblokowana lista',
+  'SectionAccueil.partager': 'Udostępnij',
+  'SectionAccueil.partagerListe': 'Udostępnij „{nom}”',
   'SectionAccueil.naissances': 'Urodzenia w roku {annee}',
   'SectionAccueil.topFilles': 'Najczęściej nadawane · dziewczynki',
   'SectionAccueil.topGarcons': 'Najczęściej nadawane · chłopcy',

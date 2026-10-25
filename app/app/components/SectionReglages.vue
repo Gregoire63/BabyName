@@ -19,7 +19,6 @@ const quota = computed(() => g.etat.value?.quota)
 // La recherche d'un prénom est partie sous la loupe du tri (FeuilleRecherche) :
 // c'est là qu'on est quand on y pense.
 
-const copie = ref(false)
 const offrirOuvert = ref(false)
 // Le compte s'ouvre aussi d'ici : en bas d'un réglage de liste, on cherchait
 // où changer de langue ou de compte sans repasser par l'accueil.
@@ -34,10 +33,6 @@ watch(g.etat, e => {
   if (e && !nouveauNom.value && document.activeElement !== champNom.value) nouveauNom.value = e.groupe.nom
 }, { immediate: true })
 
-// /rejoindre/<code> : l'adresse que l'app des stores ouvre elle-même quand
-// elle est installée (pages/rejoindre/[code].vue) ; sinon, le navigateur.
-const lien = computed(() => g.etat.value
-  ? `${location.origin}/rejoindre/${g.etat.value.groupe.code_invitation}` : '')
 
 /**
  * Les noms s'enregistrent seuls, sans bouton : pendant la frappe, en quittant
@@ -59,14 +54,6 @@ async function renommer(o: OptionsEnvoi = {}) {
 }
 const nomListe = useEnregistrementDiffere(renommer)
 const quitter = (e: KeyboardEvent) => (e.target as HTMLInputElement).blur()
-
-async function partager() {
-  // La feuille de partage du téléphone — dans l'app des stores, c'est le
-  // natif qui l'ouvre (partagerLien, useCoquille) ; à défaut, le lien copié.
-  const r = await partagerLien({ titre: 'babyNamed', texte: t('SectionReglages.partageTexte'), url: lien.value })
-  if (!r.copie) return
-  copie.value = true; setTimeout(() => copie.value = false, 1800)
-}
 
 /**
  * Un membre de plus n'est pas un spectateur de plus.
@@ -177,42 +164,9 @@ async function enregistrerNomFamille(o: OptionsEnvoi = {}) {
 }
 const nomFamilleAuto = useEnregistrementDiffere(enregistrerNomFamille)
 
-/**
- * UNE invitation, deux facons.
- *
- * « Inviter quelqu'un » et « Les observateurs » etaient deux blocs ; c'est
- * pourtant le meme geste — envoyer un lien — avec un seul choix a faire :
- * la personne decide-t-elle avec vous, ou regarde-t-elle en lecture seule
- * (elle donne son avis, qui ne compte pas dans les accords, sans veto) ?
- *
- * Le code des observateurs se genere a la demande, et une seule fois : les
- * liens deja envoyes doivent continuer de marcher.
- */
-const typeInvit = ref<'membre' | 'lecture'>('membre')
+// L'invitation (membre ou lecture seule) : InvitationListe, partagée avec la
+// feuille de partage de l'accueil (FeuillePartage).
 const codeObs = computed(() => (g.etat.value?.groupe as any)?.code_observateur ?? null)
-const demandeObs = ref(false)
-const copieObs = ref(false)
-
-async function creerCodeObs() {
-  if (demandeObs.value) return
-  demandeObs.value = true
-  try {
-    await $fetch(`/api/groupes/${g.gid}/observateurs`, { method: 'POST' })
-    await g.recharger()
-  } catch (err: any) {
-    if (err?.statusMessage === 'liste_non_debloquee') g.ouvrirDebloquer()
-  } finally { demandeObs.value = false }
-}
-
-async function partagerObs() {
-  if (!codeObs.value) return
-  const url = `${location.origin}/rejoindre/${codeObs.value}`
-  const texte = t('SectionReglages.partageObs', { url })
-  const r = await partagerLien({ texte, url })
-  if (!r.copie) return
-  copieObs.value = true
-  setTimeout(() => { copieObs.value = false }, 1600)
-}
 
 const filtresActifs = computed(() => {
   const f = g.filtres.value
@@ -393,61 +347,9 @@ async function quitterListe() {
 
       <section v-if="!jObserve" class="carte pile invit" aria-labelledby="titre-invit">
         <h2 id="titre-invit">{{ $t('SectionReglages.inviter') }}</h2>
-        <div v-if="montrerPayant" class="deux-facons" role="group" :aria-label="$t('SectionReglages.typeInvit')">
-          <button type="button" class="facon" :aria-pressed="typeInvit === 'membre'"
-                  @click="typeInvit = 'membre'">
-            <strong>{{ $t('SectionReglages.membreTitre') }}</strong>
-            <span>{{ $t('SectionReglages.membreAide') }}</span>
-          </button>
-          <button type="button" class="facon" :aria-pressed="typeInvit === 'lecture'"
-                  @click="typeInvit = 'lecture'">
-            <strong>{{ $t('SectionReglages.lectureTitre') }}</strong>
-            <span>{{ $t('SectionReglages.lectureAide') }}</span>
-          </button>
-        </div>
-
-        <!-- Pour choisir avec vous : le code de la liste. -->
-        <template v-if="typeInvit === 'membre'">
-          <div class="lien-invit degrade">
-            <strong class="code">{{ codeLisible(g.etat.value.groupe.code_invitation) }}</strong>
-            <button class="btn" @click="partager">
-              {{ copie ? $t('SectionReglages.lienCopie') : $t('SectionReglages.partagerLien') }}
-            </button>
-          </div>
-          <!-- Dit avant le partage, pas découvert après. -->
-          <div v-if="nbMembres >= 2" class="avert pile">
-            <p class="mini" style="margin:0">
-              <strong>{{ $t('SectionReglages.troisieme') }}</strong>{{ $t('SectionReglages.troisiemeSuite', { n: nbCommuns }) }}
-            </p>
-            <button v-if="montrerPayant" type="button" class="btn btn-0 mini" style="align-self:flex-start;padding-left:0"
-                    @click="typeInvit = 'lecture'">
-              {{ $t('SectionReglages.simpleAvis') }}
-            </button>
-          </div>
-        </template>
-
-        <!-- En lecture seule : le code des observateurs (liste débloquée). -->
-        <template v-else>
-          <template v-if="paye">
-            <template v-if="codeObs">
-              <div class="lien-invit degrade">
-                <strong class="code">{{ codeLisible(codeObs) }}</strong>
-                <button class="btn" @click="partagerObs">
-                  {{ copieObs ? $t('SectionReglages.lienCopie') : $t('SectionReglages.partagerLien') }}
-                </button>
-              </div>
-            </template>
-            <button v-else class="btn" :disabled="demandeObs" @click="creerCodeObs">
-              {{ demandeObs ? $t('SectionReglages.unInstant') : $t('SectionReglages.creerLienLecture') }}
-            </button>
-          </template>
-          <template v-else>
-            <p class="mini doux" style="margin:0">{{ $t('SectionReglages.compris') }}</p>
-            <button class="btn btn-1" @click="g.ouvrirDebloquer()">
-              {{ $t('SectionReglages.voirCeQueCaOuvre') }}
-            </button>
-          </template>
-        </template>
+        <InvitationListe :gid="g.gid" :code="g.etat.value.groupe.code_invitation"
+                         :code-obs="codeObs" :paye="paye" :nb-decideurs="nbMembres" :nb-communs="nbCommuns"
+                         @debloquer="g.ouvrirDebloquer()" @code-obs="g.recharger()" />
 
         <p v-if="observateurs.length" class="mini doux" style="margin:0">
           {{ $t('SectionReglages.observateurs', { noms: observateurs.map((o: any) => o.pseudo).join(', '), n: observateurs.length }) }}
@@ -591,20 +493,6 @@ async function quitterListe() {
 .quota-compare strong { color: var(--encre); }
 .inclus-court { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px;
   font-size: .82rem; }
-.deux-facons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.facon { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 11px 12px;
-  border: 1px solid var(--trait); border-radius: var(--r-s); background: var(--fond);
-  font: inherit; color: var(--texte); cursor: pointer; }
-.facon strong { font-size: .88rem; }
-.facon span { font-size: .72rem; color: var(--doux); line-height: 1.3; }
-.facon[aria-pressed="true"] { border-color: var(--encre); box-shadow: inset 0 0 0 1px var(--encre); }
-.lien-invit { display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 16px; border-radius: var(--r-s); color: var(--encre); }
-.code { font-size: clamp(1.25rem, 6.4vw, 1.7rem); letter-spacing: .12em; font-weight: 700;
-  white-space: nowrap; }
-.lien-invit .btn { background: rgba(255,255,255,.72); border-color: transparent; }
-.avert { gap: 6px; padding: 11px 13px; border-radius: var(--r-s);
-  border: 1px solid color-mix(in srgb, var(--peche) 55%, var(--trait)); }
 /* La zone de danger, la même que dans « Mon compte » (FeuilleCompte). */
 .zone-danger { border-color: color-mix(in srgb, var(--non) 38%, var(--trait)); }
 .zone-danger h2 { color: var(--non); }

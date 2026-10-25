@@ -834,6 +834,8 @@ export default {
   'SectionAccueil.cadeauSurSite': 'Cadeaucodes wissel je in op de website babynamed.fr, niet in de app. De lijst wordt daar ontgrendeld, en hier dan ook.',
   'SectionAccueil.offrir': 'babyNamed cadeau doen',
   'SectionAccueil.offrirAide': 'Aan aanstaande ouders: een ontgrendelde lijst',
+  'SectionAccueil.partager': 'Delen',
+  'SectionAccueil.partagerListe': '‘{nom}’ delen',
   'SectionAccueil.naissances': 'Geboorten in {annee}',
   'SectionAccueil.topFilles': 'Meest gegeven · meisjes',
   'SectionAccueil.topGarcons': 'Meest gegeven · jongens',

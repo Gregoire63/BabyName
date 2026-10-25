@@ -844,6 +844,8 @@ export default {
   'SectionAccueil.cadeauSurSite': 'Dāvanas kodus izmanto vietnē babynamed.fr, nevis lietotnē. Saraksts tiks atbloķēts tur un arī šeit.',
   'SectionAccueil.offrir': 'Dāvināt babyNamed',
   'SectionAccueil.offrirAide': 'Topošajiem vecākiem: atbloķēts saraksts',
+  'SectionAccueil.partager': 'Kopīgot',
+  'SectionAccueil.partagerListe': 'Kopīgot “{nom}”',
   'SectionAccueil.naissances': 'Dzimušie {annee}. gadā',
   'SectionAccueil.topFilles': 'Populārākie · meitenes',
   'SectionAccueil.topGarcons': 'Populārākie · zēni',

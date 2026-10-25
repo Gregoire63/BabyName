@@ -191,6 +191,21 @@ const autres = computed(() =>
   groupes.value.filter(g => g.id !== principale.value?.id))
 
 /**
+ * Partager la liste depuis sa carte : une feuille, ici même (FeuillePartage),
+ * avec ce que dit la carte « Inviter quelqu'un » des réglages — le lien à
+ * envoyer, la lecture seule, et, s'il y a déjà deux décideurs, ce qu'un membre
+ * de plus change, AVANT l'envoi.
+ *
+ * Pas de bouton pour un observateur : le serveur ne lui donne pas le code.
+ */
+const invitable = computed(() => principale.value?.code_invitation ? principale.value : null)
+const partageOuvert = ref(false)
+/** Le code des observateurs, créé depuis la feuille : la ligne le garde. */
+function codeObsCree(code: string) {
+  if (invitable.value) invitable.value.code_observateur = code
+}
+
+/**
  * Retour dans la liste en cours par le bord droit.
  *
  * L'accueil est une sortie, pas une destination : on y passe pour changer de
@@ -256,12 +271,29 @@ const SEUIL_PAGE = 72    // de combien il faut glisser, parti d'ailleurs que du 
 let gx = 0, gy = 0, doigt: number | null = null, couche = false
 const arme = ref(false)
 
+/**
+ * Un glissé n'est pas un clic. À la souris, le navigateur clique quand le
+ * bouton s'enfonce et se relâche sur le même élément, même à 140 px de là :
+ * sur une ligne pleine largeur (« Inviter quelqu'un »), sélectionner du texte
+ * en glissant partait vers les réglages. Au doigt, le navigateur ne clique
+ * déjà pas après un glissé ; la garde vaut pour tous.
+ */
+const GLISSE_PAS_CLIC = 10
+let px = 0, py = 0, glisse = false
+function clicApresGlisse(e: MouseEvent) {
+  if (!glisse) return
+  glisse = false
+  e.preventDefault(); e.stopPropagation()
+}
+
 function glisseDebut(e: PointerEvent) {
+  px = e.clientX; py = e.clientY; glisse = false
   doigt = null
   if (!principale.value || e.pointerType === 'mouse' || !e.isPrimary) return
   doigt = e.pointerId; gx = e.clientX; gy = e.clientY; couche = false
 }
 function glisseBouge(e: PointerEvent) {
+  if (e.buttons && Math.hypot(e.clientX - px, e.clientY - py) > GLISSE_PAS_CLIC) glisse = true
   if (e.pointerId !== doigt) return
   const ax = gx - e.clientX
   const dy = Math.abs(e.clientY - gy)
@@ -274,6 +306,9 @@ function glisseBouge(e: PointerEvent) {
   arme.value = ax > SEUIL_PAGE && dy < ax
 }
 function glisseFin(e: PointerEvent) {
+  // Le clic suit le relâché dans la même tâche : la garde ne survit pas au-delà
+  // (un Entrée au clavier, plus tard, n'a rien à voir avec ce glissé).
+  if (glisse) setTimeout(() => { glisse = false })
   if (e.pointerId !== doigt) return
   const entrer = couche && e.type === 'pointerup' && arme.value
   doigt = null; couche = false; tire.value = 0; arme.value = false
@@ -342,7 +377,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
     <Ambiance />
     <main id="contenu" class="defile page" tabindex="-1"
           @pointerdown="glisseDebut" @pointermove="glisseBouge"
-          @pointerup="glisseFin" @pointercancel="glisseFin">
+          @pointerup="glisseFin" @pointercancel="glisseFin" @click.capture="clicApresGlisse">
       <header class="tete">
         <img src="/logo.png" alt="" width="34" height="34">
         <h1 style="flex:1">babyNamed</h1>
@@ -405,8 +440,11 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
       </div>
 
       <div v-else class="bento">
-        <!-- liste en cours -->
-        <NuxtLink v-if="principale" :to="`/g/${principale.id}/swipe`"
+        <!-- liste en cours. Le bouton « Partager » est posé SUR la carte, pas
+             dedans : un bouton dans un lien n'est pas du HTML valide, et un
+             lecteur d'écran y lit deux actions mêlées. -->
+        <div v-if="principale" class="carte-liste">
+        <NuxtLink :to="`/g/${principale.id}/swipe`"
                   class="carte degrade grande">
           <Coeurs class="deco" :taille="30" />
           <p class="etiquette">{{ $t('SectionAccueil.listeEnCours') }}</p>
@@ -416,10 +454,19 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
             <span><strong>{{ principale.nb_communs }}</strong> {{ $t('SectionAccueil.enCommun') }}</span>
             <span><strong>{{ principale.nb_membres }}</strong> {{ $t('SectionAccueil.membres', { n: principale.nb_membres }) }}</span>
           </div>
-          <p class="mini" style="margin:0;opacity:.85">
+          <p class="mini dernier" :class="{ 'place-partage': invitable }" style="margin:0;opacity:.85">
             {{ $t('SectionAccueil.dernierVote', { quand: quandDernier(principale.derniere_activite) }) }}
           </p>
         </NuxtLink>
+        <button v-if="invitable" type="button" class="partager" aria-haspopup="dialog"
+                :aria-label="$t('SectionAccueil.partagerListe', { nom: principale.nom })"
+                @click="partageOuvert = true">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3.5v11M7.5 8 12 3.5 16.5 8M6 12.5v6.2c0 .7.6 1.3 1.3 1.3h9.4c.7 0 1.3-.6 1.3-1.3v-6.2" />
+          </svg>
+          <span aria-hidden="true">{{ $t('SectionAccueil.partager') }}</span>
+        </button>
+        </div>
 
         <div v-else class="carte degrade grande accueil">
           <Coeurs class="deco" :taille="30" />
@@ -477,7 +524,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
         <template v-if="stats">
           <p class="section">{{ $t('SectionAccueil.naissances', { annee }) }}</p>
 
-          <div class="carte tuile colonne large">
+          <div class="carte tuile colonne large demi">
             <p class="etiquette">{{ $t('SectionAccueil.topFilles') }}</p>
             <button v-for="(p, i) in stats.topF" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="n">{{ i + 1 }}</span><span class="q">{{ p.l }}</span>
@@ -485,7 +532,7 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
             </button>
           </div>
 
-          <div class="carte tuile colonne large">
+          <div class="carte tuile colonne large demi">
             <p class="etiquette">{{ $t('SectionAccueil.topGarcons') }}</p>
             <button v-for="(p, i) in stats.topM" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="n">{{ i + 1 }}</span><span class="q">{{ p.l }}</span>
@@ -506,14 +553,14 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
             </div>
           </div>
 
-          <div class="carte tuile colonne large">
+          <div class="carte tuile colonne large demi">
             <p class="etiquette">{{ $t('SectionAccueil.monte') }}</p>
             <button v-for="p in stats.monte" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="q">{{ p.l }}</span><em :style="{ color: Math.round(p.t) ? 'var(--non)' : 'var(--doux)' }">{{ pourcentAn(p.t) }}</em>
             </button>
           </div>
 
-          <div class="carte tuile colonne large">
+          <div class="carte tuile colonne large demi">
             <p class="etiquette">{{ $t('SectionAccueil.retombe') }}</p>
             <button v-for="p in stats.tombe" :key="p.l" class="rang" @click="ouvrir(p.l)">
               <span class="q">{{ p.l }}</span><em :style="{ color: Math.round(p.t) ? 'var(--oui)' : 'var(--doux)' }">{{ pourcentAn(p.t) }}</em>
@@ -566,6 +613,8 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 
     <AssistantFiltres v-if="assistant" :premier="premierNom"
                       @fermer="assistant = false; cadeauPourNouvelle = ''" @valider="creer" />
+    <FeuillePartage v-if="partageOuvert && invitable" :liste="invitable"
+                    @fermer="partageOuvert = false" @code-obs="codeObsCree" />
     <FeuilleRejoindre v-if="rejoindreOuvert" @fermer="rejoindreOuvert = false"
                       @cadeau="voirCadeau" />
     <FeuilleCadeau v-if="cadeauOuvert" :code="cadeauOuvert"
@@ -579,6 +628,17 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 <style scoped>
 .offrir { display: flex; align-items: center; gap: 12px; padding: 14px 16px; color: var(--texte);
   text-decoration: none; width: 100%; text-align: left; font: inherit; cursor: pointer; }
+.carte-liste { grid-column: 1 / -1; position: relative; min-width: 0; }
+/* Sur la carte, en bas à droite : la dernière ligne lui laisse sa place. */
+.partager { position: absolute; right: 14px; bottom: 14px; display: inline-flex; align-items: center;
+  gap: 6px; min-height: 40px; padding: 0 14px 0 12px; border: 0; border-radius: var(--pastille);
+  background: color-mix(in srgb, var(--carte) 78%, transparent); color: var(--encre);
+  font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer;
+  box-shadow: 0 1px 6px rgba(26,35,78,.08); }
+.partager:active { background: var(--carte); }
+.partager svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor;
+  stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+.dernier.place-partage { padding-right: 128px; min-height: 26px; }
 .offrir .fleche { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--doux);
   stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .proteger { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%;
@@ -662,6 +722,18 @@ const ouvrir = (n: string) => { fiche.value = parNom.value.get(n) ?? null }
 .panne { border-color: var(--non); }
 .fantome { display: flex; flex-direction: column; gap: 9px; justify-content: center; }
 .grande.fantome { background: var(--carte); }
+/* Grand écran : la page se range au centre (le fond garde la fenêtre), et
+   les palmarès vont par paires — filles et garçons, monte et retombe — au
+   lieu de quatre bandes de 900 px pour trois lignes chacune. */
+@media (min-width: 760px) {
+  .defile.page { padding-inline: max(16px, calc((100% - 880px) / 2)); }
+  .bento > .demi { grid-column: auto; }
+}
+/* À la souris, la carte de la liste se clique : la tirette, faite pour le
+   pouce au bord d'un téléphone, flottait seule au bord d'un écran de 1 440 px. */
+@media (min-width: 760px) and (hover: hover) and (pointer: fine) {
+  .tirette { display: none; }
+}
 .version { background: none; border: 0; color: inherit; font: inherit;
   padding: 7px 4px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 </style>

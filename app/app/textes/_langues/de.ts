@@ -827,6 +827,8 @@ export default {
   'SectionAccueil.cadeauSurSite': "Geschenkcodes werden auf der Website babynamed.fr eingelöst, nicht in der App. Die Liste wird dort freigeschaltet, und hier auch.",
   'SectionAccueil.offrir': "babyNamed verschenken",
   'SectionAccueil.offrirAide': "An werdende Eltern: eine freigeschaltete Liste",
+  'SectionAccueil.partager': "Teilen",
+  'SectionAccueil.partagerListe': "„{nom}“ teilen",
   'SectionAccueil.naissances': "Geburten {annee}",
   'SectionAccueil.topFilles': "Am häufigsten · Mädchen",
   'SectionAccueil.topGarcons': "Am häufigsten · Jungen",
