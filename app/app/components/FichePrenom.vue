@@ -361,6 +361,15 @@ const lecture = computed(() => {
   .fiche-enter-active, .fiche-leave-active,
   .fiche-enter-active .feuille, .fiche-leave-active .feuille { transition-duration: .01ms; }
 }
+/* Sur un ordinateur : une fenêtre au centre, comme les feuilles (Feuille.vue). */
+@media (min-width: 760px) and (min-height: 560px) {
+  .voile { align-items: center; padding: 28px; }
+  .feuille { border-radius: 22px; max-height: min(100%, 820px);
+    box-shadow: 0 30px 70px -24px rgba(26,35,78,.5); }
+  .fiche-enter-active .feuille { transition: transform .26s cubic-bezier(.2,.86,.3,1), opacity .2s ease; }
+  .fiche-leave-active .feuille { transition: transform .2s ease-in, opacity .18s ease-in; }
+  .fiche-enter-from .feuille, .fiche-leave-to .feuille { transform: translateY(28px) scale(.985); opacity: 0; }
+}
 .feuille { touch-action: none; }
 .poignee { width: 42px; height: 5px; border-radius: 999px; background: var(--trait);
   margin: 10px auto 2px; flex: none; }

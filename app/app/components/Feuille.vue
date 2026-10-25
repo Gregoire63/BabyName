@@ -198,6 +198,27 @@ defineExpose({ fermer, remonter })
 .feuille-enter-from .feuille-corps, .feuille-leave-to .feuille-corps {
   transform: translateY(100%); }
 
+/* Sur un ordinateur, une fenêtre au centre plutôt qu'un tiroir collé au bas
+   d'un écran de 900 px : l'œil n'a pas à descendre la chercher, et elle ne
+   flotte plus sur la moitié basse comme un bandeau. Elle monte toujours un
+   peu en s'ouvrant, pour garder le même mouvement. La poignée, faite pour le
+   pouce, n'a plus d'objet à la souris. */
+@media (min-width: 760px) and (min-height: 560px) {
+  .feuille-voile { align-items: center; padding: 28px; }
+  .feuille-corps, .feuille-corps.haute { border-radius: 22px; max-height: min(100%, 780px);
+    box-shadow: 0 30px 70px -24px rgba(26,35,78,.5); }
+  .feuille-corps.haute { height: min(100%, 780px); }
+  .feuille-corps.plein { max-width: 680px; height: min(100%, 900px); border-radius: 22px; }
+  .feuille-pied { padding-bottom: 16px; }
+  .feuille-enter-active .feuille-corps { transition: transform .26s cubic-bezier(.2,.86,.3,1), opacity .2s ease; }
+  .feuille-leave-active .feuille-corps { transition: transform .2s ease-in, opacity .18s ease-in; }
+  .feuille-enter-from .feuille-corps, .feuille-leave-to .feuille-corps {
+    transform: translateY(28px) scale(.985); opacity: 0; }
+}
+@media (min-width: 760px) and (min-height: 560px) and (pointer: fine) {
+  .feuille-poignee { visibility: hidden; height: 0; margin: 8px auto 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .feuille-enter-active, .feuille-leave-active,
   .feuille-enter-active .feuille-corps, .feuille-leave-active .feuille-corps {

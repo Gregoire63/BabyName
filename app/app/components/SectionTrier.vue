@@ -1162,6 +1162,7 @@ async function confirmerFamille() {
 /* Un bandeau d'information ne doit jamais bloquer le tri : il passe
    par-dessus les boutons de vote, donc il laisse passer le doigt. */
 .retour { position: fixed; left: 16px; right: 16px; bottom: calc(86px + env(safe-area-inset-bottom)); max-width: 528px;
+  margin-inline: auto;
   margin: 0 auto; display: flex; gap: 12px; align-items: center; padding: 10px 14px;
   z-index: 30; flex-wrap: wrap; pointer-events: none; }
 .fondu-enter-active, .fondu-leave-active { transition: opacity .25s, translate .25s; }

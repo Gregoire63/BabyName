@@ -310,6 +310,21 @@ button { font: inherit; color: inherit; }
      un iPhone récent) : sans elle, le bas de chaque volet passait dessous. */
   padding: max(18px, env(safe-area-inset-top)) 16px calc(84px + env(safe-area-inset-bottom)); }
 
+/* ------------------------------------------------------------ grand écran */
+/* L'app est pensée pour le téléphone. Sur un ordinateur, tout s'étirait d'un
+   bord à l'autre : une courbe de naissances de 1 400 px, un classement en
+   lignes de 1 400 px, une barre d'onglets aux quatre coins de l'écran.
+   Le contenu se range au centre, à la largeur qui lui va ; le fond (lavis,
+   Ambiance) garde toute la fenêtre. Ce sont les marges qui grandissent, pas
+   un cadre : chaque volet défile toujours sur toute la largeur, et sa barre
+   de défilement reste au bord de la fenêtre, là où on la cherche. */
+@media (min-width: 760px) {
+  .pager > section { padding-inline: max(16px, calc((100% - var(--colonne, 760px)) / 2)); }
+  /* le tri : une carte, à la taille d'une carte — sa courbe reste lisible */
+  .pager > section:first-child { --colonne: 600px; }
+  .onglets { padding-inline: max(0px, calc((100% - 600px) / 2)); }
+}
+
 /* ---------------------------------------------------------------------------
    Les textes légaux : la même typographie en page (PageLegale) et en feuille
    (FeuilleLegale).

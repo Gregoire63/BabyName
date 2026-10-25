@@ -774,6 +774,7 @@ async function attendrePaiement() {
   color: var(--encre); }
 .paiement.lent, .paiement.lent-app { background: color-mix(in srgb, var(--peche) 45%, var(--carte));
   color: var(--encre); }
+@media (min-width: 760px) { .paiement { max-width: 520px; margin-inline: auto; } }
 @keyframes monte-paiement { from { transform: translateY(10px); opacity: 0 } }
 .picto { position: relative; display: block; line-height: 0; }
 .pastille { position: absolute; top: -5px; left: 50%; margin-left: 4px;
