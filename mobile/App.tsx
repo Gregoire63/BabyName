@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import { Coquille } from './src/Coquille'
+import { portraitSurTelephone } from './src/orientation'
 
 /**
  * babyNamed, l'app des stores : le site, dans une coquille.
@@ -12,6 +14,7 @@ import { Coquille } from './src/Coquille'
  * repasser par les stores.
  */
 export default function App() {
+  useEffect(() => { portraitSurTelephone() }, [])
   return (
     <SafeAreaProvider>
       <Coquille />

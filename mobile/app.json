@@ -107,7 +107,8 @@
             "enableShrinkResourcesInReleaseBuilds": true
           }
         }
-      ]
+      ],
+      "./plugins/android-r8"
     ],
     "extra": {
       "eas": {

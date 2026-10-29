@@ -25,6 +25,11 @@ const { join } = require('node:path')
  * défaut, et lint bloque le build release (ExtraTranslation, 11/10/2026).
  * EAS_BUILD_PLATFORM est posé par EAS sur la machine de build.
  *
+ * L'orientation : « portrait » dans app.json vaut pour l'iPhone. Sur Android,
+ * aucun verrou dans le manifeste (Android 16 l'ignore sur les grands écrans et
+ * Play le signale) : le portrait des téléphones se pose à l'exécution
+ * (src/orientation.ts).
+ *
  * @param {import('expo/config').ConfigContext} contexte
  * @returns {import('expo/config').ExpoConfig}
  */
@@ -34,7 +39,7 @@ module.exports = ({ config }) => {
   const android = process.env.EAS_BUILD_PLATFORM === 'android'
   return {
     ...config,
-    ...(android ? { locales: undefined } : {}),
+    ...(android ? { locales: undefined, orientation: 'default' } : {}),
     name: config.name ?? 'babyNamed',
     slug: config.slug ?? 'babynamed',
     android: { ...config.android, ...(firebase ? { googleServicesFile: firebase } : {}) }
