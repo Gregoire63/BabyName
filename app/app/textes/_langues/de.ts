@@ -43,8 +43,6 @@ export default {
   'AssistantFiltres.passer': "Überspringen, ich filtere später",
   'BadgesStores.appStore': "babyNamed im App Store laden",
   'BadgesStores.googlePlay': "babyNamed bei Google Play holen",
-  'BadgesStores.beta': "An der Android-Beta von babyNamed teilnehmen",
-  'BadgesStores.betaCourt': "Beta",
   'BarresPrenom.resume': "Geburten pro Jahr von {debut} bis {fin}, vom INSEE auf 5 gerundet: höchstens {max}, und {dernier} im Jahr {fin}.",
   'BarresPrenom.resumeDecennies': 'Geburten pro Jahrzehnt von {debut} bis {fin}, laut INSEE: höchstens {max}, in den {pic}er-Jahren.',
   'BoutonInstaller.titre': "App installieren",

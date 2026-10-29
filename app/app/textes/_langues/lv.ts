@@ -55,8 +55,6 @@ export default {
   'AssistantFiltres.passer': 'Izlaist, filtrēšu vēlāk',
   'BadgesStores.appStore': 'Lejupielādēt babyNamed no App Store',
   'BadgesStores.googlePlay': 'Lejupielādēt babyNamed no Google Play',
-  'BadgesStores.beta': 'Pievienoties babyNamed Android beta versijai',
-  'BadgesStores.betaCourt': 'beta',
   'BarresPrenom.resume': 'Dzimušo skaits gadā no {debut} līdz {fin}, INSEE noapaļots līdz 5: ne vairāk kā {max}, {fin}. gadā – {dernier}.',
   'BarresPrenom.resumeDecennies': 'Dzimušie desmitgadēs no {debut} līdz {fin}, pēc INSEE datiem: ne vairāk kā {max}, visvairāk – {pic}. gados.',
   'BoutonInstaller.titre': 'Instalēt lietotni',

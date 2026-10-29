@@ -46,8 +46,6 @@ export default {
   'AssistantFiltres.passer': 'Hoppa över, jag filtrerar senare',
   'BadgesStores.appStore': 'Ladda ner babyNamed i App Store',
   'BadgesStores.googlePlay': 'Hämta babyNamed på Google Play',
-  'BadgesStores.beta': 'Gå med i babyNameds Android-beta',
-  'BadgesStores.betaCourt': 'beta',
   'BarresPrenom.resume': 'Födslar per år från {debut} till {fin}, avrundade till 5 av INSEE: högst {max}, och {dernier} år {fin}.',
   'BarresPrenom.resumeDecennies': 'Födslar per decennium från {debut} till {fin}, enligt INSEE: högst {max}, på {pic}-talet.',
   'BoutonInstaller.titre': 'Installera appen',

@@ -70,8 +70,6 @@ export default {
   'AssistantFiltres.passer': 'Pomiń, filtry ustawię później',
   'BadgesStores.appStore': 'Pobierz babyNamed z App Store',
   'BadgesStores.googlePlay': 'Pobierz babyNamed z Google Play',
-  'BadgesStores.beta': 'Dołącz do wersji beta babyNamed na Androida',
-  'BadgesStores.betaCourt': 'beta',
   'BarresPrenom.resume': 'Urodzenia rocznie od {debut} do {fin}, zaokrąglone przez INSEE do 5: maksymalnie {max}, a w {fin} – {dernier}.',
   'BarresPrenom.resumeDecennies': (p) => `Urodzenia w dekadach od ${p.debut} do ${p.fin} według INSEE: maksymalnie ${p.max}, w latach ${p.pic}–${Number(p.pic) + 9}.`,
   'BoutonInstaller.titre': 'Zainstaluj aplikację',

@@ -50,26 +50,21 @@ const PRIX = (process.env.NUXT_PUBLIC_PRIX_LISTE || '6 €').trim()
 /**
  * Les applications mobiles. Une adresse vide : pas (encore) publique, le
  * bouton n'apparait nulle part — un lien vers une fiche que le public ne
- * peut pas ouvrir est pire que pas de lien. Google Play : vide tant que
- * l'app n'est qu'en test ferme (la fiche n'existe que pour les testeurs).
+ * peut pas ouvrir est pire que pas de lien. Les deux fiches sont publiques
+ * depuis le 29/10/2026.
  * Le systeme du visiteur decide du bouton montre (data-os, pose par
  * recherche-client.js) : iPhone → App Store, Android → Google Play,
  * ordinateur ou inconnu → les deux.
  */
 const APPLE_ID = '6821347375'
 const APP_IOS = (process.env.NUXT_PUBLIC_APP_IOS ?? `https://apps.apple.com/fr/app/id${APPLE_ID}`).trim()
-const APP_ANDROID = (process.env.NUXT_PUBLIC_APP_ANDROID ?? '').trim()
-// Tant que la fiche Play n'est pas publique : le bouton Android mène au
-// groupe des testeurs (test fermé), étiqueté « bêta » — comme DishRank.
-const ANDROID_BETA = 'https://groups.google.com/g/babynamed-testeurs'
+const APP_ANDROID = (process.env.NUXT_PUBLIC_APP_ANDROID ?? 'https://play.google.com/store/apps/details?id=fr.babynamed.app').trim()
 // Mêmes glyphes que la vitrine DishRank (src/components/DownloadButtons.tsx).
 const GLYPHE_APPLE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.38-1.09-.5-2.09-.55-3.24 0-1.44.72-2.2.48-3.08-.38C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.78 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.1zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>'
 const GLYPHE_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20.5V3.5c0-.59.34-1.11.84-1.35L13.69 12l-9.85 9.85c-.5-.25-.84-.76-.84-1.35zM16.81 15.12L6.05 21.34l8.49-8.49 2.27 2.27zM20.16 10.81c.35.27.58.72.58 1.19 0 .47-.23.91-.57 1.18l-2.29 1.32-2.5-2.5 2.5-2.5 2.28 1.31zM6.05 2.66l10.76 6.22-2.27 2.27L6.05 2.66z"/></svg>'
 const magasins = () => `<p class="stores">${
   APP_IOS ? `<a class="store store-ios" href="${APP_IOS}" target="_blank" rel="noopener" aria-label="Télécharger ${MARQUE} sur l’App Store">${GLYPHE_APPLE}App Store</a>` : ''}${
-  APP_ANDROID
-    ? `<a class="store store-android" href="${APP_ANDROID}" target="_blank" rel="noopener" aria-label="Télécharger ${MARQUE} sur Google Play">${GLYPHE_PLAY}Google Play</a>`
-    : `<a class="store store-android" href="${ANDROID_BETA}" target="_blank" rel="noopener" aria-label="Rejoindre la bêta Android de ${MARQUE}">${GLYPHE_PLAY}Google Play <small>bêta</small></a>`}</p>`
+  APP_ANDROID ? `<a class="store store-android" href="${APP_ANDROID}" target="_blank" rel="noopener" aria-label="Télécharger ${MARQUE} sur Google Play">${GLYPHE_PLAY}Google Play</a>` : ''}</p>`
 const PRIX_NOMBRE = Number(PRIX.replace(',', '.').replace(/[^\d.]/g, '')) || 6
 // Les limites du gratuit viennent du schema, pas d'une copie : si elles
 // changent en base, la page qui les annonce change au build suivant.

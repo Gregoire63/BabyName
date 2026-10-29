@@ -42,7 +42,8 @@
     //   l'équipe Apple (dix caractères) + l'identifiant de l'app :
     "NUXT_APPLE_APP_ID": "QMUYZC6YV7.fr.babynamed.app",
     //   les empreintes SHA-256 du certificat Android : Google Play, puis la clé d'envoi
-    // "NUXT_ANDROID_EMPREINTES": "AA:BB:…,CC:DD:…",
+    //   (Play Console → Intégrité de l'app → Signature, relevée le 29/10/2026)
+    "NUXT_ANDROID_EMPREINTES": "AF:94:CD:84:51:B9:9F:BA:A5:75:AC:A9:8D:C9:72:38:B2:6B:A7:D2:59:AD:09:80:72:EE:91:E9:8E:BF:B6:02,CD:D5:5C:E4:8F:93:8B:C1:E1:C6:AC:B9:FE:14:6F:82:AB:92:E6:7B:4D:B1:B1:15:7E:4B:3F:00:38:E3:30:31",
     //   le compte de démonstration des stores : une adresse en .test, que
     //   personne ne peut posséder (son code à six chiffres : secret NUXT_DEMO_CODE)
     "NUXT_DEMO_EMAIL": "demo@babynamed.test",

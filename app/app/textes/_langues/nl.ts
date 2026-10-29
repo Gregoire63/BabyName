@@ -43,8 +43,6 @@ export default {
   'AssistantFiltres.passer': 'Overslaan, ik filter later',
   'BadgesStores.appStore': 'Download babyNamed in de App Store',
   'BadgesStores.googlePlay': 'Ontdek babyNamed op Google Play',
-  'BadgesStores.beta': 'Doe mee aan de Android-bèta van babyNamed',
-  'BadgesStores.betaCourt': 'bèta',
   'BarresPrenom.resume': 'Geboorten per jaar van {debut} tot {fin}, door INSEE afgerond op 5: hoogstens {max}, en {dernier} in {fin}.',
   'BarresPrenom.resumeDecennies': 'Geboorten per decennium van {debut} tot {fin}, volgens INSEE: hoogstens {max}, in de jaren {pic}.',
   'BoutonInstaller.titre': 'De app installeren',

@@ -1,13 +1,11 @@
 /**
  * Les applications mobiles, pour les liens du site (BadgesStores.vue).
  * Mêmes adresses que les pages publiques (scripts/seo.mjs). Vide = pas
- * (encore) publique : le bouton n'apparaît pas. Google Play reste vide tant
- * que l'app n'est qu'en test fermé — la fiche n'existe que pour les testeurs.
+ * (encore) publique : le bouton n'apparaît pas. Les deux fiches sont
+ * publiques depuis le 29/10/2026.
  */
 export const APP_IOS = 'https://apps.apple.com/fr/app/id6821347375'
-export const APP_ANDROID = ''
-/** Tant que la fiche Play n'est pas publique : le groupe des testeurs (bêta). */
-export const ANDROID_BETA = 'https://groups.google.com/g/babynamed-testeurs'
+export const APP_ANDROID = 'https://play.google.com/store/apps/details?id=fr.babynamed.app'
 
 /** Le système du visiteur : iPhone/iPad, Android, ou autre (ordinateur). */
 export function systemeVisiteur(): 'ios' | 'android' | 'autre' {
