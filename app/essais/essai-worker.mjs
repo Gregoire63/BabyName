@@ -161,6 +161,22 @@ dit(moi?.utilisateur?.pseudo === 'Essai' && moi.utilisateur.passkeys === 1,
   dit(JSON.stringify(adresses) === '[200,200,404]',
     `les deux adresses que l’app ouvre répondent, pas leurs voisines (${adresses.join(', ')})`)
 
+  // Le lien court des réseaux (server/routes/app.ts) : une route du Worker,
+  // pas la coquille, qui répond selon l'appareil (essai-lien-app éprouve le
+  // choix lui-même, sans serveur).
+  const lien = ua => fetch(`${BASE}/app`, { redirect: 'manual', headers: { 'user-agent': ua } })
+  const [lIos, lAndroid, lPc] = await Promise.all([
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+  ].map(lien))
+  const ou = r => r.headers.get('location') ?? ''
+  dit([lIos, lAndroid, lPc].every(r => r.status === 302 && r.headers.get('cache-control') === 'no-store')
+      && /^https:\/\/apps\.apple\.com\/app\/id\d+\?ppid=/.test(ou(lIos))
+      && ou(lAndroid).startsWith('https://play.google.com/store/apps/details?id=fr.babynamed.app&')
+      && /\/\?ref=tiktok$/.test(ou(lPc)),
+    `le lien court /app mène l’iPhone à l’App Store, Android à Google Play, l’ordinateur au site, sans cache (${[lIos, lAndroid, lPc].map(r => r.status).join(', ')})`)
+
   // Le compte de démonstration, dans l'app Android : pas d'e-mail, un code fixe.
   const app = await ongletApp(nav, 'android')
   app.page.on('response', r => { if (r.status() >= 500) pannes.push(`${r.status()} ${r.url().replace(BASE, '')}`) })
