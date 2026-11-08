@@ -28,7 +28,7 @@ import { construireRecherche, CLIENT as RECHERCHE_CLIENT } from './recherche.mjs
 import { construireFichesInsee, joli } from './fiches-insee.mjs'
 import { lireInsee } from './insee.mjs'
 import { dessinerCourbe } from './courbe.mjs'
-import { alternatesAccueil, liensAlternate, chargerSensEn, aFicheEn, cheminFicheEn } from './langues.mjs'
+import { alternatesAccueil, liensAlternate, chargerSensEn, aFicheEn, cheminFicheEn, EN_INDEXEE } from './langues.mjs'
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PUBLIC = resolve(RACINE, 'public')
@@ -250,14 +250,19 @@ for (const [slug, e] of HIST) {
 for (const e of pages.values()) e.sort((a, b) => b.n - a.n)
 const aPage = p => pages.has(p.slug)
 /**
- * Fiche MINCE : ni sens, ni origine, ni histoire. Il ne reste que des
- * chiffres (35 naissances en trois ans en médiane) : la page existe pour qui
- * y arrive par un lien, mais on ne la présente pas à Google (noindex, follow)
- * et elle sort du sitemap. Des centaines de pages presque vides pèsent sur
- * tout le site. Une histoire de SEUIL_HISTOIRE naissances, elle, est une
- * page : la courbe d'une génération et ses chiffres.
+ * Fiche MINCE : ni sens, ni origine. Il ne reste que des chiffres (35
+ * naissances en trois ans en médiane), parfois la courbe d'un prénom ancien :
+ * la page existe pour qui y arrive par un lien, mais on ne la présente pas à
+ * Google (noindex, follow) et elle sort du sitemap. Des centaines de pages
+ * presque vides pèsent sur tout le site.
+ *
+ * Du 14/10 au 08/11/2026, une histoire de SEUIL_HISTOIRE naissances depuis
+ * 1900 suffisait à indexer une fiche. Après la chute de Google du 19/10 (voir
+ * EN_INDEXEE, scripts/langues.mjs), retour à la règle d'avant : une courbe et
+ * des chiffres, sans un mot sur le prénom, ne font pas une page pour Google.
+ * SEUIL_HISTOIRE décide toujours qu'un prénom ancien a sa fiche statique.
  */
-const mince = p => !p.m && !p.g.length && totalHistoire(p) < SEUIL_HISTOIRE
+const mince = p => !p.m && !p.g.length
 /**
  * Ouverture PROGRESSIVE a Google. Un domaine neuf qui pousse 6 600 fiches d'un
  * coup est crawle lentement, et la plupart restent « detectees, non
@@ -1395,7 +1400,8 @@ ${cta(p.horsCatalogue ? null : p)}
 `
   return page({
     chemin: url(p), titre, description, corps, indexer: indexable(p), genre: genreDe(p.sexe), champ: champOrigine(p.g[0]), classe: 'fiche', sommaire: liensSommaire,
-    alternates: aFicheEn(p, SENS_EN) ? [{ hreflang: 'fr', chemin: url(p) }, { hreflang: 'en', chemin: cheminFicheEn(p.slug) }, { hreflang: 'x-default', chemin: url(p) }] : [],
+    // Pas de hreflang vers une fiche anglaise en noindex (EN_INDEXEE).
+    alternates: EN_INDEXEE && aFicheEn(p, SENS_EN) ? [{ hreflang: 'fr', chemin: url(p) }, { hreflang: 'en', chemin: cheminFicheEn(p.slug) }, { hreflang: 'x-default', chemin: url(p) }] : [],
     fil: [{ n: `Lettre ${lettre.toUpperCase()}`, u: `/prenoms/lettre/${lettre}/` }, { n: p.l, u: url(p) }]
   })
 }

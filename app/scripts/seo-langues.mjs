@@ -37,7 +37,7 @@ import { createHash } from 'node:crypto'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dessinerCourbe } from './courbe.mjs'
-import { ACCUEILS, alternatesAccueil, liensAlternate, chargerSensEn, aFicheEn, cheminFicheEn, EN_NOMS } from './langues.mjs'
+import { ACCUEILS, alternatesAccueil, liensAlternate, chargerSensEn, aFicheEn, cheminFicheEn, EN_NOMS, EN_INDEXEE } from './langues.mjs'
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PUBLIC = resolve(RACINE, 'public')
@@ -251,7 +251,7 @@ const champOrigine = o => {
  * contenu du pied de page.
  */
 function page({ code, chemin, titre, description, corps, ariane, jsonld = [], champ = 'brume', alternates = [],
-  logo, bouton, rangee = '', pied, classe = '', sommaire = '' }) {
+  logo, bouton, rangee = '', pied, classe = '', sommaire = '', indexer = true }) {
   const canon = SITE + chemin
   const intl = ACCUEILS.find(a => a.code === code).intl
   const ld = [{
@@ -260,10 +260,10 @@ function page({ code, chemin, titre, description, corps, ariane, jsonld = [], ch
   }, ...jsonld]
   return `<!doctype html>
 <html lang="${code}"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">${indexer ? '' : '\n<meta name="robots" content="noindex, follow">'}
 <title>${esc(titre)}</title>
 <meta name="description" content="${esc(description)}">
-<link rel="canonical" href="${canon}">${alternates.length ? '\n' + liensAlternate(SITE, alternates) : ''}
+<link rel="canonical" href="${canon}">${indexer && alternates.length ? '\n' + liensAlternate(SITE, alternates) : ''}
 <meta property="og:type" content="website"><meta property="og:site_name" content="${MARQUE}"><meta property="og:locale" content="${intl.replace('-', '_')}">
 <meta property="og:title" content="${esc(titre)}"><meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${canon}"><meta property="og:image" content="${SITE}/icone-512.png">
@@ -562,8 +562,9 @@ ${magasins('en')}
 <p class="doute">No ads. Your partner joins with a simple link, nothing to install. <a href="/en/">How ${MARQUE} works</a>.</p>
 </section>`
 
+// Toute la section des prénoms en anglais : en noindex tant que EN_INDEXEE est faux.
 const pageEn = ({ rubrique = null, genre = 'girls', ...o }) => page({
-  code: 'en', logo: EN_NOMS, bouton: { texte: 'Pick together', href: '/en/' },
+  code: 'en', logo: EN_NOMS, bouton: { texte: 'Pick together', href: '/en/' }, indexer: EN_INDEXEE,
   rangee: rangeeEn(rubrique, genre), pied: PIED_EN, ...o
 })
 
@@ -891,7 +892,8 @@ ${languesPied(code)}`
 {
   const sm = resolve(SORTIE, 'sitemap.xml')
   let x = readFileSync(sm, 'utf8')
-  const nouvelles = [...ecrites.keys()].filter(u => !x.includes(`<loc>${SITE}${u}</loc>`))
+  // Une page en noindex n'a rien à faire au sitemap (EN_INDEXEE).
+  const nouvelles = [...ecrites.keys()].filter(u => (EN_INDEXEE || !u.startsWith(EN_NOMS)) && !x.includes(`<loc>${SITE}${u}</loc>`))
   x = x.replace('</urlset>', () => nouvelles.map(u => `<url><loc>${SITE}${u}</loc><lastmod>${MAJ}</lastmod></url>`).join('\n') + '\n</urlset>')
   writeFileSync(sm, x)
 
@@ -913,5 +915,5 @@ ${languesPied(code)}`
     for (const [u, html] of ecrites) e.urls[u] = createHash('sha1').update(html).digest('hex').slice(0, 16)
     writeFileSync(fe, JSON.stringify(e, null, 1))
   }
-  console.log(`[seo-langues] ${ACCUEILS.length - 1} accueils (${ACCUEILS.filter(a => a.code !== 'fr').map(a => a.code).join(', ')}), ${EN.length} fiches anglaises, ${listesEn.length + 1} listes anglaises ; sitemap +${nouvelles.length} URL ; liens internes vérifiés`)
+  console.log(`[seo-langues] ${ACCUEILS.length - 1} accueils (${ACCUEILS.filter(a => a.code !== 'fr').map(a => a.code).join(', ')}), ${EN.length} fiches anglaises, ${listesEn.length + 1} listes anglaises${EN_INDEXEE ? '' : ' (noindex, hors sitemap)'} ; sitemap +${nouvelles.length} URL ; liens internes vérifiés`)
 }

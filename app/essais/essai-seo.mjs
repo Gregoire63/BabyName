@@ -11,8 +11,9 @@
  *  - le bouton des fiches est en nofollow, et chaque page mène aux mentions
  *    légales ;
  *  - un titre ne promet pas de signification quand il n'y en a pas ;
- *  - une fiche mince (ni sens, ni origine, ni 1 000 naissances depuis 1900)
- *    est en noindex et hors du sitemap, et TOUTES les autres sont indexées ;
+ *  - une fiche mince (ni sens, ni origine, même avec 1 000 naissances depuis
+ *    1900 : règle du 08/11/2026) est en noindex et hors du sitemap, et TOUTES
+ *    les autres sont indexées ;
  *  - l'histoire depuis 1900, chiffres recalculés ici depuis le fichier de
  *    l'INSEE : Martine (rare aujourd'hui) et Josette (hors du catalogue de
  *    l'app) ont leur fiche indexée, leur génération et des proches de leur
@@ -100,9 +101,10 @@ for (const m of sitemap.matchAll(/<loc>[^<]*\/prenom\/([a-z-]+)\/<\/loc>/g)) {
 }
 dit(!!sansSens && !/<title>[^<]*signification/.test(sansSens),
   'une fiche sans sens établi ne promet pas de « signification » dans son titre')
-// Ni sens, ni origine, ni histoire : la fiche existe, mais n'est ni indexée
-// ni au sitemap. Une histoire de 1 000 naissances depuis 1900, elle, suffit :
-// la règle se vérifie sur TOUTES les fiches, dans les deux sens.
+// Ni sens, ni origine : la fiche existe, mais n'est ni indexée ni au sitemap.
+// Depuis le 08/11/2026, une histoire de 1 000 naissances depuis 1900 ne suffit
+// plus (scripts/seo.mjs, mince) : la règle se vérifie sur TOUTES les fiches,
+// dans les deux sens.
 const { readdirSync } = await import('node:fs')
 const SEUIL_HISTOIRE = 1000
 const ecarts = []
@@ -113,14 +115,15 @@ for (const s of readdirSync(join(sortie, 'prenom'))) {
   const compte = Number((h.match(/L’INSEE compte <b>([\d\u202f\u00a0 ]+)<\/b>/)?.[1] ?? '0').replace(/\D/g, ''))
   const noindex = /<meta name="robots" content="noindex, follow">/.test(h)
   const auSitemap = sitemap.includes(`/prenom/${s}/<`)
-  const attendu = sansRien && compte < SEUIL_HISTOIRE ? 'mince' : 'pleine'
+  const attendu = sansRien ? 'mince' : 'pleine'
   if (attendu === 'mince') minces++
   if (sansRien && compte >= SEUIL_HISTOIRE && !parHistoire) parHistoire = s
   if ((attendu === 'mince') !== noindex || noindex === auSitemap) ecarts.push(`${s} (${compte})`)
 }
 dit(minces > 100 && ecarts.length === 0,
-  `les fiches minces (ni sens, ni origine, moins de ${SEUIL_HISTOIRE} naissances depuis 1900 : ${minces}) sont en noindex et hors du sitemap, toutes les autres indexées et au sitemap (${ecarts.slice(0, 5).join(', ') || 'aucun écart'})`)
-dit(!!parHistoire, `une fiche sans sens ni origine mais avec son histoire est indexée (${parHistoire})`)
+  `les fiches minces (ni sens, ni origine : ${minces}) sont en noindex et hors du sitemap, toutes les autres indexées et au sitemap (${ecarts.slice(0, 5).join(', ') || 'aucun écart'})`)
+dit(!!parHistoire && /<meta name="robots" content="noindex, follow">/.test(lire(`prenom/${parHistoire}/index.html`)),
+  `une fiche sans sens ni origine reste en noindex, même avec ${SEUIL_HISTOIRE} naissances depuis 1900 (${parHistoire})`)
 dit(!/noindex/.test(louise), 'une fiche pleine reste indexable')
 
 // ---------- l'histoire depuis 1900 ------------------------------------------

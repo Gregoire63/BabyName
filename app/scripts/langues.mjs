@@ -52,3 +52,22 @@ export function chargerSensEn(racine) {
 export const aFicheEn = (tete, sensEn) => Boolean(tete && tete.slug && !tete.hf && sensEn[tete.slug])
 export const EN_NOMS = '/en/french-names/'
 export const cheminFicheEn = slug => `${EN_NOMS}${slug}/`
+
+/**
+ * La section anglaise des prénoms (EN_NOMS : fiches, listes, portail) est-elle
+ * présentée à Google ? NON depuis le 08/11/2026.
+ *
+ * Le 19/10, les impressions Google sont tombées en un jour de 540-960 à une
+ * quinzaine, puis à 3-7 en novembre. Sans action manuelle, pages toujours
+ * indexées, le site ne sortait même plus sur sa propre marque : c'est tout le
+ * domaine qui a été rétrogradé. La section anglaise (2 399 fiches mises en
+ * ligne d'un coup le 12/10, traduites des fiches françaises) est le contenu le
+ * plus « fait à la chaîne » du site.
+ *
+ * Ses pages restent en ligne et liées (noindex, follow), hors du sitemap, et
+ * plus aucun hreflang entre une fiche française et sa version anglaise, des
+ * deux côtés : annoncer une page en noindex est une erreur pour Google. Les
+ * pages qui présentent l'app dans chaque langue (ACCUEILS) restent indexées.
+ * Pour rouvrir : true, quand Google sera revenu.
+ */
+export const EN_INDEXEE = false
