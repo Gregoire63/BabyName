@@ -199,7 +199,7 @@ ancienne = 5 ans plus tôt ; prénoms gardés à partir de 5 naissances.
 | gb-nir | Irlande du Nord | NISRA (accents non publiés) | 2023-2025 | OGL |
 | ie | Irlande | CSO, VSA50/VSA60 | 2023-2025 | CC BY 4.0 |
 | ca-on | Ontario | data.ontario.ca | 2022-2024 | OGL-Ontario |
-| ca-bc | Colombie-Britannique | BC Vital Statistics | 2021-2023 | OGL-BC |
+| ca-bc | Colombie-Britannique | BC Vital Statistics (baby-names-trends-f/m-2025.csv, publiés le 14/01/2026, récupérés le 08/11/2026) | 2023-2025 | OGL-BC |
 | at | Autriche | Statistik Austria | 2023-2025 | CC BY 4.0 |
 | se | Suède | SCB (arrêté après 2022) | 2020-2022 | CC BY 4.0 |
 | no | Norvège | SSB 10467 (liste partielle ≥ 200 porteurs) | 2023-2025 | CC BY 4.0 |

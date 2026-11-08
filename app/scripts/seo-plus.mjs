@@ -29,6 +29,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSy
 import { createHash } from 'node:crypto'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { tendancePublique, projeter, totauxRecents, erreursPassees, FENETRE, SEUIL_RECENT, BORNE } from './tendance.mjs'
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PUBLIC = resolve(RACINE, 'public')
@@ -36,7 +37,7 @@ const SORTIE = process.env.SEO_SORTIE ? resolve(process.env.SEO_SORTIE) : PUBLIC
 const SITE = (process.env.NUXT_PUBLIC_SITE_URL || 'https://babynamed.fr').replace(/\/$/, '')
 const MARQUE = 'babyNamed'
 const PRIX = (process.env.NUXT_PUBLIC_PRIX_LISTE || '6 €').trim()
-const MAJ = '2026-09-28'
+const MAJ = '2026-11-08'
 const OUTIL = '/tester-prenom-nom-de-famille/'
 const CADEAU = '/idee-cadeau-futurs-parents/'
 
@@ -52,8 +53,11 @@ const ORIGINE_LIB = o => o === 'moderne-inventé' ? 'moderne' : o
 // Une entree par fiche que seo.mjs a ecrite : la graphie la plus donnee.
 const tetes = new Map()
 for (let k = 0; k < d.n; k++) {
+  const sr = c.sr ? c.sr[k] : null
   const p = {
-    l: c.l[k], slug: slugDe(c.l[k]), sexe: d.sexe[c.s[k]], n: c.n[k], t: c.t[k],
+    l: c.l[k], slug: slugDe(c.l[k]), sexe: d.sexe[c.s[k]], n: c.n[k],
+    // La tendance des pages, sur les dernières années (scripts/tendance.mjs).
+    t: tendancePublique({ n: c.n[k], t: c.t[k], sr }), sr,
     m: c.m[k], g: c.g[k].map(x => d.origines[x]), q: !!(c.q && c.q[k])
   }
   if (!p.slug || !existsSync(resolve(SORTIE, 'prenom', p.slug, 'index.html'))) continue
@@ -140,7 +144,7 @@ const tend = p => {
 
 function tableau(xs, legende, cols = 'standard') {
   const tete = cols === 'projection'
-    ? `<th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="n">${tete2(`Rang ${AN1 - 2}-${AN1}`, 'Rang')}</th><th scope="col" class="n">${tete2('Naissances/an en 2027', 'En 2027', 'Naissances par an en 2027')}</th>`
+    ? `<th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="n">${tete2(`Rang ${AN1}`, 'Rang')}</th><th scope="col" class="n">${tete2('Naissances/an en 2027', 'En 2027', 'Naissances par an en 2027')}</th>`
     : `<th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="o">Origine</th><th scope="col" class="n">${tete2('Naissances', 'Naiss.')}</th><th scope="col" class="n">Tendance</th>`
   const ligne = (x, i) => {
     const nom = `<td><a href="${url(x)}"><b>${esc(x.l)}</b></a></td>`
@@ -162,7 +166,7 @@ function ecrire(chemin, html) {
   ecrites.set(chemin, html)
 }
 
-const LEGENDE = `Naissances en France de ${AN1 - 2} à ${AN1} (INSEE) ; tendance : évolution moyenne par an sur les dernières années (« – » sous ${SEUIL_TENDANCE} naissances, l’arrondi INSEE ne permet pas de la calculer).`
+const LEGENDE = `Naissances en France de ${AN1 - 2} à ${AN1} (INSEE) ; tendance : évolution moyenne par an de ${AN1 - FENETRE + 1} à ${AN1}, sur dix ans pour un prénom donné moins de ${SEUIL_RECENT} fois (« – » sous ${SEUIL_TENDANCE} naissances, l’arrondi INSEE ne permet pas de la calculer).`
 
 // ---------------------------------------------------------------- listes
 const listes = []
@@ -171,36 +175,53 @@ const motSexe = { f: 'filles', m: 'garcons' }
 const fille = { f: 'fille', m: 'garçon' }
 
 // 1. Prénoms 2027 : projection.
-//    Base : naissances moyennes sur 3 ans (annee du milieu = AN1 - 1),
-//    prolongees de la tendance annuelle jusqu'en 2027, tendance bornee pour
-//    qu'un +60 %/an sur 150 bebes ne projette pas un prenom inconnu dans le
-//    top. Seulement les prenoms assez donnes pour que la pente ait un sens.
+//    Base : les naissances de la derniere annee publiee (AN1), prolongees de
+//    la tendance des FENETRE dernieres annees (scripts/tendance.mjs), bornee
+//    pour qu'un +60 %/an sur 150 bebes ne projette pas un prenom inconnu dans
+//    le top, et amortie. Jusqu'au 08/11/2026 : la moyenne des trois ans et la
+//    pente sur dix ans, qui annoncaient Alba n°1 en 2027 alors qu'elle
+//    baissait en 2025 ; rejouee sur le passe, cette methode se trompait plus
+//    que « le meme chiffre que l'annee d'avant ».
+//    Seulement les prenoms assez donnes pour que la pente ait un sens.
 const CIBLE = 2027
+const HORIZON = CIBLE - AN1
+// Les naissances totales de AN1 (la courbe est pour 10 000 bebes) ; a defaut,
+// la part de AN1 dans les trois ans, a natalite constante.
+const TOTAUX = totauxRecents(T)
+const naissancesAN1 = p => !Array.isArray(p.sr) ? p.n / 3
+  : TOTAUX ? p.sr[p.sr.length - 1] * TOTAUX[2] / 1e4
+    : p.n * p.sr[p.sr.length - 1] / Math.max(1e-9, p.sr.slice(-3).reduce((a, b) => a + b, 0))
+const pctErreur = x => Math.round(x * 100)
+// « quatre ans », pas « 4 ans », en début de phrase comme ailleurs.
+const enLettres = n => ({ 2: 'deux', 3: 'trois', 4: 'quatre', 5: 'cinq', 6: 'six' })[n] ?? String(n)
+const majuscule1 = s => s.charAt(0).toUpperCase() + s.slice(1)
 for (const s of ['f', 'm']) {
   // Sans les mixtes : leurs naissances sont celles des deux sexes reunis,
   // Charlie serait compte deux fois (voir /prenoms/mixtes/).
   const pool = T.filter(p => p.sexe === s && p.n >= 150 && Number.isFinite(p.t))
-  const actuel = [...pool].sort((a, b) => b.n - a.n)
-  actuel.forEach((p, i) => { p[`rang_${s}`] = i + 1 })
-  const proj = pool.map(p => {
-    // Tendance bornee puis amortie d'annee en annee (x 0,7) : les envolees ralentissent.
-    const t = Math.max(-25, Math.min(25, p.t)) / 100
-    let proj = p.n / 3
-    for (let i = 0; i < CIBLE - (AN1 - 1); i++) proj *= 1 + t * Math.pow(0.7, i)
-    return { ...p, rangActuel: p[`rang_${s}`], proj }
-  }).sort((a, b) => b.proj - a.proj).slice(0, 50)
+  const base = new Map(pool.map(p => [p, naissancesAN1(p)]))
+  ;[...pool].sort((a, b) => base.get(b) - base.get(a)).forEach((p, i) => { p[`rang_${s}`] = i + 1 })
+  const proj = pool.map(p => ({ ...p, rangActuel: p[`rang_${s}`], proj: projeter(base.get(p), p.t, HORIZON) }))
+    .sort((a, b) => b.proj - a.proj).slice(0, 50)
   proj.forEach(p => { p.entree = p.rangActuel > 50 })
   const entrees = proj.filter(p => p.entree)
+  // La meme methode, rejouee sur les cinq derniers millesimes : ce qu'elle vaut.
+  const erreurs = erreursPassees(T.filter(p => p.sexe === s), { horizon: HORIZON })
+  const fourchette = erreurs.length
+    ? `de ${pctErreur(Math.min(...erreurs))} à ${pctErreur(Math.max(...erreurs))} %`
+    : null
+  if (!fourchette) throw new Error(`prénoms ${CIBLE} : la projection n'a pas pu être rejouée sur le passé`)
   const chemin = `/prenoms/${CIBLE}/${motSexe[s]}/`
   listes.push({
     chemin, sexe: s, base: `/prenoms/${CIBLE}/`,
     titre: `Prénoms ${fille[s]} ${CIBLE} : le top 50 projeté d’après l’INSEE`,
-    description: `Les 50 prénoms de ${nomSexe[s]} qui devraient être les plus donnés en ${CIBLE}, projetés à partir des naissances INSEE et de leur tendance. ${entrees.length} nouveaux venus dans le top.`,
+    description: `Les 50 prénoms de ${nomSexe[s]} qui devraient être les plus donnés en ${CIBLE}, projetés à partir des naissances INSEE ${AN1} et de leur tendance récente. ${entrees.length} nouveaux venus dans le top.`,
     h1: `Prénoms de ${nomSexe[s]} en ${CIBLE}`,
     sous: `Le top 50 attendu en ${CIBLE}, calculé et non choisi : ${entrees.length ? `${entrees.slice(0, 3).map(p => p.l).join(', ')}${entrees.length > 3 ? '…' : ''} y entrent` : 'peu de changements attendus'}.`,
-    avant: entrees.length ? `<section class="bloc r"><h2>Ils entrent dans le top 50</h2><ul class="puces">${entrees.map(p => `<li><a href="${url(p)}">${esc(p.l)} <small>${nf(p.rangActuel)}ᵉ aujourd’hui</small></a></li>`).join('')}</ul></section>` : '',
-    tableau: tableau(proj, `Projection ${CIBLE} : naissances moyennes ${AN1 - 2}-${AN1} (INSEE) prolongées de la tendance annuelle de chaque prénom, bornée à ±25 % et amortie d’année en année. Rang actuel : parmi les prénoms de ${nomSexe[s]} donnés au moins 150 fois en trois ans. Les prénoms mixtes, comptés pour les deux sexes par l’INSEE, sont à part.`, 'projection'),
-    apres: `<section class="bloc r"><h2>Comment c’est calculé</h2><p>On part du nombre de bébés ayant reçu chaque prénom en France de ${AN1 - 2} à ${AN1} (fichier des prénoms de l’INSEE), et de sa tendance annuelle. On prolonge cette tendance jusqu’en ${CIBLE}, bornée et amortie : un prénom qui s’envole ralentit presque toujours. Les prénoms mixtes (Charlie, Eden…) sont comptés à part, sur la <a href="/prenoms/mixtes/">page des prénoms mixtes</a>, parce que l’INSEE les compte pour les deux sexes. Ce n’est pas une prédiction au bébé près, mais c’est un calcul, refait à chaque publication de l’INSEE, pas une sélection au goût du jour.</p>
+    avant: entrees.length ? `<section class="bloc r"><h2>Ils entrent dans le top 50</h2><ul class="puces">${entrees.map(p => `<li><a href="${url(p)}">${esc(p.l)} <small>${nf(p.rangActuel)}ᵉ en ${AN1}</small></a></li>`).join('')}</ul></section>` : '',
+    tableau: tableau(proj, `Projection ${CIBLE} : naissances ${AN1} (INSEE) prolongées de l’évolution moyenne par an de chaque prénom de ${AN1 - FENETRE + 1} à ${AN1}, bornée à ±${BORNE} % et amortie d’année en année, à natalité constante. Rang ${AN1} : parmi les prénoms de ${nomSexe[s]} donnés au moins ${SEUIL_RECENT} fois de ${AN1 - 2} à ${AN1}. Les prénoms mixtes, comptés pour les deux sexes par l’INSEE, sont à part.`, 'projection'),
+    apres: `<section class="bloc r"><h2>Comment c’est calculé</h2><p>On part du nombre de bébés ayant reçu chaque prénom en France en ${AN1} (fichier des prénoms de l’INSEE), et de son évolution moyenne par an de ${AN1 - FENETRE + 1} à ${AN1}. On prolonge cette évolution jusqu’en ${CIBLE}, bornée et amortie : un prénom qui s’envole ralentit presque toujours. ${majuscule1(enLettres(FENETRE))} ans et pas dix : un prénom qui retombe doit compter comme tel, même après des années d’envolée. Les prénoms mixtes (Charlie, Eden…) sont comptés à part, sur la <a href="/prenoms/mixtes/">page des prénoms mixtes</a>, parce que l’INSEE les compte pour les deux sexes.</p>
+<p>Ce que vaut ce calcul : rejoué sur les ${enLettres(erreurs.length)} derniers millésimes de l’INSEE, en se plaçant chaque fois ${enLettres(HORIZON)} ans plus tôt, l’écart médian entre le calcul et la réalité a été ${fourchette} selon les années, sur les 50 prénoms de ${nomSexe[s]} les plus donnés. Un ordre de grandeur, pas une prédiction au bébé près ; mais un calcul, refait à chaque publication de l’INSEE, pas une sélection au goût du jour.</p>
 <p class="doute">Vous cherchez un prénom qui ne sera pas dans toute la classe ? Regardez surtout la colonne « Rang » : un prénom au 40e rang aujourd’hui qui monte vite sera probablement porté par plusieurs enfants de la même école.</p></section>`
   })
 }

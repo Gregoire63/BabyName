@@ -49,7 +49,7 @@ PAYS = {
     "ch":     ("Suisse", "Francophonie", ""),
     "qc":     ("Québec", "Francophonie", "filles et garçons confondus, accents ignorés"),
     "ca-on":  ("Ontario", "Amérique du Nord", ""),
-    "ca-bc":  ("Colombie-Britannique", "Amérique du Nord", "dernières données publiées : 2021-2023"),
+    "ca-bc":  ("Colombie-Britannique", "Amérique du Nord", ""),
     "us":     ("États-Unis", "Amérique du Nord", ""),
     "gb-eaw": ("Angleterre et pays de Galles", "Europe", ""),
     "gb-sct": ("Écosse", "Europe", "accents non publiés"),

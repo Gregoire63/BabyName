@@ -29,6 +29,7 @@ import { construireFichesInsee, joli } from './fiches-insee.mjs'
 import { lireInsee } from './insee.mjs'
 import { dessinerCourbe } from './courbe.mjs'
 import { alternatesAccueil, liensAlternate, chargerSensEn, aFicheEn, cheminFicheEn, EN_INDEXEE } from './langues.mjs'
+import { tendancePublique, FENETRE, SEUIL_RECENT } from './tendance.mjs'
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PUBLIC = resolve(RACINE, 'public')
@@ -99,7 +100,10 @@ const tous = []
 for (let k = 0; k < d.n; k++) {
   tous.push({
     k, l: c.l[k], slug: slugDe(c.l[k]), sexe: d.sexe[c.s[k]],
-    f: c.f[k], n: c.n[k], t: c.t[k], p: c.p[k], o: c.o[k], q: !!(c.q && c.q[k]),
+    // La tendance des pages : sur les dernières années (scripts/tendance.mjs),
+    // pas les dix ans du catalogue, qui ratent un prénom qui retombe.
+    f: c.f[k], n: c.n[k], t: tendancePublique({ n: c.n[k], t: c.t[k], sr: c.sr ? c.sr[k] : null }),
+    p: c.p[k], o: c.o[k], q: !!(c.q && c.q[k]),
     y: c.y[k], i: c.i[k], gp: c.gp ? c.gp[k] : k,
     g: c.g[k].map(x => d.origines[x]), m: c.m[k], cf: c.cf ? c.cf[k] ?? null : null,
     dm: c.dm[k] ?? [], sr: c.sr ? c.sr[k] : null, rv: !!c.rv[k],
@@ -1430,7 +1434,7 @@ function tableau(xs, colonne = 'tendance', ligne = null) {
   // dans la page, le CSS choisit.
   const tend = tendanceHtml
   const legende = `Naissances en France de ${AN1 - 2} à ${AN1} (INSEE)${colonne === 'tendance'
-    ? ' ; tendance : évolution moyenne par an sur les dernières années.' : ' ; originalité sur 100 : plus elle est haute, plus le prénom est rare.'}`
+    ? ` ; tendance : évolution moyenne par an de ${AN1 - FENETRE + 1} à ${AN1} (sur dix ans pour un prénom donné moins de ${SEUIL_RECENT} fois).` : ' ; originalité sur 100 : plus elle est haute, plus le prénom est rare.'}`
   return `<div class="tableau r"><table><caption>${legende}</caption>
 <thead><tr><th scope="col" class="rg">#</th><th scope="col">Prénom</th><th scope="col" class="o">Origine</th><th scope="col" class="n"><span class="long">Naissances</span><abbr class="court" title="Naissances">Naiss.</abbr></th><th scope="col" class="n">${colonne === 'tendance' ? 'Tendance' : '<span class="long">Originalité</span><abbr class="court" title="Originalité sur 100">Orig.</abbr>'}</th></tr></thead><tbody>
 ${xs.map((x, i) => `<tr><td class="rg">${i + 1}</td><td><a href="${url(x)}"><b>${esc(x.l)}</b></a>${ligne ? `<small>${esc(ligne(x))}</small>` : ''}</td><td class="o">${esc(liste(x.g.map(ORIGINE_LIB)))}</td><td class="n">${x.hf ? '<small title="Donné au Québec, en Belgique ou en Suisse, pas en France">ailleurs</small>' : nf(x.n)}</td><td class="n">${x.hf ? '' : colonne === 'tendance' ? tend(x.t) : `${nf(x.o)}<span class="v-long">/100</span>`}</td></tr>`).join('')}
@@ -1455,7 +1459,7 @@ for (const [s, mot] of [['f', 'filles'], ['m', 'garcons']]) {
     h1: `Prénoms de ${nom} qui montent`,
     sous: `Les ${tend.length} prénoms de ${nom} qui progressent le plus en France.`,
     phrase: `des prénoms de ${nom} qui montent`,
-    intro: `Classés par progression annuelle sur les dernières années de naissances INSEE, parmi les prénoms donnés au moins 150 fois de ${AN1 - 2} à ${AN1}. Un prénom qui monte vite peut devenir courant d’ici l’entrée à l’école : regardez aussi le nombre de naissances.`,
+    intro: `Classés par évolution moyenne par an de ${AN1 - FENETRE + 1} à ${AN1} (naissances INSEE), parmi les prénoms donnés au moins 150 fois de ${AN1 - 2} à ${AN1}. Un prénom qui monte vite peut devenir courant d’ici l’entrée à l’école : regardez aussi le nombre de naissances.`,
     xs: tend, col: 'tendance'
   })
   // Rares mais portables : originaux, avec un sens connu, pas des graphies d'un seul foyer.

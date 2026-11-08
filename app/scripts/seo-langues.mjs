@@ -38,6 +38,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dessinerCourbe } from './courbe.mjs'
 import { ACCUEILS, alternatesAccueil, liensAlternate, chargerSensEn, aFicheEn, cheminFicheEn, EN_NOMS, EN_INDEXEE } from './langues.mjs'
+import { tendancePublique, FENETRE, SEUIL_RECENT } from './tendance.mjs'
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PUBLIC = resolve(RACINE, 'public')
@@ -315,7 +316,9 @@ const slugDe = s => sansAccent(s).replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '')
 const tous = []
 for (let k = 0; k < d.n; k++) {
   tous.push({
-    k, l: c.l[k], slug: slugDe(c.l[k]), sexe: d.sexe[c.s[k]], f: c.f[k], n: c.n[k], t: c.t[k], p: c.p[k],
+    // La même tendance que les pages françaises (scripts/tendance.mjs).
+    k, l: c.l[k], slug: slugDe(c.l[k]), sexe: d.sexe[c.s[k]], f: c.f[k], n: c.n[k],
+    t: tendancePublique({ n: c.n[k], t: c.t[k], sr: c.sr ? c.sr[k] : null }), p: c.p[k],
     o: c.o[k], q: !!(c.q && c.q[k]), y: c.y[k], i: c.i[k], gp: c.gp ? c.gp[k] : k,
     g: c.g[k].map(x => d.origines[x]), m: c.m[k], cf: c.cf ? c.cf[k] ?? null : null,
     sr: c.sr ? c.sr[k] : null, rv: !!c.rv[k], hf: !!c.hf?.[k]
@@ -467,7 +470,7 @@ for (const s of ['f', 'm']) {
     description: `The ${tend.length} French ${s === 'f' ? 'girl' : 'boy'} names rising fastest, calculated from INSEE birth figures up to ${AN1}: not a trendy pick, a measurement.`,
     h1: `French ${s === 'f' ? 'girl' : 'boy'} names on the rise`,
     sous: `The ${tend.length} ${s === 'f' ? 'girl' : 'boy'} names growing fastest in France.`,
-    note: `Ranked by average yearly growth over recent years of INSEE birth figures, among names given at least 150 times from ${AN1 - 2} to ${AN1}.`
+    note: `Ranked by average yearly change from ${AN1 - FENETRE + 1} to ${AN1} (INSEE birth figures), among names given at least 150 times from ${AN1 - 2} to ${AN1}.`
   })
   const pop = tetes.filter(x => sexeOk(x, s) && !x.hf).sort((a, b) => b.n - a.n).slice(0, 100)
   listesEn.push({
@@ -531,7 +534,7 @@ const listeDe = (type, s) => listesEn.find(L => L.type === type && (!s || L.sexe
 
 /** Le classement : le tableau des listes françaises, en anglais. */
 function tableau(xs, genre) {
-  return `<div class="tableau r"><table><caption>Births in France from ${AN1 - 2} to ${AN1} (INSEE); trend: average change per year over recent years (“–” under ${SEUIL_TENDANCE} births: INSEE rounding makes it meaningless).</caption>
+  return `<div class="tableau r"><table><caption>Births in France from ${AN1 - 2} to ${AN1} (INSEE); trend: average change per year from ${AN1 - FENETRE + 1} to ${AN1}, over ten years for names given fewer than ${SEUIL_RECENT} times (“–” under ${SEUIL_TENDANCE} births: INSEE rounding makes it meaningless).</caption>
 <thead><tr><th scope="col" class="rg">#</th><th scope="col">Name</th><th scope="col" class="o">Origin</th><th scope="col" class="n">Births</th><th scope="col" class="n">Trend</th></tr></thead><tbody>
 ${xs.map((x, i) => {
   const lien = enAnglais(x) ? `<a href="${cheminFicheEn(x.slug)}"><b>${esc(x.l)}</b></a>` : `<a href="/prenom/${x.slug}/" hreflang="fr"><b>${esc(x.l)}</b></a>`

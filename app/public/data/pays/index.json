@@ -127,18 +127,18 @@
    "licence": "Open Government Licence – British Columbia (bc-oglbc), réutilisation commerciale autorisée avec attribution",
    "url": "https://open.canada.ca/data/en/dataset/bfcdd4d7-056b-4069-a09e-5dbda4d11841",
    "annees": [
-    2021,
-    2023
+    2023,
+    2025
    ],
    "seuil": "prénoms donnés au moins 5 fois par an",
    "par_sexe": true,
-   "note": "dernières données publiées : 2021-2023",
+   "note": "",
    "total": {
-    "f": 39699,
-    "m": 44537
+    "f": 41588,
+    "m": 45551
    },
-   "prenoms": 2029,
-   "nouveaux": 480
+   "prenoms": 2148,
+   "nouveaux": 543
   },
   {
    "code": "us",
