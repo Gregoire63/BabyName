@@ -17,12 +17,14 @@
  *    - ou un prénom CONNU, dont la courbe et les chiffres font à eux seuls
  *      une page : SEUIL_CONNU naissances en trois ans, un pic de PIC_CONNU
  *      pour 10 000, ou HISTOIRE_CONNUE naissances depuis 1900 (Josette).
+ *    - ou une fiche que Google MONTRAIT avant la chute (FICHES_VUES : toutes
+ *      les fiches de l'export Search Console du 16/11, 3 mois) : une page
+ *      qui a fait ses preuves ne sort pas, même rare (Cathaleya, Daenerys).
  *    Les autres restent en ligne, liées, en noindex, follow, hors sitemap :
- *    les fiches qui n'ont qu'une origine et quelques naissances (Cathaleya :
- *    25 en trois ans, sans sens), les sens incertains d'un prénom rare, les
- *    prénoms donnés moins de cinq fois par an. Mesuré le 16/11 sur l'export
- *    Search Console (3 mois, 1 000 pages les plus vues) : ~30 % de fiches
- *    indexées en moins, ~11 % des impressions qu'elles avaient reçues.
+ *    les fiches qui n'ont qu'une origine et quelques naissances, les sens
+ *    incertains d'un prénom rare, les prénoms donnés moins de cinq fois par
+ *    an, quand Google ne les a jamais montrées. Environ 1 900 fiches sortent,
+ *    dont aucune n'avait d'impression dans l'export.
  *
  * 2. TITRES. Toutes les fiches s'appelaient « X : signification, origine et
  *    popularité du prénom ». Le titre dit maintenant ce que la fiche apporte :
@@ -36,6 +38,8 @@ export const SEUIL_CONNU = 150
 export const PIC_CONNU = 2
 export const HISTOIRE_CONNUE = 5000
 export const TITRE_MAX = 65
+/** Les fiches que Google montrait (scripts/donnees/fiches-vues-google.json). */
+export const FICHES_VUES_FICHIER = 'scripts/donnees/fiches-vues-google.json'
 
 /**
  * Un sens qui commence par une relation (« forme féminine de Martin : voué à
@@ -58,15 +62,15 @@ export function lireSens(m) {
  * p : { m (sens), g (origines), cf (confiance du sens : 0 basse, 1 moyenne,
  * 2 haute), n (naissances sur trois ans) } ; pic : le plus haut, pour 10 000
  * naissances, depuis 1986 ; histoire : naissances depuis 1900 (0 sans
- * histoire).
+ * histoire) ; vue : Google la montrait (FICHES_VUES_FICHIER).
  */
-export function ficheIndexable(p, { pic = 0, histoire = 0 } = {}) {
+export function ficheIndexable(p, { pic = 0, histoire = 0, vue = false } = {}) {
   const dit = !!p.m || (p.g?.length ?? 0) > 0
   if (!dit) return false                                   // mince
   const sensFiable = !!p.m && p.g.length > 0 && p.cf >= 1
   const demande = p.n >= SEUIL_DEMANDE || pic >= PIC_DEMANDE
   const connu = p.n >= SEUIL_CONNU || pic >= PIC_CONNU || histoire >= HISTOIRE_CONNUE
-  return (sensFiable && demande) || connu
+  return (sensFiable && demande) || connu || vue
 }
 
 /**

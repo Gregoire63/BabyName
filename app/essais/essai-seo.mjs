@@ -14,8 +14,8 @@
  *  - une fiche mince (ni sens, ni origine, même avec 1 000 naissances depuis
  *    1900 : règle du 08/11/2026) est en noindex et hors du sitemap ; depuis
  *    le plan B (16/11/2026, scripts/indexation.mjs), celles qui disent trop
- *    peu d'un prénom trop peu donné aussi (Cathaleya) ; noindex et sitemap ne
- *    se contredisent jamais ;
+ *    peu d'un prénom trop peu donné aussi, sauf si Google les montrait
+ *    (Cathaleya reste) ; noindex et sitemap ne se contredisent jamais ;
  *  - l'histoire depuis 1900, chiffres recalculés ici depuis le fichier de
  *    l'INSEE : Martine (rare aujourd'hui) et Josette (hors du catalogue de
  *    l'app) ont leur fiche indexée, leur génération et des proches de leur
@@ -128,8 +128,8 @@ for (const s of readdirSync(join(sortie, 'prenom'))) {
 dit(minces > 100 && ecarts.length === 0,
   `les fiches minces (ni sens, ni origine : ${minces}) sont en noindex et hors du sitemap ; toute autre fiche est soit indexée et au sitemap, soit en noindex et hors du sitemap (${ecarts.slice(0, 5).join(', ') || 'aucun écart'})`)
 const cathaleya = lire('prenom/cathaleya/index.html')
-dit(elaguees > 1000 && /noindex/.test(cathaleya) && !sitemap.includes('/prenom/cathaleya/<'),
-  `plan B : ${elaguees} fiches qui disent trop peu d’un prénom trop peu donné sont en noindex, dont Cathaleya (une origine, 25 naissances en trois ans)`)
+dit(elaguees > 1000 && !/noindex/.test(cathaleya) && sitemap.includes('/prenom/cathaleya/<'),
+  `plan B : ${elaguees} fiches qui disent trop peu d’un prénom trop peu donné sont en noindex ; Cathaleya, rare mais montrée par Google avant la chute, reste indexée`)
 dit(!!parHistoire && /<meta name="robots" content="noindex, follow">/.test(lire(`prenom/${parHistoire}/index.html`)),
   `une fiche sans sens ni origine reste en noindex, même avec ${SEUIL_HISTOIRE} naissances depuis 1900 (${parHistoire})`)
 dit(!/noindex/.test(louise), 'une fiche pleine reste indexable')

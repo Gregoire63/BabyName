@@ -8,9 +8,12 @@
  *    (Alba, Louise, Avram, Alaz, Martine) ;
  *  - un prénom connu l'est même sans sens fiable (Izia, Cataleya), et un
  *    prénom ancien par son histoire depuis 1900 (Josette) ;
- *  - ne sont plus présentées à Google : une origine seule sur un prénom rare
- *    (Cathaleya), un sens incertain sur un prénom rare, un prénom donné moins
- *    de cinq fois par an, et toujours une fiche mince ;
+ *  - AUCUNE fiche que Google montrait avant la chute ne sort, même rare
+ *    (Cathaleya, Daenerys : scripts/donnees/fiches-vues-google.json) ;
+ *  - ne sont plus présentées à Google, quand il ne les a jamais montrées :
+ *    une origine seule sur un prénom rare, un sens incertain sur un prénom
+ *    rare, un prénom donné moins de cinq fois par an ; et toujours une fiche
+ *    mince ;
  *  - l'élagage garde l'essentiel du site : entre 55 et 80 % des fiches
  *    indexables avant lui ;
  *  - le titre dit ce que la fiche apporte (« Alba : signification « blanche,
@@ -23,7 +26,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ficheIndexable, titreFiche, lireSens, TITRE_MAX, HISTOIRE_CONNUE } from '../scripts/indexation.mjs'
+import { ficheIndexable, titreFiche, lireSens, TITRE_MAX, HISTOIRE_CONNUE, FICHES_VUES_FICHIER } from '../scripts/indexation.mjs'
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ok = [], ko = []
@@ -43,7 +46,8 @@ for (let k = 0; k < d.n; k++) {
 }
 const T = [...tetes.values()]
 const pic = p => Array.isArray(p.sr) && p.sr.length ? Math.max(...p.sr) : 0
-const indexee = p => ficheIndexable(p, { pic: pic(p) })
+const VUES = new Set(JSON.parse(readFileSync(resolve(RACINE, FICHES_VUES_FICHIER), 'utf8')).slugs)
+const indexee = p => ficheIndexable(p, { pic: pic(p), vue: VUES.has(p.slug) })
 const fiche = slug => tetes.get(slug)
 const decrit = p => p ? `${p.l} : ${p.n} naissances en trois ans, ${p.m ? `sens « ${p.m} »` : 'sans sens'}, confiance ${p.cf ?? '–'}` : '(absent)'
 
@@ -58,11 +62,18 @@ dit(ficheIndexable({ m: null, g: ['français'], cf: null, n: 0 }, { histoire: 30
     && !ficheIndexable({ m: null, g: ['français'], cf: null, n: 0 }, { histoire: HISTOIRE_CONNUE - 1 }),
   `un prénom ancien sans sens est indexé par son histoire (Josette), à partir de ${HISTOIRE_CONNUE} naissances depuis 1900`)
 
-// 2. Ce qui ne l'est plus.
-dit(!!fiche('cathaleya') && !indexee(fiche('cathaleya')), `origine seule, prénom rare : noindex (${decrit(fiche('cathaleya'))})`)
-const incertain = T.find(p => p.m && p.g.length && p.cf === 0 && p.n >= 15 && p.n < 150 && pic(p) < 2)
+// 2. Ce que Google montrait reste ; ce qu'il n'a jamais montré peut sortir.
+const cathaleya = fiche('cathaleya')
+dit(!!cathaleya && !cathaleya.m && cathaleya.n < 150 && VUES.has('cathaleya') && indexee(cathaleya),
+  `une fiche que Google montrait reste indexée, même rare et sans sens (${decrit(cathaleya)})`)
+const vuesSorties = [...VUES].map(fiche).filter(p => p && (p.m || p.g.length) && !indexee(p))
+dit(VUES.size > 500 && vuesSorties.length === 0, `aucune des ${VUES.size} fiches vues dans Google ne sort (${vuesSorties.slice(0, 3).map(p => p.l).join(', ') || 'aucune'})`)
+const jamaisVue = f => T.find(p => !VUES.has(p.slug) && f(p))
+const origineSeule = jamaisVue(p => !p.m && p.g.length && p.n >= 15 && p.n < 150 && pic(p) < 2)
+dit(!!origineSeule && !indexee(origineSeule), `origine seule, prénom rare, jamais vu dans Google : noindex (${decrit(origineSeule)})`)
+const incertain = jamaisVue(p => p.m && p.g.length && p.cf === 0 && p.n >= 15 && p.n < 150 && pic(p) < 2)
 dit(!!incertain && !indexee(incertain), `sens incertain, prénom rare : noindex (${decrit(incertain)})`)
-const tresRare = T.find(p => p.m && p.g.length && p.cf === 2 && p.n < 15 && pic(p) < 1)
+const tresRare = jamaisVue(p => p.m && p.g.length && p.cf === 2 && p.n < 15 && pic(p) < 1)
 dit(!!tresRare && !indexee(tresRare), `sens sûr mais moins de 5 naissances par an : noindex (${decrit(tresRare)})`)
 dit(!ficheIndexable({ m: null, g: [], cf: null, n: 9000 }, { pic: 40, histoire: 900000 }), 'une fiche mince (ni sens, ni origine) ne l’est jamais')
 

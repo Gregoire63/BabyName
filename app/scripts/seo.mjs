@@ -30,7 +30,7 @@ import { lireInsee } from './insee.mjs'
 import { dessinerCourbe } from './courbe.mjs'
 import { alternatesAccueil, liensAlternate, chargerSensEn, aFicheEn, cheminFicheEn, EN_INDEXEE } from './langues.mjs'
 import { tendancePublique, FENETRE, SEUIL_RECENT } from './tendance.mjs'
-import { ficheIndexable, titreFiche, lireSens, SEUIL_DEMANDE, PIC_DEMANDE, SEUIL_CONNU, PIC_CONNU, HISTOIRE_CONNUE } from './indexation.mjs'
+import { ficheIndexable, titreFiche, lireSens, FICHES_VUES_FICHIER, SEUIL_DEMANDE, PIC_DEMANDE, SEUIL_CONNU, PIC_CONNU, HISTOIRE_CONNUE } from './indexation.mjs'
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PUBLIC = resolve(RACINE, 'public')
@@ -292,8 +292,13 @@ const INDEX_NAISSANCES = Number(process.env.SEO_INDEX_NAISSANCES ?? 0)
 const INDEX_PIC = Number(process.env.SEO_INDEX_PIC ?? 0)
 const pic = p => (Array.isArray(p.sr) && p.sr.length ? Math.max(...p.sr) : 0)
 // Plan B du 16/11/2026 : sens fiable et demande, ou prénom connu (scripts/indexation.mjs).
+// Les fiches que Google montrait avant la chute ne sortent pas.
+const FICHES_VUES = (() => {
+  const f = resolve(RACINE, FICHES_VUES_FICHIER)
+  return new Set(existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')).slugs : [])
+})()
 const indexable = p => !mince(p) && (p.n >= INDEX_NAISSANCES || pic(p) >= INDEX_PIC)
-  && ficheIndexable(p, { pic: pic(p), histoire: histoireDe(p.slug, p.sexe)?.total ?? 0 })
+  && ficheIndexable(p, { pic: pic(p), histoire: histoireDe(p.slug, p.sexe)?.total ?? 0, vue: FICHES_VUES.has(p.slug) })
 /**
  * IndexNow (Bing, Yandex, Seznam, Naver ; Bing alimente aussi ChatGPT
  * Search). La cle n'est pas un secret : publiee a la racine du site, elle
@@ -2061,5 +2066,5 @@ writeFileSync(resolve(SORTIE === PUBLIC ? RACINE : SORTIE, '.seo-empreintes.json
   urls: Object.fromEntries(['/', ...urls].map(u => [u, empreintes.get(u) ?? MAJ]))
 }, null, 1))
 
-console.log(`[seo] indexables : ${tetes.filter(indexable).length} fiches sur ${pages.size} (sens fiable et >= ${SEUIL_DEMANDE} naissances ou pic >= ${PIC_DEMANDE}/10 000 ; ou >= ${SEUIL_CONNU} naissances, pic >= ${PIC_CONNU}, ${HISTOIRE_CONNUE} depuis 1900)`)
+console.log(`[seo] indexables : ${tetes.filter(indexable).length} fiches sur ${pages.size} (sens fiable et >= ${SEUIL_DEMANDE} naissances ou pic >= ${PIC_DEMANDE}/10 000 ; ou >= ${SEUIL_CONNU} naissances, pic >= ${PIC_CONNU}, ${HISTOIRE_CONNUE} depuis 1900 ; ou vue dans Google : ${FICHES_VUES.size})`)
 console.log(`[seo] ${pages.size} fiches, ${listes.length + lettres.length + 2} listes, page de l’app, llms.txt, sitemap ${urls.length + 1} URL, domaine ${SITE}`)
