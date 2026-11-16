@@ -12,8 +12,10 @@
  *    légales ;
  *  - un titre ne promet pas de signification quand il n'y en a pas ;
  *  - une fiche mince (ni sens, ni origine, même avec 1 000 naissances depuis
- *    1900 : règle du 08/11/2026) est en noindex et hors du sitemap, et TOUTES
- *    les autres sont indexées ;
+ *    1900 : règle du 08/11/2026) est en noindex et hors du sitemap ; depuis
+ *    le plan B (16/11/2026, scripts/indexation.mjs), celles qui disent trop
+ *    peu d'un prénom trop peu donné aussi (Cathaleya) ; noindex et sitemap ne
+ *    se contredisent jamais ;
  *  - l'histoire depuis 1900, chiffres recalculés ici depuis le fichier de
  *    l'INSEE : Martine (rare aujourd'hui) et Josette (hors du catalogue de
  *    l'app) ont leur fiche indexée, leur génération et des proches de leur
@@ -108,20 +110,26 @@ dit(!!sansSens && !/<title>[^<]*signification/.test(sansSens),
 const { readdirSync } = await import('node:fs')
 const SEUIL_HISTOIRE = 1000
 const ecarts = []
-let minces = 0, parHistoire = null
+let minces = 0, elaguees = 0, parHistoire = null
 for (const s of readdirSync(join(sortie, 'prenom'))) {
   const h = lire(`prenom/${s}/index.html`)
   const sansRien = h.includes('ne sont pas établies de façon fiable')
   const compte = Number((h.match(/L’INSEE compte <b>([\d\u202f\u00a0 ]+)<\/b>/)?.[1] ?? '0').replace(/\D/g, ''))
   const noindex = /<meta name="robots" content="noindex, follow">/.test(h)
   const auSitemap = sitemap.includes(`/prenom/${s}/<`)
-  const attendu = sansRien ? 'mince' : 'pleine'
-  if (attendu === 'mince') minces++
+  if (sansRien) minces++
+  else if (noindex) elaguees++
   if (sansRien && compte >= SEUIL_HISTOIRE && !parHistoire) parHistoire = s
-  if ((attendu === 'mince') !== noindex || noindex === auSitemap) ecarts.push(`${s} (${compte})`)
+  // Plan B (scripts/indexation.mjs) : une fiche mince est toujours en noindex ;
+  // les autres le sont aussi quand elles disent trop peu d'un prénom trop peu
+  // donné. Dans tous les cas, noindex et sitemap ne se contredisent pas.
+  if ((sansRien && !noindex) || noindex === auSitemap) ecarts.push(`${s} (${compte})`)
 }
 dit(minces > 100 && ecarts.length === 0,
-  `les fiches minces (ni sens, ni origine : ${minces}) sont en noindex et hors du sitemap, toutes les autres indexées et au sitemap (${ecarts.slice(0, 5).join(', ') || 'aucun écart'})`)
+  `les fiches minces (ni sens, ni origine : ${minces}) sont en noindex et hors du sitemap ; toute autre fiche est soit indexée et au sitemap, soit en noindex et hors du sitemap (${ecarts.slice(0, 5).join(', ') || 'aucun écart'})`)
+const cathaleya = lire('prenom/cathaleya/index.html')
+dit(elaguees > 1000 && /noindex/.test(cathaleya) && !sitemap.includes('/prenom/cathaleya/<'),
+  `plan B : ${elaguees} fiches qui disent trop peu d’un prénom trop peu donné sont en noindex, dont Cathaleya (une origine, 25 naissances en trois ans)`)
 dit(!!parHistoire && /<meta name="robots" content="noindex, follow">/.test(lire(`prenom/${parHistoire}/index.html`)),
   `une fiche sans sens ni origine reste en noindex, même avec ${SEUIL_HISTOIRE} naissances depuis 1900 (${parHistoire})`)
 dit(!/noindex/.test(louise), 'une fiche pleine reste indexable')

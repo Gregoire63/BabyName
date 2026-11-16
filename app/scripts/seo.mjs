@@ -30,6 +30,7 @@ import { lireInsee } from './insee.mjs'
 import { dessinerCourbe } from './courbe.mjs'
 import { alternatesAccueil, liensAlternate, chargerSensEn, aFicheEn, cheminFicheEn, EN_INDEXEE } from './langues.mjs'
 import { tendancePublique, FENETRE, SEUIL_RECENT } from './tendance.mjs'
+import { ficheIndexable, titreFiche, lireSens, SEUIL_DEMANDE, PIC_DEMANDE, SEUIL_CONNU, PIC_CONNU, HISTOIRE_CONNUE } from './indexation.mjs'
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PUBLIC = resolve(RACINE, 'public')
@@ -290,7 +291,9 @@ const mince = p => !p.m && !p.g.length
 const INDEX_NAISSANCES = Number(process.env.SEO_INDEX_NAISSANCES ?? 0)
 const INDEX_PIC = Number(process.env.SEO_INDEX_PIC ?? 0)
 const pic = p => (Array.isArray(p.sr) && p.sr.length ? Math.max(...p.sr) : 0)
+// Plan B du 16/11/2026 : sens fiable et demande, ou prénom connu (scripts/indexation.mjs).
 const indexable = p => !mince(p) && (p.n >= INDEX_NAISSANCES || pic(p) >= INDEX_PIC)
+  && ficheIndexable(p, { pic: pic(p), histoire: histoireDe(p.slug, p.sexe)?.total ?? 0 })
 /**
  * IndexNow (Bing, Yandex, Seznam, Naver ; Bing alimente aussi ChatGPT
  * Search). La cle n'est pas un secret : publiee a la racine du site, elle
@@ -950,24 +953,10 @@ const decennieDe = a => Math.floor(a / 10) * 10
 const nomDecennie = d => d >= 1930 && d <= 1990 ? `années ${String(d).slice(2)}` : `années ${d}`
 const cheminDecennie = (d, s) => `/prenoms/annees-${d}/${s === 'm' ? 'garcons' : 'filles'}/`
 
-/**
- * Un sens qui commence par une relation (« forme féminine de Martin : voué à
- * Mars », « diminutif de Geneviève ») se lit mal après « signifie » : il se
- * dit comme on le dirait. Un composé (« Marie : amertume ou aimée +
- * Christine : chrétienne ») réunit deux prénoms.
- */
-const RELATION = /^((?:variante|forme|diminutif|dérivé|contraction|féminin|masculin|abrégé|graphie|ancienne graphie|apocope)\b[^:]*?)(?: : (.+))?$/
+// Le sens d'un prénom, lu en relation, composé ou sens simple : lireSens
+// (scripts/indexation.mjs, que le titre lit aussi).
 const ARTICLE_RELATION = r => /^forme/.test(r) ? 'la' : /^(féminin|masculin)/.test(r) ? 'le'
   : /^(variante|contraction|graphie|ancienne graphie|apocope)/.test(r) ? 'une' : 'un'
-function lireSens(m) {
-  if (!m) return null
-  const morceaux = m.split(' + ')
-  if (morceaux.length > 1 && morceaux.every(x => x.includes(' : '))) {
-    return { parties: morceaux.map(x => { const i = x.indexOf(' : '); return { nom: x.slice(0, i), sens: x.slice(i + 3) } }) }
-  }
-  const r = m.match(RELATION)
-  return r ? { relation: r[1], sens: r[2] ?? null } : { sens: m }
-}
 
 // Les petits prénoms, sans courbe : leurs naissances année par année.
 function barres(p) {
@@ -1268,9 +1257,8 @@ function fiche(entrees) {
   const best = ail ? meilleurPays(p) : null
   const titre = ail
     ? `${p.l} : prénom ${genre} d’ailleurs${p.m ? ', signification et origine' : ''}${best ? `, donné ${best.en}` : ''}`
-    : p.m
-    ? `${p.l}${ar ? ` (${ar})` : ''} : signification, origine et popularité du prénom`
-    : `${p.l}${ar ? ` (${ar})` : ''} : origine et popularité du prénom`
+    // Un titre qui dit ce que la fiche apporte (scripts/indexation.mjs).
+    : titreFiche({ l: p.l, ar, S, cf: p.cf, origine: origines[0] ?? null })
   const fiable = p.n >= SEUIL_TENDANCE
   const parAn = Math.max(1, Math.round(p.n / 3))
   const description = descriptionFiche({
@@ -2073,5 +2061,5 @@ writeFileSync(resolve(SORTIE === PUBLIC ? RACINE : SORTIE, '.seo-empreintes.json
   urls: Object.fromEntries(['/', ...urls].map(u => [u, empreintes.get(u) ?? MAJ]))
 }, null, 1))
 
-console.log(`[seo] indexables : ${tetes.filter(indexable).length} fiches sur ${pages.size} (>= ${INDEX_NAISSANCES} naissances ou pic >= ${INDEX_PIC}/10 000)`)
+console.log(`[seo] indexables : ${tetes.filter(indexable).length} fiches sur ${pages.size} (sens fiable et >= ${SEUIL_DEMANDE} naissances ou pic >= ${PIC_DEMANDE}/10 000 ; ou >= ${SEUIL_CONNU} naissances, pic >= ${PIC_CONNU}, ${HISTOIRE_CONNUE} depuis 1900)`)
 console.log(`[seo] ${pages.size} fiches, ${listes.length + lettres.length + 2} listes, page de l’app, llms.txt, sitemap ${urls.length + 1} URL, domaine ${SITE}`)
